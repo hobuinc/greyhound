@@ -1,0 +1,10 @@
+{
+	"name": "websocket-handler",
+	"private": true,
+	"version": "0.0.1",
+	"dependencies": {
+		"ws": "*",
+		"lodash": "*",
+		"async": "*"
+	}
+}
