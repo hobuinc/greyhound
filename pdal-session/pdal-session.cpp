@@ -7,26 +7,77 @@
 #include <stdexcept>
 #include <iostream>
 #include <map>
-
+#include <cstdlib>
+#include <memory>
 #include <functional>
 #include <type_traits>
 
-#include <boost/algorithm/string.hpp>
+#include <thread>
+#include <chrono>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/shared_array.hpp>
+#include <boost/asio.hpp>
+
+/**
+ * @brief		The KeyMaker class helps adapt a Key used in CommandManager to a unique key
+ *				for internal indexing purposes.  This class needs to be specialized for any
+ *				key type you may want to use.  The default implementation for strings is provided.
+ *
+ * @tparam T	The type of the key.
+ */
 template<typename T>
 struct KeyMaker {
 	static_assert(sizeof(T) == 0, "You need to specialize this class for your key-type");
+
+	/**
+	 * @brief		Take an object of type T and return a key representation of it.
+	 *
+	 * @param t		The object to convert.
+	 *
+	 * @returns		The key representation of t
+	 */
 	static T key(const T& t) { }
 };
 
+/**
+ * @brief		The reader/writer adaptor to read and write typed objects of type T from given
+ *				streams.  This class needs to be specialized for any key type you want to use.
+ *
+ * @tparam T	The type of object to read and write
+ */
 template<typename T>
 struct ReaderWriter {
 	static_assert(sizeof(T) == 0, "You need to specialize this class for your key-type");
-	bool read(T& t) { return false; }
-	void write(const T& t) { }
+
+	/**
+	 * @brief			Read an object from the given stream.
+	 *
+	 * @param stream	The stream to read the object from.
+	 * @param t			The object passed in as reference that will be read into.
+	 *
+	 * @returns			true if read was successful, false otherwise.
+	 */
+	bool read(std::istream& stream, T& t) { return false; }
+
+
+	/**
+	 * @brief			Write an object to the given output stream.
+	 *
+	 * @param stream	The stream to write to
+	 * @param t			The object to write.
+	 */
+	void write(std::ostream& stream, const T& t) { }
 };
 
 
+/**
+ * @brief			A simple way to associate keys with callable objects which deal with json objects.
+ *
+ * @tparam TKey		The key type.
+ * @tparam F		The callable type.
+ * @tparam keymaker	The keymaker with type TKey used to convert Key objects to Keys.
+ */
 template<typename TKey, typename F, class keymaker = KeyMaker<TKey> >
 class CommandManager {
 	public:
@@ -42,6 +93,16 @@ class CommandManager {
 			commands_[keymaker::key(command)] = f;
 		}
 
+		/**
+		 * @brief			Dispatch the callable associated with the given command using
+		 *					the specified parameter.
+		 *
+		 * @tparam V		The type of parameter passed to callable.
+		 * @param command	The command to call, basically the object with which a callable was associated
+		 * @param v			The object to pass to the callable
+		 *
+		 * @returns			The return value returned by the callable, a json value.
+		 */
 		template<typename V>
 		Json::Value dispatch(const TKey& command, const V& v) const {
 			try {
@@ -49,15 +110,32 @@ class CommandManager {
 				if (iter == commands_.end())
 					throw std::runtime_error("Unknown command");
 
-				return (*iter).second(v);
+				return (*iter).second(v).append(unit("status", 1));
 			}
 			catch(std::runtime_error& e) {
 				Json::Value ex;
-				ex["success"] = 0;
+				ex["status"] = 0;
 				ex["message"] = e.what();
 
 				return ex;
 			}
+		}
+
+	private:
+		/**
+		 * @brief		Return a unit (object with single key) with the given key and value.
+		 *
+		 * @tparam T	The type of value for the given key.
+		 * @param s		The key name.
+		 * @param v		The value.
+		 *
+		 * @returns		A unit json value which s => v mapping.
+		 */
+		template<typename T>
+		static Json::Value unit(const std::string& s, const T& v) {
+			Json::Value r;
+			r[s] = v;
+			return r;
 		}
 
 	private:
@@ -85,12 +163,31 @@ struct ReaderWriter<Json::Value> {
 };
 
 
+/**
+ * @brief				A simple class to abstract reading and writing from/to streams.
+ *
+ * @tparam T			The type of object that will be read and written.
+ * @tparam ReadWrite	The ReaderWriter adaptor for type T
+ */
 template<typename T, class ReadWrite = ReaderWriter<T> >
 class IO {
 public:
+	/**
+	 * @brief	Constructor. Setup IO object with the given input/output streams.
+	 *
+	 * @param sin
+	 * @param sout
+	 */
 	IO(std::istream& sin, std::ostream& sout) : sin_(sin), sout_(sout) {
 	}
 
+	/**
+	 * @brief	Sets up a reader/writer loop where objects are read and passed to the provided callable. The
+	 *			loop keeps going till the read call returns false.
+	 *
+	 * @tparam F	The type of the callable
+	 * @param f		The callable.
+	 */
 	template<typename F>
 	void forInput(F f) {
 		T t;
@@ -105,25 +202,205 @@ private:
 	std::ostream& sout_;
 };
 
+/**
+ * @brief	A session manager for an object which adheres with the PDAL object spec
+ *
+ * @tparam T	The type of the object for which the sessions are being maintained.
+ */
+template<typename T>
+class SessionManager  {
+public:
+	typedef T contained_type;
+	typedef std::shared_ptr<T> shared_ptr;
+
+public:
+	SessionManager() : p_() { }
+
+	/**
+	 * @brief		Create a new instance of type T
+	 *
+	 * @param desc	A pipeline description passed to T's constructor
+	 */
+	void create(const std::string& desc) {
+		p_.reset(new T(desc));
+	}
+
+	/**
+	 * @brief  Destroy the contained instance
+	 */
+	void destroy() {
+		p_.reset();
+	}
+
+	/**
+	 * @brief  Get the number of points returned by the desc passed to create.
+	 *
+	 * @return	The total number of points.
+	 */
+	size_t getNumPoints() const {
+		if (!p_) throw std::runtime_error("Session is not valid");
+		return p_->getNumPoints();
+	}
+
+	/**
+	 * @brief  Get the total size of buffer needed to hold all points
+	 *
+	 * @return	The total size of buffer in bytes.
+	 */
+	size_t getBufferSize() const {
+		if (!p_) throw std::runtime_error("Session is not valid");
+		return p_->getBufferSize();
+	}
+
+	/**
+	 * @brief		Is the contained instance valid/initialized?
+	 *
+	 * @returns		true if yes, false otherwise.
+	 */
+	bool isValid() const { 
+		return !!p_;
+	}
+
+	/**
+	 * @brief		Read the given number of points starting at a given offset into the provided buffer
+	 *
+	 * @param buf			The buffer to read into.
+	 * @param startIndex	The start offset
+	 * @param npoints		The number of points to read
+	 *
+	 * @returns		Number of points actually read, could be <= npoints.
+	 */
+	size_t read(void *buf, size_t startIndex, size_t npoints) {
+		if (!p_) throw std::runtime_error("Session is not valid");
+		return p_->read(buf, startIndex, npoints);
+	}
+
+private:
+	shared_ptr p_;
+};
+
+struct DummyPDAL {
+	DummyPDAL(const std::string& desc) {
+		points_ = (std::rand() % 10000) + 5000;
+	}
+
+	size_t getBufferSize() const { return points_ * sizeof(float) * 4; };
+	size_t getNumPoints() const { return points_; }
+	size_t read(void *buf, size_t startIndex, size_t npoints) {
+		float *p = reinterpret_cast<float*>(buf);
+		std::fill(p, p + (npoints * sizeof(float) * 4), 0.0f);
+		return npoints;
+	}
+
+
+	size_t points_;
+};
+
+/**
+ * @brief	A callable transmitter which transmits given buffer over to the specified
+ *			host and port.
+ */
+class BufferTransmitter {
+	public:
+		/**
+		 * @brief			Construct a buffer transmitter callable
+		 *
+		 * @param host		The host to send data to
+		 * @param port		The port to send to
+		 * @param buffer	The buffer to send
+		 * @param nlen		The length of buffer
+		 */
+		BufferTransmitter(const std::string& host, int port,
+			boost::shared_array<float> buffer, size_t nlen) :
+			host_(host), port_(port), buf_(buffer), nlen_(nlen) { }
+
+		void operator()() {
+			namespace asio = boost::asio;
+			using boost::asio::ip::tcp;
+
+			std::stringstream port;
+			port << port_;
+
+			asio::io_service service;
+			tcp::resolver resolver(service);
+
+			tcp::resolver::query q(host_, port.str());
+			tcp::resolver::iterator iter = resolver.resolve(q), end;
+
+			tcp::socket socket(service);
+
+			int retryCount = 0;
+
+			// Don't bail out on first attempt to connect, the setter upper
+			// service may need time to set the reciever
+			tcp::resolver::iterator connectIter;
+			while((connectIter = asio::connect(socket, iter)) == end && retryCount ++ < 5)
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+
+			// TODO: We need to propagate the error information to the user
+			if(connectIter == end)
+				return; // no point proceeding, could not connect
+
+			// send our data
+			boost::system::error_code ignored_error;
+			asio::write(socket, asio::buffer(buf_.get(), nlen_), ignored_error);
+		}
+
+
+	private:
+		std::string host_;
+		int port_;
+		boost::shared_array<float> buf_;
+		size_t nlen_;
+};
+
+
 int main() {
 	Json::Reader reader;
 	Json::Value v;
 
 	IO<Json::Value> io(std::cin, std::cout);
 	CommandManager<std::string, std::function<Json::Value (const Json::Value&)> > commands;
+	SessionManager<DummyPDAL> session;
 
+	commands.add("isSessionValid", [&session](const Json::Value&) -> Json::Value {
+		Json::Value r;
+		r["valid"] = session.isValid();
 
-	commands.add("hello", [](const Json::Value&) -> Json::Value {
-		Json::Value v;
-		v["left"] = 10;
-		v["right"] = 20;
-
-		return v;
+		return r;
 	});
 
-	commands.add("bye", [](const Json::Value&) -> Json::Value {
+	commands.add("create", [&session](const Json::Value& params) -> Json::Value {
+		std::string desc = params["pipelineDesc"].asString();
+		session.create(desc);
+
+		return Json::Value();
+	});
+
+	commands.add("destroy", [&session](const Json::Value&) -> Json::Value {
+		session.destroy();
+		return Json::Value();
+	});
+
+	commands.add("getNumPoints", [&session](const Json::Value&) -> Json::Value {
+		session.destroy();
+		return Json::Value();
+	});
+
+	commands.add("read", [&session](const Json::Value& params) -> Json::Value {
+		size_t npoints = session.getNumPoints();
+		size_t nbufsize = session.getBufferSize();
+
+		std::string host = params["transmitHost"].asString();
+		int port = params["transmitPort"].asInt();
+
+		boost::shared_array<float> pbuf(new float[nbufsize]);
+		session.read(pbuf.get(), 0, npoints);
+
+		std::thread t(BufferTransmitter(host, port, pbuf, nbufsize));
+
 		Json::Value v;
-		v["message"] = "See you later";
+		v["message"] = "Read request queued for points to be delivered to specified host:port";
 
 		return v;
 	});
