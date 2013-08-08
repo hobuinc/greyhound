@@ -110,7 +110,10 @@ class CommandManager {
 				if (iter == commands_.end())
 					throw std::runtime_error("Unknown command");
 
-				return (*iter).second(v).append(unit("status", 1));
+				Json::Value vRet = (*iter).second(v);
+				vRet["status"] = 1;
+
+				return vRet;
 			}
 			catch(std::runtime_error& e) {
 				Json::Value ex;
@@ -154,7 +157,36 @@ struct ReaderWriter<Json::Value> {
 	Json::Reader reader;
 
 	bool read(std::istream& s, Json::Value& v) {
-		return reader.parse(s, v);
+		// Json::Reader supports directly reading from a stream but it expects
+		// the stream to end with an EOF indicator before it will try to parse
+		// it.  We need to continuously parse whatever top-level objects we can,
+		// so we have this in place to account for that.
+		//
+		std::stringstream sstr;
+		std::stack<int> stk;
+
+		while(s.good()) {
+			char c;
+
+			s.get(c);
+			sstr << c;
+
+			if (c == '{') stk.push(0);
+			if (c == '}') {
+				if (stk.size() == 0)
+					return false; // mismatched brace?
+
+				stk.pop();
+				if (stk.size() == 0) {
+					reader.parse(sstr.str(), v);
+					sstr.str("");
+
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	void write(std::ostream& s, const Json::Value& v) {
@@ -197,6 +229,17 @@ public:
 			rw.write(sout_, f(t));
 		}
 	}
+
+	/**
+	 * @brief  Write the given value to out stream
+	 *
+	 * @param val The value to write
+	 */
+	void write(const T& val) {
+		ReadWrite rw;
+		rw.write(sout_, val);
+	}
+
 private:
 	std::istream& sin_;
 	std::ostream& sout_;
@@ -383,8 +426,10 @@ int main() {
 	});
 
 	commands.add("getNumPoints", [&session](const Json::Value&) -> Json::Value {
-		session.destroy();
-		return Json::Value();
+		Json::Value v;
+		v[std::string("count")] = (int)session.getNumPoints();
+
+		return v;
 	});
 
 	commands.add("read", [&session](const Json::Value& params) -> Json::Value {
@@ -404,6 +449,10 @@ int main() {
 
 		return v;
 	});
+
+	// indicate that we're ready to our controller program
+	Json::Value vReady; vReady["ready"] = 1;
+	io.write(vReady);
 
 	io.forInput([&commands](const Json::Value& v) -> Json::Value {
 		return commands.dispatch(v["command"].asString(), v["params"]);
