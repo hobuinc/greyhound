@@ -6,6 +6,8 @@ var
 	_ = require('lodash'),
 	Parser = require('jsonparse')
 
+	Q = require('q'),
+
 	spawn = require('child_process').spawn,
 	fs = require('fs'),
 	path = require('path');
@@ -14,9 +16,9 @@ var
 	"use strict";
 
 	var PDALSession = function(options) {
-		this.options = _.defaults({
+		this.options = _.defaults(options, {
 			log: true
-		}, options);
+		});
 
 		if (!this.options.processPath)
 			throw new Error('You need to specify the process path for pdal-session executable');
@@ -24,28 +26,35 @@ var
 		if (!this.options.workingDirectory)
 			this.options.workingDirectory = path.dirname(this.options.processPath);
 
-		console.log(this.options);
-
 		this.ps = null;
 	};
 
-	PDALSession.prototype.checkInvoke = function() {
+	PDALSession.prototype.checkInvoke = function(err, res) {
 		var o = this;
-		if (o.reqCB) {
-			var f = o.reqCB;
-			o.reqCB = null;
-			f.apply(o, arguments);
+
+		if (o.reqd) {
+			var d = o.reqd;
+			o.reqd = null;
+
+			if (!err && (res.status === 1 || res.ready === 1)) {
+				d.resolve(res);
+			}
+			else {
+				d.reject(err || new Error('Non-successful return'));
+			}
 		}
 	}
 
-	PDALSession.prototype.checkSpawn = function(cb) {
+	PDALSession.prototype.spawn = function(cb) {
 		var o = this;
+		var d = Q.defer();
 
-		if (o.ps)
-			return cb(null, o.ps);
+		if (o.ps) {
+			d.resolve(o.ps);
+			return d.promise;
+		}
 
 		var p = new Parser();
-
 		p.onValue = function(value) {
 			// TODO: Not sure how to handle objects inside objects yet
 			//
@@ -99,71 +108,67 @@ var
 
 		// we have to wait for the process to become active,
 		// it will notify us with a ready message
-		o.reqCB = function(err, res) {
-			if (err || res.ready !== 1) return cb(err || new Error('Not ready'));
-
-			o.ps = ps;
-			cb(null, o.ps);
-		};
+		o.reqd = Q.defer();
+		
+		return o.reqd.promise.then(function(value) {
+			if (value.ready === 1) {
+				o.ps = ps;
+				return o.ps;
+			}
+			else
+				throw new Error("Couldn't get container process to ready state");
+		});
 	};
 
-	PDALSession.prototype.exchange = function(obj, cb) {
+	PDALSession.prototype.exchange = function(obj) {
 		var o = this;
 
-		o.checkSpawn(function(err, ps) {
-			if (err) return cb(err);
-
-			o.reqCB = cb;
-			var buf = JSON.stringify(obj) + '\n';
+		return o.spawn().then(function(ps) {
+			var b = JSON.stringify(obj) + '\n';
 			if (o.options.log) {
 				console.log('stdin >>>>>>>>>>>>>>');
-				console.log(buf)
+				console.log(b)
 			}
 
-			o.ps.stdin.write(buf);
+			var d = Q.defer();
+			o.reqd = d;
+
+			ps.stdin.write(b);
+			return d.promise;
 		});
 	}
 
 	PDALSession.prototype.create = function(desc, cb) {
-		this.exchange({
+		return this.exchange({
 			command: 'create',
 			params: {
 				pipelineDesc: desc
 			}
-		}, function(err, res) {
-			if (err || res['status'] != 1)
-				return cb(null, false);
-			return cb(null, true);
+		}).then(function(obj) { 
+			// if successful, don't do anything
 		});
 	}
 
 	PDALSession.prototype.destroy = function(cb) {
-		this.exchange({
+		return this.exchange({
 			command: 'destroy',
-		}, function(err, res) {
-			if (err || res['status'] != 1)
-				return cb(null, false);
-			return cb(null, true);
+		}).then(function(res) {
 		});
 	}
 
 	PDALSession.prototype.getNumPoints = function(cb) {
-		this.exchange({
+		return this.exchange({
 			command: 'getNumPoints',
-		}, function(err, res) {
-			if (err || res.status !== 1) 
-				return cb(err || new Error('Non-successful response'));
-			cb(null, res.count);
-		})
-	}
+		}).then(function(res) {
+			return res.count;
+		});
+	};
 
 	PDALSession.prototype.isValid = function(cb) {
-		this.exchange({
-			command: 'isValid',
-		}, function(err, res) {
-			if (err || res.status != 1)
-				return cb(err || new Error('Non-successful response'));
-			cb(null, res.valid);
+		return this.exchange({
+			command: 'isSessionValid',
+		}).then(function(res) {
+			return res.valid;
 		});
 	}
 
