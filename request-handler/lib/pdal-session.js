@@ -45,7 +45,7 @@ var
 		}
 	}
 
-	PDALSession.prototype.spawn = function(cb) {
+	PDALSession.prototype.spawn = function() {
 		var o = this;
 		var d = Q.defer();
 
@@ -138,7 +138,7 @@ var
 		});
 	}
 
-	PDALSession.prototype.create = function(desc, cb) {
+	PDALSession.prototype.create = function(desc) {
 		return this.exchange({
 			command: 'create',
 			params: {
@@ -149,14 +149,14 @@ var
 		});
 	}
 
-	PDALSession.prototype.destroy = function(cb) {
+	PDALSession.prototype.destroy = function() {
 		return this.exchange({
 			command: 'destroy',
 		}).then(function(res) {
 		});
 	}
 
-	PDALSession.prototype.getNumPoints = function(cb) {
+	PDALSession.prototype.getNumPoints = function() {
 		return this.exchange({
 			command: 'getNumPoints',
 		}).then(function(res) {
@@ -164,13 +164,25 @@ var
 		});
 	};
 
-	PDALSession.prototype.isValid = function(cb) {
+	PDALSession.prototype.isValid = function() {
 		return this.exchange({
 			command: 'isSessionValid',
 		}).then(function(res) {
 			return res.valid;
 		});
-	}
+	};
+
+	PDALSession.prototype.read = function(host, port) {
+		return this.exchange({
+			command: 'read',
+			params: {
+				transmitHost: host,
+				transmitPort: port
+			}
+		}).then(function(res) {
+			return true;
+		});
+	};
 
 	module.exports.PDALSession = PDALSession;
 })();

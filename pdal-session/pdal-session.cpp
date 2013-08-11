@@ -324,6 +324,7 @@ private:
 
 struct DummyPDAL {
 	DummyPDAL(const std::string& desc) {
+		std::srand(std::time(NULL));
 		points_ = (std::rand() % 10000) + 5000;
 	}
 
@@ -374,18 +375,19 @@ class BufferTransmitter {
 
 			int retryCount = 0;
 
+			boost::system::error_code ignored_error;
+
 			// Don't bail out on first attempt to connect, the setter upper
 			// service may need time to set the reciever
 			tcp::resolver::iterator connectIter;
-			while((connectIter = asio::connect(socket, iter)) == end && retryCount ++ < 5)
-				std::this_thread::sleep_for(std::chrono::seconds(1));
+			while((connectIter = asio::connect(socket, iter, ignored_error)) == end && retryCount ++ < 500)
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 			// TODO: We need to propagate the error information to the user
 			if(connectIter == end)
 				return; // no point proceeding, could not connect
 
 			// send our data
-			boost::system::error_code ignored_error;
 			asio::write(socket, asio::buffer(buf_.get(), nlen_), ignored_error);
 		}
 
@@ -439,10 +441,12 @@ int main() {
 		std::string host = params["transmitHost"].asString();
 		int port = params["transmitPort"].asInt();
 
+
 		boost::shared_array<float> pbuf(new float[nbufsize]);
 		session.read(pbuf.get(), 0, npoints);
 
 		std::thread t(BufferTransmitter(host, port, pbuf, nbufsize));
+		t.detach();
 
 		Json::Value v;
 		v["message"] = "Read request queued for points to be delivered to specified host:port";
