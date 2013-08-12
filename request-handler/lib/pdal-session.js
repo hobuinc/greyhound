@@ -184,5 +184,12 @@ var
 		});
 	};
 
+	PDALSession.prototype.kill = function() {
+		if (this.ps) {
+			process.kill(this.ps.pid, 'SIGHUP');
+			this.ps = null;
+		}
+	}
+
 	module.exports.PDALSession = PDALSession;
 })();

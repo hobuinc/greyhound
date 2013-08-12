@@ -4,7 +4,10 @@
 	"dependencies": {
 		"lodash" : "*",
 		"jsonparse": "*",
-		"q": "*"
+		"express": "*",
+		"q": "*",
+		"node-uuid": "*",
+		"generic-pool": "*"
 	}
 }
 

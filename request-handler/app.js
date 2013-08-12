@@ -2,62 +2,101 @@
 // Main entry point for pdal session pooling
 //
 
-var
+var express = require("express"),
+	Q = require('q'),
 	path = require('path'),
-	Q = require('q'), 
+	uuid = require('node-uuid'),
 
-	PDALSession = require('./lib/pdal-session').PDALSession;
+	createProcessPool = require('./lib/pdal-pool').createProcessPool,
 
-var waitForTCPData = function(port) {
-	var d = Q.defer();
-	var bytesRead = 0;
+    app     = express(),
+    port    = process.env.PORT || 3000,
+	pool = null;
 
-	var net = require('net');
-	var server = net.createServer(function(socket) {
-		socket.on('end', function() {
-			d.resolve(bytesRead);
-		});
 
-		socket.on('data', function(data) {
-			bytesRead = bytesRead + data.length;
-		});
+// configure express application
+app.configure(function(){
+  app.use(express.methodOverride());
+  app.use(express.bodyParser());
+  app.use(express.errorHandler({
+    dumpExceptions: true, 
+    showStack: true
+  }));
+  app.use(app.router);
+});
 
-		socket.on('error', function(err) {
-			d.reject(err);
-		});
-	});
+var sessions = {};
 
-	server.listen(port, function() {
-		console.log('Data collection server is listening on port: ' + port);
-	});
-
-	return d.promise;
+var getSession = function(res, sessionId, cb) {
+	if (!sessions[sessionId])
+		return res.json(404, { message: 'No such session' });
+	
+	cb(sessions[sessionId], sessionId);
 };
 
-process.nextTick(function() {
-	var s = new PDALSession({
+var error = function(res) {
+	return function(err) {
+		res.json(500, { message: err.message || 'Unknown error' });
+	};
+};
+
+app.get("/", function(req, res) {
+	res.json(404, { message: 'Invalid service URL' });
+});
+
+// handlers for our API
+app.post("/create", function(req, res) {
+	pool.acquire(function(err, s) {
+		if (err)
+			return res.json(500, { message: err.message });
+
+		s.create(req.body.desc || "").then(function() {
+			var id = uuid.v4();
+			sessions[id] = s;
+
+			res.json({ sessionId: id });
+		}, function(err) {
+			pool.release(s);
+
+			return error(err);
+		});
+	});
+});
+
+app.delete("/:sessionId", function(req, res) {
+	getSession(res, req.params.sessionId, function(s, sid) {
+		delete sessions[sid];
+
+
+		s.destroy().then(function() {
+			pool.release(s);
+
+			res.json({ message: 'Session destroyed' });
+		}, function(err) {
+			pool.release(s);
+
+			console.log('Destroy was not clean!');
+			res.json({ message: 'Session destroyed, but not clean' });
+		});
+	});
+});
+
+app.get("/pointsCount/:sessionId", function(req, res) {
+	getSession(res, req.params.sessionId, function(s) {
+		s.getNumPoints().then(function(count) {
+			res.json({ count: count });
+		}, error(res));
+	});
+});
+
+app.get("/read/:sessionId", function(req, res) {
+});
+
+app.listen(port, function() {
+	pool = createProcessPool({
 		processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
 		log: false
 	});
 
-	console.log('Creating session ...');
-	var sessionp = s.create("");
-		
-	// get and report points
-	sessionp.then(function() {
-		return s.getNumPoints();
-	}).then(function(count) {
-		console.log('Total points in request: ' + count);
-	}).then(function() {
-		var port = 50000 + Math.floor(Math.random() * 10000);
-		return s.read('localhost', port).then(function() {
-			return waitForTCPData(port);
-		});
-	}).then(function(count) {
-		console.log('Total bytes read: ' + count);
-	}).fail(function(err) {
-		console.log('Error: ' + err);
-	}).then(function() {
-		process.exit(0);
-	});
+	console.log('Running HTTP server with process pool...');
 });
