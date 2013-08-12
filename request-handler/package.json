@@ -7,7 +7,9 @@
 		"express": "*",
 		"q": "*",
 		"node-uuid": "*",
-		"generic-pool": "*"
+		"generic-pool": "*",
+		"hiredis": "*",
+		"redis": "*"
 	}
 }
 

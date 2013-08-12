@@ -23,7 +23,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "linux-image-3.8.0-19-generic",
 	  "libjsoncpp-dev",
 	  "libboost1.48-all-dev",
-	  "pkg-config"
+	  "pkg-config",
+	  "redis-server"
   ];
 
   rubyGems = [

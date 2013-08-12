@@ -5,6 +5,8 @@
 	"dependencies": {
 		"ws": "*",
 		"lodash": "*",
-		"async": "*"
+		"async": "*",
+		"hiredis": "*",
+		"redis": "*"
 	}
 }

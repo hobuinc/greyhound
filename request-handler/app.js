@@ -6,6 +6,7 @@ var express = require("express"),
 	Q = require('q'),
 	path = require('path'),
 	uuid = require('node-uuid'),
+	redis = require('redis'),
 
 	createProcessPool = require('./lib/pdal-pool').createProcessPool,
 
@@ -111,5 +112,31 @@ app.listen(port, function() {
 		log: false
 	});
 
-	console.log('Running HTTP server with process pool...');
+	// register ourselves with the redis server
+	client = redis.createClient();
+	client.on('error', function(err) {
+		console.log('Redis error: ' + err);
+	});
+
+	client.rpush('rh', 'localhost:' + port);
+
+	console.log('Request handler listening on port: ' + port);
+				  
 });
+
+var cleanup = function() {
+	// register ourselves with the redis server
+	client = redis.createClient();
+	client.on('error', function(err) {
+		console.log('Redis error: ' + err);
+		process.exit(0);
+	});
+
+	client.lrem('rh', 0, 'localhost:' + port, function() {
+		process.exit(0);
+	});
+}
+
+process.on('exit', cleanup);
+process.on('SIGINT', cleanup);
+process.on('SIGHUP', cleanup);

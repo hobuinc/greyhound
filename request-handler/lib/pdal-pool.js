@@ -29,7 +29,7 @@ var
 			max: 100,
 			min: 5,
 			idleTimeoutMillis: 10000,
-			log: true
+			log: false
 		});
 
 		return pool;
