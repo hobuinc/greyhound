@@ -89,7 +89,20 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 	});
 });
 
-app.get("/read/:sessionId", function(req, res) {
+app.post("/read/:sessionId", function(req, res) {
+	var host = req.body.host, port = parseInt(req.body.port);
+
+	if (!host)
+		return res.json(400, { message: 'Destination host needs to be specified' });
+
+	if (!port)
+		return res.json(400, { message: 'Destination port needs to be specified' });
+
+	getSession(req.params.sessionId, function(s, sid) {
+		s.read(host, port).then(function() {
+			res.json({ message: 'Request queued for transmission to: ' + host + ':' + port });
+		}, error(res));
+	});
 });
 
 app.listen(port, function() {

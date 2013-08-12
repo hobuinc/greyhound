@@ -9,6 +9,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.box_url = "http://files.vagrantup.com/precise64.box"
   config.vm.network :forwarded_port, guest: 3000, host: 3000
+  config.vm.network :forwarded_port, guest: 8080, host: 8080
 
   #
   ppaRepos = [
@@ -24,6 +25,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "libboost1.48-all-dev",
 	  "pkg-config"
   ];
+
+  rubyGems = [
+	  "foreman"
+  ];
   
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
 	  pkg_cmd = "apt-get update -qq; apt-get install -q -y python-software-properties; "
@@ -34,6 +39,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
 	  # install packages we need we need
 	  pkg_cmd << "apt-get install -q -y " + packageList.join(" ") << " ;"
+
+	  rubyGems.each { |gem| pkg_cmd << "sudo gem install " << gem << " ; " }
 
 	  # virtual box specific setup
 	  pkg_cmd << "apt-get install -q -y linux-headers-3.8.0-19-generic dkms; " \
