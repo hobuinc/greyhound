@@ -34,7 +34,6 @@ var net = require('net'),
 
 		var o = this;
 		server.on('listening', function() {
-			console.log(o.emit);
 			o.emit('local-address', {
 				host: '127.0.0.1',
 				port: server.address().port

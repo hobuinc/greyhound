@@ -7,7 +7,9 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "precise64"
 
+  config.vm.hostname = "point-serve"
   config.vm.box_url = "http://files.vagrantup.com/precise64.box"
+
   config.vm.network :forwarded_port, guest: 3000, host: 3000
   config.vm.network :forwarded_port, guest: 8080, host: 8080
 
@@ -20,6 +22,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   packageList = [
 	  "lxc-docker",
 	  "nodejs",
+	  "git",
+	  "build-essential"
 	  "linux-image-3.8.0-19-generic",
 	  "libjsoncpp-dev",
 	  "libboost1.48-all-dev",
@@ -29,6 +33,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   rubyGems = [
 	  "foreman"
+  ];
+
+  nodeModules = [
+	  "hipache"
   ];
   
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
@@ -42,6 +50,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  pkg_cmd << "apt-get install -q -y " + packageList.join(" ") << " ;"
 
 	  rubyGems.each { |gem| pkg_cmd << "sudo gem install " << gem << " ; " }
+	  nodeModules.each { |mod| pkg_cmd << "sudo npm install -g " << mod << " ; " }
 
 	  # virtual box specific setup
 	  pkg_cmd << "apt-get install -q -y linux-headers-3.8.0-19-generic dkms; " \

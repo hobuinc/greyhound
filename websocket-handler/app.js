@@ -8,6 +8,7 @@ var WebSocketServer = require('ws').Server
 
   , web = require('./lib/web')
   , CommandHandler = require('./lib/command-handler').CommandHandler
+  , port = (process.env.PORT || 8080)
   , TCPToWS = require('./lib/tcp-ws').TCPToWS;
 
 
@@ -53,38 +54,87 @@ var pickRequestHandler = function(cb) {
 	});
 }
 
-var checkForValidHandlers = function(cb) {
+var registerForHipache = function(cb) {
 	// check if we have a valid request handler
 	//
-	redisClient.lrange('rh', 0, -1, function(err, res) {
+	var host = (process.env.HOST || 'localhost');
+	var key = 'frontend:' + host;
+	var self = 'http://127.0.0.1:' + port;
+
+	var unregister = function() {
+		redisClient.lrem(key, 0, self, function(err) {
+			if (err) return console.log('Error trying to unregister from hipache list: ' + err);
+			console.log('Unregistered from hipache list');
+			
+			process.exit();
+		});
+	}
+
+	process.on('exit', unregister);
+	process.on('SIGHUP', unregister);
+	process.on('SIGINT', unregister);
+
+	var registerSelf = function() {
+		console.log('Registering this websocket server as: ' + self);
+		redisClient.rpush(key, self, cb);
+	}
+
+	redisClient.lrange(key, 0, 1, function(err, res) {
 		if (err) return cb(err);
-		cb(null, _.size(res));
+
+		if (_.isEmpty(res)) {
+			console.log('Site index does not exist, adding...');
+			// no id as been added, add one now
+			redisClient.rpush(key, 'point-serve', function(err) {
+				if (err) return cb(err);
+
+				console.log('Site index added.');
+				registerSelf();
+			});
+		}
+		else
+			registerSelf();
 	});
 }
 
+var affinityCache = lruCache({
+	max: 1000,
+	maxAge: 1000
+});
+
 var setAffinity = function(session, target, cb) {
-	redisClient.hset('affinity', session, target, cb);
+	redisClient.hset('affinity', session, target, function(err, v) {
+		if (err) return cb(err);
+		affinityCache.set(session, target);
+		cb(null, v);
+	})
 }
 
 var getAffinity = function(session, cb) {
-	redisClient.hget('affinity', session, cb);
+	var v = affinityCache.get(session);
+	if (v !== undefined)
+		return cb(null, v);
+
+	redisClient.hget('affinity', session, function(err, val) {
+		if (err) return cb(err);
+
+		affinityCache.set(session, val);
+		cb(null, val);
+	});
 }
 
 var deleteAffinity = function(session, cb) {
-	redisClient.hdel('affinity', session, cb);
+	redisClient.hdel('affinity', session, function(err, val) {
+		if (err) return cb(err);
+		affinityCache.del(session);
+		cb();
+	});
 }
 
 process.nextTick(function() {
-	checkForValidHandlers(function(err, count) {
+	registerForHipache(function(err) {
 		if (err) return console.log(err);
 
-		console.log('Total registered request handlers: ' + count);
-		if (count === 0)
-			console.log('No request handlers were found, if none are available, requests will fail');
-
-		var nextId = 1;
-
-		var port = (process.env.PORT || 8080)
 		var wss = new WebSocketServer({port: port});
 
 		console.log('Websocket server running on port: ' + port);
@@ -94,14 +144,12 @@ process.nextTick(function() {
 				return cb(new Error('Session parameter is invalid or missing'));
 
 			getAffinity(session, function(err, val) {
-				console.log('affinity(session) = ' + val)
+				console.log('affinity(' + session + ') = ' + val)
 				cb(err, session, val);
 			});
 		}
 
 		wss.on('connection', function(ws) {
-			ws.id = nextId ++;
-
 			var handler = new CommandHandler(ws);
 
 			handler.on('create', function(msg, cb) {
