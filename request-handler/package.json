@@ -6,7 +6,6 @@
 		"jsonparse": "*",
 		"express": "*",
 		"q": "*",
-		"node-uuid": "*",
 		"generic-pool": "*",
 		"hiredis": "*",
 		"redis": "*"

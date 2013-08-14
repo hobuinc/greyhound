@@ -10,6 +10,8 @@ var send = function(obj) {
 }
 
 var test1 = function() {
+	var session = null;
+
 	ws.on('open', function() {
 		setInterval(function() {
 			send({
@@ -25,13 +27,16 @@ var test1 = function() {
 		console.log(obj);
 
 		if (obj.command === 'create' && obj.status === 1) {
+			session = obj.session;
 			send({
-				command: 'pointsCount'
+				command: 'pointsCount',
+				session: session
 			});
 
 			setTimeout(function() {
 				send({
-					command: 'destroy'
+					command: 'destroy',
+					session: session
 				});
 			}, 1000);
 		}
@@ -47,6 +52,8 @@ var test2 = function() {
 
 	ws.on('open', start);
 	var count = 0, chunks = 0, toRead = 0;
+	var session = null;
+
 	ws.on('message', function(data, flags) {
 		if (flags.binary) {
 			count += data.length;
@@ -54,7 +61,8 @@ var test2 = function() {
 			if (count >= toRead) {
 				console.log('Read', count, 'bytes in', chunks, 'chunks');
 				send({
-					command: 'destroy'
+					command: 'destroy',
+					session: session
 				});
 			}
 		}
@@ -65,8 +73,10 @@ var test2 = function() {
 			console.log(obj);
 
 			if (obj.command === 'create' && obj.status === 1) {
+				session = obj.session;
 				send({
-					command: 'read'
+					command: 'read',
+					session: session
 				});
 			}
 			else if(obj.command === 'read' && obj.status === 1) {
@@ -75,6 +85,7 @@ var test2 = function() {
 				toRead = obj.bytesCount;
 			}
 			else if (obj.command == 'destroy' && obj.status === 1) {
+				session = null;
 				setTimeout(start, 1000);
 			}
 		}

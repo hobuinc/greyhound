@@ -20,7 +20,6 @@ var
 
 		var o = this;
 		this.ws.on('message', function(data) {
-			console.log(data);
 			var msg = null;
 			try {
 				msg = JSON.parse(data);

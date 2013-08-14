@@ -5,7 +5,7 @@
 var express = require("express"),
 	Q = require('q'),
 	path = require('path'),
-	uuid = require('node-uuid'),
+	crypto = require('crypto'),
 	_ = require('lodash'),
 	redis = require('redis'),
 
@@ -42,6 +42,10 @@ var error = function(res) {
 	};
 };
 
+var createId = function() {
+	return crypto.randomBytes(20).toString('hex');
+}
+
 app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
@@ -53,7 +57,7 @@ app.post("/create", function(req, res) {
 			return res.json(500, { message: err.message });
 
 		s.create(req.body.desc || "").then(function() {
-			var id = uuid.v4();
+			var id = createId();
 			sessions[id] = s;
 
 			res.json({ sessionId: id });
