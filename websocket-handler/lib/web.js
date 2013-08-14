@@ -4,6 +4,7 @@
 
 var
 	http = require('http'),
+	qs = require('querystring'),
 	_ = require('lodash');
 
 (function() {
@@ -52,8 +53,9 @@ var
 					cb(null, JSON.parse(d));
 			});
 		});
-
 		r.on('error', cb);
+
+		r.write(d + '\n');
 		r.end();
 	};
 

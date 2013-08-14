@@ -290,9 +290,9 @@ public:
 	 *
 	 * @return	The total size of buffer in bytes.
 	 */
-	size_t getBufferSize() const {
+	size_t stride() const {
 		if (!p_) throw std::runtime_error("Session is not valid");
-		return p_->getBufferSize();
+		return p_->stride();
 	}
 
 	/**
@@ -328,11 +328,17 @@ struct DummyPDAL {
 		points_ = (std::rand() % 10000) + 5000;
 	}
 
-	size_t getBufferSize() const { return points_ * sizeof(float) * 4; };
 	size_t getNumPoints() const { return points_; }
+	size_t stride() const { return sizeof(float) * 4; }
+
 	size_t read(void *buf, size_t startIndex, size_t npoints) {
+		if (startIndex >= points_)
+			throw std::runtime_error("startIndex cannot be more than the total number of points");
+
+		npoints = startIndex + npoints > points_ ? points_ - startIndex : npoints;
+
 		float *p = reinterpret_cast<float*>(buf);
-		std::fill(p, p + (npoints * sizeof(float) * 4), 0.0f);
+		std::fill(p, p + npoints, 0.0f);
 		return npoints;
 	}
 
@@ -355,7 +361,7 @@ class BufferTransmitter {
 		 * @param nlen		The length of buffer
 		 */
 		BufferTransmitter(const std::string& host, int port,
-			boost::shared_array<float> buffer, size_t nlen) :
+			boost::shared_array<char> buffer, size_t nlen) :
 			host_(host), port_(port), buf_(buffer), nlen_(nlen) { }
 
 		void operator()() {
@@ -395,7 +401,7 @@ class BufferTransmitter {
 	private:
 		std::string host_;
 		int port_;
-		boost::shared_array<float> buf_;
+		boost::shared_array<char> buf_;
 		size_t nlen_;
 };
 
@@ -436,20 +442,25 @@ int main() {
 
 	commands.add("read", [&session](const Json::Value& params) -> Json::Value {
 		size_t npoints = session.getNumPoints();
-		size_t nbufsize = session.getBufferSize();
+
+		size_t start = params.isMember("start") ? params["start"].asInt() : 0;
+		size_t count = params.isMember("count") ? params["count"].asInt() : npoints;
+
+		size_t nbufsize = session.stride() * count;
 
 		std::string host = params["transmitHost"].asString();
 		int port = params["transmitPort"].asInt();
 
-
-		boost::shared_array<float> pbuf(new float[nbufsize]);
-		session.read(pbuf.get(), 0, npoints);
+		boost::shared_array<char> pbuf(new char[nbufsize]);
+		count = session.read(pbuf.get(), start, count);
 
 		std::thread t(BufferTransmitter(host, port, pbuf, nbufsize));
 		t.detach();
 
 		Json::Value v;
 		v["message"] = "Read request queued for points to be delivered to specified host:port";
+		v["pointsRead"] = (int)count;
+		v["bytesCount"] = (int)nbufsize;
 
 		return v;
 	});

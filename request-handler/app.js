@@ -6,6 +6,7 @@ var express = require("express"),
 	Q = require('q'),
 	path = require('path'),
 	uuid = require('node-uuid'),
+	_ = require('lodash'),
 	redis = require('redis'),
 
 	createProcessPool = require('./lib/pdal-pool').createProcessPool,
@@ -93,15 +94,21 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 app.post("/read/:sessionId", function(req, res) {
 	var host = req.body.host, port = parseInt(req.body.port);
 
+	var start = parseInt(req.body.start);
+	var count = parseInt(req.body.count);
+
 	if (!host)
 		return res.json(400, { message: 'Destination host needs to be specified' });
 
 	if (!port)
 		return res.json(400, { message: 'Destination port needs to be specified' });
 
-	getSession(req.params.sessionId, function(s, sid) {
-		s.read(host, port).then(function() {
-			res.json({ message: 'Request queued for transmission to: ' + host + ':' + port });
+	getSession(res, req.params.sessionId, function(s, sid) {
+		s.read(host, port, start, count).then(function(r) {
+			var ret = _.extend(_.omit(r, 'status'), {
+				message: 'Request queued for transmission to: ' + host + ':' + port,
+			});
+			res.json(ret);
 		}, error(res));
 	});
 });
@@ -125,7 +132,7 @@ app.listen(port, function() {
 });
 
 var cleanup = function() {
-	// register ourselves with the redis server
+	// unregister ourselves with the redis server
 	client = redis.createClient();
 	client.on('error', function(err) {
 		console.log('Redis error: ' + err);

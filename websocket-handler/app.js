@@ -3,11 +3,11 @@
 var WebSocketServer = require('ws').Server
   , _ = require('lodash')
   , http = require('http')
-  , qs = require('querystring')
   , redis = require('redis')
 
   , web = require('./lib/web')
-  , CommandHandler = require('./lib/command-handler').CommandHandler;
+  , CommandHandler = require('./lib/command-handler').CommandHandler
+  , TCPToWS = require('./lib/tcp-ws').TCPToWS;
 
 var pickRequestHandler = function(cb) {
 	client = redis.createClient();
@@ -50,6 +50,19 @@ process.nextTick(function() {
 
 		console.log('Websocket server running on port: ' + port);
 
+		var validateSessionAffinity = function(ws, cb) {
+			if (!wsSessions[ws.id])
+				return cb(new Error('A session has not been created'));
+
+			var session = wsSessions[ws.id];
+			var rh = affinity[session];
+			if (!rh)
+				return cb(new Error('Could not find affinity for session, routing error'));
+
+			console.log('session:', session, 'affinity:', rh);
+			cb(null, session, rh);
+		}
+
 		wss.on('connection', function(ws) {
 			ws.id = nextId ++;
 
@@ -73,36 +86,55 @@ process.nextTick(function() {
 			});
 
 			handler.on('pointsCount', function(msg, cb) {
-				if (!wsSessions[ws.id])
-					return cb(new Error('A session has not been created'));
+				validateSessionAffinity(ws, function(err, session, rh) {
+					if (err) return cb(err);
 
-				var session = wsSessions[ws.id];
-				var rh = affinity[session];
-				if (!rh)
-					return cb(new Error('Could not find affinity for session, routing error'));
-
-				console.log('Points for ', session, ' to rh: ', rh);
-				web.get(rh, '/pointsCount/' + session, cb);
+					console.log('Points for ', session, ' to rh: ', rh);
+					web.get(rh, '/pointsCount/' + session, cb);
+				});
 			});
 
 			handler.on('destroy', function(msg, cb) {
-				if (!wsSessions[ws.id])
-					return cb(new Error('A session has not been created'));
+				validateSessionAffinity(ws, function(err, session, rh) {
+					web._delete(rh, '/' + session, function(err, res) {
+						if (err) return cb(err);
 
-				var session = wsSessions[ws.id];
-				var rh = affinity[session];
-				if (!rh)
-					return cb(new Error('Could not find affinity for session, routing error'));
+						delete affinity[wsSessions[ws.id]]
+						delete wsSessions[ws.id];
 
+						cb();
+					});
+				});
+			});
 
-				console.log('Routing ', session, ' to rh: ', rh);
-				web._delete(rh, '/' + session, function(err, res) {
-					if (err) return cb(err);
+			handler.on('read', function(msg, cb) {
+				validateSessionAffinity(ws, function(err, session, rh) {
+					var streamer = new TCPToWS(ws);
+					streamer.on('local-address', function(add) {
+						console.log('local-bound address for read: ', add);
 
-					delete affinity[wsSessions[ws.id]]
-					delete wsSessions[ws.id];
+						web.post(rh, '/read/' + session, _.extend(add, {
+							start: msg.start,
+							count: msg.count
+						}), function(err, r) {
+							if (err) {
+								streamer.close();
+								return cb(err);
+							}
+							console.log('TCP-WS: points: ', r.pointsRead, 'bytes:', r.bytesCount);
 
-					cb();
+							cb(null, r);
+							process.nextTick(function() {
+								streamer.startPushing();
+							});
+						});
+					});
+
+					streamer.on('end', function() {
+						console.log('Done transmitting point data');
+					});
+
+					streamer.start();
 				});
 			});
 		});

@@ -172,15 +172,19 @@ var
 		});
 	};
 
-	PDALSession.prototype.read = function(host, port) {
+	PDALSession.prototype.read = function(host, port, start, count) {
+		var params = {}
+		if (start && count) {
+			params['start'] = start;
+			params['count'] = count;
+		}
+
 		return this.exchange({
 			command: 'read',
-			params: {
+			params: _.extend(params, {
 				transmitHost: host,
-				transmitPort: port
-			}
-		}).then(function(res) {
-			return true;
+				transmitPort: port,
+			})
 		});
 	};
 

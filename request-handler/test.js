@@ -50,7 +50,8 @@ process.nextTick(function() {
 		console.log('Total points in request: ' + count);
 	}).then(function() {
 		var port = 50000 + Math.floor(Math.random() * 10000);
-		return s.read('localhost', port).then(function() {
+		return s.read('localhost', port).then(function(r) {
+			console.log('Total points to read:', r.pointsRead, '(' + r.bytesCount + ' bytes)');
 			return waitForTCPData(port);
 		});
 	}).then(function(count) {
