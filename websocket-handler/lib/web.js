@@ -19,6 +19,8 @@ var
 
 		var host = parts[0];
 		var port = parseInt(parts[1]);
+		console.log(reqHandler, host, port);
+
 		if (!port)
 			return cb(new Error('Port spec for request handler is not valid'));
 

@@ -7,6 +7,7 @@
         "deadBackendTTL": 30,
         "address": ["127.0.0.1"],
         "address6": ["::1"],
+		"debug": true
     },
     "redisHost": "127.0.0.1",
     "redisPort": 6379,

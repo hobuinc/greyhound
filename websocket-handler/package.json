@@ -6,8 +6,8 @@
 		"ws": "*",
 		"lodash": "*",
 		"async": "*",
-		"hiredis": "*",
-		"redis": "*",
-		"lru-cache": "*"
+		"lru-cache": "*",
+		"express": "*",
+		"seaport": "*"
 	}
 }

@@ -3,12 +3,15 @@
 var WebSocketServer = require('ws').Server
   , _ = require('lodash')
   , http = require('http')
+  , express = require('express')
+  , seaport = require('seaport')
   , redis = require('redis')
   , lruCache = require('lru-cache')
 
   , web = require('./lib/web')
   , CommandHandler = require('./lib/command-handler').CommandHandler
   , port = (process.env.PORT || 8080)
+  , ports = seaport.connect('localhost', 9090)
   , TCPToWS = require('./lib/tcp-ws').TCPToWS;
 
 
@@ -22,80 +25,13 @@ redisClient.on('ready', function() {
 	console.log('Connection to redis server established.');
 });
 
-
-// setup rh cache for routing
-var lru = lruCache({ 
-	max: 10,
-	maxAge: 5000
-});
-
-var readFromCache = function(key, cb) {
-	var r = lru.get(key);
-	if (r !== undefined)
-		return cb(null, r);
-
-	redisClient.lrange('rh', 0, -1, function(err, v) {
-		if (err) return cb(err);
-		if (_.isEmpty(v))
-			return cb(new Error('There are no request handlers registered'));
-		lru.set(key, v);
-		cb(null, v);
-	});
-}
-
 var pickRequestHandler = function(cb) {
-	readFromCache('rh', function(err, v) {
-		if (err) return cb(err);
-
-		var rh = v[Math.floor(Math.random() * v.length)];
-		console.log('Picker request handler: ' + rh);
-
-		return cb(null, rh);
+	ports.get('rh', function(services) {
+		var service = services[Math.floor(Math.random() * services.length)];
+		cb(null, service.host + ':' + service.port);
 	});
 }
 
-var registerForHipache = function(cb) {
-	// check if we have a valid request handler
-	//
-	var host = (process.env.HOST || 'localhost');
-	var key = 'frontend:' + host;
-	var self = 'http://127.0.0.1:' + port;
-
-	var unregister = function() {
-		redisClient.lrem(key, 0, self, function(err) {
-			if (err) return console.log('Error trying to unregister from hipache list: ' + err);
-			console.log('Unregistered from hipache list');
-			
-			process.exit();
-		});
-	}
-
-	process.on('exit', unregister);
-	process.on('SIGHUP', unregister);
-	process.on('SIGINT', unregister);
-
-	var registerSelf = function() {
-		console.log('Registering this websocket server as: ' + self);
-		redisClient.rpush(key, self, cb);
-	}
-
-	redisClient.lrange(key, 0, 1, function(err, res) {
-		if (err) return cb(err);
-
-		if (_.isEmpty(res)) {
-			console.log('Site index does not exist, adding...');
-			// no id as been added, add one now
-			redisClient.rpush(key, 'point-serve', function(err) {
-				if (err) return cb(err);
-
-				console.log('Site index added.');
-				registerSelf();
-			});
-		}
-		else
-			registerSelf();
-	});
-}
 
 var affinityCache = lruCache({
 	max: 1000,
@@ -132,96 +68,116 @@ var deleteAffinity = function(session, cb) {
 }
 
 process.nextTick(function() {
-	registerForHipache(function(err) {
-		if (err) return console.log(err);
+	// setup a basic express server
+	//
+	var app = express();
+	app.use(function(req, res, next) {
+		res.header('X-Powered-By', 'Hobu, Inc.');
+		next();
+	});
 
-		var wss = new WebSocketServer({port: port});
+	app.get('/', function(req, res) {
+		res.send('Hobu, Inc. point distribution server');
+	});
 
-		console.log('Websocket server running on port: ' + port);
+	var server = http.createServer(app);
+	var port = ports.register('ws@0.0.1');
 
-		var validateSessionAffinity = function(session, cb) {
-			if (!session)
-				return cb(new Error('Session parameter is invalid or missing'));
+	server.listen(port)
+	var wss = new WebSocketServer({server: server});
 
-			getAffinity(session, function(err, val) {
-				console.log('affinity(' + session + ') = ' + val)
-				cb(err, session, val);
-			});
-		}
+	console.log('Websocket server running on port: ' + port);
 
-		wss.on('connection', function(ws) {
-			var handler = new CommandHandler(ws);
+	var validateSessionAffinity = function(session, cb) {
+		if (!session)
+			return cb(new Error('Session parameter is invalid or missing'));
 
-			handler.on('create', function(msg, cb) {
-				pickRequestHandler(function(err, rh) {
+		getAffinity(session, function(err, val) {
+			console.log('affinity(' + session + ') = ' + val)
+			cb(err, session, val);
+		});
+	}
+
+	wss.on('headers', function(h) {
+		console.log('Headers: ');
+		console.log(h);
+	});
+
+	wss.on('connection', function(ws) {
+		var handler = new CommandHandler(ws);
+		console.log('Got a connection');
+
+		handler.on('create', function(msg, cb) {
+			pickRequestHandler(function(err, rh) {
+				if (err) return cb(err);
+
+				web.post(rh, '/create', function(err, res) {
 					if (err) return cb(err);
 
-					web.post(rh, '/create', function(err, res) {
-						if (err) return cb(err);
+					setAffinity(res.sessionId, rh, function(err) {
+						if (err) {
+							// atleast try to clean session
+							web._delete(rh, '/' + session, function() { });
+							return cb(err);
+						}
 
-						setAffinity(res.sessionId, rh, function(err) {
-							if (err) {
-								// atleast try to clean session
-								web._delete(rh, '/' + session, function() { });
-								return cb(err);
-							}
-
-							// everything went fine, we're good
-							cb(null, { session: res.sessionId });
-						});
+						// everything went fine, we're good
+						cb(null, { session: res.sessionId });
 					});
 				});
 			});
+		});
 
-			handler.on('pointsCount', function(msg, cb) {
-				validateSessionAffinity(msg.session, function(err, session, rh) {
+		handler.on('pointsCount', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, rh) {
+				if (err) return cb(err);
+				web.get(rh, '/pointsCount/' + session, cb);
+			});
+		});
+
+		handler.on('destroy', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, rh) {
+				web._delete(rh, '/' + session, function(err, res) {
 					if (err) return cb(err);
-					web.get(rh, '/pointsCount/' + session, cb);
-				});
-			});
 
-			handler.on('destroy', function(msg, cb) {
-				validateSessionAffinity(msg.session, function(err, session, rh) {
-					web._delete(rh, '/' + session, function(err, res) {
-						if (err) return cb(err);
-
-						deleteAffinity(session, function(err) {
-							if (err) console.log('destroying session, but affinity was not correctly cleared', err);
-							cb();
-						});
+					deleteAffinity(session, function(err) {
+						if (err) console.log('destroying session, but affinity was not correctly cleared', err);
+						cb();
 					});
 				});
 			});
+		});
 
-			handler.on('read', function(msg, cb) {
-				validateSessionAffinity(msg.session, function(err, session, rh) {
-					var streamer = new TCPToWS(ws);
-					streamer.on('local-address', function(add) {
-						console.log('local-bound address for read: ', add);
+		handler.on('read', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, rh) {
+				if (err) return cb(err);
 
-						web.post(rh, '/read/' + session, _.extend(add, {
-							start: msg.start,
-							count: msg.count
-						}), function(err, r) {
-							if (err) {
-								streamer.close();
-								return cb(err);
-							}
-							console.log('TCP-WS: points: ', r.pointsRead, 'bytes:', r.bytesCount);
+				var streamer = new TCPToWS(ws);
+				streamer.on('local-address', function(add) {
+					console.log('local-bound address for read: ', add);
 
-							cb(null, r);
-							process.nextTick(function() {
-								streamer.startPushing();
-							});
+					web.post(rh, '/read/' + session, _.extend(add, {
+						start: msg.start,
+						count: msg.count
+					}), function(err, r) {
+						if (err) {
+							streamer.close();
+							return cb(err);
+						}
+						console.log('TCP-WS: points: ', r.pointsRead, 'bytes:', r.bytesCount);
+
+						cb(null, r);
+						process.nextTick(function() {
+							streamer.startPushing();
 						});
 					});
-
-					streamer.on('end', function() {
-						console.log('Done transmitting point data');
-					});
-
-					streamer.start();
 				});
+
+				streamer.on('end', function() {
+					console.log('Done transmitting point data');
+				});
+
+				streamer.start();
 			});
 		});
 	});

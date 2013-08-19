@@ -10,62 +10,41 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.hostname = "point-serve"
   config.vm.box_url = "http://files.vagrantup.com/precise64.box"
 
-  config.vm.network :forwarded_port, guest: 3000, host: 3000
-  config.vm.network :forwarded_port, guest: 8080, host: 8080
+  config.vm.network :forwarded_port, guest: 80, host: 8080
 
   #
   ppaRepos = [
-	  "ppa:dotcloud/lxc-docker",
-	  "ppa:chris-lea/node.js",
-	  "ppa:ubuntu-x-swat/r-lts-backport"
   ]
+
   packageList = [
-	  "lxc-docker",
-	  "nodejs",
 	  "git",
-	  "build-essential"
-	  "linux-image-3.8.0-19-generic",
+	  "build-essential",
 	  "libjsoncpp-dev",
 	  "libboost1.48-all-dev",
 	  "pkg-config",
 	  "redis-server"
   ];
 
-  rubyGems = [
-	  "foreman"
-  ];
-
-  nodeModules = [
-	  "hipache"
-  ];
+  nodeVersion = "0.8.23"
+  nodeURL = "http://nodejs.org/dist/v#{nodeVersion}/node-v#{nodeVersion}-linux-x64.tar.gz"
   
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
-	  pkg_cmd = "apt-get update -qq; apt-get install -q -y python-software-properties; "
+	  pkg_cmd = ""
 
-	  ppaRepos.each { |repo| pkg_cmd << "add-apt-repository -y " << repo << " ; " }
+	  # provision node, from nodejs.org
+	  pkg_cmd << "echo Provisioning node.js version #{nodeVersion}... ; mkdir -p /tmp/nodejs && \
+		wget -qO - #{nodeURL} | tar zxf - --strip-components 1 -C /tmp/nodejs && cd /tmp/nodejs && \
+		cp -r * /usr && rm -rf /tmp/nodejs ;"
 
-	  pkg_cmd << "apt-get update -qq; "
+	  pkg_cmd << "apt-get update -qq; apt-get install -q -y python-software-properties; "
+
+	  if ppaRepos.length > 0
+		  ppaRepos.each { |repo| pkg_cmd << "add-apt-repository -y " << repo << " ; " }
+		  pkg_cmd << "apt-get update -qq; "
+	  end
 
 	  # install packages we need we need
-	  pkg_cmd << "apt-get install -q -y " + packageList.join(" ") << " ;"
-
-	  rubyGems.each { |gem| pkg_cmd << "sudo gem install " << gem << " ; " }
-	  nodeModules.each { |mod| pkg_cmd << "sudo npm install -g " << mod << " ; " }
-
-	  # virtual box specific setup
-	  pkg_cmd << "apt-get install -q -y linux-headers-3.8.0-19-generic dkms; " \
-        "echo 'Downloading VBox Guest Additions...'; " \
-        "wget -q http://dlc.sun.com.edgesuite.net/virtualbox/4.2.16/VBoxGuestAdditions_4.2.16.iso; "
-
-
-      # Prepare the VM to add guest additions after reboot
-      pkg_cmd << "echo -e 'mount -o loop,ro /home/vagrant/VBoxGuestAdditions_4.2.16.iso /mnt\n" \
-        "echo yes | /mnt/VBoxLinuxAdditions.run\numount /mnt\n" \
-          "rm /root/guest_additions.sh; ' > /root/guest_additions.sh; " \
-        "chmod 700 /root/guest_additions.sh; " \
-        "sed -i -E 's#^exit 0#[ -x /root/guest_additions.sh ] \\&\\& /root/guest_additions.sh#' /etc/rc.local; " \
-        "echo 'Installation of VBox Guest Additions is proceeding in the background.'; " \
-        "echo '\"vagrant reload\" can be used in about 2 minutes to activate the new guest additions.'; "
+	  pkg_cmd << "apt-get install -q -y " + packageList.join(" ") << " ; "
 	  config.vm.provision :shell, :inline => pkg_cmd
   end
 end
