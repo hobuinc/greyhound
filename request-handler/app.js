@@ -60,10 +60,10 @@ app.post("/create", function(req, res) {
 			var id = createId();
 			sessions[id] = s;
 
+			console.log('create =', id);
 			res.json({ sessionId: id });
 		}, function(err) {
 			pool.release(s);
-
 			return error(err);
 		});
 	});
@@ -71,6 +71,7 @@ app.post("/create", function(req, res) {
 
 app.delete("/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {
+		console.log('delete('+ sid + ')');
 		delete sessions[sid];
 
 
@@ -89,6 +90,7 @@ app.delete("/:sessionId", function(req, res) {
 
 app.get("/pointsCount/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s) {
+		console.log('pointsCount('+ sid + ')');
 		s.getNumPoints().then(function(count) {
 			res.json({ count: count });
 		}, error(res));
@@ -108,6 +110,8 @@ app.post("/read/:sessionId", function(req, res) {
 		return res.json(400, { message: 'Destination port needs to be specified' });
 
 	getSession(res, req.params.sessionId, function(s, sid) {
+		console.log('read('+ sid + ')');
+
 		s.read(host, port, start, count).then(function(r) {
 			var ret = _.extend(_.omit(r, 'status'), {
 				message: 'Request queued for transmission to: ' + host + ':' + port,
