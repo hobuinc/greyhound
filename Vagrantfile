@@ -14,6 +14,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   #
   ppaRepos = [
+	  "ppa:ubuntugis/ppa"
   ]
 
   packageList = [
@@ -23,7 +24,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "libboost1.48-all-dev",
 	  "pkg-config",
 	  "redis-server",
-	  "cmake"
+	  "cmake",
+	  "libflann-dev",
+	  "libgdal-dev",
+	  "libpq-dev",
+	  "libproj-dev",
+	  "libtiff4-dev",
+	  "libxml2-dev"
   ];
 
   nodeVersion = "0.8.23"
