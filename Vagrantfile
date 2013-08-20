@@ -22,7 +22,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "libjsoncpp-dev",
 	  "libboost1.48-all-dev",
 	  "pkg-config",
-	  "redis-server"
+	  "redis-server",
+	  "cmake"
   ];
 
   nodeVersion = "0.8.23"

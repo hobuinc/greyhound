@@ -89,7 +89,7 @@ app.delete("/:sessionId", function(req, res) {
 });
 
 app.get("/pointsCount/:sessionId", function(req, res) {
-	getSession(res, req.params.sessionId, function(s) {
+	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('pointsCount('+ sid + ')');
 		s.getNumPoints().then(function(count) {
 			res.json({ count: count });

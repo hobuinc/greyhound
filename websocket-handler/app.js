@@ -33,38 +33,17 @@ var pickRequestHandler = function(cb) {
 }
 
 
-var affinityCache = lruCache({
-	max: 1000,
-	maxAge: 1000
-});
-
 var setAffinity = function(session, target, cb) {
-	redisClient.hset('affinity', session, target, function(err, v) {
-		if (err) return cb(err);
-		affinityCache.set(session, target);
-		cb(null, v);
-	})
+	redisClient.hset('affinity', session, target, cb);
 }
 
 var getAffinity = function(session, cb) {
-	var v = affinityCache.get(session);
-	if (v !== undefined)
-		return cb(null, v);
-
-	redisClient.hget('affinity', session, function(err, val) {
-		if (err) return cb(err);
-
-		affinityCache.set(session, val);
-		cb(null, val);
-	});
+	redisClient.hget('affinity', session, cb);
 }
 
 var deleteAffinity = function(session, cb) {
-	redisClient.hdel('affinity', session, function(err, val) {
-		if (err) return cb(err);
-		affinityCache.del(session);
-		cb();
-	});
+	console.log('Deleting', session);
+	redisClient.hdel('affinity', session, cb);
 }
 
 process.nextTick(function() {
@@ -93,6 +72,9 @@ process.nextTick(function() {
 			return cb(new Error('Session parameter is invalid or missing'));
 
 		getAffinity(session, function(err, val) {
+			if (!val)
+				return cb(new Error('Affinity not found'));
+
 			console.log('affinity(' + session + ') = ' + val)
 			cb(err, session, val);
 		});
@@ -137,6 +119,8 @@ process.nextTick(function() {
 
 		handler.on('destroy', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, rh) {
+				if (err) return cb(err);
+
 				web._delete(rh, '/' + session, function(err, res) {
 					if (err) return cb(err);
 

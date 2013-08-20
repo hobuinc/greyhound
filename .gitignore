@@ -1,5 +1,6 @@
 *.o
 pdal-session/pdal-session
+examples/cpp/get-points
 
 node_modules
 npm-debug.log

@@ -15,7 +15,12 @@ var
 		this.handlers = {};
 
 		var send = function(obj) {
-			ws.send(JSON.stringify(obj));
+			try {
+				ws.send(JSON.stringify(obj));
+			}
+			catch(e) {
+				console.log('Failed to send object: ', obj, e); 
+			}
 		}
 
 		var o = this;

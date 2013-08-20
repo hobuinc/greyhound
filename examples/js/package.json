@@ -1,0 +1,7 @@
+{
+	"name": "get-points",
+	"description": "An example program demonstrating how to request points",
+	"dependencies" : {
+		"ws": "*"
+	}
+}

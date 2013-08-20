@@ -65,7 +65,12 @@ var net = require('net'),
 
 			socket.on('data', function(data) {
 				if (o.canPush) {
-					o.ws.send(data, { binary: true });
+					try {
+						o.ws.send(data, { binary: true });
+					}
+					catch(e) {
+						console.log('Failed to push binary blob(push: on)', e)
+					}
 				}
 				else
 					o.waitData = o.waitData + data;
@@ -83,7 +88,12 @@ var net = require('net'),
 
 	TCPToWS.prototype.startPushing = function() {
 		if (this.waitData) {
-			this.ws.send(this.waitData, { binary: true });
+			try {
+				this.ws.send(this.waitData, { binary: true });
+			}
+			catch(e) {
+				console.log('Failed to send binary blob', e);
+			}
 			this.waitData = null;
 		}
 
