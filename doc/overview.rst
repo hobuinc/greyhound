@@ -71,14 +71,18 @@ dist_handler
 ...............................................................................
 
 dist_handler is the server registry, and both websocket_handler and request_handler 
-instances register with dist_handler to let the system know their availablity and 
-error status.
+instances register with dist_handler to let the system know their availability and 
+error status.  dist_handler is also responsible to assign a host and port number to these
+services.
 
 websocket_handler
 ...............................................................................
 
-websocket_handler takes in WebSocket requests, translates them into requests that the 
-request_handler can consume, and returns data back to the client. When a websocket_handler is started, it registers its identity and port information with `redis`_ which is then picked up by both the dist_handler (to know which request_handler instances are available to consume requests) and `hipache`_.
+websocket_handler takes in WebSocket requests and translates them into requests that the 
+request_handler can consume.  Any data returned by the request_handler as a request's response is sent back to the client. 
+When a websocket_handler is started, it registers itself with dist_handler to notify availability of a new websocket_handler.
+The dist_handler, on a successful registration, updates the `redis`_ registry with information about this newly available websocket handler so that the hipache
+server can pick up this information and use the websocket handler to handle client requests.
 
 `redis`_
 ...............................................................................
@@ -88,15 +92,15 @@ of all of the servers within the PDP. The dist_handler, websocket_handler, and h
 all use redis to store information about where to find instances and coordinate 
 who is available to accept and respond to requests. 
 
-request_handler.js
+request_handler
 ...............................................................................
 
-request_handler.js is a node.js application that takes in requests from the websocket_handler and passes them down into pdal_session.js. 
+request_handler is a node.js application that takes in requests from the websocket_handler and passes them down into pdal_session.js. 
 
 pdal_session.js
 ...............................................................................
 
-pdal_session.js is a node.js application that takes requests from the request_handler.js and manages interaction with the C/C++ pdal_session.cpp client 
+pdal_session.js is a node.js module that takes requests from the request_handler and manages interaction with the C/C++ pdal_session.cpp client 
 that contains the actual PDAL objects that requests are finally passed to.
 
 .. _`hipache`: https://github.com/dotcloud/hipache
