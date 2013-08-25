@@ -52,7 +52,8 @@ setup_pdal() {
 			-DWITH_GEOTIFF=ON \
 			-DWITH_LIBXML2=ON \
 			-DWITH_PGPOINTCLOUD=ON \
-			.. && make && sudo make install && cd "$PWD"
+			.. && make && sudo make install
+		cd "$PWD"
 	else
 		echo pdal seems to be already available
 	fi
