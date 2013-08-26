@@ -8,6 +8,8 @@
 		"async": "*",
 		"lru-cache": "*",
 		"express": "*",
-		"seaport": "*"
+		"seaport": "*",
+		"redis": "*",
+		"hiredis": "*"
 	}
 }
