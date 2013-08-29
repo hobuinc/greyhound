@@ -46,6 +46,7 @@ var createId = function() {
 	return crypto.randomBytes(20).toString('hex');
 }
 
+
 app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
@@ -97,6 +98,15 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 	});
 });
 
+
+app.get("/srs/:sessionId", function(req, res) {
+	getSession(res, req.params.sessionId, function(s, sid) {
+		console.log('srs('+ sid + ')');
+		s.getSRS().then(function(srs) {
+			res.json({ srs: srs });
+		}, error(res));
+	});
+});
 app.post("/read/:sessionId", function(req, res) {
 	var host = req.body.host, port = parseInt(req.body.port);
 

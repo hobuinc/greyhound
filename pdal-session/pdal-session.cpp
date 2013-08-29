@@ -19,6 +19,12 @@
 #include <boost/shared_array.hpp>
 #include <boost/asio.hpp>
 
+#include <pdal/PipelineReader.hpp>
+#include <pdal/PipelineManager.hpp>
+#include <pdal/StageFactory.hpp>
+#include <pdal/PointBuffer.hpp>
+#include <pdal/StageIterator.hpp>
+
 /**
  * @brief		The KeyMaker class helps adapt a Key used in CommandManager to a unique key
  *				for internal indexing purposes.  This class needs to be specialized for any
@@ -285,6 +291,9 @@ public:
 		return p_->getNumPoints();
 	}
 
+    inline std::string getSRS() const { return "the coordinate system; ";}
+
+
 	/**
 	 * @brief  Get the total size of buffer needed to hold all points
 	 *
@@ -330,7 +339,7 @@ struct DummyPDAL {
 
 	size_t getNumPoints() const { return points_; }
 	size_t stride() const { return sizeof(float) * 4; }
-
+    
 	size_t read(void *buf, size_t startIndex, size_t npoints) {
 		if (startIndex >= points_)
 			throw std::runtime_error("startIndex cannot be more than the total number of points");
@@ -344,6 +353,64 @@ struct DummyPDAL {
 
 
 	size_t points_;
+};
+
+
+
+struct RealPDAL {
+	RealPDAL(Json::Value const& params) : stage(0)
+    {
+        bool debug = params["debug"].asBool();
+        int verbose = params["verbose"].asInt();
+        pdal::PipelineReader reader(manager, debug, verbose);
+        std::string filename = params["filename"].asString();
+        reader.readPipeline(filename);
+        stage = manager.getStage();
+        stage->initialize();
+        buffer = new pdal::PointBuffer(stage->getSchema(), stage->getNumPoints());
+        
+        iterator = stage->createSequentialIterator(*buffer);
+        iterator->read(*buffer);
+	}
+    ~RealPDAL()
+    {
+        if (iterator)
+            delete iterator;
+
+        if (buffer)
+            delete buffer;
+        
+        if (stage)
+            delete stage;
+        
+    }
+    size_t getNumPoints() const 
+    {
+        return stage->getNumPoints(); 
+    }
+    size_t stride() const 
+    {
+        return buffer->getSchema().getByteSize();
+    }
+    //     
+    size_t read(void *buf, size_t startIndex, size_t npoints) {
+        if (startIndex >= stage->getNumPoints())
+            throw std::runtime_error("startIndex cannot be more than the total number of points");
+    
+        npoints = startIndex + npoints > stage->getNumPoints() ? stage->getNumPoints() - startIndex : npoints;
+        
+        boost::uint8_t const* start = buffer->getData(startIndex);
+        memcpy(buf, start, npoints*stride());
+
+        return npoints;
+    }
+
+    
+    pdal::Stage* stage;
+    pdal::PipelineManager manager;
+    pdal::PointBuffer* buffer;
+    pdal::StageSequentialIterator* iterator;
+
 };
 
 /**
@@ -436,6 +503,13 @@ int main() {
 	commands.add("getNumPoints", [&session](const Json::Value&) -> Json::Value {
 		Json::Value v;
 		v[std::string("count")] = (int)session.getNumPoints();
+
+		return v;
+	});
+
+	commands.add("getSRS", [&session](const Json::Value&) -> Json::Value {
+		Json::Value v;
+		v[std::string("srs")] = session.getSRS();
 
 		return v;
 	});

@@ -164,6 +164,14 @@ var
 		});
 	};
 
+	PDALSession.prototype.getSRS = function() {
+		return this.exchange({
+			command: 'getSRS',
+		}).then(function(res) {
+			return res.srs;
+		});
+	};
+
 	PDALSession.prototype.isValid = function() {
 		return this.exchange({
 			command: 'isSessionValid',

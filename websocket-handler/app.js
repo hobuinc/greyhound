@@ -117,6 +117,14 @@ process.nextTick(function() {
 			});
 		});
 
+		handler.on('srs', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, rh) {
+				if (err) return cb(err);
+				web.get(rh, '/srs/' + session, cb);
+			});
+		});
+
+
 		handler.on('destroy', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, rh) {
 				if (err) return cb(err);

@@ -92,4 +92,39 @@ var test2 = function() {
 	});
 }
 
-process.nextTick(test2);
+
+var srs = function() {
+	var session = null;
+
+	ws.on('open', function() {
+		setInterval(function() {
+			send({
+				command: 'create'
+			});
+		}, 3000);
+	});
+
+	ws.on('message', function(data) {
+		var obj = JSON.parse(data);
+
+		console.log('Got something: ');
+		console.log(obj);
+
+		if (obj.command === 'create' && obj.status === 1) {
+			session = obj.session;
+			send({
+				command: 'srs',
+				session: session
+			});
+
+			setTimeout(function() {
+				send({
+					command: 'destroy',
+					session: session
+				});
+			}, 1000);
+		}
+	});
+};
+
+process.nextTick(srs);
