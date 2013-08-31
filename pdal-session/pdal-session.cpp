@@ -270,8 +270,8 @@ public:
 	 *
 	 * @param desc	A pipeline description passed to T's constructor
 	 */
-	void create(const std::string& desc) {
-		p_.reset(new T(desc));
+	void create(Json::Value const& params) {
+		p_.reset(new T(params));
 	}
 
 	/**
@@ -326,17 +326,23 @@ public:
 		if (!p_) throw std::runtime_error("Session is not valid");
 		return p_->read(buf, startIndex, npoints);
 	}
+    
+    void initialize()
+    {
+        p_->initialize();
+    }
 
 private:
 	shared_ptr p_;
 };
 
 struct DummyPDAL {
-	DummyPDAL(const std::string& desc) {
+	DummyPDAL(Json::Value const& params) {
 		std::srand(std::time(NULL));
 		points_ = (std::rand() % 10000) + 5000;
 	}
-
+    
+    void initialize() {};
 	size_t getNumPoints() const { return points_; }
 	size_t stride() const { return sizeof(float) * 4; }
     
@@ -358,7 +364,26 @@ struct DummyPDAL {
 
 
 struct RealPDAL {
-	RealPDAL(Json::Value const& params) : stage(0)
+	RealPDAL(Json::Value const& params) : stage(0), buffer(0), iterator(0), params(params)
+    {
+
+	}
+    
+    ~RealPDAL()
+    {
+        if (iterator)
+            delete iterator;
+        
+
+        // 
+        // if (stage)
+        //     delete stage;
+        if (buffer)
+            delete buffer;        
+        
+    }
+    
+    void initialize()
     {
         bool debug = params["debug"].asBool();
         int verbose = params["verbose"].asInt();
@@ -371,19 +396,9 @@ struct RealPDAL {
         
         iterator = stage->createSequentialIterator(*buffer);
         iterator->read(*buffer);
-	}
-    ~RealPDAL()
-    {
-        if (iterator)
-            delete iterator;
-
-        if (buffer)
-            delete buffer;
-        
-        if (stage)
-            delete stage;
         
     }
+
     size_t getNumPoints() const 
     {
         return stage->getNumPoints(); 
@@ -410,7 +425,10 @@ struct RealPDAL {
     pdal::PipelineManager manager;
     pdal::PointBuffer* buffer;
     pdal::StageSequentialIterator* iterator;
-
+    Json::Value params;
+    
+private:
+    RealPDAL(); 
 };
 
 /**
@@ -479,7 +497,8 @@ int main() {
 
 	IO<Json::Value> io(std::cin, std::cout);
 	CommandManager<std::string, std::function<Json::Value (const Json::Value&)> > commands;
-	SessionManager<DummyPDAL> session;
+
+	SessionManager<RealPDAL> session;
 
 	commands.add("isSessionValid", [&session](const Json::Value&) -> Json::Value {
 		Json::Value r;
@@ -489,8 +508,20 @@ int main() {
 	});
 
 	commands.add("create", [&session](const Json::Value& params) -> Json::Value {
-		std::string desc = params["pipelineDesc"].asString();
-		session.create(desc);
+        // std::string desc = params["pipelineDesc"].asString();
+
+		session.create(params);
+
+        try
+        {
+            session.initialize();
+
+        } catch (std::exception& e)
+        {
+            Json::Value v;
+            v[std::string("error")] = e.what();
+            return v;
+        }
 
 		return Json::Value();
 	});
@@ -546,6 +577,9 @@ int main() {
 	io.forInput([&commands](const Json::Value& v) -> Json::Value {
 		return commands.dispatch(v["command"].asString(), v["params"]);
 	});
+
+    
+
 
 	return 0;
 }

@@ -91,18 +91,18 @@ var
 		});
 
 		ps.on('close', function(code) {
-			if (o.options.log)
-				console.log('Session closed with code: ', code);
+            // if (o.options.log)
+			console.log('Session closed with code: ', code);
 
 			o.checkInvoke(new Error('Session closed while waiting for response'));
 			o.ps = null;
 		});
 
 		ps.on('exit', function(code, sig) {
-			if (o.options.log)
-				console.log('Contained process exiting: ', code, sig);
+            // if (o.options.log)
+			console.log('Contained process exiting: ', code, sig);
 
-			o.checkInvoke(new Error('Session closed while waiting for response'));
+			o.checkInvoke(new Error('Session exited while waiting for response'));
 			o.ps = null;
 		});
 
@@ -122,7 +122,7 @@ var
 
 	PDALSession.prototype.exchange = function(obj) {
 		var o = this;
-
+        console.log("exchange: ", obj)
 		return o.spawn().then(function(ps) {
 			var b = JSON.stringify(obj) + '\n';
 			if (o.options.log) {
@@ -142,7 +142,9 @@ var
 		return this.exchange({
 			command: 'create',
 			params: {
-				pipelineDesc: desc
+                filename :"/vagrant/examples/data/read.xml",
+                debug: true,
+                verbose: 4
 			}
 		}).then(function(obj) { 
 			// if successful, don't do anything

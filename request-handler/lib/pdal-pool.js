@@ -16,7 +16,7 @@ var
 			create: function(cb) {
 				var s = new PDALSession(_.defaults(pdalOptions || {}, {
 					processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
-					log: false
+					log: true
 				}));
 
 				cb(s);

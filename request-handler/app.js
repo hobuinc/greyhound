@@ -54,8 +54,12 @@ app.get("/", function(req, res) {
 // handlers for our API
 app.post("/create", function(req, res) {
 	pool.acquire(function(err, s) {
+        console.log('erroring: ', s);
 		if (err)
+        {
+
 			return res.json(500, { message: err.message });
+        }
 
 		s.create(req.body.desc || "").then(function() {
 			var id = createId();
@@ -64,6 +68,7 @@ app.post("/create", function(req, res) {
 			console.log('create =', id);
 			res.json({ sessionId: id });
 		}, function(err) {
+            console.log('erroring create: ', err);            
 			pool.release(s);
 			return error(err);
 		});
