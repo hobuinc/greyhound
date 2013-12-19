@@ -30,7 +30,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "libpq-dev",
 	  "libproj-dev",
 	  "libtiff4-dev",
-	  "libxml2-dev"
+	  "libxml2-dev",
+	  "python-numpy"
   ];
 
   nodeVersion = "0.8.23"
