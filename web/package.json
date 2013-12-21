@@ -1,0 +1,12 @@
+{
+	"name": "greyhound-web",
+	"private": true,
+	"version": "0.0.1",
+	"dependencies": {
+		"q": "*",
+		"express": "*",
+		"lodash": "*",
+		"jade": "*",
+		"less-middleware": "*"
+	}
+}

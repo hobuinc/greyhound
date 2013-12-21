@@ -1,8 +1,39 @@
 <?xml version="1.0"?>
 <Pipeline version="1.0">
-            <Reader type="drivers.las.reader">
-                <Option name="filename">
-                    autzen.las
-                </Option>
-            </Reader>
+	<Filter type="filters.selector">
+		<Option name="keep">
+			<Options>
+				<Option name="dimension">
+					X
+				</Option>
+				<Option name="dimension">
+					Y
+				</Option>
+				<Option name="dimension">
+					Z
+				</Option>
+			</Options>
+		</Option>
+		<Option name="ignore">
+			<Options>
+				<Option name="dimension">
+					Intensity
+				</Option>
+				<Option name="dimension">
+					ReturnNumber
+				</Option>
+				<Option name="dimension">
+					NumberOfReturns
+				</Option>
+				<Option name="dimension">
+					NumberOfReturns
+				</Option>
+			</Options>
+		</Option>
+		<Reader type="drivers.las.reader">
+			<Option name="filename">
+				autzen.laz
+			</Option>
+		</Reader>
+	</Filter>
 </Pipeline>

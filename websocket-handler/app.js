@@ -166,7 +166,7 @@ process.nextTick(function() {
 				});
 
 				streamer.on('end', function() {
-					console.log('Done transmitting point data');
+					console.log('Done transmitting point data, r: ' + streamer.totalArrived + ' s:' + streamer.totalSent);
 				});
 
 				streamer.start();

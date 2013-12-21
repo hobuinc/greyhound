@@ -2,8 +2,10 @@
 .DS_Store
 pdal-session/pdal-session
 examples/cpp/get-points
+*.log
 
 node_modules
 npm-debug.log
 .vagrant
 doc/overview.pdf
+web/public/css/style.css

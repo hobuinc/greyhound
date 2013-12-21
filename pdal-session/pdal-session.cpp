@@ -389,14 +389,36 @@ struct RealPDAL {
         int verbose = params["verbose"].asInt();
         pdal::PipelineReader reader(manager, debug, verbose);
         std::string filename = params["filename"].asString();
+
         reader.readPipeline(filename);
         stage = manager.getStage();
         stage->initialize();
-        buffer = new pdal::PointBuffer(stage->getSchema(), stage->getNumPoints());
+
+		// create a point buffer to read in points
+		pdal::PointBuffer *pbuf =
+			new pdal::PointBuffer(stage->getSchema(), stage->getNumPoints());
+
+        iterator = stage->createSequentialIterator(*pbuf);
+        iterator->read(*pbuf);
+
+		// right now we're only interested in the output of our pipeline, so
+		// pack data
+		buffer = pbuf->pack();
+		delete pbuf;
         
-        iterator = stage->createSequentialIterator(*buffer);
-        iterator->read(*buffer);
-        
+
+		// just make sure that our final buffer contains the X Y and Z dimenions
+		//
+		try {
+			const pdal::Schema& s = buffer->getSchema();
+
+			s.getDimension("X");
+			s.getDimension("Y");
+			s.getDimension("Z");
+		}
+		catch (pdal::dimension_not_found&) {
+			throw std::runtime_error("Pipeline output should contain X, Y and Z dimensions");
+		}
     }
 
     size_t getNumPoints() const 

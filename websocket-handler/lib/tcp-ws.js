@@ -20,10 +20,18 @@ var net = require('net'),
 		// need to stage data till we are sure that the readSuccess message has been
 		// sent down the connection.
 		this.canPush = false;
-		this.waitData = '';
+		this.waitData = null;
 		this.hasEnded = false;
 
+		this.totalArrived = 0;
+		this.totalSent = 0;
+
 		events.EventEmitter.call(this);
+	}
+
+	TCPToWS.prototype.wsSend = function(data) {
+		this.totalSent += data.length;
+		this.ws.send(data, { binary: true });
 	}
 
 	TCPToWS.prototype.start = function() {
@@ -33,6 +41,7 @@ var net = require('net'),
 		};
 
 		var o = this;
+
 		server.on('listening', function() {
 			o.emit('local-address', {
 				host: '127.0.0.1',
@@ -57,8 +66,9 @@ var net = require('net'),
 
 				if (!o.canPush)
 					o.hasEnded = true;
-				else
+				else {
 					o.emit('end');
+				}
 
 				safeClose();
 			});
@@ -66,14 +76,17 @@ var net = require('net'),
 			socket.on('data', function(data) {
 				if (o.canPush) {
 					try {
-						o.ws.send(data, { binary: true });
+						o.wsSend(data);
 					}
 					catch(e) {
 						console.log('Failed to push binary blob(push: on)', e)
 					}
 				}
-				else
-					o.waitData = o.waitData + data;
+				else {
+					o.waitData = (o.waitData === null) ? data : Buffer.concat([o.waitData, data]);
+				}
+
+				o.totalArrived += data.length;
 			});
 
 			socket.on('error', function(err) {
@@ -89,7 +102,7 @@ var net = require('net'),
 	TCPToWS.prototype.startPushing = function() {
 		if (this.waitData) {
 			try {
-				this.ws.send(this.waitData, { binary: true });
+				this.wsSend(this.waitData);
 			}
 			catch(e) {
 				console.log('Failed to send binary blob', e);
@@ -106,6 +119,7 @@ var net = require('net'),
 			var o = this;
 			process.nextTick(function() {
 				o.emit('end');
+
 			});
 		}
 	}
