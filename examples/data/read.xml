@@ -12,21 +12,14 @@
 				<Option name="dimension">
 					Z
 				</Option>
-			</Options>
-		</Option>
-		<Option name="ignore">
-			<Options>
 				<Option name="dimension">
-					Intensity
+					Red
 				</Option>
 				<Option name="dimension">
-					ReturnNumber
+					Green
 				</Option>
 				<Option name="dimension">
-					NumberOfReturns
-				</Option>
-				<Option name="dimension">
-					NumberOfReturns
+					Blue
 				</Option>
 			</Options>
 		</Option>

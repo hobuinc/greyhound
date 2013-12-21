@@ -24,13 +24,14 @@
 		}
 	};
 
-	var getBounds = function(arr) {
+	var getBounds = function(arr, recSize) {
 		var bounds = {};
+		var pc = arr.byteLength / recSize;
 
-		for (var i = 0, il = arr.length / 3 ; i < il ; i += 3) {
-			var x = arr[3*i + 0];
-			var y = arr[3*i + 1];
-			var z = arr[3*i + 2];
+		for (var i = 0 ; i < pc ; i++) {
+			var x = arr.getInt32(recSize * i + 0, true);
+			var y = arr.getInt32(recSize * i + 4, true);
+			var z = arr.getInt32(recSize * i + 8, true);
 
 			if (i === 0) {
 				bounds = {
@@ -59,7 +60,8 @@
 	};
 
 	function init(data) {
-		camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
+		camera = new THREE.PerspectiveCamera(60,
+			window.innerWidth / window.innerHeight, 1, 10000);
 		camera.position.z = 500;
 
 		controls = new THREE.TrackballControls( camera );
@@ -80,29 +82,25 @@
 		// world
 		scene = new THREE.Scene();
 
-		var asInt = new Int32Array(data.buffer);
-		var pointsCount = asInt.length / 3;
+		var recordSize = 3*4 /* 3 ints for x, y and z */ +
+			3*2 /* 3 shorts for r, g and b */;
 
-		console.log('Total', pointsCount, 'bytes');
+		// Since each point record now has values of different
+		// sizes, we'd use a DataView to make our lives simpler
+		//
+		var asDataView = new DataView(data.buffer);
+		var pointsCount = data.buffer.byteLength / recordSize;
 
-		var bounds = getBounds(asInt);
+		console.log('Total', pointsCount, 'points');
+
+		var bounds = getBounds(asDataView, recordSize);
 		console.log(bounds);
 
-		// create a buffer object and manually add an attribute
-		// to avoid unnecessary copying
-		/*
-		   var geom = new THREE.BufferGeometry();
-		   geom.addAttribute("position", Float32Array, pointsCount, 3);
+		var maxBound = Math.max(bounds.xx - bounds.mx,
+								Math.max(bounds.xy - bounds.my,
+										 bounds.xz - bounds.mz));
 
-		   var asFloat = geom.attributes["position"].array;
-
-		   for (var i = 0, il = asInt.length ; i < il ; i ++) {
-		   asFloat[i] = asInt[i] * 0.00001;
-		   }
-
-		   var ps = new THREE.ParticleSystem(geom);
-		   scene.add(ps);
-		   */
+		console.log('Max bound:', maxBound);
 
 		var particles = pointsCount;
 		var geometry = new THREE.BufferGeometry();
@@ -113,45 +111,35 @@
 		var positions = geometry.attributes.position.array;
 		var colors = geometry.attributes.color.array;
 
-		var color = new THREE.Color();
-
-		var n = 1000, n2 = n / 2; // particles spread in the cube
-
-		for ( var i = 0; i < positions.length; i += 3 ) {
-
+		for ( var i = 0; i < particles ; i++) {
 			// positions
+			var _x = asDataView.getInt32(recordSize * i + 0, true);
+			var _y = asDataView.getInt32(recordSize * i + 4, true);
+			var _z = asDataView.getInt32(recordSize * i + 8, true);
 
-			var x = (asInt[3*i+0] - bounds.mx) / (bounds.xx - bounds.mx) * 800 - 400;
-			var y = (asInt[3*i+1] - bounds.my) / (bounds.xy - bounds.my) * 800 - 400;
-			var z = (asInt[3*i+2] - bounds.mz) / (bounds.xz - bounds.mz) * 800 - 400;
+			var x = (_x - bounds.mx) / maxBound * 800 - 400;
+			var y = (_y - bounds.my) / maxBound * 800 - 400;
+			var z = (_z - bounds.mz) / maxBound * 800 - 400;
 
-			positions[ i ]     = x;
-			positions[ i + 1 ] = y;
-			positions[ i + 2 ] = z;
+			positions[ 3*i ]     = x;
+			positions[ 3*i + 1 ] = y;
+			positions[ 3*i + 2 ] = z;
 
 			// colors
+			var _r = asDataView.getInt16(recordSize * i + 12, true);
+			var _g = asDataView.getInt16(recordSize * i + 14, true);
+			var _b = asDataView.getInt16(recordSize * i + 16, true);
 
-			var vx = ( x / n ) + 0.5;
-			var vy = ( y / n ) + 0.5;
-			var vz = ( z / n ) + 0.5;
-
-			color.setRGB( vx, vy, vz );
-
-			colors[ i ]     = color.r;
-			colors[ i + 1 ] = color.g;
-			colors[ i + 2 ] = color.b;
-
+			colors[ 3*i ]     = _r / 255.0;
+			colors[ 3*i + 1 ] = _g / 255.0;
+			colors[ 3*i + 2 ] = _b / 255.0;
 		}
 
-		//geometry.computeBoundingSphere();
-
-		//
-
-		var material = new THREE.ParticleSystemMaterial( { size: 5, vertexColors: true } );
+		// setup material to use vertex colors
+		var material = new THREE.ParticleSystemMaterial( { size: 1, vertexColors: true } );
 
 		var particleSystem = new THREE.ParticleSystem( geometry, material );
 		scene.add( particleSystem );
-
 
 		// renderer
 		renderer = new THREE.WebGLRenderer( { antialias: false } );
