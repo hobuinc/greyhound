@@ -12,8 +12,8 @@
 
 	var cross;
 
-	w.renderPoints = function(data, status_cb) {
-		init(data);
+	w.renderPoints = function(data, count, status_cb) {
+		init(data, count);
 		animate();
 
 		if(status_cb) {
@@ -59,7 +59,7 @@
 		return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 	};
 
-	function init(data) {
+	function init(data, count) {
 		camera = new THREE.PerspectiveCamera(60,
 			window.innerWidth / window.innerHeight, 1, 10000);
 		camera.position.z = 500;
@@ -82,14 +82,24 @@
 		// world
 		scene = new THREE.Scene();
 
-		var recordSize = 3*4 /* 3 ints for x, y and z */ +
-			3*2 /* 3 shorts for r, g and b */;
+		var recordSize = data.byteLength / count;
+
+		// we only support two formats here, XYZ and XYZ + 2 byte per RGB
+		// For anything else right now, we just continue by assuming no color
+		//
+		var nocolor = recordSize < 3*4 + 3*2;
+		var noxyz = recordSize < 3*4;
+
+		console.log('nocolor:', nocolor, 'noxyz:', noxyz);
+
+		if (noxyz)
+			throw new Error("The record size is too small to even contain XYZ values, check source");
 
 		// Since each point record now has values of different
 		// sizes, we'd use a DataView to make our lives simpler
 		//
 		var asDataView = new DataView(data.buffer);
-		var pointsCount = data.buffer.byteLength / recordSize;
+		var pointsCount = count;
 
 		console.log('Total', pointsCount, 'points');
 
@@ -119,16 +129,22 @@
 
 			var x = (_x - bounds.mx) / maxBound * 800 - 400;
 			var y = (_y - bounds.my) / maxBound * 800 - 400;
-			var z = (_z - bounds.mz) / maxBound * 800 - 400;
+			var z = (_z - bounds.mz) / maxBound * 400;
 
 			positions[ 3*i ]     = x;
 			positions[ 3*i + 1 ] = y;
 			positions[ 3*i + 2 ] = z;
 
 			// colors
-			var _r = asDataView.getInt16(recordSize * i + 12, true);
-			var _g = asDataView.getInt16(recordSize * i + 14, true);
-			var _b = asDataView.getInt16(recordSize * i + 16, true);
+			var _r = 0.0, _g = 0.0, _b = 0.0;
+			if (nocolor) {
+				_r = _g = _b = 255.0 * (_z - bounds.mz) / (bounds.xz - bounds.mz);
+			}
+			else {
+				_r = asDataView.getInt16(recordSize * i + 12, true);
+				_g = asDataView.getInt16(recordSize * i + 14, true);
+				_b = asDataView.getInt16(recordSize * i + 16, true);
+			}
 
 			colors[ 3*i ]     = _r / 255.0;
 			colors[ 3*i + 1 ] = _g / 255.0;

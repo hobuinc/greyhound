@@ -364,7 +364,8 @@ struct DummyPDAL {
 
 
 struct RealPDAL {
-	RealPDAL(Json::Value const& params) : stage(0), buffer(0), iterator(0), params(params)
+	RealPDAL(Json::Value const& params) :
+		stage(0), buffer(0), unpacked_buffer(0), iterator(0), params(params)
     {
 
 	}
@@ -373,14 +374,12 @@ struct RealPDAL {
     {
         if (iterator)
             delete iterator;
-        
 
-        // 
-        // if (stage)
-        //     delete stage;
         if (buffer)
             delete buffer;        
-        
+
+		if (unpacked_buffer)
+			delete unpacked_buffer;
     }
     
     void initialize()
@@ -395,17 +394,15 @@ struct RealPDAL {
         stage->initialize();
 
 		// create a point buffer to read in points
-		pdal::PointBuffer *pbuf =
+		unpacked_buffer =
 			new pdal::PointBuffer(stage->getSchema(), stage->getNumPoints());
 
-        iterator = stage->createSequentialIterator(*pbuf);
-        iterator->read(*pbuf);
+        iterator = stage->createSequentialIterator(*unpacked_buffer);
+        iterator->read(*unpacked_buffer);
 
 		// right now we're only interested in the output of our pipeline, so
 		// pack data
-		buffer = pbuf->pack();
-		delete pbuf;
-        
+		buffer = unpacked_buffer->pack();
 
 		// just make sure that our final buffer contains the X Y and Z dimenions
 		//
@@ -445,7 +442,7 @@ struct RealPDAL {
     
     pdal::Stage* stage;
     pdal::PipelineManager manager;
-    pdal::PointBuffer* buffer;
+    pdal::PointBuffer* buffer, *unpacked_buffer;
     pdal::StageSequentialIterator* iterator;
     Json::Value params;
     

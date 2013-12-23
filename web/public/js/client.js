@@ -90,9 +90,6 @@
 
 				count += a.length;
 
-				//var completePercent = 100 * count / dataBuffer.byteLength;
-				//status_cb("Downloading points... " + completePercent.toFixed(1) + "% complete.");
-
 				if (count >= dataBuffer.byteLength) {
 					// we're done reading data, close connection 
 					ws.send(JSON.stringify({
@@ -123,7 +120,12 @@
 			console.log('Got', data.byteLength, 'total bytes in', count, 'points');
 
 			message("Data download complete, handing over to renderer.");
-			renderPoints(data, message);
+			try {
+				renderPoints(data, count, message);
+			}
+			catch(e) {
+				errorOut(e.message);
+			}
 		});
 	};
 })(window);
