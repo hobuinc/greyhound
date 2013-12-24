@@ -36,12 +36,14 @@ var
 			var d = o.reqd;
 			o.reqd = null;
 
-			if (!err && (res.status === 1 || res.ready === 1)) {
-				d.resolve(res);
-			}
-			else {
-				d.reject(err || new Error('Non-successful return'));
-			}
+			console.log('checkInvoke:', err, res);
+
+			if (err)
+				return d.reject(err)
+			else if (res && (res.status === 0 || res.ready === 0))
+				return d.reject(new Error(res.message || "Unsuccessful return"));
+
+			d.resolve(res || {});
 		}
 	}
 

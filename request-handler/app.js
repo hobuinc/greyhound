@@ -56,10 +56,7 @@ app.post("/create", function(req, res) {
 	pool.acquire(function(err, s) {
         console.log('erroring: ', s);
 		if (err)
-        {
-
-			return res.json(500, { message: err.message });
-        }
+			return error(res)(err);
 
 		s.create(req.body.desc || "").then(function() {
 			var id = createId();
@@ -70,8 +67,8 @@ app.post("/create", function(req, res) {
 		}, function(err) {
             console.log('erroring create: ', err);            
 			pool.release(s);
-			return error(err);
-		});
+			return error(res)(err);
+		}).done();
 	});
 });
 
@@ -90,7 +87,7 @@ app.delete("/:sessionId", function(req, res) {
 
 			console.log('Destroy was not clean!');
 			res.json({ message: 'Session destroyed, but not clean' });
-		});
+		}).done();
 	});
 });
 
@@ -99,7 +96,7 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 		console.log('pointsCount('+ sid + ')');
 		s.getNumPoints().then(function(count) {
 			res.json({ count: count });
-		}, error(res));
+		}, error(res)).done();
 	});
 });
 
@@ -109,7 +106,7 @@ app.get("/srs/:sessionId", function(req, res) {
 		console.log('srs('+ sid + ')');
 		s.getSRS().then(function(srs) {
 			res.json({ srs: srs });
-		}, error(res));
+		}, error(res)).done();
 	});
 });
 app.post("/read/:sessionId", function(req, res) {
@@ -132,7 +129,7 @@ app.post("/read/:sessionId", function(req, res) {
 				message: 'Request queued for transmission to: ' + host + ':' + port,
 			});
 			res.json(ret);
-		}, error(res));
+		}, error(res)).done();
 	});
 });
 

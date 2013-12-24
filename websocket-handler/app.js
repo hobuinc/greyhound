@@ -80,11 +80,6 @@ process.nextTick(function() {
 		});
 	}
 
-	wss.on('headers', function(h) {
-		console.log('Headers: ');
-		console.log(h);
-	});
-
 	wss.on('connection', function(ws) {
 		var handler = new CommandHandler(ws);
 		console.log('Got a connection');
@@ -94,6 +89,8 @@ process.nextTick(function() {
 				if (err) return cb(err);
 
 				web.post(rh, '/create', function(err, res) {
+					console.log('Create came back', err, res);
+
 					if (err) return cb(err);
 
 					setAffinity(res.sessionId, rh, function(err) {
@@ -134,6 +131,8 @@ process.nextTick(function() {
 
 					deleteAffinity(session, function(err) {
 						if (err) console.log('destroying session, but affinity was not correctly cleared', err);
+
+						console.log('Completing destroy');
 						cb();
 					});
 				});

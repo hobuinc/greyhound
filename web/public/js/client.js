@@ -55,7 +55,12 @@
 		ws.onmessage = function(evt) {
 			if (typeof(evt.data) === "string") {
 				var msg = JSON.parse(evt.data);
+				console.log('Incoming:', msg);
+
 				if (msg.command === "create") {
+					if (msg.status === 0)
+						return cb(new Error('Failed to create session, this is not good.'));
+
 					// this is in response to our create request
 					// we now request to recieve the data
 					//
@@ -63,6 +68,8 @@
 						command: 'read',
 						session: msg.session
 					}));
+
+					session	= msg.session;
 
 					status_cb("Read initiated, waiting for response...");
 				}
@@ -76,12 +83,14 @@
 					pointsCount	= msg.pointsRead;
 					console.log(msg.pointsRead, msg.bytesCount);
 					dataBuffer	= new Int8Array(msg.bytesCount);
-					session		= msg.session;
 				}
 				else if (msg.command === "destroy") {
-					ws.close();
+					if (msg.status === 1) {
+						ws.close();
+						return status_cb("Data read successfully.");
+					}
 
-					status_cb("Data read successfully.");
+					cb(new Error("Session destroy command failed"));
 				}
 			}
 			else {

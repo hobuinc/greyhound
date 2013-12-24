@@ -121,7 +121,7 @@ class CommandManager {
 
 				return vRet;
 			}
-			catch(std::runtime_error& e) {
+			catch(std::exception& e) {
 				Json::Value ex;
 				ex["status"] = 0;
 				ex["message"] = e.what();
@@ -326,11 +326,6 @@ public:
 		if (!p_) throw std::runtime_error("Session is not valid");
 		return p_->read(buf, startIndex, npoints);
 	}
-    
-    void initialize()
-    {
-        p_->initialize();
-    }
 
 private:
 	shared_ptr p_;
@@ -367,7 +362,7 @@ struct RealPDAL {
 	RealPDAL(Json::Value const& params) :
 		stage(0), buffer(0), unpacked_buffer(0), iterator(0), params(params)
     {
-
+		initialize();
 	}
     
     ~RealPDAL()
@@ -528,19 +523,7 @@ int main() {
 
 	commands.add("create", [&session](const Json::Value& params) -> Json::Value {
         // std::string desc = params["pipelineDesc"].asString();
-
 		session.create(params);
-
-        try
-        {
-            session.initialize();
-
-        } catch (std::exception& e)
-        {
-            Json::Value v;
-            v[std::string("error")] = e.what();
-            return v;
-        }
 
 		return Json::Value();
 	});
