@@ -32,9 +32,16 @@ This should bring all components up.  You can now run examples from the _example
 	
 To have pointcloud data rendered in a browser.
 
+## Pointcloud Source
+Right now the implementation reads in the pipeline description located at `examples/data/read.xml` which uses `autzen.las` (in the same directory) as the source of point data.  You can change the `read.xml` file to read points from whereever you like.
+
+Also, the client side uses pretty rudimentary logic to detect whether color information is available.  Your output needs to have the XYZ dimensions as signed 4-byte integers and, optionally, the RGB dimensions for color information as unsigned 2-byte shorts.  A record size of 18 indicates that color information is available (3 * 4 + 2 * 3) while a record size of 12 indicates no color information.
+
+This will change as we finalize schema transfer.
+
 # License
 _Greyhound_ is under **MIT** license and is Copyright [Howard Butler](http://hobu.biz) and [Uday Verma](https://github.com/verma).
 
 
 
-last updated: December 24, 2013
+last updated: December 26, 2013
