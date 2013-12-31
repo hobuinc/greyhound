@@ -13,6 +13,9 @@
 					Z
 				</Option>
 				<Option name="dimension">
+					Intensity
+				</Option>
+				<Option name="dimension">
 					Red
 				</Option>
 				<Option name="dimension">
