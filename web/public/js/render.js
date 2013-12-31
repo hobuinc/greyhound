@@ -24,7 +24,7 @@
 		}
 	};
 
-	var getBounds = function(arr, recSize) {
+	var getBounds = function(arr, recSize, doIntensity) {
 		var bounds = {};
 		var pc = arr.byteLength / recSize;
 
@@ -33,11 +33,14 @@
 			var y = arr.getInt32(recSize * i + 4, true);
 			var z = arr.getInt32(recSize * i + 8, true);
 
+			var intensity = doIntensity ? arr.getInt16( recSize * i + 12, true) : 0;
+
 			if (i === 0) {
 				bounds = {
 					mx: x, xx: x,
 					my: y, xy: y,
-					mz: z, xz: z };
+					mz: z, xz: z,
+					mi: intensity, xi: intensity};
 			}
 			else {
 				bounds.mx = Math.min(bounds.mx, x);
@@ -49,6 +52,8 @@
 				bounds.mz = Math.min(bounds.mz, z);
 				bounds.xz = Math.max(bounds.xz, z);
 
+				bounds.mi = Math.min(bounds.mi, intensity);
+				bounds.xi = Math.max(bounds.xi, intensity);
 			}
 		}
 
@@ -86,11 +91,22 @@
 
 		// we only support two formats here, XYZ and XYZ + 2 byte per RGB
 		// For anything else right now, we just continue by assuming no color
-		//
-		var nocolor = recordSize < 3*4 + 3*2;
-		var noxyz = recordSize < 3*4;
+		var nocolor = false, noxyz = false, nointensity = false;
 
-		console.log('nocolor:', nocolor, 'noxyz:', noxyz);
+		if (recordSize === 3*4) {
+			nocolor = nointensity = true;
+		}
+		else if (recordSize === 3*4 + 2) {
+			nocolor = true;
+		}
+		else if (recordSize === 3*4 + 3*2) {
+			nointensity = true;
+		}
+		else if (recordSize !== 3*4 + 2 + 3*2) {
+			throw new Error('Cannot determine schema type from record size');
+		}
+
+		console.log('nocolor:', nocolor, 'noxyz:', noxyz, 'nointensity', nointensity);
 
 		if (noxyz)
 			throw new Error("The record size is too small to even contain XYZ values, check source");
@@ -103,7 +119,7 @@
 
 		console.log('Total', pointsCount, 'points');
 
-		var bounds = getBounds(asDataView, recordSize);
+		var bounds = getBounds(asDataView, recordSize, !nointensity);
 		console.log(bounds);
 
 		var maxBound = Math.max(bounds.xx - bounds.mx,
@@ -121,11 +137,18 @@
 		var positions = geometry.attributes.position.array;
 		var colors = geometry.attributes.color.array;
 
+		var offset = 0;
 		for ( var i = 0; i < particles ; i++) {
 			// positions
-			var _x = asDataView.getInt32(recordSize * i + 0, true);
-			var _y = asDataView.getInt32(recordSize * i + 4, true);
-			var _z = asDataView.getInt32(recordSize * i + 8, true);
+			var _x = asDataView.getInt32(offset, true); offset += 4;
+			var _y = asDataView.getInt32(offset, true); offset += 4;
+			var _z = asDataView.getInt32(offset, true); offset += 4;
+
+			var _intensity = 1.0;
+			if(!nointensity) {
+				_intensity = asDataView.getInt16(offset, true); offset += 2;
+				_intensity = (_intensity - bounds.mi) / (bounds.xi - bounds.mi);
+			}
 
 			var x = (_x - bounds.mx) / maxBound * 800 - 400;
 			var y = (_y - bounds.my) / maxBound * 800 - 400;
@@ -138,17 +161,22 @@
 			// colors
 			var _r = 0.0, _g = 0.0, _b = 0.0;
 			if (nocolor) {
-				_r = _g = _b = 255.0 * (_z - bounds.mz) / (bounds.xz - bounds.mz);
+				if (nointensity) {
+					_r = _g = _b = 255.0 * (_z - bounds.mz) / (bounds.xz - bounds.mz);
+				}
+				else {
+					_r = _g = _b = 255.0 * _intensity;
+				}
 			}
 			else {
-				_r = asDataView.getInt16(recordSize * i + 12, true);
-				_g = asDataView.getInt16(recordSize * i + 14, true);
-				_b = asDataView.getInt16(recordSize * i + 16, true);
+				_r = asDataView.getInt16(offset, true); offset += 2; 
+				_g = asDataView.getInt16(offset, true); offset += 2;
+				_b = asDataView.getInt16(offset, true); offset += 2;
 			}
 
-			colors[ 3*i ]     = _r / 255.0;
-			colors[ 3*i + 1 ] = _g / 255.0;
-			colors[ 3*i + 2 ] = _b / 255.0;
+			colors[ 3*i ]     = _intensity * _r / 255.0;
+			colors[ 3*i + 1 ] = _intensity * _g / 255.0;
+			colors[ 3*i + 2 ] = _intensity * _b / 255.0;
 		}
 
 		// setup material to use vertex colors
