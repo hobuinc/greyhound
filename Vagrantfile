@@ -50,7 +50,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "postgis",
 	  "libcunit1-dev",
 	  "postgresql-server-dev-9.1",
-	  "postgresql-9.1-postgis"
+	  "postgresql-9.1-postgis",
+    "libgeos++-dev"
   ];
 
   nodeVersion = "0.8.23"
