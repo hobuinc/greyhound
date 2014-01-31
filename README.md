@@ -2,7 +2,7 @@
 
 A pointcloud querying and streaming framework over websockets for the web and your native apps.
 
-![pointcloud](https://raw.github.com/cleveland-metroparks/greyhound/makinReadmePretty/pointcloud.png)
+![pointcloud](pointcloud.png)
 
 # Tell me more
 _Greyhound_ is powered by [PDAL](http://www.pointcloud.org/) in the background which it uses to query points out of a point cloud source. The queries flow through a variety of systems put in place for scalability and session management.  PDAL sessions are maintained in stand-alone binaries which exist for as long as sessions are active.  See the [overview](https://github.com/hobu/greyhound/blob/master/doc/overview.rst) document for more details.
