@@ -12,8 +12,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.network :forwarded_port, guest: 80, host: 8080
 
+  pg_disk = '/Users/verma/work/lod-points/iowa-city-north-liberty-pg.vdi'
+
   config.vm.provider :virtualbox do |vb|
-	  vb.customize ["modifyvm", :id, "--memory", "1024"]
+	  vb.customize ["modifyvm", :id, "--memory", "2048"]
 	  vb.customize ["modifyvm", :id, "--cpus", "2"]   
 	  vb.customize ["modifyvm", :id, "--ioapic", "on"]
   end  
