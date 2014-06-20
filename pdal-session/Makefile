@@ -2,7 +2,7 @@ CC=g++
 DEPS=jsoncpp
 
 CCFLAGS=-g $(shell pkg-config --cflags $(DEPS)) -std=c++0x -Wall -Werror -pedantic
-LDFLAGS=-g $(shell pkg-config --libs $(DEPS)) -lboost_system -lpdalcpp
+LDFLAGS=-g $(shell pkg-config --libs $(DEPS)) -lboost_system -lpdalcpp -lpthread
 
 SRCS=pdal-session.cpp
 OBJS=$(SRCS:.cpp=.o)

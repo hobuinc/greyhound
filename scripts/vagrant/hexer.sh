@@ -3,6 +3,6 @@
 
 git clone https://github.com/hobu/hexer.git
 cd hexer
-cmake . -DCMAKE_INSTALL_PREFIX=/usr -DWITH_GDAL=ON
+cmake . -DCMAKE_INSTALL_PREFIX=/usr
 make
 sudo make install

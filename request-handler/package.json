@@ -6,6 +6,9 @@
 		"lodash" : "*",
 		"jsonparse": "*",
 		"express": "*",
+        "body-parser": "*",
+        "method-override": "*",
+        "errorhandler": "*",
 		"q": "*",
 		"generic-pool": "*",
 		"seaport": "*"

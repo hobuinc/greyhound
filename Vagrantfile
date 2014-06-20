@@ -5,14 +5,13 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.box = "precise64"
-
+  config.vm.box = "trusty64"
   config.vm.hostname = "greyhound-dev"
-  config.vm.box_url = "http://files.vagrantup.com/precise64.box"
+  config.vm.box_url = "https://vagrantcloud.com/ubuntu/trusty64/version/1/provider/virtualbox.box"
 
   config.vm.network :forwarded_port, guest: 80, host: 8080
 
-  pg_disk = '/Users/verma/work/lod-points/iowa-city-north-liberty-pg.vdi'
+  # pg_disk = '/Users/verma/work/lod-points/iowa-city-north-liberty-pg.vdi'
 
   config.vm.provider :virtualbox do |vb|
 	  vb.customize ["modifyvm", :id, "--memory", "2048"]
@@ -20,11 +19,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  vb.customize ["modifyvm", :id, "--ioapic", "on"]
   end  
 
-  #
   ppaRepos = [
-	  "ppa:ubuntugis/ppa",
-	  "ppa:ubuntugis/ppa",
-	  "ppa:apokluda/boost1.53"
+	  "ppa:ubuntugis/ubuntugis-unstable",
+      "ppa:boost-latest/ppa"
   ]
 
   packageList = [
@@ -44,16 +41,16 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "python-all-dev",
 	  "python-numpy",
 	  "libxml2-dev",
-	  "libboost1.53-all-dev",
+	  "libboost-all-dev",
 	  "libbz2-dev",
 	  "libsqlite0-dev",
 	  "cmake-curses-gui",
 	  "screen",
 	  "postgis",
 	  "libcunit1-dev",
-	  "postgresql-server-dev-9.1",
-	  "postgresql-9.1-postgis",
-    "libgeos++-dev"
+	  "postgresql-server-dev-9.3",
+	  "postgresql-9.3-postgis-2.1",
+      "libgeos++-dev"
   ];
 
   nodeVersion = "0.8.23"
