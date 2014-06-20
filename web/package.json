@@ -5,6 +5,12 @@
 	"dependencies": {
 		"q": "*",
 		"express": "*",
+        "morgan": "*",
+        "body-parser": "*",
+        "method-override": "*",
+        "cookie-parser": "*",
+        "express-session": "*",
+        "errorhandler": "*",
 		"lodash": "*",
 		"jade": "*",
 		"less-middleware": "*"
