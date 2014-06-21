@@ -4,15 +4,9 @@
 	"version": "0.0.1",
 	"dependencies": {
 		"q": "*",
-		"express": "*",
-        "morgan": "*",
-        "body-parser": "*",
-        "method-override": "*",
-        "cookie-parser": "*",
-        "express-session": "*",
-        "errorhandler": "*",
+		"express": "3.x",
 		"lodash": "*",
 		"jade": "*",
-		"less-middleware": "*"
+		"less-middleware": "0.1.x"
 	}
 }

@@ -8,9 +8,6 @@ var express = require("express"),
 	crypto = require('crypto'),
 	_ = require('lodash'),
 	seaport = require('seaport'),
-    bodyParser = require('body-parser'),
-    methodOverride = require('method-override'),
-    errorHandler = require('errorhandler'),
 
 	createProcessPool = require('./lib/pdal-pool').createProcessPool,
 
@@ -20,13 +17,15 @@ var express = require("express"),
 
 
 // configure express application
-app.use(methodOverride);
-app.use(bodyParser);
-app.use(errorHandler({
-dumpExceptions: true, 
-showStack: true
-}));
-// app.use(app.router);
+app.configure(function(){
+  app.use(express.methodOverride());
+  app.use(express.bodyParser());
+  app.use(express.errorHandler({
+    dumpExceptions: true, 
+    showStack: true
+  }));
+  app.use(app.router);
+});
 
 var sessions = {};
 

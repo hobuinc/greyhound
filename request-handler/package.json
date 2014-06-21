@@ -5,10 +5,7 @@
 	"dependencies": {
 		"lodash" : "*",
 		"jsonparse": "*",
-		"express": "*",
-        "body-parser": "*",
-        "method-override": "*",
-        "errorhandler": "*",
+		"express": "3.x",
 		"q": "*",
 		"generic-pool": "*",
 		"seaport": "*"
