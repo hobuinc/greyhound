@@ -51,6 +51,12 @@ app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
 
+// handlers for our pipeline database
+app.post("/put", function(req, res) {
+    console.log('Got PUT request in request-handler');
+    res.json({ success : true });
+});
+
 // handlers for our API
 app.post("/create", function(req, res) {
 	pool.acquire(function(err, s) {
@@ -109,6 +115,7 @@ app.get("/srs/:sessionId", function(req, res) {
 		}, error(res)).done();
 	});
 });
+
 app.post("/read/:sessionId", function(req, res) {
 	var host = req.body.host, port = parseInt(req.body.port);
 
@@ -142,3 +149,4 @@ app.listen(port, function() {
 
 	console.log('Request handler listening on port: ' + port);
 });
+

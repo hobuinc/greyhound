@@ -84,6 +84,17 @@ process.nextTick(function() {
 		var handler = new CommandHandler(ws);
 		console.log('Got a connection');
 
+        handler.on('put', function(msg, cb) {
+			pickRequestHandler(function(err, rh) {
+				if (err) return cb(err);
+
+                web.post(rh, '/put', function(err, res) {
+                    console.log('PUT came back', err, res);
+                    cb(null, null);
+                });
+            });
+        });
+
 		handler.on('create', function(msg, cb) {
 			pickRequestHandler(function(err, rh) {
 				if (err) return cb(err);
@@ -95,7 +106,7 @@ process.nextTick(function() {
 
 					setAffinity(res.sessionId, rh, function(err) {
 						if (err) {
-							// atleast try to clean session
+							// at least try to clean session
 							web._delete(rh, '/' + session, function() { });
 							return cb(err);
 						}
