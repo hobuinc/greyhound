@@ -11,7 +11,7 @@ setup_base_packages() {
 
 setup_npm_packages() {
 	# issue npm install in each of the node.js projects
-	for P in web request-handler websocket-handler dist-handler examples/js ; do
+	for P in web request-handler websocket-handler dist-handler db-handler examples/js ; do
 		cd $P ; npm install ; cd -
 	done
 }

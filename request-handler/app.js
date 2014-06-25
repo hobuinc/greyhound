@@ -51,18 +51,13 @@ app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
 
-// handlers for our pipeline database
-app.post("/put", function(req, res) {
-    console.log('Got PUT request in request-handler');
-    res.json({ success : true });
-});
-
 // handlers for our API
 app.post("/create", function(req, res) {
 	pool.acquire(function(err, s) {
-        console.log('erroring: ', s);
-		if (err)
+		if (err) {
+            console.log('erroring: ', s);
 			return error(res)(err);
+        }
 
 		s.create(req.body.desc || "").then(function() {
 			var id = createId();

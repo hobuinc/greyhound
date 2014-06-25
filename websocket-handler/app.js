@@ -32,6 +32,13 @@ var pickRequestHandler = function(cb) {
 	});
 }
 
+var getDbHandler = function(cb) {
+	ports.get('db', function (services) {
+		var service = services[0];
+		cb(null, service.host + ':' + service.port);
+	});
+}
+
 
 var setAffinity = function(session, target, cb) {
 	redisClient.hset('affinity', session, target, cb);
@@ -84,17 +91,24 @@ process.nextTick(function() {
 		var handler = new CommandHandler(ws);
 		console.log('Got a connection');
 
-        handler.on('put', function(msg, cb) {
-			pickRequestHandler(function(err, rh) {
+		// DB handler calls
+		handler.on('put', function(msg, cb) {
+			getDbHandler(function(err, db) {
 				if (err) return cb(err);
 
-                web.post(rh, '/put', function(err, res) {
-                    console.log('PUT came back', err, res);
-                    cb(null, null);
-                });
-            });
-        });
+				web.post(
+					db,
+					'/put',
+					{ pipeline: msg.pipeline },
+					function(err, res) {
+						console.log('PUT came back', err, res);
 
+						cb(null, { id: res.id });
+					});
+			});
+		});
+
+		// PDAL session calls
 		handler.on('create', function(msg, cb) {
 			pickRequestHandler(function(err, rh) {
 				if (err) return cb(err);

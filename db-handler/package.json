@@ -1,0 +1,12 @@
+{
+	"name": "db",
+	"private": true,
+	"version": "0.0.1",
+	"dependencies": {
+        "jsonparse": "*",
+        "express": "3.x",
+        "seaport": "*",
+		"sqlite3": "*",
+        "mkdirp": "*"
+	}
+}

@@ -4,3 +4,5 @@ dist: node ./dist-handler/app.js
 rh: node ./request-handler/app.js
 ws: node ./websocket-handler/app.js
 web: env PORT=8080 node ./web/app.js
+db: node ./db-handler/app.js
+
