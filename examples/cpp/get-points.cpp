@@ -56,7 +56,6 @@ public:
         buffer << stream.rdbuf();
         v["pipeline"] = buffer.str();
 
-        std::cout << "getting file " << filename << std::endl;
         do_exchange(v, [handler](const Json::Value& r) {
             std::cout << "PUT status: " << r["status"] << std::endl;
             handler();
@@ -161,11 +160,11 @@ private:
     // the following function is needed to replace the message handler right away
     // before the system gets a chance to send down another message through our message
     // handler, this is needed where the next message needs to be processed through a
-    // different message handler, e.g. when reading points.  The swaped function gets raw
+    // different message handler, e.g. when reading points.  The swapped function gets raw
     // messages as a bonus
     //
     template<typename F, typename S>
-    void do_exchange_with_swap(const Json::Value& v, F handler, S swaped) {
+    void do_exchange_with_swap(const Json::Value& v, F handler, S swapped) {
         if (in_exchange_) {
             std::cerr << "Exchange failed" << std::endl;
             return;     // only one exchange in progress at a time
@@ -177,7 +176,7 @@ private:
         });
 
         swapdone_ = false;
-        client_.set_message_handler([this, handler, swaped](websocketpp::connection_hdl hdl,
+        client_.set_message_handler([this, handler, swapped](websocketpp::connection_hdl hdl,
                     message_ptr msg) {
             Json::Value v;
             Json::Reader r;
@@ -189,7 +188,7 @@ private:
                 handler(v);
                 swapdone_ = true;
             } else
-                swaped(msg);
+                swapped(msg);
         });
 
         // getting connection and everything
