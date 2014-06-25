@@ -103,13 +103,27 @@ process.nextTick(function() {
 					function(err, res) {
 						console.log('PUT came back', err, res);
 
-						cb(null, { id: res.id });
+						cb(null, { pipelineId: res.id });
 					});
 			});
 		});
 
 		// PDAL session calls
 		handler.on('create', function(msg, cb) {
+			getDbHandler(function(err, db) {
+				if (err) return cb(err);
+
+				web.get(
+					db,
+					'/retrieve', 
+					{ pipelineId: msg.pipelineId },
+					function(err, res) {
+						console.log("RETRIEVE came back", err, res);
+					});
+			});
+
+
+
 			pickRequestHandler(function(err, rh) {
 				if (err) return cb(err);
 

@@ -33,19 +33,6 @@ public:
         //client_.set_open_handler(bind(&this_type::on_open, this, _1));
     }
 
-    template<typename CreateHandler>
-    void Create(CreateHandler handler) {
-        Json::Value v;
-        v["command"] = "create";
-
-        do_exchange(v, [handler](const Json::Value& r) {
-            if (r["status"] == 1)
-                handler(r["session"].asString());
-            else
-                handler("");
-        });
-    }
-
     template<typename PutHandler>
     void Put(std::string filename, PutHandler handler) {
         Json::Value v;
@@ -57,8 +44,31 @@ public:
         v["pipeline"] = buffer.str();
 
         do_exchange(v, [handler](const Json::Value& r) {
-            std::cout << "PUT status: " << r["status"] << std::endl;
-            handler();
+            if (r["status"] == 1)
+            {
+                std::cout << "PUT came back with:" << std::endl;
+                std::cout << r.toStyledString() << std::endl;
+                handler(r["pipelineId"].asInt());
+            }
+            else
+            {
+                std::cout << "Pipeline transfer failed" << std::endl;
+                exit(1);
+            }
+        });
+    }
+
+    template<typename CreateHandler>
+    void Create(int pipelineId, CreateHandler handler) {
+        Json::Value v;
+        v["command"] = "create";
+        v["pipelineId"] = pipelineId;
+
+        do_exchange(v, [handler](const Json::Value& r) {
+            if (r["status"] == 1)
+                handler(r["session"].asString());
+            else
+                handler("");
         });
     }
 
@@ -85,9 +95,8 @@ public:
         if (count != -1) v["count"] = count;
 
         do_exchange_with_swap(v, [this, handler](const Json::Value& r) {
-            std::cout << r.toStyledString() << std::endl;
             if (r["status"] == 1) {
-                std::cout << r.toStyledString() << std::endl;
+                // std::cout << r.toStyledString() << std::endl;
 
                 int npoints = r["pointsRead"].asInt();
                 int nbytes = r["bytesCount"].asInt();
@@ -210,12 +219,15 @@ int main(int argc, char* argv[]) {
 
     int ibytesToRead = 0, bytesRead = 0;
 
-    client.Create([&client, &filename, &ibytesToRead, &bytesRead](const std::string& session) {
-        std::cout << "Session created: " << session << std::endl;
+    client.Put(filename, [&client, &ibytesToRead, &bytesRead](int pipelineId) {
+        std::cout << "Pipeline stored: " << pipelineId << std::endl;
+    
+        client.Create(pipelineId, [&client, &ibytesToRead, &bytesRead](const std::string& session) {
+            std::cout << "Session created: " << session << std::endl;
 
-        client.Put(filename, [&client, session, &ibytesToRead, &bytesRead]() {
             client.GetPointsCount(session, [&client, session, &ibytesToRead, &bytesRead](int count) {
                 std::cout << "Session has " << count << " points." << std::endl;
+
                 client.Read(session, 
                     [&ibytesToRead](int npoints, int nbytes) {
                         std::cout << "Total " << npoints << " points in " << nbytes << " bytes will arrive." << std::endl;
@@ -233,3 +245,4 @@ int main(int argc, char* argv[]) {
 
     client.Run();
 }
+
