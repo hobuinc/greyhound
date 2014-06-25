@@ -3,6 +3,7 @@
 pdal-session/pdal-session
 examples/cpp/get-points
 *.log
+db-handler/db/*
 
 node_modules
 npm-debug.log
