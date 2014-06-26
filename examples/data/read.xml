@@ -28,7 +28,7 @@
 		</Option>
 		<Reader type="drivers.las.reader">
 			<Option name="filename">
-				autzen.las
+                /vagrant/examples/data/autzen.las
 			</Option>
 		</Reader>
 	</Filter>

@@ -382,9 +382,10 @@ struct RealPDAL {
         bool debug = params["debug"].asBool();
         int verbose = params["verbose"].asInt();
         pdal::PipelineReader reader(manager, debug, verbose);
-        std::string filename = params["filename"].asString();
+        std::string pipeline = params["pipeline"].asString();
+        std::istringstream ssPipeline(pipeline);
 
-        reader.readPipeline(filename);
+        reader.readPipeline(ssPipeline);
         stage = manager.getStage();
         stage->initialize();
 
@@ -522,7 +523,7 @@ int main() {
 	});
 
 	commands.add("create", [&session](const Json::Value& params) -> Json::Value {
-        // std::string desc = params["pipelineDesc"].asString();
+        // std::string pipeline = params["pipeline"].asString();
 		session.create(params);
 
 		return Json::Value();
