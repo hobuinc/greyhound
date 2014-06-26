@@ -46,8 +46,6 @@ public:
         do_exchange(v, [handler](const Json::Value& r) {
             if (r["status"] == 1)
             {
-                std::cout << "PUT came back with:" << std::endl;
-                std::cout << r.toStyledString() << std::endl;
                 handler(r["pipelineId"].asInt());
             }
             else
@@ -220,7 +218,7 @@ int main(int argc, char* argv[]) {
     int ibytesToRead = 0, bytesRead = 0;
 
     client.Put(filename, [&client, &ibytesToRead, &bytesRead](int pipelineId) {
-        std::cout << "Pipeline stored: " << pipelineId << std::endl;
+        std::cout << "Pipeline stored as ID: " << pipelineId << std::endl;
     
         client.Create(pipelineId, [&client, &ibytesToRead, &bytesRead](const std::string& session) {
             std::cout << "Session created: " << session << std::endl;

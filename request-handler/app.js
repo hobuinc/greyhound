@@ -59,7 +59,7 @@ app.post("/create", function(req, res) {
 			return error(res)(err);
         }
 
-		s.create(req.body.desc || "").then(function() {
+		s.create(req.body.pipeline || "").then(function() {
 			var id = createId();
 			sessions[id] = s;
 

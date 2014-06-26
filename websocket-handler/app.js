@@ -53,6 +53,49 @@ var deleteAffinity = function(session, cb) {
 	redisClient.hdel('affinity', session, cb);
 }
 
+var queryPipeline = function(id, cb) {
+	getDbHandler(function(err, db) {
+		if (err) return cb(err);
+
+		web.get(
+			db,
+			'/retrieve', 
+			{ pipelineId: id },
+			function(err, res) {
+				// console.log("RETRIEVE came back", err, res);
+				return cb(err, res.pipeline);
+			});
+	});
+}
+
+var createSession = function(pipeline, cb) {
+	pickRequestHandler(function(err, rh) {
+		if (err) return cb(err);
+
+		web.post(rh, '/create', { pipeline: pipeline }, function(err, res) {
+			console.log('Create came back', err, res);
+
+			if (err) return cb(err);
+
+			setAffinity(res.sessionId, rh, function(err) {
+				if (err) {
+					// at least try to clean session
+					web._delete(
+						rh,
+						'/' + session,
+						function() { });
+
+					return cb(err);
+				}
+
+				// everything went fine, we're good
+				cb(null, { session: res.sessionId });
+			});
+		});
+	});
+}
+
+
 process.nextTick(function() {
 	// setup a basic express server
 	//
@@ -91,8 +134,9 @@ process.nextTick(function() {
 		var handler = new CommandHandler(ws);
 		console.log('Got a connection');
 
-		// DB handler calls
 		handler.on('put', function(msg, cb) {
+			// Give this pipeline to the db-handler to store, and return the
+			// created pipelineId that maps to the stored pipeline.
 			getDbHandler(function(err, db) {
 				if (err) return cb(err);
 
@@ -108,41 +152,15 @@ process.nextTick(function() {
 			});
 		});
 
-		// PDAL session calls
 		handler.on('create', function(msg, cb) {
-			getDbHandler(function(err, db) {
-				if (err) return cb(err);
+			// Get the stored pipeline corresponding to the requested
+			// pipelineId from the db-handler, then defer to the
+			// request-handler to create the session.
+			queryPipeline(msg.pipelineId, function(err, pipeline) {
+				if (err)
+					return cb(err);
 
-				web.get(
-					db,
-					'/retrieve', 
-					{ pipelineId: msg.pipelineId },
-					function(err, res) {
-						console.log("RETRIEVE came back", err, res);
-					});
-			});
-
-
-
-			pickRequestHandler(function(err, rh) {
-				if (err) return cb(err);
-
-				web.post(rh, '/create', function(err, res) {
-					console.log('Create came back', err, res);
-
-					if (err) return cb(err);
-
-					setAffinity(res.sessionId, rh, function(err) {
-						if (err) {
-							// at least try to clean session
-							web._delete(rh, '/' + session, function() { });
-							return cb(err);
-						}
-
-						// everything went fine, we're good
-						cb(null, { session: res.sessionId });
-					});
-				});
+				createSession(pipeline, cb);
 			});
 		});
 

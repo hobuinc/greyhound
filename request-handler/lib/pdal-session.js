@@ -140,11 +140,11 @@ var
 		});
 	}
 
-	PDALSession.prototype.create = function(desc) {
+	PDALSession.prototype.create = function(pipeline) {
 		return this.exchange({
 			command: 'create',
 			params: {
-                filename :"/vagrant/examples/data/read.xml",
+                pipeline: pipeline,
                 debug: true,
                 verbose: 4
 			}
