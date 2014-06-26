@@ -50,7 +50,7 @@ function configureDb(cb) {
         });
     });
 
-    // TODO: Should close DB here, re-open when needed.
+    // TODO: Should close DB (and DB file) here, re-open when needed.
     // For now the sqlite3 DB is open for the lifetime of the db-handler.
     // Retrieve operations should open in read-only.
     return cb(null);
@@ -93,9 +93,10 @@ var retrieve = function(pipelineId, cb)
 
             if (err)
                 return cb(err);
-            else if (rows.length !== 1)
-                // TODO Create error.
-                return 1;
+            else if (rows.length > 1)
+                return cb(new Error("Database results invalid"));
+            else if (rows.length == 0)
+                return cb(new Error("PipelineId " + pipelineId + " not found"));
 
             var filename = rows[0].filename;
 
@@ -115,7 +116,7 @@ app.post("/put", function(req, res) {
         if (err)
             return error(res)(err);
 
-        // Return database ID of the inserted pipeline.
+        // Respond with database ID of the inserted pipeline.
         res.json({ id: pipelineId });
     });
 });
