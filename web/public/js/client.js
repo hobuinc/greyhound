@@ -48,11 +48,7 @@
 		var wsURI = "ws://" + w.location.host + "/";
 		var ws = new w.WebSocket(wsURI);
 
-        console.log("DBG: ", w.location.search);
-        console.log("GET: ", getUrlParameters(w.location.search));
-
-		// get us data as array buffer
-		//
+		// get data as array buffer
 		ws.binaryType = "arraybuffer";
 
 		// Websocket open handler
@@ -61,12 +57,20 @@
 		ws.onopen = function() {
 			status_cb("WebSocket connection established. Creating session...");
 
-			ws.send(JSON.stringify({
-				command: 'create',
+            var urlParams = getUrlParameters(w.location.search);
 
-                // TODO Get this from URL.
-                pipelineId: 'd4f4cc08e63242a201de6132e5f54b08'
-			}));
+            // We must be provided a data parameter.
+            if (urlParams.hasOwnProperty('data'))
+            {
+                ws.send(JSON.stringify({
+                    command: 'create',
+                    pipelineId: urlParams['data']
+                }));
+            }
+            else
+            {
+                status_cb("No pipeline selected!");
+            }
 		};
 
 		// General handler for all messages, our logic goes in here
