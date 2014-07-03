@@ -50,6 +50,7 @@ var go = function() {
 	});
 
 	app.get('/', function(req, res) {
+        console.log('QUERY PARAMS: ', req.query);
 		res.render('index');
 	});
 

@@ -11,3 +11,4 @@ npm-debug.log
 doc/overview.pdf
 web/public/css/style.css
 examples/data/autzen.laz
+scripts/vagrant/pdal
