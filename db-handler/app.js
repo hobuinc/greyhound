@@ -6,8 +6,8 @@ var express = require('express')
   , ports = seaport.connect('localhost', 9090)
   , sqlite3 = require('sqlite3')
   , fs = require('fs')
+  , crypto = require('crypto')
   , mkdirp = require('mkdirp')
-  , index = 0
   , db = null
   , dbDir = __dirname + '/db/'
   , dbFile = dbDir + 'pipelines.db' // Database of indices->filenames
@@ -43,7 +43,7 @@ function configureDb(cb) {
             db.serialize(function() {
                 db.run(
                     'CREATE TABLE IF NOT EXISTS pipelines (' +
-                        'pipelineId INTEGER PRIMARY KEY,' +
+                        'pipelineId TEXT PRIMARY KEY,' +
                         'filename TEXT' +
                     ')');
             });
@@ -56,29 +56,29 @@ function configureDb(cb) {
     return cb(null);
 }
 
-// TODO: Hash the pipeline as the key?
 var put = function(pipeline, cb)
 {
     mkdirp(dataDir, function(err) {
         if (err)
             return cb(err);
 
-        var filename = 'f' + index + '.xml';
-        var fs = require('fs');
+        // Hash the pipeline as the database key.
+        var hash = crypto.createHash('md5').update(pipeline).digest("hex");
+        console.log(typeof hash);
 
-        // Write pipeline to the data directory successfully before adding
-        // its index to the db.
-        fs.writeFile(dataDir + filename, pipeline, function(err) {
+        // Write pipeline to the data directory successfully before adding it
+        // to the database.
+        fs.writeFile(dataDir + hash, pipeline, function(err) {
             if(err)
                 return cb(err);
 
             // TODO Need to detect collisions.
             var stmt = db.prepare("INSERT OR IGNORE INTO pipelines VALUES (?,?);");
-            stmt.run(index, filename);
+            stmt.run(hash, hash);
             stmt.finalize();
 
-            // For now, return the index that maps to the inserted pipeline.
-            return cb(err, index)
+            // Return the database ID for the newly inserted file.
+            return cb(err, hash)
         });
     });
 }
@@ -108,7 +108,6 @@ var retrieve = function(pipelineId, cb)
 
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    index++;
     console.log('Got PUT request in DB');
     var pipeline = req.body.pipeline;
 

@@ -63,7 +63,9 @@
 
 			ws.send(JSON.stringify({
 				command: 'create',
-                pipelineId: 1
+
+                // TODO Get this from URL.
+                pipelineId: 'd4f4cc08e63242a201de6132e5f54b08'
 			}));
 		};
 

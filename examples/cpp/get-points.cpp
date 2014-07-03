@@ -46,7 +46,7 @@ public:
         do_exchange(v, [handler](const Json::Value& r) {
             if (r["status"] == 1)
             {
-                handler(r["pipelineId"].asInt());
+                handler(r["pipelineId"].asString());
             }
             else
             {
@@ -57,7 +57,7 @@ public:
     }
 
     template<typename CreateHandler>
-    void Create(int pipelineId, CreateHandler handler) {
+    void Create(std::string pipelineId, CreateHandler handler) {
         Json::Value v;
         v["command"] = "create";
         v["pipelineId"] = pipelineId;
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
 
     int ibytesToRead = 0, bytesRead = 0;
 
-    client.Put(filename, [&client, &ibytesToRead, &bytesRead](int pipelineId) {
+    client.Put(filename, [&client, &ibytesToRead, &bytesRead](std::string pipelineId) {
         std::cout << "Pipeline stored as ID: " << pipelineId << std::endl;
     
         client.Create(pipelineId, [&client, &ibytesToRead, &bytesRead](const std::string& session) {
