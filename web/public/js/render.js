@@ -103,6 +103,7 @@
 			nointensity = true;
 		}
 		else if (recordSize !== 3*4 + 2 + 3*2) {
+			console.log("Record size: ", recordSize);
 			throw new Error('Cannot determine schema type from record size');
 		}
 

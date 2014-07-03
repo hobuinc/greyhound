@@ -5,6 +5,23 @@
 (function(w) {
 	"use strict";
 
+    // get URL parameters
+    // for now, using an adaptation from: http://stackoverflow.com/a/2880929
+    var getUrlParameters = function(query) {
+        query = query.substring(1);
+
+        var match,
+            pl     = /\+/g,  // Regex for replacing addition symbol with a space
+            search = /([^&=]+)=?([^&]*)/g,
+            decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+            urlParams = {};
+
+        while (match = search.exec(query))
+           urlParams[decode(match[1])] = decode(match[2]);
+
+        return urlParams;
+    };
+
 	// show an error message to the user
 	//
 	var errorOut = function(msg) {
@@ -31,6 +48,9 @@
 		var wsURI = "ws://" + w.location.host + "/";
 		var ws = new w.WebSocket(wsURI);
 
+        console.log("DBG: ", w.location.search);
+        console.log("GET: ", getUrlParameters(w.location.search));
+
 		// get us data as array buffer
 		//
 		ws.binaryType = "arraybuffer";
@@ -40,8 +60,10 @@
 		// when we get confirmation that the connection was created
 		ws.onopen = function() {
 			status_cb("WebSocket connection established. Creating session...");
+
 			ws.send(JSON.stringify({
-				command: 'create'
+				command: 'create',
+                pipelineId: 1
 			}));
 		};
 
