@@ -11,5 +11,6 @@ npm-debug.log
 .vagrant
 doc/overview.pdf
 web/public/css/style.css
+frontend-proxy/hipache-log.txt
 examples/data/autzen.laz
 scripts/vagrant/pdal

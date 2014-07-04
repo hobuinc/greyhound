@@ -1,6 +1,7 @@
 // app.js
 // Seaport handler
 //
+process.title = 'gh_dist';
 
 var
 	seaport = require('seaport'),

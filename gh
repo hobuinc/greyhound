@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+case $1 in
+start)
+    foreman start&
+    ;;
+stop)
+    pkill gh_*
+    killall node    # TODO Hipache workers don't seem to allow naming. 
+    ;;
+*)
+    echo "Usage: $0 {start|stop}" >&2
+    
+esac
+

@@ -86,6 +86,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  ];
 	  scripts.each { |script| config.vm.provision :shell, :path => "scripts/vagrant/" << script }
 
+      # Install npm packages, build C++ code, launch Greyhound, stamp down a
+      # sample pipeline ready for immediate use.
       config.vm.provision :shell, path: "set-stuff-up.sh"
+
+      # Automatically cd to /vagrant on 'vagrant ssh'.
+      config.vm.provision :shell, :inline => "echo \"\n\ncd /vagrant\n\" >> /home/vagrant/.bashrc"
   end
 end
