@@ -7,8 +7,6 @@
 #include <json/json.h>
 
 #include <iostream>
-#include <fstream>
-
 
 class WebSocketClient {
     typedef websocketpp::client<websocketpp::config::asio_client> client;
@@ -16,7 +14,11 @@ class WebSocketClient {
     typedef WebSocketClient this_type;
 
 public:
-    WebSocketClient(const std::string& uri) : uri_(uri), in_exchange_(false), client_() {
+    WebSocketClient(const std::string& uri)
+        : uri_(uri)
+        , in_exchange_(false)
+        , client_()
+    {
         using websocketpp::lib::placeholders::_1;
         using websocketpp::lib::placeholders::_2;
         using websocketpp::lib::bind;
@@ -27,33 +29,6 @@ public:
 
         // Initialize ASIO
         client_.init_asio();
-
-        // Register our handlers
-        //client_.set_message_handler(bind(&this_type::on_message, this, _1, _2));
-        //client_.set_open_handler(bind(&this_type::on_open, this, _1));
-    }
-
-    template<typename PutHandler>
-    void Put(std::string filename, PutHandler handler) {
-        Json::Value v;
-        v["command"] = "put";
-
-        std::ifstream stream(filename, std::ios_base::in);
-        std::stringstream buffer;
-        buffer << stream.rdbuf();
-        v["pipeline"] = buffer.str();
-
-        do_exchange(v, [handler](const Json::Value& r) {
-            if (r["status"] == 1)
-            {
-                handler(r["pipelineId"].asString());
-            }
-            else
-            {
-                std::cout << "Pipeline transfer failed" << std::endl;
-                exit(1);
-            }
-        });
     }
 
     template<typename CreateHandler>
@@ -85,7 +60,12 @@ public:
     }
 
     template<typename ReadHandler, typename DataHandler>
-    void Read(const std::string& id, ReadHandler handler, DataHandler dhandler, int offset = 0, int count = -1) {
+    void Read(
+            const std::string& id,
+            ReadHandler handler,
+            DataHandler dhandler,
+            int offset = 0,
+            int count = -1) {
         Json::Value v;
         v["command"] = "read";
         v["session"] = id;
@@ -132,7 +112,10 @@ public:
 
 private:
     void send(websocketpp::connection_hdl hdl, const Json::Value& v) {
-        client_.send(hdl, v.toStyledString(), websocketpp::frame::opcode::text);
+        client_.send(
+                hdl,
+                v.toStyledString(),
+                websocketpp::frame::opcode::text);
     }
 
     template<typename F>
@@ -147,7 +130,9 @@ private:
             send(hdl, v);
         });
 
-        client_.set_message_handler([this, handler](websocketpp::connection_hdl hdl,
+        client_.set_message_handler(
+                [this, handler](
+                    websocketpp::connection_hdl hdl,
                     message_ptr msg) {
             Json::Value v;
             Json::Reader r;
@@ -164,12 +149,11 @@ private:
         client_.connect(con);
     }
     
-    // the following function is needed to replace the message handler right away
-    // before the system gets a chance to send down another message through our message
-    // handler, this is needed where the next message needs to be processed through a
-    // different message handler, e.g. when reading points.  The swapped function gets raw
-    // messages as a bonus
-    //
+    // The following function is needed to replace the message handler right
+    // away before the system gets a chance to send down another message
+    // through our message handler, this is needed where the next message
+    // needs to be processed through a different message handler, e.g. when
+    // reading points.  The swapped function gets raw messages as a bonus.
     template<typename F, typename S>
     void do_exchange_with_swap(const Json::Value& v, F handler, S swapped) {
         if (in_exchange_) {
@@ -183,8 +167,11 @@ private:
         });
 
         swapdone_ = false;
-        client_.set_message_handler([this, handler, swapped](websocketpp::connection_hdl hdl,
-                    message_ptr msg) {
+        client_.set_message_handler(
+                [this, handler, swapped](
+                    websocketpp::connection_hdl hdl,
+                    message_ptr msg)
+        {
             Json::Value v;
             Json::Reader r;
 
@@ -194,8 +181,10 @@ private:
             if (!swapdone_) {
                 handler(v);
                 swapdone_ = true;
-            } else
+            }
+            else {
                 swapped(msg);
+            }
         });
 
         // getting connection and everything
@@ -211,33 +200,46 @@ private:
 };
 
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     WebSocketClient client("ws://localhost/");
-    const std::string filename = "/vagrant/examples/data/read.xml";
+    const std::string pipelineId("d4f4cc08e63242a201de6132e5f54b08");
 
     int ibytesToRead = 0, bytesRead = 0;
 
-    client.Put(filename, [&client, &ibytesToRead, &bytesRead](std::string pipelineId) {
-        std::cout << "Pipeline stored as ID: " << pipelineId << std::endl;
-    
-        client.Create(pipelineId, [&client, &ibytesToRead, &bytesRead](const std::string& session) {
-            std::cout << "Session created: " << session << std::endl;
+    client.Create(
+        pipelineId,
+        [&client, &ibytesToRead, &bytesRead](const std::string& session)
+    {
+        std::cout << "Session created: " << session << std::endl;
 
-            client.GetPointsCount(session, [&client, session, &ibytesToRead, &bytesRead](int count) {
-                std::cout << "Session has " << count << " points." << std::endl;
+        client.GetPointsCount(
+            session,
+            [&client, session, &ibytesToRead, &bytesRead](int count)
+        {
+            std::cout << "Session has " << count << " points." << std::endl;
 
-                client.Read(session, 
-                    [&ibytesToRead](int npoints, int nbytes) {
-                        std::cout << "Total " << npoints << " points in " << nbytes << " bytes will arrive." << std::endl;
-                        ibytesToRead = nbytes;
-                    },
-                    [session, &client, &ibytesToRead, &bytesRead](const std::string& data) {
-                        bytesRead += data.length();
-                        if (bytesRead >= ibytesToRead)
-                            std::cout << "All bytes read in." << std::endl;
-                        client.Destroy(session, [](bool val) { exit(0); });
-                    });
-            });
+            client.Read(
+                session, 
+                [&ibytesToRead](int npoints, int nbytes)
+                {
+                    std::cout << "Total " << npoints << " points in " <<
+                            nbytes << " bytes will arrive." << std::endl;
+
+                    ibytesToRead = nbytes;
+                },
+                [session, &client, &ibytesToRead, &bytesRead](
+                    const std::string& data)
+                {
+                    bytesRead += data.length();
+
+                    if (bytesRead >= ibytesToRead)
+                    {
+                        std::cout << "All bytes read in." << std::endl;
+                    }
+
+                    client.Destroy(session, [](bool val) { exit(0); });
+                });
         });
     });
 
