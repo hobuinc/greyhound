@@ -1,6 +1,7 @@
 // app.js
 // Main entry point for pdal session pooling
 //
+process.title = 'gh_rh';
 
 var express = require("express"),
 	Q = require('q'),

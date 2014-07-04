@@ -2,6 +2,8 @@
 // web front-end
 //
 
+process.title = 'gh_web';
+
 var
 	// node modules
 	fs = require('fs'),

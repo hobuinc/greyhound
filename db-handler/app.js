@@ -1,4 +1,5 @@
 // Main entry point for the pipeline database
+process.title = 'gh_db';
 
 var express = require('express')
   , app = express()

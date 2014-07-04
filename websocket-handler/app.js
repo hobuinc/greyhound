@@ -1,5 +1,7 @@
 // a simple websocket server
 //
+process.title = 'gh-websocket';
+
 var WebSocketServer = require('ws').Server
   , _ = require('lodash')
   , http = require('http')
