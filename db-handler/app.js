@@ -64,7 +64,6 @@ var put = function(pipeline, cb)
 
         // Hash the pipeline as the database key.
         var hash = crypto.createHash('md5').update(pipeline).digest("hex");
-        console.log(typeof hash);
 
         // Write pipeline to the data directory successfully before adding it
         // to the database.

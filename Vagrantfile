@@ -8,11 +8,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "trusty64"
   config.vm.hostname = "greyhound-dev"
   config.vm.box_url = "https://vagrantcloud.com/ubuntu/trusty64/version/1/provider/virtualbox.box"
-
   config.vm.network :forwarded_port, guest: 80, host: 8080
-
-  # pg_disk = '/Users/verma/work/lod-points/iowa-city-north-liberty-pg.vdi'
-
   config.vm.provider :virtualbox do |vb|
 	  vb.customize ["modifyvm", :id, "--memory", "2048"]
 	  vb.customize ["modifyvm", :id, "--cpus", "2"]   
@@ -84,9 +80,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 		  "p2g.sh",
 		  "soci.sh",
 		  "laszip.sh",
-		  "pdal.sh",
-		  "pgpointcloud.sh"
+		  "pdal.sh" #,
+          # TODO
+		  # "pgpointcloud.sh"
 	  ];
 	  scripts.each { |script| config.vm.provision :shell, :path => "scripts/vagrant/" << script }
+
+      config.vm.provision :shell, path: "set-stuff-up.sh"
   end
 end
