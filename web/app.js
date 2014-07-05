@@ -12,6 +12,8 @@ var
 
 	// npm modules
 	express = require('express'),
+    methodOverride = require('method-override'),
+    bodyParser = require('body-parser'),
 	_ = require('lodash'),
 	Q = require('q');
 
@@ -26,8 +28,8 @@ var go = function() {
 		app.set('view engine', 'jade');
 
 		app.use(express.logger('dev'));
-		app.use(express.bodyParser());
-		app.use(express.methodOverride());
+		app.use(bodyParser());
+		app.use(methodOverride());
 
 		app.use(express.cookieParser());
 		var sessionStore = new express.session.MemoryStore();
