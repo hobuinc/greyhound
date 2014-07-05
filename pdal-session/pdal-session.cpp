@@ -307,7 +307,7 @@ public:
      *
      * @return  The total number of points.
      */
-    size_t getNumPoints() const {
+    std::size_t getNumPoints() const {
         if (!p_) throw std::runtime_error("Session is not valid");
         return p_->getNumPoints();
     }
@@ -320,7 +320,7 @@ public:
      *
      * @return  The total size of buffer in bytes.
      */
-    size_t stride() const {
+    std::size_t stride() const {
         if (!p_) throw std::runtime_error("Session is not valid");
         return p_->stride();
     }
@@ -344,7 +344,10 @@ public:
      *
      * @returns     Number of points actually read, could be <= npoints.
      */
-    size_t read(unsigned char** buf, size_t startIndex, size_t npoints) {
+    std::size_t read(
+            unsigned char** buf,
+            std::size_t startIndex,
+            std::size_t npoints) {
         if (!p_) throw std::runtime_error("Session is not valid");
         return p_->read(buf, startIndex, npoints);
     }
@@ -360,10 +363,14 @@ struct DummyPDAL {
     }
     
     void initialize() {};
-    size_t getNumPoints() const { return points_; }
-    size_t stride() const { return sizeof(float) * 4; }
+    std::size_t getNumPoints() const { return points_; }
+    std::size_t stride() const { return sizeof(float) * 4; }
     
-    size_t read(unsigned char** buf, size_t startIndex, size_t npoints) {
+    std::size_t read(
+            unsigned char** buf,
+            std::size_t startIndex,
+            std::size_t npoints)
+    {
         if (startIndex >= points_)
             throw std::runtime_error(
                 "startIndex cannot be more than the total number of points");
@@ -379,7 +386,7 @@ struct DummyPDAL {
     }
 
 
-    size_t points_;
+    std::size_t points_;
 };
 
 
@@ -417,49 +424,63 @@ struct RealPDAL {
     ~RealPDAL()
     { }
     
-    size_t getNumPoints() const 
+    std::size_t getNumPoints() const 
     {
         return pointBuffer->getNumPoints();
     }
 
-    size_t stride() const 
+    std::size_t stride() const 
     {
         return pointBuffer->getSchema().pack().getByteSize();
     }
 
-    size_t read(unsigned char** buf, size_t startIndex, size_t npoints)
+    std::size_t read(
+            unsigned char** buf,
+            std::size_t startIndex,
+            std::size_t npoints)
     {
-        // TODO: Currently doesn't respect startIndex and the requested number
-        // of points, just reads everything.
-        *buf = pack(*pointBuffer);
-        return getNumPoints();
+        return pack(buf, *pointBuffer, startIndex, npoints);
     }
 
     pdal::PipelineManager pipelineManager;
     const pdal::PointBuffer* pointBuffer;
     
 private:
-    unsigned char* pack(const pdal::PointBuffer& pointBuffer)
+    std::size_t pack(
+            unsigned char** output,
+            const pdal::PointBuffer& pointBuffer,
+            const std::size_t startIndex,
+            const std::size_t npoints)
     {
-        // Creates a raw buffer that has the ignored dimensions removed from it.
-        unsigned char* output(0);
+        // Creates a raw buffer that has the ignored dimensions removed.
+        *output = 0;
         const pdal::Schema& schema(pointBuffer.getSchema());
+
+        if (startIndex > getNumPoints()) return 0;
+
+        const std::size_t pointsToRead(
+                startIndex + npoints <= getNumPoints() ?
+                    npoints :
+                    getNumPoints() - startIndex);
 
         pdal::schema::Orientation orientation = schema.getOrientation();
         if (orientation == pdal::schema::POINT_INTERLEAVED)
         {
-
             const pdal::schema::index_by_index& idx(
                     schema.getDimensions().get<pdal::schema::index>());
 
             const pdal::Schema packedSchema(schema.pack());
 
-            output =
+            *output =
                 new unsigned char[packedSchema.getByteSize() * getNumPoints()];
 
-            boost::uint8_t* current_position = static_cast<boost::uint8_t*>(output);
+            boost::uint8_t* current_position(
+                    static_cast<boost::uint8_t*>(*output));
 
-            for (boost::uint32_t i = 0; i < getNumPoints(); ++i)
+            for (
+                boost::uint32_t i(startIndex);
+                i < startIndex + pointsToRead;
+                ++i)
             {
                 for (boost::uint32_t d = 0; d < idx.size(); ++d)
                 {
@@ -470,7 +491,8 @@ private:
                                 i,
                                 current_position);
 
-                        current_position = current_position + idx[d].getByteSize();
+                        current_position =
+                            current_position + idx[d].getByteSize();
                     }
                 }
             }
@@ -498,7 +520,7 @@ private:
             */
         }
         
-        return output;
+        return pointsToRead;
     }
 
     RealPDAL(); 
@@ -522,7 +544,7 @@ class BufferTransmitter {
                 const std::string& host,
                 int port,
                 unsigned char* data,
-                size_t nlen)
+                std::size_t nlen)
             :
             host_(host),
             port_(port),
@@ -577,7 +599,7 @@ class BufferTransmitter {
         std::string host_;
         int port_;
         unsigned char* data;
-        size_t nlen_;
+        std::size_t nlen_;
 };
 
 
@@ -632,14 +654,14 @@ int main() {
     });
 
     commands.add("read", [&session](const Json::Value& params) -> Json::Value {
-        size_t npoints = session.getNumPoints();
+        std::size_t npoints = session.getNumPoints();
 
-        size_t start =
+        std::size_t start =
             params.isMember("start") ? params["start"].asInt() : 0;
-        size_t count =
+        std::size_t count =
             params.isMember("count") ? params["count"].asInt() : npoints;
 
-        size_t nbufsize = session.stride() * count;
+        std::size_t nbufsize = session.stride() * count;
 
         std::string host = params["transmitHost"].asString();
         int port = params["transmitPort"].asInt();
