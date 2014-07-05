@@ -202,8 +202,18 @@ private:
 
 int main(int argc, char* argv[])
 {
+    if (argc > 2)
+    {
+        std::cout << "Usage: " << argv[0] <<
+            " <greyhoundPipelineId>" << std::endl;
+        return 1;
+    }
+
     WebSocketClient client("ws://localhost/");
-    const std::string pipelineId("d4f4cc08e63242a201de6132e5f54b08");
+    const std::string pipelineId =
+        argc == 2 ?
+            argv[1] :
+            "d4f4cc08e63242a201de6132e5f54b08"; // ID of sample pipeline
 
     int ibytesToRead = 0, bytesRead = 0;
 
