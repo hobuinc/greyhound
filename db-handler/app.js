@@ -3,6 +3,8 @@ process.title = 'gh_db';
 
 var express = require('express')
   , app = express()
+  , methodOverride = require('method-override')
+  , bodyParser = require('body-parser')
   , seaport = require('seaport')
   , ports = seaport.connect('localhost', 9090)
   , sqlite3 = require('sqlite3')
@@ -15,8 +17,9 @@ var express = require('express')
   , dataDir = dbDir + 'data/';      // Directory of actual pipeline files
 
 app.configure(function() {
-    app.use(express.methodOverride());
-    app.use(express.bodyParser());
+    app.use(methodOverride());
+    app.use(bodyParser.urlencoded({ extended: true }));
+    app.use(bodyParser.json());
     app.use(express.errorHandler({
         dumpExceptions: true,
         showStack: true

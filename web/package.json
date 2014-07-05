@@ -5,6 +5,8 @@
 	"dependencies": {
 		"q": "*",
 		"express": "3.x",
+        "method-override": "*",
+        "body-parser": "*",
 		"lodash": "*",
 		"jade": "*",
 		"less-middleware": "0.1.x"

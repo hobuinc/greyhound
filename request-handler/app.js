@@ -4,6 +4,8 @@
 process.title = 'gh_rh';
 
 var express = require("express"),
+    methodOverride = require('method-override'),
+    bodyParser = require('body-parser'),
 	Q = require('q'),
 	path = require('path'),
 	crypto = require('crypto'),
@@ -19,8 +21,8 @@ var express = require("express"),
 
 // configure express application
 app.configure(function(){
-  app.use(express.methodOverride());
-  app.use(express.bodyParser());
+  app.use(methodOverride());
+  app.use(bodyParser());
   app.use(express.errorHandler({
     dumpExceptions: true, 
     showStack: true
