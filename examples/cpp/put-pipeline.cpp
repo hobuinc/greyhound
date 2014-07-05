@@ -153,8 +153,18 @@ private:
 
 int main(int argc, char* argv[])
 {
+    if (argc > 2)
+    {
+        std::cout << "Usage: " << argv[0] <<
+            " </path/to/pipeline.xml>" << std::endl;
+        return 1;
+    }
+
     WebSocketClient client("ws://localhost/");
-    const std::string filename = "/vagrant/examples/data/read.xml";
+    const std::string filename =
+        argc == 2 ?
+            argv[1] :
+            "/vagrant/examples/data/read.xml";
 
     client.Put(filename, [&client](std::string pipelineId)
     {
