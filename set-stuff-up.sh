@@ -27,6 +27,7 @@ setup_greyhound() {
     # Initialize the database with sample file and launch services.
 
     # Launch Greyhound.
+    chmod 755 /vagrant/gh
     /vagrant/gh start
 
     # TODO Need some method to ensure that all Greyhound components are
