@@ -23,8 +23,7 @@ cmake   -G "Unix Makefiles"  \
         -DWITH_SQLITE=ON \
         -DWITH_P2G=ON \
         -DWITH_HEXER=ON \
-        -DWITH_NITRO=ON #\
-        #-DWITH_PGPOINTCLOUD=ON
+        -DWITH_NITRO=ON
 
 make -j $NUMTHREADS
 sudo make install
