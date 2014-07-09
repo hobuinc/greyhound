@@ -9,146 +9,82 @@
 
 #include <iostream>
 #include <fstream>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 class WebSocketClient {
-    typedef websocketpp::client<websocketpp::config::asio_client> client;
+    typedef websocketpp::client<websocketpp::config::asio_client> asioClient;
     typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
-    typedef WebSocketClient this_type;
 
 public:
     WebSocketClient(const std::string& uri)
-        : uri_(uri)
-        , in_exchange_(false)
-        , client_()
+        : uri(uri)
+        , client()
+        , jsonReader()
+        , cv()
+        , mutex()
     {
         using websocketpp::lib::placeholders::_1;
         using websocketpp::lib::placeholders::_2;
         using websocketpp::lib::bind;
 
         // We expect there to be a lot of errors, so suppress them
-        client_.clear_access_channels(websocketpp::log::alevel::all);
-        client_.clear_error_channels(websocketpp::log::elevel::all);
+        client.clear_access_channels(websocketpp::log::alevel::all);
+        client.clear_error_channels(websocketpp::log::elevel::all);
 
         // Initialize ASIO
-        client_.init_asio();
+        client.init_asio();
     }
 
-    template<typename PutHandler>
-    void Put(std::string filename, PutHandler handler)
+    Json::Value exchange(Json::Value req)
     {
-        Json::Value v;
-        v["command"] = "put";
+        Json::Value res;
+        bool gotRes(false);
 
-        std::ifstream stream(filename, std::ios_base::in);
-        std::stringstream buffer;
-        buffer << stream.rdbuf();
-        v["pipeline"] = buffer.str();
-
-        do_exchange(v, [handler](const Json::Value& r)
+        std::thread t([this, &req, &res, &gotRes]()
         {
-            if (r["status"] == 1)
-            {
-                handler(r["pipelineId"].asString());
-            }
-            else
-            {
-                std::cout << "Pipeline transfer failed" << std::endl;
-                exit(1);
-            }
+            client.set_open_handler(
+                [this, &req](websocketpp::connection_hdl hdl) {
+                client.send(
+                        hdl,
+                        req.toStyledString(),
+                        websocketpp::frame::opcode::text);
+            });
+
+            client.set_message_handler(
+                    [this, &res, &gotRes](
+                        websocketpp::connection_hdl,
+                        message_ptr msg) {
+                std::unique_lock<std::mutex> lock(this->mutex);
+                this->jsonReader.parse(msg->get_payload(), res);
+                gotRes = true;
+                lock.unlock();
+                this->cv.notify_all();
+            });
+
+            websocketpp::lib::error_code ec;
+            client.reset();
+            client.connect(client.get_connection(uri, ec));
+            client.run();
         });
-    }
+        t.detach();
 
-    void Run() {
-        client_.run();
-    }
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait(lock, [&gotRes]()->bool { return gotRes; });
 
-private:
-    void send(websocketpp::connection_hdl hdl, const Json::Value& v)
-    {
-        client_.send(
-                hdl,
-                v.toStyledString(),
-                websocketpp::frame::opcode::text);
-    }
+        client.stop();
 
-    template<typename F>
-    void do_exchange(const Json::Value& v, F handler)
-    {
-        if (in_exchange_) {
-            std::cerr << "Exchange failed" << std::endl;
-            return;     // only one exchange in progress at a time
-        }
-
-        in_exchange_ = true;
-        client_.set_open_handler([this, v](websocketpp::connection_hdl hdl) {
-            send(hdl, v);
-        });
-
-        client_.set_message_handler(
-                [this, handler](
-                    websocketpp::connection_hdl hdl,
-                    message_ptr msg) {
-            Json::Value v;
-            Json::Reader r;
-
-            r.parse(msg->get_payload(), v);
-            this->in_exchange_ = false;
-
-            handler(v);
-        });
-
-        // getting connection and everything
-        websocketpp::lib::error_code ec;
-        client::connection_ptr con = client_.get_connection(uri_, ec);
-        client_.connect(con);
-    }
-
-    // The following function is needed to replace the message handler right
-    // away before the system gets a chance to send down another message
-    // through our message handler, this is needed where the next message
-    // needs to be processed through a different message handler, e.g. when
-    // reading points.  The swapped function gets raw messages as a bonus.
-    template<typename F, typename S>
-    void do_exchange_with_swap(const Json::Value& v, F handler, S swapped)
-    {
-        if (in_exchange_) {
-            std::cerr << "Exchange failed" << std::endl;
-            return;     // only one exchange in progress at a time
-        }
-
-        in_exchange_ = true;
-        client_.set_open_handler([this, v](websocketpp::connection_hdl hdl) {
-            send(hdl, v);
-        });
-
-        swapdone_ = false;
-        client_.set_message_handler(
-                [this, handler, swapped](
-                    websocketpp::connection_hdl hdl,
-                    message_ptr msg) {
-            Json::Value v;
-            Json::Reader r;
-
-            r.parse(msg->get_payload(), v);
-            this->in_exchange_ = false;
-
-            if (!swapdone_) {
-                handler(v);
-                swapdone_ = true;
-            } else
-                swapped(msg);
-        });
-
-        // getting connection and everything
-        websocketpp::lib::error_code ec;
-        client::connection_ptr con = client_.get_connection(uri_, ec);
-        client_.connect(con);
+        return res;
     }
 
 private:
-    std::string uri_;
-    bool in_exchange_, swapdone_;
-    client client_;
+    std::string uri;
+    asioClient client;
+    Json::Reader jsonReader;
+
+    std::condition_variable cv;
+    std::mutex mutex;
 };
 
 int main(int argc, char* argv[])
@@ -161,17 +97,24 @@ int main(int argc, char* argv[])
     }
 
     WebSocketClient client("ws://localhost/");
+
     const std::string filename =
         argc == 2 ?
             argv[1] :
             "/vagrant/examples/data/read.xml";
 
-    client.Put(filename, [&client](std::string pipelineId)
-    {
-        std::cout << "Pipeline stored as ID: " << pipelineId << std::endl;
-        exit(0);
-    });
+    Json::Value v;
+    v["command"] = "put";
+    std::ifstream stream(filename, std::ios_base::in);
+    std::stringstream buffer;
+    buffer << stream.rdbuf();
+    v["pipeline"] = buffer.str();
 
-    client.Run();
+    Json::Value result(client.exchange(v));
+
+    std::cout << "Pipeline stored as ID: " <<
+        result["pipelineId"].asString() << std::endl;
+
+    return 0;
 }
 
