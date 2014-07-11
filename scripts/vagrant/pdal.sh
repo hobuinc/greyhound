@@ -10,6 +10,7 @@ export NUMTHREADS
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
 sudo git checkout point-context
+sudo git checkout 8fddfff8298c74f4ac9fd7e653d9e469526d0968
 cmake   -G "Unix Makefiles"  \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
@@ -23,7 +24,8 @@ cmake   -G "Unix Makefiles"  \
         -DWITH_SQLITE=ON \
         -DWITH_P2G=ON \
         -DWITH_HEXER=ON \
-        -DWITH_NITRO=ON
+        -DWITH_NITRO=ON \
+        -DWITH_TESTS=OFF
 
 make -j $NUMTHREADS
 sudo make install
