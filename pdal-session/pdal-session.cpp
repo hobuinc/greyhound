@@ -415,11 +415,11 @@ struct RealPDAL {
 
         try
         {
-            const pdal::Schema& schema(pipelineManager.schema()->pack());
+            const pdal::Schema packedSchema(packSchema(*pipelineManager.schema()));
 
-            schema.getDimension("X");
-            schema.getDimension("Y");
-            schema.getDimension("Z");
+            packedSchema.getDimension("X");
+            packedSchema.getDimension("Y");
+            packedSchema.getDimension("Z");
         }
         catch (pdal::dimension_not_found&)
         {
@@ -438,12 +438,14 @@ struct RealPDAL {
 
     std::string getSchema() const
     {
-        return pdal::Schema::to_xml(pipelineManager.schema()->pack());
+        const pdal::Schema packedSchema(packSchema(*pipelineManager.schema()));
+        return pdal::Schema::to_xml(packedSchema);
     }
 
     std::size_t stride() const 
     {
-        return pointBuffer->getSchema().pack().getByteSize();
+        const pdal::Schema packedSchema(packSchema(*pipelineManager.schema()));
+        return packedSchema.getByteSize();
     }
 
     std::size_t read(
@@ -451,14 +453,32 @@ struct RealPDAL {
             std::size_t startIndex,
             std::size_t npoints)
     {
-        return pack(buf, *pointBuffer, startIndex, npoints);
+        return packBuffer(buf, *pointBuffer, startIndex, npoints);
     }
 
     pdal::PipelineManager pipelineManager;
     const pdal::PointBuffer* pointBuffer;
     
 private:
-    std::size_t pack(
+    pdal::Schema packSchema(const pdal::Schema& fullSchema) const
+    {
+        pdal::Schema packedSchema;
+
+        const pdal::schema::index_by_index& idx(
+                fullSchema.getDimensions().get<pdal::schema::index>());
+
+        for (boost::uint32_t d = 0; d < idx.size(); ++d)
+        {
+            if (!idx[d].isIgnored())
+            {
+                packedSchema.appendDimension(idx[d]);
+            }
+        }        
+
+        return packedSchema;
+    }
+
+    std::size_t packBuffer(
             unsigned char** output,
             const pdal::PointBuffer& pointBuffer,
             const std::size_t startIndex,
@@ -466,7 +486,6 @@ private:
     {
         // Creates a raw buffer that has the ignored dimensions removed.
         *output = 0;
-        const pdal::Schema& schema(pointBuffer.getSchema());
 
         if (startIndex > getNumPoints()) return 0;
 
@@ -475,61 +494,36 @@ private:
                     npoints :
                     getNumPoints() - startIndex);
 
-        pdal::schema::Orientation orientation = schema.getOrientation();
-        if (orientation == pdal::schema::POINT_INTERLEAVED)
+        const pdal::Schema* fullSchema(pipelineManager.schema());
+        const pdal::Schema packedSchema(packSchema(*pipelineManager.schema()));
+
+        const pdal::schema::index_by_index& idx(
+                fullSchema->getDimensions().get<pdal::schema::index>());
+
+        *output =
+            new unsigned char[packedSchema.getByteSize() * getNumPoints()];
+
+        boost::uint8_t* current_position(
+                static_cast<boost::uint8_t*>(*output));
+
+        for (
+            boost::uint32_t i(startIndex);
+            i < startIndex + pointsToRead;
+            ++i)
         {
-            const pdal::schema::index_by_index& idx(
-                    schema.getDimensions().get<pdal::schema::index>());
-
-            const pdal::Schema packedSchema(schema.pack());
-
-            *output =
-                new unsigned char[packedSchema.getByteSize() * getNumPoints()];
-
-            boost::uint8_t* current_position(
-                    static_cast<boost::uint8_t*>(*output));
-
-            for (
-                boost::uint32_t i(startIndex);
-                i < startIndex + pointsToRead;
-                ++i)
+            for (boost::uint32_t d = 0; d < idx.size(); ++d)
             {
-                for (boost::uint32_t d = 0; d < idx.size(); ++d)
+                if (!idx[d].isIgnored())
                 {
-                    if (!idx[d].isIgnored())
-                    {
-                        pointBuffer.context().rawPtBuf()->getField(
-                                idx[d],
-                                i,
-                                current_position);
+                    pointBuffer.context().rawPtBuf()->getField(
+                            idx[d],
+                            i,
+                            current_position);
 
-                        current_position =
-                            current_position + idx[d].getByteSize();
-                    }
+                    current_position =
+                        current_position + idx[d].getByteSize();
                 }
             }
-        }
-        else if (orientation == pdal::schema::DIMENSION_INTERLEAVED)
-        {
-            // TODO: Not yet supported.  Are these interleavings going away?
-            
-            /*
-            for (boost::uint32_t d = 0; d < getSchema().size(); ++d)
-            {
-                boost::uint8_t* data = input->getData(d);
-                boost::uint64_t dimension_length =
-                    static_cast<boost::uint64_t>(idx[d].getByteSize()) *
-                        static_cast<boost::uint64_t>(getNumPoints());
-
-                if (! idx[d].isIgnored())
-                {
-                    memcpy(current_position, data, dimension_length);
-                    current_position = current_position+dimension_length;
-                }
-
-                data = data + dimension_length;
-            }        
-            */
         }
         
         return pointsToRead;
