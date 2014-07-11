@@ -41,7 +41,6 @@ var getDbHandler = function(cb) {
 	});
 }
 
-
 var setAffinity = function(session, target, cb) {
 	redisClient.hset('affinity', session, target, cb);
 }
@@ -96,7 +95,6 @@ var createSession = function(pipeline, cb) {
 		});
 	});
 }
-
 
 process.nextTick(function() {
 	// setup a basic express server
@@ -170,6 +168,13 @@ process.nextTick(function() {
 			validateSessionAffinity(msg.session, function(err, session, rh) {
 				if (err) return cb(err);
 				web.get(rh, '/pointsCount/' + session, cb);
+			});
+		});
+
+		handler.on('schema', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, rh) {
+				if (err) return cb(err);
+				web.get(rh, '/schema/' + session, cb);
 			});
 		});
 

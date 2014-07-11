@@ -104,6 +104,14 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 	});
 });
 
+app.get("/schema/:sessionId", function(req, res) {
+	getSession(res, req.params.sessionId, function(s, sid) {
+		console.log('schema('+ sid + ')');
+		s.getSchema().then(function(schema) {
+			res.json({ schema: schema});
+		}, error(res)).done();
+	});
+});
 
 app.get("/srs/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {

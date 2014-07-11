@@ -312,6 +312,12 @@ public:
         return p_->getNumPoints();
     }
 
+    std::string getSchema() const {
+        if (!p_) throw std::runtime_error("Session is not valid");
+        return p_->getSchema();
+    }
+
+
     inline std::string getSRS() const { return "the coordinate system; ";}
 
 
@@ -364,6 +370,7 @@ struct DummyPDAL {
     
     void initialize() {};
     std::size_t getNumPoints() const { return points_; }
+    std::string getSchema() const { return ""; }
     std::size_t stride() const { return sizeof(float) * 4; }
     
     std::size_t read(
@@ -427,6 +434,11 @@ struct RealPDAL {
     std::size_t getNumPoints() const 
     {
         return pointBuffer->getNumPoints();
+    }
+
+    std::string getSchema() const
+    {
+        return pdal::Schema::to_xml(pipelineManager.schema()->pack());
     }
 
     std::size_t stride() const 
@@ -642,6 +654,15 @@ int main() {
             [&session](const Json::Value&) -> Json::Value {
         Json::Value v;
         v[std::string("count")] = (int)session.getNumPoints();
+
+        return v;
+    });
+
+    commands.add(
+            "getSchema",
+            [&session](const Json::Value&) -> Json::Value {
+        Json::Value v;
+        v[std::string("schema")] = session.getSchema();
 
         return v;
     });

@@ -168,6 +168,14 @@ var
 		});
 	};
 
+    PDALSession.prototype.getSchema = function() {
+        return this.exchange({
+            command: 'getSchema',
+        }).then(function(res) {
+            return res.schema;
+        });
+    };
+
 	PDALSession.prototype.getSRS = function() {
 		return this.exchange({
 			command: 'getSRS',
@@ -209,3 +217,4 @@ var
 
 	module.exports.PDALSession = PDALSession;
 })();
+
