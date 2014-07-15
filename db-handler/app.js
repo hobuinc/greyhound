@@ -60,8 +60,7 @@ function configureDb(cb) {
     return cb(null);
 }
 
-var put = function(pipeline, cb)
-{
+var put = function(pipeline, cb) {
     mkdirp(dataDir, function(err) {
         if (err)
             return cb(err);
@@ -86,8 +85,7 @@ var put = function(pipeline, cb)
     });
 }
 
-var retrieve = function(pipelineId, cb)
-{
+var retrieve = function(pipelineId, cb) {
     db.all(
         "SELECT rowid as id, filename FROM pipelines WHERE pipelineId = ?;",
         pipelineId,
@@ -109,18 +107,28 @@ var retrieve = function(pipelineId, cb)
         });
 }
 
+var validatePipeline = function(pipeline) {
+    // TODO - Use PDAL to validate pipeline.
+    return typeof pipeline === 'string' && pipeline.length !== 0;
+}
+
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
     console.log('Got PUT request in DB');
     var pipeline = req.body.pipeline;
 
-    put(pipeline, function(err, pipelineId) {
-        if (err)
-            return error(res)(err);
+    if (validatePipeline(pipeline)) {
+        put(pipeline, function(err, pipelineId) {
+            if (err)
+                return error(res)(err);
 
-        // Respond with database ID of the inserted pipeline.
-        res.json({ id: pipelineId });
-    });
+            // Respond with database ID of the inserted pipeline.
+            res.json({ id: pipelineId });
+        });
+    } else {
+        console.log('Got invalid pipeline');
+        return error(res)(new Error('Invalid pipeline'));
+    }
 });
 
 app.get("/retrieve", function(req, res) {
