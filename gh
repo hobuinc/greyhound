@@ -2,14 +2,25 @@
 
 case $1 in
 start)
-    foreman start&
+    echo "$#"
+    echo "$2"
+    if [ $# -eq 2 ]; then
+        if [ $2 == "-q" ] || [ $2 == "--quiet" ]; then
+            echo "Using quiet"
+            foreman start -f ProcfileQuiet&
+        else
+            echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
+        fi
+    else
+        foreman start&
+    fi
     ;;
 stop)
     pkill gh_*
     killall node    # TODO Hipache workers don't seem to allow naming. 
     ;;
 *)
-    echo "Usage: $0 {start|stop}" >&2
+    echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
     
 esac
 

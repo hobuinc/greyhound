@@ -7,12 +7,20 @@ setup_base_packages() {
     echo Installing foreman
 	sudo gem install foreman --no-rdoc --no-ri
 	sudo npm install -g hipache
+    sudo npm install -g nodeunit
 }
 
 setup_npm_packages() {
 	# Issue npm install in each of the node.js projects.
-	for P in /vagrant/web /vagrant/request-handler /vagrant/websocket-handler \
-      /vagrant/dist-handler /vagrant/db-handler /vagrant/examples/js ; do
+	for P in \
+        /vagrant/web \
+        /vagrant/request-handler \
+        /vagrant/websocket-handler \
+        /vagrant/dist-handler \
+        /vagrant/db-handler \
+        /vagrant/examples/js \
+        /vagrant/test \
+        ; do
 		cd $P ; npm install ; cd -
 	done
 }

@@ -63,8 +63,10 @@ var queryPipeline = function(id, cb) {
 			'/retrieve', 
 			{ pipelineId: id },
 			function(err, res) {
-				// console.log("RETRIEVE came back", err, res);
-				return cb(err, res.pipeline);
+                if (err)
+                    return cb(err);
+                else
+                    return cb(err, res.pipeline);
 			});
 	});
 }
@@ -137,19 +139,34 @@ process.nextTick(function() {
 		handler.on('put', function(msg, cb) {
 			// Give this pipeline to the db-handler to store, and return the
 			// created pipelineId that maps to the stored pipeline.
-			getDbHandler(function(err, db) {
-				if (err) return cb(err);
+            if (msg.hasOwnProperty('pipeline')) {
+                getDbHandler(function(err, db) {
+                    if (err)
+                        return cb(err);
 
-				web.post(
-					db,
-					'/put',
-					{ pipeline: msg.pipeline },
-					function(err, res) {
-						console.log('PUT came back', err, res);
+                    web.post(
+                        db,
+                        '/put',
+                        { pipeline: msg.pipeline },
+                        function(err, res) {
+                            console.log('PUT came back', err, res);
 
-						cb(null, { pipelineId: res.id });
-					});
-			});
+                            if (err) {
+                                return cb(err);
+                            }
+                            else if (!res.hasOwnProperty('id')) {
+                                return cb(new Error(
+                                        'Got invalid response from PUT'));
+                            }
+                            else
+                            {
+                                cb(null, { pipelineId: res.id });
+                            }
+                        });
+                });
+            } else {
+                return cb(new Error('Missing property "pipeline"'));
+            }
 		});
 
 		handler.on('create', function(msg, cb) {
