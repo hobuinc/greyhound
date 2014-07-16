@@ -53,7 +53,7 @@ var validateJson = function(test, json, expected) {
 
         if (typeof expected[field] !== "function") {
             test.ok(
-                json[field] === expected[field],
+                json[field] === expected[field] || expected[field] === optional,
                 'Expected json[' + field + '] === ' + expected[field] +
                         ', got: ' + json[field]);
         }
@@ -63,6 +63,13 @@ var validateJson = function(test, json, expected) {
                 'Validation function failed for "' + field +
                 '", parameter was: ' + json[field]);
         }
+    }
+
+    for (var field in json)
+    {
+        test.ok(
+            expected.hasOwnProperty(field) || field === 'reason',
+            'Unexpected field in response: ' + field + " - " + json[field]);
     }
 }
 
@@ -302,6 +309,7 @@ module.exports = {
     },
 
     // CREATE - test multiple sessions created with the same pipeline
+    // Expect: two successful statuses with different 'session' parameters
     testCreateDouble: function(test) {
         timeoutObj = startTestTimer(test);
         var got = 0;
@@ -374,6 +382,7 @@ module.exports = {
     },
 
     // POINTSCOUNT - test command with missing 'session' parameter
+    // Expect: failure status
     testPointsCountMissingSession: function(test) {
         timeoutObj = startTestTimer(test);
 
@@ -399,9 +408,30 @@ module.exports = {
     },
 
     // POINTSCOUNT - test command with invalid 'session' parameter
+    // Expect: failure status
     testPointsCountInvalidSession: function(test) {
-        // TODO
-        test.done();
+        timeoutObj = startTestTimer(test);
+
+        setInitialCmd({
+            command: 'pointsCount',
+            session: 'I am an invalid session string!',
+        });
+
+        setResponseFsm(function(data, flags) {
+            test.ok(!flags.binary, 'Got unexpected binary response');
+
+            if (!flags.binary) {
+                var json = JSON.parse(data);
+                var expected = {
+                    'status':   ghFail,
+                    'command':  'pointsCount',
+                };
+
+                validateJson(test, json, expected);
+            }
+
+            endTest(test);
+        });
     },
 
     // POINTSCOUNT - test valid command
