@@ -2,8 +2,6 @@
 
 case $1 in
 start)
-    echo "$#"
-    echo "$2"
     if [ $# -eq 2 ]; then
         if [ $2 == "-q" ] || [ $2 == "--quiet" ]; then
             echo "Using quiet"

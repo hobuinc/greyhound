@@ -125,7 +125,8 @@ app.post("/put", function(req, res) {
             // Respond with database ID of the inserted pipeline.
             res.json({ id: pipelineId });
         });
-    } else {
+    }
+    else {
         console.log('Got invalid pipeline');
         return error(res)(new Error('Invalid pipeline'));
     }
@@ -147,7 +148,8 @@ app.get("/retrieve", function(req, res) {
 configureDb(function(err) {
     if (err) {
         console.log('Database setup error: ', err)
-    } else {
+    }
+    else {
         var port = ports.register('db@0.0.1');
         app.listen(port, function() {
             console.log('DB handler listening on port: ' + port);

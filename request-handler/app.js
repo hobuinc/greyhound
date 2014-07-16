@@ -81,7 +81,6 @@ app.delete("/:sessionId", function(req, res) {
 		console.log('delete('+ sid + ')');
 		delete sessions[sid];
 
-
 		s.destroy().then(function() {
 			pool.release(s);
 
