@@ -164,7 +164,8 @@ process.nextTick(function() {
                             }
                         });
                 });
-            } else {
+            }
+            else {
                 return cb(new Error('Missing property "pipeline"'));
             }
 		});
