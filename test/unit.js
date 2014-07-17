@@ -3,7 +3,7 @@
 var fs = require('fs');
 var WebSocket = require('ws');
 var ws, timeoutObj;
-var timeoutMs = 3000;
+var timeoutMs = 1000;
 var samplePipelineId = 'd4f4cc08e63242a201de6132e5f54b08';
 
 var send = function(obj) {
@@ -23,7 +23,7 @@ var doExchangeSet = function(test, exchangeSet) {
     var responses = [];
     setInitialCmd(exchangeSet[exchangeIndex]['req']);
 
-    setResponseFsm(function(data, flags) {
+    ws.on('message', (function(data, flags) {
         var expected = exchangeSet[exchangeIndex]['res'];
 
         // Validate response from first request.
@@ -83,27 +83,12 @@ var doExchangeSet = function(test, exchangeSet) {
         else {
             endTest(test);
         }
-    });
-}
-
-var createWithSample = function(responseFsm) {
-    var cmd = {
-        command:    'create',
-        pipelineId: samplePipelineId,
-    };
-
-    setInitialCmd(cmd);
-
-    setResponseFsm(responseFsm);
+    }));
 }
 
 var endTest = function(test) {
     clearTimeout(timeoutObj);
     test.done();
-}
-
-var setResponseFsm = function(handler) {
-    ws.on('message', handler);
 }
 
 var startTestTimer = function(test) {
@@ -124,6 +109,10 @@ var ghSuccess = function(rxStatus) {
 
 var ghFail = function(rxStatus) {
     return !ghSuccess(rxStatus);
+}
+
+var initialSession = function(prevResponses) {
+    return prevResponses[0]['session'];
 }
 
 var validateJson = function(test, json, expected) {
@@ -277,7 +266,7 @@ module.exports = {
             test,
             [{
                 req: {
-                    command: 'create',
+                    'command':  'create',
                 },
                 res: {
                     'command':  'create',
@@ -327,8 +316,7 @@ module.exports = {
                     'session': function(prevResponses) {
                         var prev = prevResponses[prevResponses.length - 1];
                         return prev['session'];
-                    }
-                    //'session': function(prev) { return prev['session']; }
+                    },
                 },
                 res: {
                     'command':  'destroy',
@@ -345,8 +333,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    command: 'create',
-                    pipelineId: samplePipelineId,
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
                 },
                 res: {
                     'command':  'create',
@@ -356,8 +344,8 @@ module.exports = {
             },
             {
                 req: {
-                    command: 'create',
-                    pipelineId: samplePipelineId,
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
                 },
                 res: {
                     'command':  'create',
@@ -368,11 +356,7 @@ module.exports = {
             {
                 req: {
                     'command':  'destroy',
-                    'session': function(prevResponses) {
-                        // Destroy the first session created.
-                        var prev = prevResponses[prevResponses.length - 2];
-                        return prev['session'];
-                    }
+                    'session':  initialSession,
                 },
                 res: {
                     'command':  'destroy',
@@ -382,11 +366,11 @@ module.exports = {
             {
                 req: {
                     'command':  'destroy',
-                    'session': function(prevResponses) {
+                    'session':  function(prevResponses) {
                         // Destroy the second session created.
                         var prev = prevResponses[prevResponses.length - 2];
                         return prev['session'];
-                    }
+                    },
                 },
                 res: {
                     'command':  'destroy',
@@ -400,111 +384,76 @@ module.exports = {
     // POINTSCOUNT - test command with missing 'session' parameter
     // Expect: failure status
     testPointsCountMissingSession: function(test) {
-        timeoutObj = startTestTimer(test);
-
-        setInitialCmd({
-            command: 'pointsCount',
-        });
-
-        setResponseFsm(function(data, flags) {
-            test.ok(!flags.binary, 'Got unexpected binary response');
-
-            if (!flags.binary) {
-                var json = JSON.parse(data);
-                var expected = {
-                    'status':   ghFail,
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command': 'pointsCount',
+                },
+                res: {
                     'command':  'pointsCount',
-                };
-
-                validateJson(test, json, expected);
-            }
-
-            endTest(test);
-        });
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // POINTSCOUNT - test command with invalid 'session' parameter
     // Expect: failure status
     testPointsCountInvalidSession: function(test) {
-        timeoutObj = startTestTimer(test);
-
-        setInitialCmd({
-            command: 'pointsCount',
-            session: 'I am an invalid session string!',
-        });
-
-        setResponseFsm(function(data, flags) {
-            test.ok(!flags.binary, 'Got unexpected binary response');
-
-            if (!flags.binary) {
-                var json = JSON.parse(data);
-                var expected = {
-                    'status':   ghFail,
+        doExchangeSet(
+            test,
+            [{
+                req: {
                     'command':  'pointsCount',
-                };
-
-                validateJson(test, json, expected);
-            }
-
-            endTest(test);
-        });
+                    'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'pointsCount',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // POINTSCOUNT - test valid command
     // Expect: successful status and number of points
     testPointsCountValid: function(test) {
-        timeoutObj = startTestTimer(test);
-        var got = 0;
-        var session;
-
-        createWithSample(function(data, flags) {
-            ++got;
-
-            test.ok(!flags.binary, 'Got unexpected binary response');
-
-            if (got === 1) {
-                if (!flags.binary) {
-                    var json = JSON.parse(data);
-                    var expected = {
-                        'status':   ghSuccess,
-                        'command':  'create',
-                        'session':  dontCare,
-                    };
-
-                    validateJson(test, json, expected);
-                }
-
-                session = json['session'];
-                send({ command: 'pointsCount', session: session });
-            }
-            else if (got === 2) {
-                if (!flags.binary) {
-                    var json = JSON.parse(data);
-                    var expected = {
-                        'status':   ghSuccess,
-                        'command':  'pointsCount',
-                        'count':    10653,
-                    };
-
-                    validateJson(test, json, expected);
-                }
-
-                send({ command: 'destroy', session: session });
-            }
-            else if (got === 3) {
-                if (!flags.binary) {
-                    var json = JSON.parse(data);
-                    var expected = {
-                        'status':   ghSuccess,
-                        'command':  'destroy',
-                    };
-
-                    validateJson(test, json, expected);
-                }
-
-                endTest(test);
-            }
-        });
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'pointsCount',
+                    'session':  initialSession,
+                },
+                res: {
+                    'status':   ghSuccess,
+                    'command':  'pointsCount',
+                    'count':    10653,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // SCHEMA - test command with missing 'session' parameter
