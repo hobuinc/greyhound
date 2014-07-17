@@ -16,6 +16,71 @@ var setInitialCmd = function(obj) {
     });
 }
 
+var doExchangeSet = function(test, exchangeSet) {
+    timeoutObj = startTestTimer(test);
+
+    var exchangeIndex = 0;
+    setInitialCmd(exchangeSet[exchangeIndex]['req']);
+
+    setResponseFsm(function(data, flags) {
+        var expected = exchangeSet[exchangeIndex]['res'];
+
+        if (!flags.binary) {
+            if (expected['binary'] === undefined ||
+                expected['binary'] === false) {
+                validateJson(test, JSON.parse(data), expected);
+            }
+            else {
+                var message = 'Got unexpected binary response';
+                if (exchangeSet[exchangeIndex]['req']
+                        .hasOwnProperty('command')) {
+                    message += ' to: ' +
+                        exchangeSet[exchangeIndex]['req']['command'];
+                }
+
+                test.ok(false, message);
+                endTest(test);
+            }
+        }
+        else {
+            if (!expected.hasOwnProperty('binary') ||
+                !expected['binary']) {
+                // Validate binary response?
+            }
+            else {
+                var message = 'Got unexpected non-binary response';
+                if (exchangeSet[exchangeIndex]['req']
+                        .hasOwnProperty('command')) {
+                    message += ' to: ' +
+                        exchangeSet[exchangeIndex]['req']['command'];
+                }
+
+                test.ok(false, message);
+                endTest(test);
+            }
+        }
+
+        // Send request for the next exchange.
+        if (++exchangeIndex < exchangeSet.length) {
+            send(exchangeSet[exchangeIndex]['req']);
+        }
+        else {
+            endTest(test);
+        }
+    });
+}
+
+var createWithSample = function(responseFsm) {
+    var cmd = {
+        command:    'create',
+        pipelineId: samplePipelineId,
+    };
+
+    setInitialCmd(cmd);
+
+    setResponseFsm(responseFsm);
+}
+
 var endTest = function(test) {
     clearTimeout(timeoutObj);
     test.done();
@@ -53,7 +118,7 @@ var validateJson = function(test, json, expected) {
 
         if (typeof expected[field] !== "function") {
             test.ok(
-                json[field] === expected[field] || expected[field] === optional,
+                json[field] === expected[field],
                 'Expected json[' + field + '] === ' + expected[field] +
                         ', got: ' + json[field]);
         }
@@ -101,55 +166,37 @@ module.exports = {
     // PUT - test with empty pipeline
     // Expect: failure status
     testPutEmptyPipeline: function(test) {
-        timeoutObj = startTestTimer(test);
-
-        setInitialCmd({
-            command: 'put',
-            pipeline: '',
-        });
-
-        setResponseFsm(function(data, flags) {
-            test.ok(!flags.binary, 'Got unexpected binary response');
-
-            if (!flags.binary) {
-                var json = JSON.parse(data);
-                var expected = {
-                    'status':   ghFail,
+        doExchangeSet(
+            test,
+            [{
+                req: {
                     'command':  'put',
-                };
-
-                validateJson(test, json, expected);
-            }
-
-            endTest(test);
-        });
+                    'pipeline': '',
+                },
+                res: {
+                    'command':  'put',
+                    'status':   ghFail,
+                }
+            }]
+        );
     },
 
     // PUT - test with malformed pipeline XML
     // Expect: failure status
     testPutMalformedPipeline: function(test) {
-        timeoutObj = startTestTimer(test);
-
-        setInitialCmd({
-            command: 'put',
-            pipeline: 'I am not valid pipeline XML!',
-        });
-
-        setResponseFsm(function(data, flags) {
-            test.ok(!flags.binary, 'Got unexpected binary response');
-
-            if (!flags.binary) {
-                var json = JSON.parse(data);
-                var expected = {
-                    'status':   ghFail,
+        doExchangeSet(
+            test,
+            [{
+                req: {
                     'command':  'put',
-                };
-
-                validateJson(test, json, expected);
-            }
-
-            endTest(test);
-        });
+                    'pipeline': 'I am not valid pipeline XML!',
+                },
+                res: {
+                    'command':  'put',
+                    'status':   ghFail,
+                }
+            }]
+        );
     },
 
     // PUT - test with missing pipeline parameter
@@ -189,9 +236,9 @@ module.exports = {
         var filename = '/vagrant/examples/data/read.xml';
 
         fs.readFile(filename, 'utf8', function(err, file) {
-            var command = {
-                    command:    'put',
-                    pipeline:   file,
+            var cmd = {
+                command:    'put',
+                pipeline:   file,
             };
 
             if (err) {
@@ -199,7 +246,7 @@ module.exports = {
                 endTest(test);
             }
 
-            setInitialCmd(command);
+            setInitialCmd(cmd);
 
             setResponseFsm(function(data, flags) {
                 ++got;
@@ -218,7 +265,7 @@ module.exports = {
                 }
 
                 if (got === 1) {
-                    send(command);
+                    send(cmd);
                 }
                 else if (got === 2) {
                     endTest(test);
@@ -435,9 +482,60 @@ module.exports = {
     },
 
     // POINTSCOUNT - test valid command
+    // Expect: successful status and number of points
     testPointsCountValid: function(test) {
-        // TODO
-        test.done();
+        timeoutObj = startTestTimer(test);
+        var got = 0;
+        var session;
+
+        createWithSample(function(data, flags) {
+            ++got;
+
+            test.ok(!flags.binary, 'Got unexpected binary response');
+
+            if (got === 1) {
+                if (!flags.binary) {
+                    var json = JSON.parse(data);
+                    var expected = {
+                        'status':   ghSuccess,
+                        'command':  'create',
+                        'session':  dontCare,
+                    };
+
+                    validateJson(test, json, expected);
+                }
+
+                session = json['session'];
+                send({ command: 'pointsCount', session: session });
+            }
+            else if (got === 2) {
+                if (!flags.binary) {
+                    var json = JSON.parse(data);
+                    var expected = {
+                        'status':   ghSuccess,
+                        'command':  'pointsCount',
+                        'count':    10653,
+                    };
+
+                    validateJson(test, json, expected);
+                }
+
+                send({ command: 'destroy', session: session });
+            }
+            else if (got === 3) {
+                if (!flags.binary) {
+                    var json = JSON.parse(data);
+                    var expected = {
+                        'status':   ghSuccess,
+                        'command':  'destroy',
+                    };
+
+                    validateJson(test, json, expected);
+                }
+
+                endTest(test);
+            }
+        });
     },
 
     // SCHEMA - test command with missing 'session' parameter
