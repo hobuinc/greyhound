@@ -15,7 +15,7 @@ var
 (function() {
 	"use strict";
 
-	var PDALSession = function(options) {
+	var PdalSession = function(options) {
 		this.options = _.defaults(options, {
 			log: true
 		});
@@ -29,7 +29,7 @@ var
 		this.ps = null;
 	};
 
-	PDALSession.prototype.checkInvoke = function(err, res) {
+	PdalSession.prototype.checkInvoke = function(err, res) {
 		var o = this;
 
 		if (o.reqd) {
@@ -47,7 +47,7 @@ var
 		}
 	}
 
-	PDALSession.prototype.spawn = function() {
+	PdalSession.prototype.spawn = function() {
 		var o = this;
 		var d = Q.defer();
 
@@ -122,7 +122,7 @@ var
 		});
 	};
 
-	PDALSession.prototype.exchange = function(obj) {
+	PdalSession.prototype.exchange = function(obj) {
 		var o = this;
         console.log("exchange: ", obj)
 		return o.spawn().then(function(ps) {
@@ -140,7 +140,7 @@ var
 		});
 	}
 
-	PDALSession.prototype.create = function(pipeline) {
+	PdalSession.prototype.create = function(pipeline) {
 		return this.exchange({
 			command: 'create',
 			params: {
@@ -153,14 +153,14 @@ var
 		});
 	}
 
-	PDALSession.prototype.destroy = function() {
+	PdalSession.prototype.destroy = function() {
 		return this.exchange({
 			command: 'destroy',
 		}).then(function(res) {
 		});
 	}
 
-	PDALSession.prototype.getNumPoints = function() {
+	PdalSession.prototype.getNumPoints = function() {
 		return this.exchange({
 			command: 'getNumPoints',
 		}).then(function(res) {
@@ -168,7 +168,7 @@ var
 		});
 	};
 
-    PDALSession.prototype.getSchema = function() {
+    PdalSession.prototype.getSchema = function() {
         return this.exchange({
             command: 'getSchema',
         }).then(function(res) {
@@ -176,7 +176,7 @@ var
         });
     };
 
-	PDALSession.prototype.getSRS = function() {
+	PdalSession.prototype.getSRS = function() {
 		return this.exchange({
 			command: 'getSRS',
 		}).then(function(res) {
@@ -184,7 +184,7 @@ var
 		});
 	};
 
-	PDALSession.prototype.isValid = function() {
+	PdalSession.prototype.isValid = function() {
 		return this.exchange({
 			command: 'isSessionValid',
 		}).then(function(res) {
@@ -192,7 +192,7 @@ var
 		});
 	};
 
-	PDALSession.prototype.read = function(host, port, start, count) {
+	PdalSession.prototype.read = function(host, port, start, count) {
 		var params = {}
 		if (start && count) {
 			params['start'] = start;
@@ -208,13 +208,13 @@ var
 		});
 	};
 
-	PDALSession.prototype.kill = function() {
+	PdalSession.prototype.kill = function() {
 		if (this.ps) {
 			process.kill(this.ps.pid, 'SIGHUP');
 			this.ps = null;
 		}
 	}
 
-	module.exports.PDALSession = PDALSession;
+	module.exports.PdalSession = PdalSession;
 })();
 

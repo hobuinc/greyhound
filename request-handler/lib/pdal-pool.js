@@ -1,10 +1,10 @@
 // pdal-pool.js
-// A pool of PDALSession processes
+// A pool of PdalSession processes
 //
 
 var 
 	_ = require('lodash'),
-	PDALSession = require('./pdal-session').PDALSession,
+	PdalSession = require('./pdal-session').PdalSession,
 	poolModule = require('generic-pool');
 
 (function() {
@@ -14,7 +14,7 @@ var
 		var pool = poolModule.Pool({
 			name: 'pdal-pool',
 			create: function(cb) {
-				var s = new PDALSession(_.defaults(pdalOptions || {}, {
+				var s = new PdalSession(_.defaults(pdalOptions || {}, {
 					processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
 					log: true
 				}));

@@ -6,7 +6,7 @@ var
 	path = require('path'),
 	Q = require('q'), 
 
-	PDALSession = require('./lib/pdal-session').PDALSession;
+	PdalSession = require('./lib/pdal-session').PdalSession;
 
 var waitForTCPData = function(port) {
 	var d = Q.defer();
@@ -35,7 +35,7 @@ var waitForTCPData = function(port) {
 };
 
 process.nextTick(function() {
-	var s = new PDALSession({
+	var s = new PdalSession({
 		processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
 		log: false
 	});
