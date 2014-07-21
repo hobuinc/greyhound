@@ -122,23 +122,29 @@ app.get("/srs/:sessionId", function(req, res) {
 });
 
 app.post("/read/:sessionId", function(req, res) {
-	var host = req.body.host, port = parseInt(req.body.port);
+	var host = req.body.host;
+    var port = parseInt(req.body.port);
 
 	var start = parseInt(req.body.start);
 	var count = parseInt(req.body.count);
 
 	if (!host)
-		return res.json(400, { message: 'Destination host needs to be specified' });
+		return res.json(
+            400,
+            { message: 'Destination host needs to be specified' });
 
 	if (!port)
-		return res.json(400, { message: 'Destination port needs to be specified' });
+		return res.json(
+            400,
+            { message: 'Destination port needs to be specified' });
 
 	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('read('+ sid + ')');
 
 		s.read(host, port, start, count).then(function(r) {
 			var ret = _.extend(_.omit(r, 'status'), {
-				message: 'Request queued for transmission to: ' + host + ':' + port,
+				message:
+                    'Request queued for transmission to: ' + host + ':' + port,
 			});
 			res.json(ret);
 		}, error(res)).done();
@@ -148,7 +154,11 @@ app.post("/read/:sessionId", function(req, res) {
 var port = ports.register('rh@0.0.1');
 app.listen(port, function() {
 	pool = createProcessPool({
-		processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
+		processPath: path.join(
+             __dirname,
+             '..',
+             'pdal-session',
+             'pdal-session'),
 		log: false
 	});
 

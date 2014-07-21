@@ -552,23 +552,23 @@ class BufferTransmitter {
                 unsigned char* data,
                 std::size_t nlen)
             :
-            host_(host),
-            port_(port),
+            host(host),
+            port(port),
             data(data),
-            nlen_(nlen)
+            nlen(nlen)
         { }
 
         void operator()() {
             namespace asio = boost::asio;
             using boost::asio::ip::tcp;
 
-            std::stringstream port;
-            port << port_;
+            std::stringstream portStream;
+            portStream << port;
 
             asio::io_service service;
             tcp::resolver resolver(service);
 
-            tcp::resolver::query q(host_, port.str());
+            tcp::resolver::query q(host, portStream.str());
             tcp::resolver::iterator iter = resolver.resolve(q), end;
 
             tcp::socket socket(service);
@@ -596,16 +596,16 @@ class BufferTransmitter {
             // send our data
             asio::write(
                     socket,
-                    asio::buffer(data, nlen_),
+                    asio::buffer(data, nlen),
                     ignored_error);
         }
 
 
     private:
-        std::string host_;
-        int port_;
+        std::string host;
+        int port;
         unsigned char* data;
-        std::size_t nlen_;
+        std::size_t nlen;
 };
 
 
@@ -632,7 +632,6 @@ int main() {
     commands.add(
             "create",
             [&session](const Json::Value& params) -> Json::Value {
-        // std::string pipeline = params["pipeline"].asString();
         session.create(params);
 
         return Json::Value();

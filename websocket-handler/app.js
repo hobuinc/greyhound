@@ -141,8 +141,10 @@ process.nextTick(function() {
 			// created pipelineId that maps to the stored pipeline.
             if (msg.hasOwnProperty('pipeline')) {
                 getDbHandler(function(err, db) {
-                    if (err)
+                    if (err) {
+                        console.log('ERROR in PUT');
                         return cb(err);
+                    }
 
                     web.post(
                         db,
@@ -166,6 +168,7 @@ process.nextTick(function() {
                 });
             }
             else {
+                console.log('NO PROPERTY ', msg);
                 return cb(new Error('Missing property "pipeline"'));
             }
 		});
@@ -212,7 +215,12 @@ process.nextTick(function() {
 					if (err) return cb(err);
 
 					deleteAffinity(session, function(err) {
-						if (err) console.log('destroying session, but affinity was not correctly cleared', err);
+						if (err) {
+                            console.log(
+                                'destroying session, but affinity was not ' +
+                                        'correctly cleared',
+                                err);
+                        }
 
 						console.log('Completing destroy');
 						cb();
@@ -237,7 +245,11 @@ process.nextTick(function() {
 							streamer.close();
 							return cb(err);
 						}
-						console.log('TCP-WS: points: ', r.pointsRead, 'bytes:', r.bytesCount);
+						console.log(
+                            'TCP-WS: points: ',
+                            r.pointsRead,
+                            'bytes:',
+                            r.bytesCount);
 
 						cb(null, r);
 						process.nextTick(function() {
@@ -247,7 +259,11 @@ process.nextTick(function() {
 				});
 
 				streamer.on('end', function() {
-					console.log('Done transmitting point data, r: ' + streamer.totalArrived + ' s:' + streamer.totalSent);
+					console.log(
+                        'Done transmitting point data, r: ',
+                        streamer.totalArrived,
+                        ' s: ',
+                        streamer.totalSent);
 				});
 
 				streamer.start();
