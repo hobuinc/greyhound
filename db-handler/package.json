@@ -8,7 +8,6 @@
         "method-override": "*",
         "body-parser": "*",
         "seaport": "*",
-		"sqlite3": "*",
         "mkdirp": "*"
 	}
 }

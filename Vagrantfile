@@ -11,9 +11,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.network :forwarded_port, guest: 80, host: 8080
   config.vm.provider :virtualbox do |vb|
 	  vb.customize ["modifyvm", :id, "--memory", "2048"]
-	  vb.customize ["modifyvm", :id, "--cpus", "2"]   
+	  vb.customize ["modifyvm", :id, "--cpus", "2"]
 	  vb.customize ["modifyvm", :id, "--ioapic", "on"]
-  end  
+  end
 
   ppaRepos = [
 	  "ppa:ubuntugis/ubuntugis-unstable",
@@ -46,12 +46,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  "libcunit1-dev",
 	  "postgresql-server-dev-9.3",
 	  "postgresql-9.3-postgis-2.1",
-      "libgeos++-dev"
+      "libgeos++-dev",
+      "node-gyp"
   ];
 
-  nodeVersion = "0.8.23"
+  nodeVersion = "0.10.29"
   nodeURL = "http://nodejs.org/dist/v#{nodeVersion}/node-v#{nodeVersion}-linux-x64.tar.gz"
-  
+
   if Dir.glob("#{File.dirname(__FILE__)}/.vagrant/machines/default/*/id").empty?
 	  pkg_cmd = ""
 
