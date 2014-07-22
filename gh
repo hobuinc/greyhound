@@ -15,10 +15,10 @@ start)
     ;;
 stop)
     pkill gh_*
-    killall node    # TODO Hipache workers don't seem to allow naming. 
+    killall nodejs    # TODO Hipache workers don't seem to allow naming.
     ;;
 *)
     echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
-    
+
 esac
 

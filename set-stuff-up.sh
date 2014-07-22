@@ -8,6 +8,7 @@ setup_base_packages() {
 	sudo gem install foreman --no-rdoc --no-ri
 	sudo npm install -g hipache
     sudo npm install -g nodeunit
+    sudo npm install -g sqlite3 --build-from-source
 }
 
 setup_npm_packages() {
