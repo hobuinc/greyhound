@@ -148,7 +148,7 @@ private:
         client::connection_ptr con = client_.get_connection(uri_, ec);
         client_.connect(con);
     }
-    
+
     // The following function is needed to replace the message handler right
     // away before the system gets a chance to send down another message
     // through our message handler, this is needed where the next message
@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
             std::cout << "Session has " << count << " points." << std::endl;
 
             client.Read(
-                session, 
+                session,
                 [&ibytesToRead](int npoints, int nbytes)
                 {
                     std::cout << "Total " << npoints << " points in " <<
@@ -246,9 +246,8 @@ int main(int argc, char* argv[])
                     if (bytesRead >= ibytesToRead)
                     {
                         std::cout << "All bytes read in." << std::endl;
+                        client.Destroy(session, [](bool val) { exit(0); });
                     }
-
-                    client.Destroy(session, [](bool val) { exit(0); });
                 });
         });
     });
