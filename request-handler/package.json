@@ -1,7 +1,8 @@
 {
 	"name": "request-handler",
 	"private": true,
-	"version" : "0.0.1",
+    "gypfile": true,
+	"version": "0.0.1",
 	"dependencies": {
 		"lodash" : "*",
 		"jsonparse": "*",

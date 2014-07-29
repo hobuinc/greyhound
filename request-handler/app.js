@@ -14,20 +14,20 @@ var express = require("express"),
 
 	createProcessPool = require('./lib/pdal-pool').createProcessPool,
 
-    app     = express(),
-	ports	= seaport.connect('localhost', 9090),
+    app = express(),
+	ports = seaport.connect('localhost', 9090),
 	pool = null;
 
 
 // configure express application
 app.configure(function(){
-  app.use(methodOverride());
-  app.use(bodyParser());
-  app.use(express.errorHandler({
-    dumpExceptions: true, 
-    showStack: true
-  }));
-  app.use(app.router);
+    app.use(methodOverride());
+    app.use(bodyParser());
+    app.use(express.errorHandler({
+        dumpExceptions: true,
+        showStack: true
+    }));
+    app.use(app.router);
 });
 
 var sessions = {};
@@ -35,7 +35,7 @@ var sessions = {};
 var getSession = function(res, sessionId, cb) {
 	if (!sessions[sessionId])
 		return res.json(404, { message: 'No such session' });
-	
+
 	cb(sessions[sessionId], sessionId);
 };
 
@@ -49,7 +49,6 @@ var createId = function() {
 	return crypto.randomBytes(20).toString('hex');
 }
 
-
 app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
@@ -57,22 +56,25 @@ app.get("/", function(req, res) {
 // handlers for our API
 app.post("/create", function(req, res) {
 	pool.acquire(function(err, s) {
+        console.log('HERE DUDE');
 		if (err) {
-            console.log('erroring: ', s);
+            console.log('erroring acquire:', s);
 			return error(res)(err);
         }
 
-		s.create(req.body.pipeline || "").then(function() {
-			var id = createId();
-			sessions[id] = s;
+        s.create(req.body.pipeline, function(err) {
+            if (err) {
+                console.log('erroring create:', err);
+                pool.release(s);
+                return error(res)(err);
+            }
 
-			console.log('create =', id);
-			res.json({ sessionId: id });
-		}, function(err) {
-            console.log('erroring create: ', err);            
-			pool.release(s);
-			return error(res)(err);
-		}).done();
+            var id = createId();
+            sessions[id] = s;
+
+            console.log('create =', id);
+            res.json({ sessionId: id });
+        });
 	});
 });
 
@@ -81,43 +83,30 @@ app.delete("/:sessionId", function(req, res) {
 		console.log('delete('+ sid + ')');
 		delete sessions[sid];
 
-		s.destroy().then(function() {
-			pool.release(s);
-
-			res.json({ message: 'Session destroyed' });
-		}, function(err) {
-			pool.release(s);
-
-			console.log('Destroy was not clean!');
-			res.json({ message: 'Session destroyed, but not clean' });
-		}).done();
+        //pool.destroy(s);
+        pool.release(s);
+        res.json({ message: 'Session destroyed' });
 	});
 });
 
 app.get("/pointsCount/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('pointsCount('+ sid + ')');
-		s.getNumPoints().then(function(count) {
-			res.json({ count: count });
-		}, error(res)).done();
+        res.json({ count: s.getNumPoints() });
 	});
 });
 
 app.get("/schema/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('schema('+ sid + ')');
-		s.getSchema().then(function(schema) {
-			res.json({ schema: schema});
-		}, error(res)).done();
+        res.json({ schema: s.getSchema() });
 	});
 });
 
 app.get("/srs/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('srs('+ sid + ')');
-		s.getSRS().then(function(srs) {
-			res.json({ srs: srs });
-		}, error(res)).done();
+        res.json({ srs: s.getSrs() });
 	});
 });
 
@@ -125,8 +114,8 @@ app.post("/read/:sessionId", function(req, res) {
 	var host = req.body.host;
     var port = parseInt(req.body.port);
 
-	var start = parseInt(req.body.start);
-	var count = parseInt(req.body.count);
+	var start = req.body.hasOwnProperty(start) ? parseInt(req.body.start) : 0;
+	var count = req.body.hasOwnProperty(count) ? parseInt(req.body.count) : 0;
 
 	if (!host)
 		return res.json(
@@ -141,26 +130,20 @@ app.post("/read/:sessionId", function(req, res) {
 	getSession(res, req.params.sessionId, function(s, sid) {
 		console.log('read('+ sid + ')');
 
-		s.read(host, port, start, count).then(function(r) {
-			var ret = _.extend(_.omit(r, 'status'), {
-				message:
-                    'Request queued for transmission to: ' + host + ':' + port,
-			});
-			res.json(ret);
-		}, error(res)).done();
+        s.read(host, port, start, count, function(err, pointsRead, bytesCount) {
+            res.json({
+                pointsRead: pointsRead,
+                bytesCount: bytesCount,
+                message:
+                    'Request queued for transmission to ' + host + ':' + port,
+            });
+        });
 	});
 });
 
 var port = ports.register('rh@0.0.1');
 app.listen(port, function() {
-	pool = createProcessPool({
-		processPath: path.join(
-             __dirname,
-             '..',
-             'pdal-session',
-             'pdal-session'),
-		log: false
-	});
+	pool = createProcessPool();
 
 	console.log('Request handler listening on port: ' + port);
 });

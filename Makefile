@@ -1,7 +1,7 @@
 all:
-	$(MAKE) -C pdal-session all
+	$(MAKE) -C request-handler all
 	$(MAKE) -C examples/cpp all
 
 clean:
-	$(MAKE) -C pdal-session clean
+	$(MAKE) -C request-handler clean
 	$(MAKE) -C examples/cpp clean

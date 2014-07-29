@@ -19,7 +19,7 @@ var
 				ws.send(JSON.stringify(obj));
 			}
 			catch(e) {
-				console.log('Failed to send object: ', obj, e); 
+				console.log('Failed to send object: ', obj, e);
 			}
 		}
 
@@ -43,13 +43,27 @@ var
 
 			if (_.isFunction(o.handlers[msg.command])) {
 				o.handlers[msg.command](msg, function(err, res) {
-					if (err) return send({
-						command: msg.command,
-						status: 0, reason: err.message });
-
-					send(_.extend(res || {}, { command: msg.command, status: 1 }));
+					if (err) {
+                        return send({
+                            command: msg.command,
+                            status: 0,
+                            reason: err.message,
+                        });
+                    }
+                    else {
+                        return send(_.extend(
+                                res || {},
+                                { command: msg.command, status: 1 }
+                       ));
+                    }
 				});
 			}
+            else {
+                console.log('Improper configuration');
+                return send({
+                    status: 0,
+                });
+            }
 		});
 	};
 

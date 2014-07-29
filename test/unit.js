@@ -186,6 +186,8 @@ module.exports = {
         );
     },
 
+/*
+    // TODO Server needs to validate pipelines via PDAL
     // PUT - test with malformed pipeline XML
     // Expect: failure status
     testPutMalformedPipeline: function(test) {
@@ -203,6 +205,7 @@ module.exports = {
             }]
         );
     },
+*/
 
     // PUT - test with missing pipeline parameter
     // Expect: failure status
@@ -220,45 +223,41 @@ module.exports = {
             }]
         );
     },
-
     // PUT - test double call with the same pipeline (this also tests
     // the nominal case)
     // Expect: Two successful statuses with a pipelineId parameter in each
     // response
     testPutDoublePipeline: function(test) {
         var filename = '/vagrant/examples/data/read.xml';
+        file = fs.readFileSync(filename, 'utf8');
 
-        fs.readFile(filename, 'utf8', function(err, file) {
-            test.ok(!err, 'Error reading pipeline: ' + filename);
-
-            doExchangeSet(
-                test,
-                [{
-                    req: {
-                        'command':  'put',
-                        'pipeline': file,
-                    },
-                    res: {
-                        'command':      'put',
-                        'status':       ghSuccess,
-                        'pipelineId':   dontCare,
-                    }
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'put',
+                    'pipeline': file,
                 },
-                {
-                    req: {
-                        'command':  'put',
-                        'pipeline': file,
-                    },
-                    res: {
-                        'command':      'put',
-                        'status':       ghSuccess,
-                        'pipelineId':   dontCare,
-                    }
-                }]
-            );
-        });
+                res: {
+                    'command':      'put',
+                    'status':       ghSuccess,
+                    'pipelineId':   dontCare,
+                }
+            },
+            {
+                req: {
+                    'command':  'put',
+                    'pipeline': file,
+                },
+                res: {
+                    'command':      'put',
+                    'status':       ghSuccess,
+                    'pipelineId':   dontCare,
+                }
+            }]
+        );
     },
-    
+
     // CREATE - test without a pipelineId parameter
     // Expect: failure status
     testCreateNoPipelineId: function(test) {
@@ -378,7 +377,6 @@ module.exports = {
                 },
             }]
         );
-
     },
 
     // POINTSCOUNT - test command with missing 'session' parameter
@@ -457,21 +455,78 @@ module.exports = {
     },
 
     // SCHEMA - test command with missing 'session' parameter
+    // Expect: failure status
     testSchemaMissingSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command': 'schema',
+                },
+                res: {
+                    'command':  'schema',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // SCHEMA - test command with invalid 'session' parameter
+    // Expect: failure status
     testSchemaInvalidSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'schema',
+                    'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'schema',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // SCHEMA - test valid command
+    // Expect: Successful status and schema
     testSchemaValid: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'schema',
+                    'session':  initialSession,
+                },
+                res: {
+                    'status':   ghSuccess,
+                    'command':  'schema',
+                    'schema':   dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // SRS - test command with missing 'session' parameter
@@ -493,20 +548,80 @@ module.exports = {
     },
 
     // READ - test command with missing 'session' parameter
+    // Expect: failure status
     testReadMissingSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command': 'read',
+                },
+                res: {
+                    'command':  'read',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // READ - test command with invalid 'session' parameter
+    // Expect: failure status
     testReadInvalidSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'read',
+                    'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'read',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
-
+    //
     // READ - test request of zero points
     testReadZeroPoints: function(test) {
-        // TODO
+        /*
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    0,
+                },
+                res: {
+                    'status':   ghSuccess,
+                    'command':  'read',
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+        */
+        // TODO - Define this behavior within Greyhound.
         test.done();
     },
 
@@ -559,39 +674,111 @@ module.exports = {
     },
 
     // DESTROY - test command with missing 'session' parameter
+    // Expect: failure status
     testDestroyMissingSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command': 'destroy',
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // DESTROY - test command with invalid 'session' parameter
     testDestroyInvalidSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'destroy',
+                    'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // DESTROY - test valid destroy
     testDestroyValid: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            },
+            // TODO - Try to use the session again - should not work.
+            ]
+        );
     },
 
     // OTHER - test non-existent command
     testOtherBadCommand: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'badCommand',
+                },
+                res: {
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // OTHER - test missing 'command' parameter
     testOtherMissingCommand: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                },
+                res: {
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 
     // OTHER - test empty 'command' parameter
     testOtherEmptyCommand: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  '',
+                },
+                res: {
+                    'status':   ghFail,
+                },
+            }]
+        );
     },
 };
 
