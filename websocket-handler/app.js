@@ -60,14 +60,15 @@ var queryPipeline = function(id, cb) {
 
 		web.get(
 			db,
-			'/retrieve', 
+			'/retrieve',
 			{ pipelineId: id },
 			function(err, res) {
                 if (err)
                     return cb(err);
                 else
-                    return cb(err, res.pipeline);
-			});
+                    return cb(null, res.pipeline);
+			}
+        );
 	});
 }
 
@@ -142,7 +143,6 @@ process.nextTick(function() {
             if (msg.hasOwnProperty('pipeline')) {
                 getDbHandler(function(err, db) {
                     if (err) {
-                        console.log('ERROR in PUT');
                         return cb(err);
                     }
 
@@ -168,7 +168,6 @@ process.nextTick(function() {
                 });
             }
             else {
-                console.log('NO PROPERTY ', msg);
                 return cb(new Error('Missing property "pipeline"'));
             }
 		});
@@ -177,12 +176,17 @@ process.nextTick(function() {
 			// Get the stored pipeline corresponding to the requested
 			// pipelineId from the db-handler, then defer to the
 			// request-handler to create the session.
-			queryPipeline(msg.pipelineId, function(err, pipeline) {
-				if (err)
-					return cb(err);
-
-				createSession(pipeline, cb);
-			});
+            if (msg.hasOwnProperty('pipelineId')) {
+                queryPipeline(msg.pipelineId, function(err, pipeline) {
+                    if (err)
+                        return cb(err);
+                    else
+                        createSession(pipeline, cb);
+                });
+            }
+            else {
+                return cb(new Error('Missing property "pipeline"'));
+            }
 		});
 
 		handler.on('pointsCount', function(msg, cb) {
@@ -260,9 +264,9 @@ process.nextTick(function() {
 
 				streamer.on('end', function() {
 					console.log(
-                        'Done transmitting point data, r: ',
+                        'Done transmitting point data, r:',
                         streamer.totalArrived,
-                        ' s: ',
+                        's:',
                         streamer.totalSent);
 				});
 

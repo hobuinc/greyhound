@@ -39,8 +39,11 @@ function configureDb(cb) {
             return cb(err);
 
         fs.open(dbFile, 'a', function(err, fd) {
-            if (err)
-                return cb(err)
+            if (err) {
+                fs.close(fd, function() {
+                    return cb(err);
+                });
+            }
 
             db = new sqlite3.Database(dbFile);
 
@@ -50,14 +53,15 @@ function configureDb(cb) {
                         'pipelineId TEXT PRIMARY KEY,' +
                         'filename TEXT' +
                     ')');
+
+                db.close();
+
+                fs.close(fd, function() {
+                    return cb(null);
+                });
             });
         });
     });
-
-    // TODO: Should close DB (and DB file) here, re-open when needed.
-    // For now the sqlite3 DB is open for the lifetime of the db-handler.
-    // Retrieve operations should open in read-only.
-    return cb(null);
 }
 
 var put = function(pipeline, cb) {
@@ -74,37 +78,58 @@ var put = function(pipeline, cb) {
             if(err)
                 return cb(err);
 
-            // TODO Need to detect collisions.
-            var stmt = db.prepare("INSERT OR IGNORE INTO pipelines VALUES (?,?);");
-            stmt.run(hash, hash);
-            stmt.finalize();
+            fs.open(dbFile, 'a', function(err, fd) {
+                if (err)
+                    return cb(err);
 
-            // Return the database ID for the newly inserted file.
-            return cb(err, hash)
+                db = new sqlite3.Database(dbFile, sqlite3.OPEN_READWRITE);
+
+                // TODO Need to detect collisions.
+                var stmt = db.prepare(
+                    "INSERT OR IGNORE INTO pipelines VALUES (?,?);");
+                stmt.run(hash, hash);
+                stmt.finalize();
+
+                db.close();
+
+                fs.close(fd, function() {
+                    // Return the database ID for the newly inserted file.
+                    return cb(null, hash)
+                });
+            });
         });
     });
 }
 
 var retrieve = function(pipelineId, cb) {
-    db.all(
-        "SELECT rowid as id, filename FROM pipelines WHERE pipelineId = ?;",
-        pipelineId,
-        function(err, rows) {
-            console.log("SELECTED: ", rows);
+    fs.open(dbFile, 'r', function(err, fd) {
+        db = new sqlite3.Database(dbFile, sqlite3.OPEN_READONLY);
 
-            if (err)
-                return cb(err);
-            else if (rows.length > 1)
-                return cb(new Error("Database results invalid"));
-            else if (rows.length == 0)
-                return cb(new Error("PipelineId " + pipelineId + " not found"));
+        db.all(
+            "SELECT rowid as id, filename FROM pipelines WHERE pipelineId = ?;",
+            pipelineId,
+            function(err, rows) {
+                db.close();
 
-            var filename = rows[0].filename;
+                if (err)
+                    return cb(err);
+                else if (rows.length > 1)
+                    return cb(new Error("Database results invalid"));
+                else if (rows.length == 0)
+                    return cb(new Error("PipelineId " + pipelineId + " not found"));
 
-            fs.readFile(dataDir + filename, 'utf8', function(err, data) {
-                return cb(err, data);
-            });
-        });
+                var filename = rows[0].filename;
+
+                fs.readFile(dataDir + filename, 'utf8', function(err, data) {
+
+                    fs.close(fd, function() {
+                        // Return the database ID for the newly inserted file.
+                        return cb(err, data)
+                    });
+                });
+            }
+        );
+    });
 }
 
 var validatePipeline = function(pipeline) {
@@ -112,9 +137,12 @@ var validatePipeline = function(pipeline) {
     return typeof pipeline === 'string' && pipeline.length !== 0;
 }
 
+app.get("/", function(req, res) {
+	res.json(404, { message: 'Invalid service URL' });
+});
+
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    console.log('Got PUT request in DB');
     var pipeline = req.body.pipeline;
 
     if (validatePipeline(pipeline)) {
@@ -123,24 +151,23 @@ app.post("/put", function(req, res) {
                 return error(res)(err);
 
             // Respond with database ID of the inserted pipeline.
-            res.json({ id: pipelineId });
+            return res.json({ id: pipelineId });
         });
     }
     else {
-        console.log('Got invalid pipeline');
+        console.log('Pipeline validation failed');
         return error(res)(new Error('Invalid pipeline'));
     }
 });
 
 app.get("/retrieve", function(req, res) {
     var pipelineId = req.body.pipelineId;
-    console.log('Got RETRIEVE request in DB: ', pipelineId);
 
     retrieve(pipelineId, function(err, foundPipeline) {
         if (err)
             return error(res)(err);
 
-        res.json({ pipeline: foundPipeline });
+        return res.json({ pipeline: foundPipeline });
     });
 });
 

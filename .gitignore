@@ -4,6 +4,7 @@ pdal-session/pdal-session
 examples/cpp/get-points
 examples/cpp/put-pipeline
 *.log
+*.swp
 db-handler/db/*
 
 node_modules
@@ -14,3 +15,4 @@ web/public/css/style.css
 frontend-proxy/hipache-log.txt
 examples/data/autzen.laz
 scripts/vagrant/pdal
+request-handler/build

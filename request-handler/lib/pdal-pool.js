@@ -2,32 +2,29 @@
 // A pool of PdalSession processes
 //
 
-var 
+var
 	_ = require('lodash'),
-	PdalSession = require('./pdal-session').PdalSession,
+    PdalSession = require('../build/Release/pdalSession').PdalSession,
 	poolModule = require('generic-pool');
 
 (function() {
 	"use strict";
 
-	var createProcessPool = function(pdalOptions) {
+	var createProcessPool = function() {
 		var pool = poolModule.Pool({
 			name: 'pdal-pool',
 			create: function(cb) {
-				var s = new PdalSession(_.defaults(pdalOptions || {}, {
-					processPath: path.join(__dirname, '..', 'pdal-session', 'pdal-session'),
-					log: true
-				}));
-
+                var s = new PdalSession();
 				cb(s);
 			},
 
 			destroy: function(s) {
-				s.kill();
+                // TODO What if a detached BufferTransmitter is running?
+				s.destroy();
 			},
 
 			max: 100,
-			min: 5,
+			min: 0,
 			idleTimeoutMillis: 10000,
 			log: false
 		});
@@ -37,3 +34,4 @@ var
 
 	module.exports.createProcessPool = createProcessPool;
 })();
+
