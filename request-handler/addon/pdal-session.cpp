@@ -286,6 +286,7 @@ Handle<Value> PdalSession::read(const Arguments& args)
     HandleScope scope;
 
     // Input args.
+    // TODO: Validate.
     const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
     const std::size_t port(args[1]->IsUndefined() ? 0 : args[1]->Uint32Value());
     const std::size_t start(args[2]->IsUndefined() ? 0 : args[2]->Uint32Value());

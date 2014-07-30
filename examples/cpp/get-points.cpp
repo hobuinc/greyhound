@@ -76,8 +76,8 @@ public:
             if (r["status"] == 1) {
                 // std::cout << r.toStyledString() << std::endl;
 
-                int npoints = r["pointsRead"].asInt();
-                int nbytes = r["bytesCount"].asInt();
+                int npoints = r["numPoints"].asInt();
+                int nbytes = r["numBytes"].asInt();
 
                 handler(npoints, nbytes);
             }

@@ -32,7 +32,7 @@ var doExchangeSet = function(test, exchangeSet) {
                 expected['binary'] === false) {
                 var json = JSON.parse(data);
                 responses[exchangeIndex] = json;
-                validateJson(test, json, expected);
+                validateJson(test, json, expected, exchangeIndex);
             }
             else {
                 var message = 'Got unexpected binary response';
@@ -115,7 +115,7 @@ var initialSession = function(prevResponses) {
     return prevResponses[0]['session'];
 }
 
-var validateJson = function(test, json, expected) {
+var validateJson = function(test, json, expected, exchangeIndex) {
     for (var field in expected) {
         test.ok(
             json.hasOwnProperty(field),
@@ -139,7 +139,8 @@ var validateJson = function(test, json, expected) {
     {
         test.ok(
             expected.hasOwnProperty(field) || field === 'reason',
-            'Unexpected field in response: ' + field + " - " + json[field]);
+            'Unexpected field in response #' + (exchangeIndex + 1) + ': ' +
+                    field + " - " + json[field]);
     }
 }
 
@@ -581,10 +582,11 @@ module.exports = {
             }]
         );
     },
-    //
+
     // READ - test request of zero points
+    // Expect: all points read
     testReadZeroPoints: function(test) {
-        /*
+        // TODO
         doExchangeSet(
             test,
             [{
@@ -620,9 +622,6 @@ module.exports = {
                 },
             }]
         );
-        */
-        // TODO - Define this behavior within Greyhound.
-        test.done();
     },
 
     // READ - test negative number of points requested
@@ -733,6 +732,7 @@ module.exports = {
                 },
             },
             // TODO - Try to use the session again - should not work.
+            // TODO - Test double destroy
             ]
         );
     },

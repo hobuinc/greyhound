@@ -1,6 +1,5 @@
-// tcp-ws.lib
+// tcp-ws.js
 // Tcp to websocket binary streaming
-//
 
 
 var net = require('net'),
@@ -9,15 +8,16 @@ var net = require('net'),
 (function() {
 	"use strict";
 
-	var TCPToWS = function(ws) {
+	var TcpToWs = function(ws) {
 		this.ws = ws;
 
 		// the tcp-ws can start recieving data from the server even before
-		// we're ok with start pushing data to our client, the request handler server 
-		// assumes that if you have been able to specify a host:port, you are ready to 
-		// receive data and starts pushing data.  On the other hand for our ws client, we always
-		// want to provide data in order readSuccess -> data -> readComplete. We, therefore,
-		// need to stage data till we are sure that the readSuccess message has been
+		// we're ok with start pushing data to our client, the request handler
+        // server assumes that if you have been able to specify a host:port,
+        // you are ready to receive data and starts pushing data.  On the
+        // other hand for our ws client, we always want to provide data in
+        // order readSuccess -> data -> readComplete. We, therefore, need to
+        // stage data till we are sure that the readSuccess message has been
 		// sent down the connection.
 		this.canPush = false;
 		this.waitData = null;
@@ -29,12 +29,12 @@ var net = require('net'),
 		events.EventEmitter.call(this);
 	}
 
-	TCPToWS.prototype.wsSend = function(data) {
+	TcpToWs.prototype.wsSend = function(data) {
 		this.totalSent += data.length;
 		this.ws.send(data, { binary: true });
 	}
 
-	TCPToWS.prototype.start = function() {
+	TcpToWs.prototype.start = function() {
 		var server = net.createServer();
 		var safeClose = function() {
 			try { server.close() } catch(e) {};
@@ -61,8 +61,8 @@ var net = require('net'),
 			socket.on('end', function() {
 				// if the data has finished arriving even before
 				// we actually got a chance to push any data at all, we won't
-				// notify 'end' till we actually get done pushing data (in the start
-				// pushing method)
+				// notify 'end' till we actually get done pushing data (in
+                // the startPushing method)
 
 				if (!o.canPush)
 					o.hasEnded = true;
@@ -79,11 +79,13 @@ var net = require('net'),
 						o.wsSend(data);
 					}
 					catch(e) {
-						console.log('Failed to push binary blob(push: on)', e)
+						console.log('Failed to push binary blob(push: on)', e);
 					}
 				}
 				else {
-					o.waitData = (o.waitData === null) ? data : Buffer.concat([o.waitData, data]);
+					o.waitData = (o.waitData === null) ?
+                        data :
+                        Buffer.concat([o.waitData, data]);
 				}
 
 				o.totalArrived += data.length;
@@ -99,7 +101,7 @@ var net = require('net'),
 		this.server = server;
 	};
 
-	TCPToWS.prototype.startPushing = function() {
+	TcpToWs.prototype.startPushing = function() {
 		if (this.waitData) {
 			try {
 				this.wsSend(this.waitData);
@@ -124,13 +126,14 @@ var net = require('net'),
 		}
 	}
 
-	TCPToWS.prototype.close = function() {
+	TcpToWs.prototype.close = function() {
 		if (this.server)
 			try { this.server.close(); } catch(e) { }
 		this.server = null;
 	};
 
-	TCPToWS.prototype.__proto__ = events.EventEmitter.prototype;
+	TcpToWs.prototype.__proto__ = events.EventEmitter.prototype;
 
-	module.exports.TCPToWS = TCPToWS;
+	module.exports.TcpToWs = TcpToWs;
 })();
+
