@@ -11,11 +11,11 @@ var WebSocketServer = require('ws').Server
   , lruCache = require('lru-cache')
 
   , web = require('./lib/web')
-  , CommandHandler = require('./lib/command-handler').CommandHandler
   , port = (process.env.PORT || 8080)
   , ports = seaport.connect('localhost', 9090)
-  , TCPToWS = require('./lib/tcp-ws').TCPToWS;
 
+  , CommandHandler = require('./lib/command-handler').CommandHandler
+  , TcpToWs = require('./lib/tcp-ws').TcpToWs;
 
 // setup redis client
 var redisClient = redis.createClient();
@@ -237,7 +237,7 @@ process.nextTick(function() {
 			validateSessionAffinity(msg.session, function(err, session, rh) {
 				if (err) return cb(err);
 
-				var streamer = new TCPToWS(ws);
+				var streamer = new TcpToWs(ws);
 				streamer.on('local-address', function(add) {
 					console.log('local-bound address for read: ', add);
 
