@@ -41,9 +41,9 @@ var go = function() {
 			next();
 		});
 
-		app.use(require('less-middleware')({ src: __dirname + '/public', debug: true }));
+		app.use(require('less-middleware')(
+                { src: __dirname + '/public', debug: true }));
 		app.use(express.static(__dirname + '/public'));
-
 
 		// development only
 		if ('development' == app.get('env')) {
@@ -54,9 +54,16 @@ var go = function() {
 	});
 
 	app.get('/', function(req, res) {
-        console.log('QUERY PARAMS: ', req.query);
+        console.log('Query params: ', req.query);
+        // TODO For now this will fail due to no pipeline selection.  Should
+        // be something here.
 		res.render('index');
 	});
+
+    app.get('/data/:pipelineId', function(req, res) {
+        console.log('Query params: ', req.query);
+        res.render('data');
+    });
 
 	var server = http.createServer(app),
 	port = process.env.PORT || 80;
@@ -66,4 +73,5 @@ var go = function() {
 	});
 };
 
-process.nextTick(go);
+process.nextTick(go)
+
