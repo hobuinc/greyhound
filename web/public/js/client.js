@@ -11,9 +11,11 @@
         query = query.substring(1);
 
         var match,
-            pl     = /\+/g,  // Regex for replacing addition symbol with a space
+            pl     = /\+/g, // Replace '+' with a space.
             search = /([^&=]+)=?([^&]*)/g,
-            decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+            decode = function(s) {
+                return decodeURIComponent(s.replace(pl, " "));
+            },
             urlParams = {};
 
         while (match = search.exec(query))
@@ -39,7 +41,8 @@
 	//
 	var downloadData = function(status_cb, cb) {
 		if (!w.WebSocket)
-			return cb(new Error("Your browser doesn't seem to support websockets"));
+			return cb(new Error(
+                    "Your browser doesn't seem to support websockets"));
 
 		status_cb("Loading Point Cloud Data... Please Wait.");
 
@@ -57,14 +60,15 @@
 		ws.onopen = function() {
 			status_cb("WebSocket connection established. Creating session...");
 
-            var urlParams = getUrlParameters(w.location.search);
+            // var urlParams = getUrlParameters(w.location.search);
 
-            // We must be provided a data parameter.
-            if (urlParams.hasOwnProperty('data'))
+            var match = w.location.pathname.match('\/data\/([^\/]+)');
+
+            if (match)
             {
                 ws.send(JSON.stringify({
                     command: 'create',
-                    pipelineId: urlParams['data']
+                    pipelineId: match[1],
                 }));
             }
             else
@@ -87,11 +91,11 @@
 
 				if (msg.command === "create") {
 					if (msg.status === 0)
-						return cb(new Error('Failed to create session, this is not good.'));
+						return cb(new Error(
+                                'Failed to create session, this is not good.'));
 
-					// this is in response to our create request
-					// we now request to recieve the data
-					//
+					// This is in response to our create request.  Now request
+                    // to receive the data.
 					ws.send(JSON.stringify({
 						command: 'read',
 						session: msg.session
@@ -103,14 +107,17 @@
 				}
 				else if (msg.command === "read") {
 					if (msg.status !== 1)
-						return cb(new Error("Failed to queue read request: " + (msg.reason || "Unspecified error")));
+						return cb(new Error(
+                                    "Failed to queue read request: " +
+                                    (msg.reason || "Unspecified error")));
 
 					status_cb("Reading data... Please wait.");
 
+					console.log(msg.numPoints, msg.numBytes);
+
 					count		= 0;
-					pointsCount	= msg.pointsRead;
-					console.log(msg.pointsRead, msg.bytesCount);
-					dataBuffer	= new Int8Array(msg.bytesCount);
+					pointsCount	= msg.numPoints;
+					dataBuffer	= new Int8Array(msg.numBytes);
 				}
 				else if (msg.command === "destroy") {
 					if (msg.status === 1) {
@@ -128,7 +135,7 @@
 				count += a.length;
 
 				if (count >= dataBuffer.byteLength) {
-					// we're done reading data, close connection 
+					// we're done reading data, close connection
 					ws.send(JSON.stringify({
 						command: 'destroy',
 						session: session
@@ -138,12 +145,13 @@
 		};
 
 		// close and cleanup data
-		//
 		ws.onclose = function() {
 			if(dataBuffer !== null) {
+                // Use setTimeout so that we call the callback outside the
+                // context of ws.onclose
 				setTimeout(function() {
 					cb(null, dataBuffer, pointsCount);
-				}, 0); // so that we call the callback outside the context of ws.onclose
+				}, 0);
 			}
 		};
 	}
@@ -154,7 +162,12 @@
 			if (err)
 				return errorOut(err.message);
 
-			console.log('Got', data.byteLength, 'total bytes in', count, 'points');
+			console.log(
+                'Got',
+                data.byteLength,
+                'total bytes in',
+                count,
+                'points');
 
 			message("Data download complete, handing over to renderer.");
 			try {
@@ -170,3 +183,4 @@
 $(function() {
 	doIt();
 });
+

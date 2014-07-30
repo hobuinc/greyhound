@@ -13,14 +13,12 @@ A json-over-websockets protocol is used to initiate a session and query points. 
 You will need [Vagrant](http://www.vagrantup.com/) installed to play with _Greyhound_.  Once you check out the source code, browse to the checked out directory and do a:
 
 	vagrant up
-	
+
 This will start the virtual machine and launch _Greyhound_.  The first time you do it, it may take a while to set up the virtual machine with all the needed components (some installed from ubuntu repos, some built manually).
 
-_Greyhound_ allows clients to make use of pipelines that have been previously stored within the _Greyhound_ database as their pointcloud source.  These pipelines must be placed into the database before they may be used, and then selected with the ID that _Greyhound_ assigns.  The database is pre-initialized with a sample pipeline during the `vagrant up` procedure.  Once the process finishes, you can navigate to:
+_Greyhound_ allows clients to make use of pipelines that have been previously stored within the _Greyhound_ database as their pointcloud source.  These pipelines must be placed into the database before they may be used, and then selected with the ID that _Greyhound_ assigns.  The database is pre-initialized with a sample pipeline during the `vagrant up` procedure.  To have pointcloud data immediately rendered in a browser once the process finishes, you can navigate to:
 
-	http://localhost:8080/?data=d4f4cc08e63242a201de6132e5f54b08
-
-To have pointcloud data immediately rendered in a browser.  Pipeline selection is performed via the URL query's `data` parameter.
+    http://localhost:8080/data/d4f4cc08e63242a201de6132e5f54b08
 
 ## Going further
 To get more functionality than looking at the sample point cloud in your browser, you'll need to SSH into your Vagrant machine with:
