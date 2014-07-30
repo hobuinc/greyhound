@@ -16,23 +16,44 @@ var setInitialCmd = function(obj) {
     });
 }
 
+var isArray = function(obj) {
+    return Object.prototype.toString.call(obj) === '[object Array]';
+}
+
 var doExchangeSet = function(test, exchangeSet) {
     timeoutObj = startTestTimer(test);
 
     var exchangeIndex = 0;
     var responses = [];
     setInitialCmd(exchangeSet[exchangeIndex]['req']);
+    var expected = {};
+    var burst = false;
 
     ws.on('message', (function(data, flags) {
-        var expected = exchangeSet[exchangeIndex]['res'];
+        // If the expected value is an array instead of a verification
+        // object, then we expect to receive:
+        //      1) An initial JSON response, followed by
+        //      2) Some number of binary responses.
+        if (!burst)
+        {
+            expected = exchangeSet[exchangeIndex]['res'];
+            burst = isArray(expected);
+            if (burst)
+                expected = expected[0];
+        }
 
-        // Validate response from first request.
+        // Validate response.
         if (!flags.binary) {
-            if (expected['binary'] === undefined ||
-                expected['binary'] === false) {
+            if (typeof(expected) !== 'function') {
                 var json = JSON.parse(data);
                 responses[exchangeIndex] = json;
                 validateJson(test, json, expected, exchangeIndex);
+
+                if (burst)
+                {
+                    // Move on to the binary validation function.
+                    expected = exchangeSet[exchangeIndex]['res'][1];
+                }
             }
             else {
                 var message = 'Got unexpected binary response';
@@ -47,9 +68,10 @@ var doExchangeSet = function(test, exchangeSet) {
             }
         }
         else {
-            if (!expected.hasOwnProperty('binary') ||
-                !expected['binary']) {
-                // Validate binary response?
+            if (typeof(expected) === 'function') {
+                // The burst is over when the function returns true, at which
+                // point we can increment into the next exchange index.
+                burst = !expected(data);
             }
             else {
                 var message = 'Got unexpected non-binary response';
@@ -64,24 +86,27 @@ var doExchangeSet = function(test, exchangeSet) {
             }
         }
 
-        // Send request for the next exchange.
-        if (++exchangeIndex < exchangeSet.length) {
-            var rawReq = exchangeSet[exchangeIndex]['req'];
-            var req = {};
+        if (!burst)
+        {
+            // Send request for the next exchange.
+            if (++exchangeIndex < exchangeSet.length) {
+                var rawReq = exchangeSet[exchangeIndex]['req'];
+                var req = {};
 
-            for (var field in rawReq) {
-                if (typeof rawReq[field] !== 'function') {
-                    req[field] = rawReq[field];
+                for (var field in rawReq) {
+                    if (typeof rawReq[field] !== 'function') {
+                        req[field] = rawReq[field];
+                    }
+                    else {
+                        req[field] = rawReq[field](responses);
+                    }
                 }
-                else {
-                    req[field] = rawReq[field](responses);
-                }
+
+                send(req);
             }
-
-            send(req);
-        }
-        else {
-            endTest(test);
+            else {
+                endTest(test);
+            }
         }
     }));
 }
@@ -138,7 +163,9 @@ var validateJson = function(test, json, expected, exchangeIndex) {
     for (var field in json)
     {
         test.ok(
-            expected.hasOwnProperty(field) || field === 'reason',
+            expected.hasOwnProperty(field) ||
+                    field === 'reason' ||
+                    field === 'message',
             'Unexpected field in response #' + (exchangeIndex + 1) + ': ' +
                     field + " - " + json[field]);
     }
@@ -586,7 +613,7 @@ module.exports = {
     // READ - test request of zero points
     // Expect: all points read
     testReadZeroPoints: function(test) {
-        // TODO
+        var bytesRead = 0;
         doExchangeSet(
             test,
             [{
@@ -606,10 +633,18 @@ module.exports = {
                     'session':  initialSession,
                     'count':    0,
                 },
-                res: {
-                    'status':   ghSuccess,
-                    'command':  'read',
-                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    10653,
+                        'numBytes':     213060,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 213060;
+                    }
+                ]
             },
             {
                 req: {
