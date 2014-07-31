@@ -6,7 +6,9 @@
 class PdalInstance
 {
 public:
-    PdalInstance(const std::string& pipeline);
+    PdalInstance();
+
+    void initialize(const std::string& pipeline);
 
     std::size_t getNumPoints() const;
     std::string getSchema() const;
@@ -62,6 +64,28 @@ private:
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
 
     std::shared_ptr<PdalInstance> m_pdalInstance;
+
+    struct CreateData
+    {
+        CreateData(
+                std::shared_ptr<PdalInstance> pdalInstance,
+                std::string pipeline,
+                v8::Persistent<v8::Function> callback)
+            : pdalInstance(pdalInstance)
+            , pipeline(pipeline)
+            , errMsg()
+            , callback(callback)
+        { }
+
+        // Inputs
+        const std::shared_ptr<PdalInstance> pdalInstance;
+        const std::string pipeline;
+
+        // Outputs
+        std::string errMsg;
+
+        v8::Persistent<v8::Function> callback;
+    };
 
     struct ReadData
     {
