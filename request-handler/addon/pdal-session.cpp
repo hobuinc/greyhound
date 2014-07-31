@@ -20,6 +20,7 @@ PdalInstance::PdalInstance(const std::string& pipeline)
     pdal::PipelineReader pipelineReader(m_pipelineManager);
     pipelineReader.readPipeline(ssPipeline);
 
+    // TODO This should be asynchronous, probably in an init() or something.
     m_pipelineManager.execute();
     const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
     m_pointBuffer = pbSet.begin()->get();
@@ -292,48 +293,91 @@ Handle<Value> PdalSession::read(const Arguments& args)
     const std::size_t port(args[1]->IsUndefined() ? 0 : args[1]->Uint32Value());
     const std::size_t start(args[2]->IsUndefined() ? 0 : args[2]->Uint32Value());
     const std::size_t count(args[3]->IsUndefined() ? 0 : args[3]->Uint32Value());
-    Local<Function> cb = Local<Function>::Cast(args[4]);
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(args[4])));
 
+    // Provide access to m_pdalInstance from within this static function.
     PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
-
-    // Output args.
-    const unsigned argc = 3;
-    Local<Value> argv[argc] =
-        {
-            Local<Value>::New(Null()),          // err
-            Local<Value>::New(Integer::New(0)), // points to send
-            Local<Value>::New(Integer::New(0))  //numBytes
-        };
-
-    Local<Value>& err(argv[0]);
-    Local<Value>& pointsToSend(argv[1]);
-    Local<Value>& bytesToSend(argv[2]);
 
     if (start >= obj->m_pdalInstance->getNumPoints())
     {
         const std::string msg("Invalid start offset in 'read' request");
-        err = Local<Value>::New(String::New(msg.data(), msg.size()));
+
+        const unsigned int argc = 1;
+        Local<Value> argv[argc] =
+            {
+                Local<Value>::New(String::New(msg.data(), msg.size()))
+            };
+
+        callback->Call(
+            Context::GetCurrent()->Global(), argc, argv);
+
+        callback.Dispose();
     }
     else
     {
-        // Read the points to our buffer.
-        // TODO Should probably be asynchronous.
-        unsigned char* data(0);
-        const std::size_t numPoints(
-                obj->m_pdalInstance->read(&data, start, count));
-        const std::size_t numBytes(
-                numPoints * obj->m_pdalInstance->getStride());
+        // Read points asynchronously, then call the provided callback.
+        uv_work_t* req(new uv_work_t);
 
-        // Set return variables.
-        pointsToSend = Local<Value>::New(Integer::New(numPoints));
-        bytesToSend  = Local<Value>::New(Integer::New(numBytes));
+        // Store everything we'll need to perform the read.
+        req->data = new ReadData(
+                obj->m_pdalInstance,
+                host,
+                port,
+                start,
+                count,
+                callback);
 
-        // Start the data stream.
-        std::thread t(BufferTransmitter(host, port, data, numBytes));
-        t.detach();
+        uv_queue_work(
+            uv_default_loop(),
+            req,
+            (uv_work_cb)([](uv_work_t *req)->void {
+                ReadData* readData(reinterpret_cast<ReadData*>(req->data));
+
+                readData->numPoints =
+                    readData->pdalInstance->read(
+                        &readData->data,
+                        readData->start,
+                        readData->count);
+
+                readData->numBytes =
+                    readData->numPoints * readData->pdalInstance->getStride();
+            }),
+            (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+                HandleScope scope;
+
+                ReadData* readData(reinterpret_cast<ReadData*>(req->data));
+
+                // Output args.
+                const unsigned argc = 3;
+                Local<Value> argv[argc] =
+                    {
+                        Local<Value>::New(Null()), // err
+                        Local<Value>::New(Integer::New(readData->numPoints)),
+                        Local<Value>::New(Integer::New(readData->numBytes))
+                    };
+
+                // TODO This should be asynchronous as well.
+                // Start the data stream.
+                std::thread t(BufferTransmitter(
+                        readData->host,
+                        readData->port,
+                        readData->data,
+                        readData->numBytes));
+                t.detach();
+
+                readData->callback->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+
+                // Dispose of the persistent handle so the callback may be
+                // garbage collected.
+                readData->callback.Dispose();
+
+                delete [] readData->data;
+                delete readData;
+                delete req;
+            }));
     }
-
-    cb->Call(Context::GetCurrent()->Global(), argc, argv);
 
     return scope.Close(Undefined());
 }
