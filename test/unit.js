@@ -190,6 +190,9 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 //
 //////////////////////////////////////////////////////////////////////////////
 
+// TODO Query sanitization
+// TODO Invalid types testing (strings for int fields, floats for ints, etc.)
+
 module.exports = {
     setUp: function(cb) {
         ws = new WebSocket('ws://localhost:' + (process.env.PORT || 80) + '/');
@@ -763,7 +766,7 @@ module.exports = {
     },
 
     // READ - test request of offset >= numPoints
-    // Expect: failure status, no points read
+    // Expect: failure status, no points read - session still available
     testReadTooLargeOffset: function(test) {
         var bytesRead = 0;
         doExchangeSet(
@@ -825,33 +828,253 @@ module.exports = {
     },
 
     // READ - test negative offset requested
+    // Expect: successful read from offset = 0
     testReadNegativeOffset: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    10,
+                    'start':    -1,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    10,
+                        'numBytes':     10 * sampleStride,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 10 * sampleStride;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test get complete buffer
+    // Expect: all points read
     testReadAll: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    samplePoints,
+                    'start':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test with non-zero count and offset
+    // Expect: proper number of bytes read
     testReadCountAndOffset: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    20,
+                    'start':    30,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    20,
+                        'numBytes':     20 * sampleStride,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 20 * sampleStride;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test missing offset
+    // Expect: proper number of bytes read from start
     testReadNoOffsetSupplied: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    20,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    20,
+                        'numBytes':     20 * sampleStride,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 20 * sampleStride;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test missing count
+    // Expect: Successful read from supplied offset until the end
     testReadNoCountSupplied: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        var suppliedOffset = samplePoints - 10;
+        var expectedBytes = (samplePoints - suppliedOffset) * sampleStride;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'start':    suppliedOffset,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints - suppliedOffset,
+                        'numBytes':     expectedBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === expectedBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // DESTROY - test command with missing 'session' parameter
@@ -872,6 +1095,7 @@ module.exports = {
     },
 
     // DESTROY - test command with invalid 'session' parameter
+    // Expect: failure status
     testDestroyInvalidSession: function(test) {
         doExchangeSet(
             test,
@@ -889,6 +1113,8 @@ module.exports = {
     },
 
     // DESTROY - test valid destroy
+    // Expect: Successful destroy, session not useable or re-destroyable after
+    // initial destroy
     testDestroyValid: function(test) {
         doExchangeSet(
             test,
@@ -913,8 +1139,28 @@ module.exports = {
                     'status':   ghSuccess,
                 },
             },
-            // TODO - Try to use the session again - should not work.
-            // TODO - Test double destroy
+            {
+                // Try to use session again - should not work
+                req: {
+                    'command':  'pointsCount',
+                    'session':  initialSession,
+                },
+                res: {
+                    'status':   ghFail,
+                    'command':  'pointsCount',
+                },
+            },
+            {
+                // Try to destroy again - should not work
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghFail,
+                },
+            },
             ]
         );
     },
