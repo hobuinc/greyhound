@@ -56,7 +56,6 @@ app.get("/", function(req, res) {
 // handlers for our API
 app.post("/create", function(req, res) {
     pool.acquire(function(err, s) {
-        console.log('HERE DUDE');
         if (err) {
             console.log('erroring acquire:', s);
             return error(res)(err);
@@ -125,19 +124,29 @@ app.post("/read/:sessionId", function(req, res) {
             400,
             { message: 'Destination port needs to be specified' });
 
-    var start = req.body.hasOwnProperty(start) ? parseInt(req.body.start) : 0;
-    var count = req.body.hasOwnProperty(count) ? parseInt(req.body.count) : 0;
+    var start = req.body.hasOwnProperty('start') ? parseInt(req.body.start) : 0;
+    var count = req.body.hasOwnProperty('count') ? parseInt(req.body.count) : 0;
+
+    if (start < 0) start = 0;
+    if (count < 0) count = 0;
 
     getSession(res, req.params.sessionId, function(s, sid) {
         console.log('read('+ sid + ')');
 
         s.read(host, port, start, count, function(err, numPoints, numBytes) {
-            res.json({
-                numPoints: numPoints,
-                numBytes: numBytes,
-                message:
-                    'Request queued for transmission to ' + host + ':' + port,
-            });
+            if (err) {
+                console.log('Erroring read:', err);
+                return res.json(400, { message: err });
+            }
+            else {
+                return res.json({
+                    numPoints: numPoints,
+                    numBytes: numBytes,
+                    message:
+                        'Request queued for transmission to ' +
+                        host + ':' + port,
+                });
+            }
         });
     });
 });

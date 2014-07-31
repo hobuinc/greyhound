@@ -5,6 +5,9 @@ var WebSocket = require('ws');
 var ws, timeoutObj;
 var timeoutMs = 1000;
 var samplePipelineId = 'd4f4cc08e63242a201de6132e5f54b08';
+var samplePoints = 10653;
+var sampleBytes = 213060;
+var sampleStride = 20;
 
 var send = function(obj) {
     ws.send(JSON.stringify(obj));
@@ -146,17 +149,19 @@ var validateJson = function(test, json, expected, exchangeIndex) {
             json.hasOwnProperty(field),
             'Missing property ' + field);
 
-        if (typeof expected[field] !== "function") {
-            test.ok(
-                json[field] === expected[field],
-                'Expected json[' + field + '] === ' + expected[field] +
-                        ', got: ' + json[field]);
-        }
-        else {
-            test.ok(
-                expected[field](json[field]),
-                'Validation function failed for "' + field +
-                '", parameter was: ' + json[field]);
+        if (json.hasOwnProperty(field)) {
+            if (typeof expected[field] !== "function") {
+                test.ok(
+                    json[field] === expected[field],
+                    'Expected json[' + field + '] === ' + expected[field] +
+                            ', got: ' + json[field]);
+            }
+            else {
+                test.ok(
+                    expected[field](json[field]),
+                    'Validation function failed for "' + field +
+                    '", parameter was: ' + json[field]);
+            }
         }
     }
 
@@ -637,12 +642,12 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
-                        'numPoints':    10653,
-                        'numBytes':     213060,
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
                     },
                     function(data) {
                         bytesRead += data.length;
-                        return bytesRead === 213060;
+                        return bytesRead === sampleBytes;
                     }
                 ]
             },
@@ -660,21 +665,163 @@ module.exports = {
     },
 
     // READ - test negative number of points requested
+    // Expect: all points read
     testReadNegativeNumPoints: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    -2,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test request of more points than exist in the pipeline
+    // Expect: all points read
     testReadTooManyPoints: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    samplePoints + 50,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
-    // READ - test request of offset > numPoints
+    // READ - test request of offset >= numPoints
+    // Expect: failure status, no points read
     testReadTooLargeOffset: function(test) {
-        // TODO
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    1,
+                    'start':    samplePoints,
+                },
+                res: {
+                    'status':       ghFail,
+                    'command':      'read',
+                }
+            },
+            {
+                // Now make sure a valid read still works.
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    10,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    10,
+                        'numBytes':     10 * sampleStride,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 10 * sampleStride;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test negative offset requested
