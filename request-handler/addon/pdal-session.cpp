@@ -14,6 +14,7 @@ using namespace v8;
 PdalInstance::PdalInstance(const std::string& pipeline)
     : m_pipelineManager()
     , m_schema()
+    , m_pointBuffer()
 {
     std::istringstream ssPipeline(pipeline);
     pdal::PipelineReader pipelineReader(m_pipelineManager);
@@ -59,7 +60,8 @@ std::size_t PdalInstance::read(
         const std::size_t count)
 {
     *buffer = 0;
-    if (start >= getNumPoints()) return 0;
+    if (start >= getNumPoints())
+        throw std::runtime_error("Invalid starting offset in 'read'");
 
     // If zero points specified, read all points after 'start'.
     const std::size_t pointsToRead(
@@ -286,34 +288,50 @@ Handle<Value> PdalSession::read(const Arguments& args)
     HandleScope scope;
 
     // Input args.
-    // TODO: Validate.
     const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
     const std::size_t port(args[1]->IsUndefined() ? 0 : args[1]->Uint32Value());
     const std::size_t start(args[2]->IsUndefined() ? 0 : args[2]->Uint32Value());
     const std::size_t count(args[3]->IsUndefined() ? 0 : args[3]->Uint32Value());
     Local<Function> cb = Local<Function>::Cast(args[4]);
 
-    // Get points.
     PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
-
-    // TODO Should probably be asynchronous.
-    unsigned char* data(0);
-    const std::size_t numRead(obj->m_pdalInstance->read(&data, start, count));
-    const std::size_t bytes(numRead * obj->m_pdalInstance->getStride());
 
     // Output args.
     const unsigned argc = 3;
     Local<Value> argv[argc] =
         {
-            Local<Value>::New(Null()),                  // err
-            Local<Value>::New(Integer::New(numRead)),   // points to read
-            Local<Value>::New(Integer::New(bytes))      // bytes to read
+            Local<Value>::New(Null()),          // err
+            Local<Value>::New(Integer::New(0)), // points to send
+            Local<Value>::New(Integer::New(0))  //numBytes
         };
 
-    // Local<Value>& err = argv[0]; // TODO Can read() fail?  Set this.
+    Local<Value>& err(argv[0]);
+    Local<Value>& pointsToSend(argv[1]);
+    Local<Value>& bytesToSend(argv[2]);
 
-    std::thread t(BufferTransmitter(host, port, data, bytes));
-    t.detach();
+    if (start >= obj->m_pdalInstance->getNumPoints())
+    {
+        const std::string msg("Invalid start offset in 'read' request");
+        err = Local<Value>::New(String::New(msg.data(), msg.size()));
+    }
+    else
+    {
+        // Read the points to our buffer.
+        // TODO Should probably be asynchronous.
+        unsigned char* data(0);
+        const std::size_t numPoints(
+                obj->m_pdalInstance->read(&data, start, count));
+        const std::size_t numBytes(
+                numPoints * obj->m_pdalInstance->getStride());
+
+        // Set return variables.
+        pointsToSend = Local<Value>::New(Integer::New(numPoints));
+        bytesToSend  = Local<Value>::New(Integer::New(numBytes));
+
+        // Start the data stream.
+        std::thread t(BufferTransmitter(host, port, data, numBytes));
+        t.detach();
+    }
 
     cb->Call(Context::GetCurrent()->Global(), argc, argv);
 

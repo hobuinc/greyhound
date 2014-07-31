@@ -246,14 +246,15 @@ process.nextTick(function() {
 						count: msg.count
 					}), function(err, r) {
 						if (err) {
+                            console.log(err);
 							streamer.close();
 							return cb(err);
 						}
 						console.log(
                             'TCP-WS: points: ',
-                            r.pointsRead,
+                            r.numPoints,
                             'bytes:',
-                            r.bytesCount);
+                            r.numBytes);
 
 						cb(null, r);
 						process.nextTick(function() {
@@ -275,3 +276,4 @@ process.nextTick(function() {
 		});
 	});
 });
+
