@@ -11,16 +11,19 @@
 
 using namespace v8;
 
-PdalInstance::PdalInstance(const std::string& pipeline)
+PdalInstance::PdalInstance()
     : m_pipelineManager()
     , m_schema()
     , m_pointBuffer()
+{ }
+
+
+void PdalInstance::initialize(const std::string& pipeline)
 {
     std::istringstream ssPipeline(pipeline);
     pdal::PipelineReader pipelineReader(m_pipelineManager);
     pipelineReader.readPipeline(ssPipeline);
 
-    // TODO This should be asynchronous, probably in an init() or something.
     m_pipelineManager.execute();
     const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
     m_pointBuffer = pbSet.begin()->get();
@@ -229,29 +232,58 @@ Handle<Value> PdalSession::create(const Arguments& args)
     HandleScope scope;
 
     const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
-    Local<Function> cb = Local<Function>::Cast(args[1]);
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(args[1])));
 
+    PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
 
+    // Store everything we'll need to perform the create.
+    uv_work_t* req(new uv_work_t);
+    req->data = new CreateData(obj->m_pdalInstance, pipeline, callback);
 
-    const unsigned argc = 1;
-    Local<Value> argv[argc] = { Local<Value>::New(Null()) };
-    Local<Value>& err = argv[0];
+    uv_queue_work(
+        uv_default_loop(),
+        req,
+        (uv_work_cb)([](uv_work_t *req)->void {
+            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
 
-    try
-    {
-        PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
-        obj->m_pdalInstance.reset(new PdalInstance(pipeline));
-    }
-    catch (const std::runtime_error& e)
-    {
-        err = Local<Value>::New(String::New(e.what()));
-    }
-    catch (...)
-    {
-        err = Local<Value>::New(String::New("Unknown error"));
-    }
+            try
+            {
+                createData->pdalInstance->initialize(createData->pipeline);
+            }
+            catch (const std::runtime_error& e)
+            {
+                createData->errMsg = e.what();
+            }
+            catch (...)
+            {
+                createData->errMsg = "Unknown error";
+            }
+        }),
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+            HandleScope scope;
 
-    cb->Call(Context::GetCurrent()->Global(), argc, argv);
+            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
+
+            // Output args.
+            const unsigned argc = 1;
+            Local<Value> argv[argc] =
+                {
+                    Local<Value>::New(String::New(
+                            createData->errMsg.data(),
+                            createData->errMsg.size()))
+                };
+
+            createData->callback->Call(
+                Context::GetCurrent()->Global(), argc, argv);
+
+            // Dispose of the persistent handle so the callback may be
+            // garbage collected.
+            createData->callback.Dispose();
+
+            delete createData;
+            delete req;
+        }));
 
     return scope.Close(Undefined());
 }
@@ -316,10 +348,8 @@ Handle<Value> PdalSession::read(const Arguments& args)
     }
     else
     {
-        // Read points asynchronously, then call the provided callback.
-        uv_work_t* req(new uv_work_t);
-
         // Store everything we'll need to perform the read.
+        uv_work_t* req(new uv_work_t);
         req->data = new ReadData(
                 obj->m_pdalInstance,
                 host,
@@ -328,6 +358,7 @@ Handle<Value> PdalSession::read(const Arguments& args)
                 count,
                 callback);
 
+        // Read points asynchronously, then call the provided callback.
         uv_queue_work(
             uv_default_loop(),
             req,
