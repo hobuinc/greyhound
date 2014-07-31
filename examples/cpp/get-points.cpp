@@ -221,35 +221,43 @@ int main(int argc, char* argv[])
         pipelineId,
         [&client, &ibytesToRead, &bytesRead](const std::string& session)
     {
-        std::cout << "Session created: " << session << std::endl;
-
-        client.GetPointsCount(
-            session,
-            [&client, session, &ibytesToRead, &bytesRead](int count)
+        if (session != "")
         {
-            std::cout << "Session has " << count << " points." << std::endl;
+            std::cout << "Session created: " << session << std::endl;
 
-            client.Read(
+            client.GetPointsCount(
                 session,
-                [&ibytesToRead](int npoints, int nbytes)
-                {
-                    std::cout << "Total " << npoints << " points in " <<
-                            nbytes << " bytes will arrive." << std::endl;
+                [&client, session, &ibytesToRead, &bytesRead](int count)
+            {
+                std::cout << "Session has " << count << " points." << std::endl;
 
-                    ibytesToRead = nbytes;
-                },
-                [session, &client, &ibytesToRead, &bytesRead](
-                    const std::string& data)
-                {
-                    bytesRead += data.length();
-
-                    if (bytesRead >= ibytesToRead)
+                client.Read(
+                    session,
+                    [&ibytesToRead](int npoints, int nbytes)
                     {
-                        std::cout << "All bytes read in." << std::endl;
-                        client.Destroy(session, [](bool val) { exit(0); });
-                    }
-                });
-        });
+                        std::cout << "Total " << npoints << " points in " <<
+                                nbytes << " bytes will arrive." << std::endl;
+
+                        ibytesToRead = nbytes;
+                    },
+                    [session, &client, &ibytesToRead, &bytesRead](
+                        const std::string& data)
+                    {
+                        bytesRead += data.length();
+
+                        if (bytesRead >= ibytesToRead)
+                        {
+                            std::cout << "All bytes read in." << std::endl;
+                            client.Destroy(session, [](bool val) { exit(0); });
+                        }
+                    });
+            });
+        }
+        else
+        {
+            std::cout << "Session creation failed - exiting." << std::endl;
+            exit(1);
+        }
     });
 
     client.Run();
