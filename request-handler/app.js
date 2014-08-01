@@ -82,9 +82,7 @@ app.delete("/:sessionId", function(req, res) {
         console.log('delete('+ sid + ')');
         delete sessions[sid];
 
-        // TODO - Which?
-        //pool.destroy(s);
-        pool.release(s);
+        pool.destroy(s);
         res.json({ message: 'Session destroyed' });
     });
 });

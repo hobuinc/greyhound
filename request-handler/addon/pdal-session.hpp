@@ -36,7 +36,7 @@ public:
             const unsigned char* data,
             std::size_t size);
 
-    void operator()();
+    void transmit();
 
 private:
     const std::string m_host;
@@ -103,6 +103,7 @@ private:
             , count(count)
             , data(0)
             , numPoints(0)
+            , errMsg()
             , callback(callback)
         { }
 
@@ -117,6 +118,7 @@ private:
         unsigned char* data;
         std::size_t numPoints;
         std::size_t numBytes;
+        std::string errMsg;
 
         v8::Persistent<v8::Function> callback;
     };

@@ -17,7 +17,6 @@ PdalInstance::PdalInstance()
     , m_pointBuffer()
 { }
 
-
 void PdalInstance::initialize(const std::string& pipeline)
 {
     std::istringstream ssPipeline(pipeline);
@@ -131,7 +130,7 @@ BufferTransmitter::BufferTransmitter(
     , m_size(size)
 { }
 
-void BufferTransmitter::operator()()
+void BufferTransmitter::transmit()
 {
     namespace asio = boost::asio;
     using boost::asio::ip::tcp;
@@ -153,17 +152,18 @@ void BufferTransmitter::operator()()
     // Don't fail yet, the setup service may be setting up the receiver.
     tcp::resolver::iterator connectIter;
 
-    while(
+    while (
         (connectIter = asio::connect(socket, iter, ignored_error)) == end &&
             retryCount++ < 500)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    if(connectIter == end)
+    if (connectIter == end)
     {
-        // TODO: We need to propagate the error information to the user
-        return;
+        std::stringstream errStream;
+        errStream << "Could not connect to " << m_host << ":" << m_port;
+        throw std::runtime_error(errStream.str());
     }
 
     // Send our data.
@@ -178,7 +178,7 @@ void BufferTransmitter::operator()()
 Persistent<Function> PdalSession::constructor;
 
 PdalSession::PdalSession()
-    : m_pdalInstance()
+    : m_pdalInstance(new PdalInstance)
 { }
 
 PdalSession::~PdalSession()
@@ -288,7 +288,8 @@ Handle<Value> PdalSession::create(const Arguments& args)
     return scope.Close(Undefined());
 }
 
-Handle<Value> PdalSession::destroy(const Arguments& args) {
+Handle<Value> PdalSession::destroy(const Arguments& args)
+{
     HandleScope scope;
 
     PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
@@ -320,6 +321,21 @@ Handle<Value> PdalSession::read(const Arguments& args)
 {
     HandleScope scope;
 
+    std::string errMsg("");
+
+    // TODO Error out if validation fails (i.e. actually use the errMsg).
+    if (args[0]->IsUndefined())
+        errMsg = "Host must be specified - args[0]";
+    else if (args[1]->IsUndefined())
+        errMsg = "Port must be specified - args[1]";
+    else if (args[2]->IsUndefined())
+        errMsg = "Start offset must be specified - args[2]";
+    else if (args[3]->IsUndefined())
+        errMsg = "Count must be specified - args[3]";
+    else if (args[4]->IsUndefined())
+        errMsg = "Count must be specified - args[3]";
+
+    // TODO Add type validation - Do the conversions below throw?
     // Input args.
     const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
     const std::size_t port(args[1]->IsUndefined() ? 0 : args[1]->Uint32Value());
@@ -349,8 +365,8 @@ Handle<Value> PdalSession::read(const Arguments& args)
     else
     {
         // Store everything we'll need to perform the read.
-        uv_work_t* req(new uv_work_t);
-        req->data = new ReadData(
+        uv_work_t* readReq(new uv_work_t);
+        readReq->data = new ReadData(
                 obj->m_pdalInstance,
                 host,
                 port,
@@ -358,13 +374,15 @@ Handle<Value> PdalSession::read(const Arguments& args)
                 count,
                 callback);
 
-        // Read points asynchronously, then call the provided callback.
+        // Read points asynchronously.
         uv_queue_work(
             uv_default_loop(),
-            req,
-            (uv_work_cb)([](uv_work_t *req)->void {
-                ReadData* readData(reinterpret_cast<ReadData*>(req->data));
+            readReq,
+            (uv_work_cb)([](uv_work_t *readReq)->void {
+                // Buffer point data from PDAL.
+                ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
 
+                // TODO Catch errors and don't continue if found.
                 readData->numPoints =
                     readData->pdalInstance->read(
                         &readData->data,
@@ -374,12 +392,11 @@ Handle<Value> PdalSession::read(const Arguments& args)
                 readData->numBytes =
                     readData->numPoints * readData->pdalInstance->getStride();
             }),
-            (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+            (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
                 HandleScope scope;
 
-                ReadData* readData(reinterpret_cast<ReadData*>(req->data));
+                ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
 
-                // Output args.
                 const unsigned argc = 3;
                 Local<Value> argv[argc] =
                     {
@@ -388,26 +405,66 @@ Handle<Value> PdalSession::read(const Arguments& args)
                         Local<Value>::New(Integer::New(readData->numBytes))
                     };
 
-                // TODO This should be asynchronous as well.
-                // Start the data stream.
-                std::thread t(BufferTransmitter(
-                        readData->host,
-                        readData->port,
-                        readData->data,
-                        readData->numBytes));
-                t.detach();
-
+                // Call the provided callback to return the status of the
+                // data about to be streamed to the remote host.
                 readData->callback->Call(
                     Context::GetCurrent()->Global(), argc, argv);
 
-                // Dispose of the persistent handle so the callback may be
+                // Dispose of the persistent handle so this callback may be
                 // garbage collected.
                 readData->callback.Dispose();
 
-                delete [] readData->data;
-                delete readData;
-                delete req;
-            }));
+                // Create a token for the actual data transmission portion of
+                // the read.
+                uv_work_t* sendReq(new uv_work_t);
+                sendReq->data = readData;
+
+                // TODO Don't do this if we got an error before.
+                // Now stream all the buffered point data to the remote host
+                // asynchronously.
+                uv_queue_work(
+                    uv_default_loop(),
+                    sendReq,
+                    (uv_work_cb)([](uv_work_t *sendReq)->void {
+                        ReadData* sendData(
+                            reinterpret_cast<ReadData*>(sendReq->data));
+
+                        // TODO Construction should take place in the initial
+                        // uv_work_cb, so we can verify that we can open the
+                        // connection - and if not we can inform the host.
+                        //
+                        // Construction should perform everything except the
+                        // asio::send().
+                        BufferTransmitter bufferTransmitter(
+                            sendData->host,
+                            sendData->port,
+                            sendData->data,
+                            sendData->numBytes);
+
+                        try
+                        {
+                            bufferTransmitter.transmit();
+                        }
+                        catch (const std::runtime_error& e)
+                        {
+                            sendData->errMsg = e.what();
+                        }
+                    }),
+                    (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
+                        ReadData* sendData(
+                            reinterpret_cast<ReadData*>(sendReq->data));
+
+                        // Read and data transmission complete.  Clean
+                        // everything up.
+                        delete [] sendData->data;
+                        delete sendData;
+                        delete sendReq;
+                    })
+                );
+
+                delete readReq;
+            })
+        );
     }
 
     return scope.Close(Undefined());
