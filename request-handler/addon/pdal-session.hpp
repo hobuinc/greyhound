@@ -63,6 +63,10 @@ private:
     static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
 
+    static void errorCallback(
+            v8::Persistent<v8::Function> callback,
+            std::string errMsg);
+
     std::shared_ptr<PdalInstance> m_pdalInstance;
 
     struct CreateData
