@@ -72,28 +72,35 @@ std::size_t PdalInstance::read(
                 std::min<std::size_t>(count, getNumPoints() - start) :
                 getNumPoints() - start);
 
-    const pdal::Schema* fullSchema(m_pipelineManager.schema());
-    const pdal::schema::index_by_index& idx(
-            fullSchema->getDimensions().get<pdal::schema::index>());
-
-    *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
-
-    boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
-
-    for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
+    try
     {
-        for (boost::uint32_t d = 0; d < idx.size(); ++d)
-        {
-            if (!idx[d].isIgnored())
-            {
-                m_pointBuffer->context().rawPtBuf()->getField(
-                        idx[d],
-                        i,
-                        pos);
+        const pdal::Schema* fullSchema(m_pipelineManager.schema());
+        const pdal::schema::index_by_index& idx(
+                fullSchema->getDimensions().get<pdal::schema::index>());
 
-                pos += idx[d].getByteSize();
+        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
+
+        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
+
+        for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
+        {
+            for (boost::uint32_t d = 0; d < idx.size(); ++d)
+            {
+                if (!idx[d].isIgnored())
+                {
+                    m_pointBuffer->context().rawPtBuf()->getField(
+                            idx[d],
+                            i,
+                            pos);
+
+                    pos += idx[d].getByteSize();
+                }
             }
         }
+    }
+    catch (...)
+    {
+        throw std::runtime_error("Failed to read points from PDAL");
     }
 
     return pointsToRead;
@@ -321,46 +328,45 @@ Handle<Value> PdalSession::read(const Arguments& args)
 {
     HandleScope scope;
 
-    std::string errMsg("");
+    if (args[4]->IsUndefined() || !args[4]->IsFunction())
+    {
+        // Nothing we can do here, no callback supplied.
+        return scope.Close(Undefined());
+    }
 
-    // TODO Error out if validation fails (i.e. actually use the errMsg).
-    if (args[0]->IsUndefined())
-        errMsg = "Host must be specified - args[0]";
-    else if (args[1]->IsUndefined())
-        errMsg = "Port must be specified - args[1]";
-    else if (args[2]->IsUndefined())
-        errMsg = "Start offset must be specified - args[2]";
-    else if (args[3]->IsUndefined())
-        errMsg = "Count must be specified - args[3]";
-    else if (args[4]->IsUndefined())
-        errMsg = "Count must be specified - args[3]";
-
-    // TODO Add type validation - Do the conversions below throw?
-    // Input args.
-    const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
-    const std::size_t port(args[1]->IsUndefined() ? 0 : args[1]->Uint32Value());
-    const std::size_t start(args[2]->IsUndefined() ? 0 : args[2]->Uint32Value());
-    const std::size_t count(args[3]->IsUndefined() ? 0 : args[3]->Uint32Value());
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(args[4])));
+
+    std::string errMsg("");
+
+    if (args[0]->IsUndefined() || !args[0]->IsString())
+        errMsg = "Host must be a string - args[0]";
+    else if (args[1]->IsUndefined() || !args[1]->IsNumber())
+        errMsg = "Port must be a number - args[1]";
+    else if (args[2]->IsUndefined() || !args[2]->IsNumber())
+        errMsg = "Start offset must be a number - args[2]";
+    else if (args[3]->IsUndefined() || !args[3]->IsNumber())
+        errMsg = "Count must be a number - args[3]";
+
+    if (errMsg.size())
+    {
+        errorCallback(callback, errMsg);
+        return scope.Close(Undefined());
+    }
+
+    // Input args.  Type validation is complete by this point.
+    const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
+    const std::size_t port(args[1]->Uint32Value());
+    const std::size_t start(args[2]->Uint32Value());
+    const std::size_t count(args[3]->Uint32Value());
 
     // Provide access to m_pdalInstance from within this static function.
     PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
 
     if (start >= obj->m_pdalInstance->getNumPoints())
     {
-        const std::string msg("Invalid start offset in 'read' request");
-
-        const unsigned int argc = 1;
-        Local<Value> argv[argc] =
-            {
-                Local<Value>::New(String::New(msg.data(), msg.size()))
-            };
-
-        callback->Call(
-            Context::GetCurrent()->Global(), argc, argv);
-
-        callback.Dispose();
+        errorCallback(callback, "Invalid start offset in 'read' request");
+        return scope.Close(Undefined());
     }
     else
     {
@@ -382,20 +388,37 @@ Handle<Value> PdalSession::read(const Arguments& args)
                 // Buffer point data from PDAL.
                 ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
 
-                // TODO Catch errors and don't continue if found.
-                readData->numPoints =
-                    readData->pdalInstance->read(
-                        &readData->data,
-                        readData->start,
-                        readData->count);
+                try
+                {
+                    readData->numPoints =
+                        readData->pdalInstance->read(
+                            &readData->data,
+                            readData->start,
+                            readData->count);
 
-                readData->numBytes =
-                    readData->numPoints * readData->pdalInstance->getStride();
+                    readData->numBytes =
+                        readData->numPoints *
+                        readData->pdalInstance->getStride();
+                }
+                catch (const std::runtime_error& e)
+                {
+                    readData->errMsg = e.what();
+                }
+                catch (...)
+                {
+                    readData->errMsg = "Unknown error";
+                }
             }),
             (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
-                HandleScope scope;
-
                 ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
+
+                if (readData->errMsg.size())
+                {
+                    errorCallback(readData->callback, readData->errMsg);
+                    return;
+                }
+
+                HandleScope scope;
 
                 const unsigned argc = 3;
                 Local<Value> argv[argc] =
@@ -419,7 +442,6 @@ Handle<Value> PdalSession::read(const Arguments& args)
                 uv_work_t* sendReq(new uv_work_t);
                 sendReq->data = readData;
 
-                // TODO Don't do this if we got an error before.
                 // Now stream all the buffered point data to the remote host
                 // asynchronously.
                 uv_queue_work(
@@ -432,6 +454,10 @@ Handle<Value> PdalSession::read(const Arguments& args)
                         // TODO Construction should take place in the initial
                         // uv_work_cb, so we can verify that we can open the
                         // connection - and if not we can inform the host.
+                        //
+                        // Instead of using a ReadData, make a SendData which
+                        // contains only an already-constructed
+                        // BufferTransmitter.
                         //
                         // Construction should perform everything except the
                         // asio::send().
@@ -468,6 +494,25 @@ Handle<Value> PdalSession::read(const Arguments& args)
     }
 
     return scope.Close(Undefined());
+}
+
+void PdalSession::errorCallback(
+        Persistent<Function> callback,
+        std::string errMsg)
+{
+    // Don't need a HandleScope here since the caller has already made one.
+
+    const unsigned argc = 1;
+    Local<Value> argv[argc] =
+        {
+            Local<Value>::New(String::New(errMsg.data(), errMsg.size()))
+        };
+
+    callback->Call(Context::GetCurrent()->Global(), argc, argv);
+
+    // Dispose of the persistent handle so the callback may be garbage
+    // collected.
+    callback.Dispose();
 }
 
 //////////////////////////////////////////////////////////////////////////////
