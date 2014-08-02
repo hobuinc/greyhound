@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+
+#include <boost/asio.hpp>
+
 #include <pdal/PipelineManager.hpp>
 #include <pdal/Schema.hpp>
 
@@ -39,8 +43,7 @@ public:
     void transmit();
 
 private:
-    const std::string m_host;
-    const int m_port;
+    std::unique_ptr<boost::asio::ip::tcp::socket> m_socket;
     const unsigned char* const m_data;
     const std::size_t m_size;
 };
@@ -106,6 +109,7 @@ private:
             , start(start)
             , count(count)
             , data(0)
+            , bufferTransmitter()
             , numPoints(0)
             , errMsg()
             , callback(callback)
@@ -120,6 +124,7 @@ private:
 
         // Outputs
         unsigned char* data;
+        std::shared_ptr<BufferTransmitter> bufferTransmitter;
         std::size_t numPoints;
         std::size_t numBytes;
         std::string errMsg;
