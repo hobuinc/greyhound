@@ -5,8 +5,6 @@
 
 #include <pdal/PipelineReader.hpp>
 
-#include <boost/asio.hpp>
-
 #include "pdal-session.hpp"
 
 using namespace v8;
@@ -131,27 +129,23 @@ BufferTransmitter::BufferTransmitter(
         const int port,
         const unsigned char* data,
         const std::size_t size)
-    : m_host(host)
-    , m_port(port)
+    : m_socket()
     , m_data(data)
     , m_size(size)
-{ }
-
-void BufferTransmitter::transmit()
 {
     namespace asio = boost::asio;
     using boost::asio::ip::tcp;
 
     std::stringstream portStream;
-    portStream << m_port;
+    portStream << port;
 
     asio::io_service service;
     tcp::resolver resolver(service);
 
-    tcp::resolver::query q(m_host, portStream.str());
+    tcp::resolver::query q(host, portStream.str());
     tcp::resolver::iterator iter = resolver.resolve(q), end;
 
-    tcp::socket socket(service);
+    m_socket.reset(new tcp::socket(service));
 
     int retryCount = 0;
     boost::system::error_code ignored_error;
@@ -160,7 +154,7 @@ void BufferTransmitter::transmit()
     tcp::resolver::iterator connectIter;
 
     while (
-        (connectIter = asio::connect(socket, iter, ignored_error)) == end &&
+        (connectIter = asio::connect(*m_socket, iter, ignored_error)) == end &&
             retryCount++ < 500)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -169,14 +163,18 @@ void BufferTransmitter::transmit()
     if (connectIter == end)
     {
         std::stringstream errStream;
-        errStream << "Could not connect to " << m_host << ":" << m_port;
+        errStream << "Could not connect to " << host << ":" << port;
         throw std::runtime_error(errStream.str());
     }
+}
 
-    // Send our data.
-    asio::write(
-            socket,
-            asio::buffer(m_data, m_size),
+void BufferTransmitter::transmit()
+{
+    boost::system::error_code ignored_error;
+
+    boost::asio::write(
+            *m_socket,
+            boost::asio::buffer(m_data, m_size),
             ignored_error);
 }
 
@@ -340,13 +338,13 @@ Handle<Value> PdalSession::read(const Arguments& args)
     std::string errMsg("");
 
     if (args[0]->IsUndefined() || !args[0]->IsString())
-        errMsg = "Host must be a string - args[0]";
+        errMsg = "'host' must be a string - args[0]";
     else if (args[1]->IsUndefined() || !args[1]->IsNumber())
-        errMsg = "Port must be a number - args[1]";
+        errMsg = "'port' must be a number - args[1]";
     else if (args[2]->IsUndefined() || !args[2]->IsNumber())
-        errMsg = "Start offset must be a number - args[2]";
+        errMsg = "'start' offset must be a number - args[2]";
     else if (args[3]->IsUndefined() || !args[3]->IsNumber())
-        errMsg = "Count must be a number - args[3]";
+        errMsg = "'count' must be a number - args[3]";
 
     if (errMsg.size())
     {
@@ -372,6 +370,8 @@ Handle<Value> PdalSession::read(const Arguments& args)
     {
         // Store everything we'll need to perform the read.
         uv_work_t* readReq(new uv_work_t);
+
+        // This structure is the owner of the buffered point data.
         readReq->data = new ReadData(
                 obj->m_pdalInstance,
                 host,
@@ -385,11 +385,12 @@ Handle<Value> PdalSession::read(const Arguments& args)
             uv_default_loop(),
             readReq,
             (uv_work_cb)([](uv_work_t *readReq)->void {
-                // Buffer point data from PDAL.
                 ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
 
+                // Buffer the point data from PDAL.
                 try
                 {
+                    // This call will new up the readData->data array.
                     readData->numPoints =
                         readData->pdalInstance->read(
                             &readData->data,
@@ -399,6 +400,16 @@ Handle<Value> PdalSession::read(const Arguments& args)
                     readData->numBytes =
                         readData->numPoints *
                         readData->pdalInstance->getStride();
+
+                    // The BufferTransmitter must not delete readData->data,
+                    // and we must take care not to do so until the
+                    // BufferTransmitter::transmit() operation is complete.
+                    readData->bufferTransmitter.reset(
+                        new BufferTransmitter(
+                                readData->host,
+                                readData->port,
+                                readData->data,
+                                readData->numBytes));
                 }
                 catch (const std::runtime_error& e)
                 {
@@ -414,7 +425,12 @@ Handle<Value> PdalSession::read(const Arguments& args)
 
                 if (readData->errMsg.size())
                 {
+                    // Propagate the error back to the remote host.
                     errorCallback(readData->callback, readData->errMsg);
+
+                    // Clean up since we won't be calling the async send code.
+                    delete [] readData->data;
+                    delete readData;
                     return;
                 }
 
@@ -448,42 +464,29 @@ Handle<Value> PdalSession::read(const Arguments& args)
                     uv_default_loop(),
                     sendReq,
                     (uv_work_cb)([](uv_work_t *sendReq)->void {
-                        ReadData* sendData(
+                        ReadData* readData(
                             reinterpret_cast<ReadData*>(sendReq->data));
-
-                        // TODO Construction should take place in the initial
-                        // uv_work_cb, so we can verify that we can open the
-                        // connection - and if not we can inform the host.
-                        //
-                        // Instead of using a ReadData, make a SendData which
-                        // contains only an already-constructed
-                        // BufferTransmitter.
-                        //
-                        // Construction should perform everything except the
-                        // asio::send().
-                        BufferTransmitter bufferTransmitter(
-                            sendData->host,
-                            sendData->port,
-                            sendData->data,
-                            sendData->numBytes);
 
                         try
                         {
-                            bufferTransmitter.transmit();
+                            readData->bufferTransmitter->transmit();
                         }
-                        catch (const std::runtime_error& e)
+                        catch (...)
                         {
-                            sendData->errMsg = e.what();
+                            std::cout <<
+                                "Caught error transmitting buffer" <<
+                                std::endl;
                         }
                     }),
                     (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
-                        ReadData* sendData(
+                        ReadData* readData(
                             reinterpret_cast<ReadData*>(sendReq->data));
 
                         // Read and data transmission complete.  Clean
-                        // everything up.
-                        delete [] sendData->data;
-                        delete sendData;
+                        // everything up - readData->bufferTransmitter may
+                        // no longer be used.
+                        delete [] readData->data;
+                        delete readData;
                         delete sendReq;
                     })
                 );

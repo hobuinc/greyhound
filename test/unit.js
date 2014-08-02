@@ -222,11 +222,11 @@ module.exports = {
         );
     },
 
-/*
-    // TODO Server needs to validate pipelines via PDAL
     // PUT - test with malformed pipeline XML
     // Expect: failure status
     testPutMalformedPipeline: function(test) {
+        /*
+        // TODO Server needs to validate pipelines via PDAL
         doExchangeSet(
             test,
             [{
@@ -240,8 +240,11 @@ module.exports = {
                 }
             }]
         );
+        */
+
+        console.log('This test is a TODO');
+        test.done();
     },
-*/
 
     // PUT - test with missing pipeline parameter
     // Expect: failure status
@@ -1075,6 +1078,13 @@ module.exports = {
                 },
             }]
         );
+    },
+
+    // READ - test that multiple reads may be issued on the same session.
+    testDoubleRead: function(test) {
+        // TODO
+        console.log('This test is a TODO');
+        test.done();
     },
 
     // DESTROY - test command with missing 'session' parameter
