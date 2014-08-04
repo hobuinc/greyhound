@@ -1,7 +1,7 @@
 // app.js
 // Main entry point for pdal session pooling
 //
-process.title = 'gh_rh';
+process.title = 'gh_sh';
 
 var express = require("express"),
     methodOverride = require('method-override'),
@@ -160,7 +160,7 @@ app.post("/read/:sessionId", function(req, res) {
     });
 });
 
-var port = ports.register('rh@0.0.1');
+var port = ports.register('sh@0.0.1');
 app.listen(port, function() {
     pool = poolModule.Pool({
         name: 'pdal-pool',
@@ -179,6 +179,6 @@ app.listen(port, function() {
         log: false
     });
 
-    console.log('Request handler listening on port: ' + port);
+    console.log('Session handler listening on port: ' + port);
 });
 

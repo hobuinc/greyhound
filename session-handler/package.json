@@ -1,5 +1,5 @@
 {
-	"name": "request-handler",
+	"name": "session-handler",
 	"private": true,
     "gypfile": true,
 	"version": "0.0.1",

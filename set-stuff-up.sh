@@ -15,7 +15,7 @@ setup_npm_packages() {
 	# Issue npm install in each of the node.js projects.
 	for P in \
         /vagrant/web \
-        /vagrant/request-handler \
+        /vagrant/session-handler \
         /vagrant/websocket-handler \
         /vagrant/dist-handler \
         /vagrant/db-handler \
