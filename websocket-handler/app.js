@@ -1,6 +1,6 @@
 // a simple websocket server
 //
-process.title = 'gh-websocket';
+process.title = 'gh_ws';
 
 var WebSocketServer = require('ws').Server
   , _ = require('lodash')
@@ -27,8 +27,8 @@ redisClient.on('ready', function() {
 	console.log('Connection to redis server established.');
 });
 
-var pickRequestHandler = function(cb) {
-	ports.get('rh', function(services) {
+var pickSessionHandler = function(cb) {
+	ports.get('sh', function(services) {
 		var service = services[Math.floor(Math.random() * services.length)];
 		cb(null, service.host + ':' + service.port);
 	});
@@ -69,21 +69,18 @@ var queryPipeline = function(id, cb) {
 }
 
 var createSession = function(pipeline, cb) {
-	pickRequestHandler(function(err, rh) {
+	pickSessionHandler(function(err, sh) {
 		if (err) return cb(err);
 
-		web.post(rh, '/create', { pipeline: pipeline }, function(err, res) {
+		web.post(sh, '/create', { pipeline: pipeline }, function(err, res) {
 			console.log('Create came back', err, res);
 
 			if (err) return cb(err);
 
-			setAffinity(res.sessionId, rh, function(err) {
+			setAffinity(res.sessionId, sh, function(err) {
 				if (err) {
 					// at least try to clean session
-					web._delete(
-						rh,
-						'/' + session,
-						function() { });
+					web._delete(sh, '/' + session, function() { });
 
 					return cb(err);
 				}
@@ -138,8 +135,8 @@ process.nextTick(function() {
             if (msg.hasOwnProperty('pipeline')) {
                 var params = { pipeline: msg.pipeline };
 
-                pickRequestHandler(function(err, rh) {
-                    web.get(rh, '/validate/', params, function(err, res) {
+                pickSessionHandler(function(err, sh) {
+                    web.get(sh, '/validate/', params, function(err, res) {
                         if (err || !res.valid) {
                             console.log('PUT - Pipeline validation failed');
                             cb(err ? err : 'Pipeline is not valid');
@@ -187,32 +184,32 @@ process.nextTick(function() {
 		});
 
 		handler.on('pointsCount', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, rh) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
-				web.get(rh, '/pointsCount/' + session, cb);
+				web.get(sh, '/pointsCount/' + session, cb);
 			});
 		});
 
 		handler.on('schema', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, rh) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
-				web.get(rh, '/schema/' + session, cb);
+				web.get(sh, '/schema/' + session, cb);
 			});
 		});
 
 		handler.on('srs', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, rh) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
-				web.get(rh, '/srs/' + session, cb);
+				web.get(sh, '/srs/' + session, cb);
 			});
 		});
 
 
 		handler.on('destroy', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, rh) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
 
-				web._delete(rh, '/' + session, function(err, res) {
+				web._delete(sh, '/' + session, function(err, res) {
 					if (err) return cb(err);
 
 					deleteAffinity(session, function(err) {
@@ -231,14 +228,14 @@ process.nextTick(function() {
 		});
 
 		handler.on('read', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, rh) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
 
 				var streamer = new TcpToWs(ws);
 				streamer.on('local-address', function(add) {
 					console.log('local-bound address for read: ', add);
 
-					web.post(rh, '/read/' + session, _.extend(add, {
+					web.post(sh, '/read/' + session, _.extend(add, {
 						start: msg.start,
 						count: msg.count
 					}), function(err, r) {

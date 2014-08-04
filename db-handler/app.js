@@ -166,7 +166,7 @@ configureDb(function(err) {
     else {
         var port = ports.register('db@0.0.1');
         app.listen(port, function() {
-            console.log('DB handler listening on port: ' + port);
+            console.log('Database handler listening on port: ' + port);
         });
     }
 });

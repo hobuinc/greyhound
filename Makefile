@@ -1,7 +1,7 @@
 all:
-	$(MAKE) -C request-handler all
+	$(MAKE) -C session-handler all
 	$(MAKE) -C examples/cpp all
 
 clean:
-	$(MAKE) -C request-handler clean
+	$(MAKE) -C session-handler clean
 	$(MAKE) -C examples/cpp clean
