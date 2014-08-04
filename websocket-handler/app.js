@@ -138,37 +138,38 @@ process.nextTick(function() {
 		console.log('Got a connection');
 
 		handler.on('put', function(msg, cb) {
-			// Give this pipeline to the db-handler to store, and return the
-			// created pipelineId that maps to the stored pipeline.
+            // Validate this pipeline and then hand it to the db-handler.
             if (msg.hasOwnProperty('pipeline')) {
-                getDbHandler(function(err, db) {
-                    if (err) {
-                        return cb(err);
-                    }
+                var params = { pipeline: msg.pipeline };
 
-                    web.post(
-                        db,
-                        '/put',
-                        { pipeline: msg.pipeline },
-                        function(err, res) {
-                            console.log('PUT came back', err, res);
+                pickRequestHandler(function(err, rh) {
+                    web.get(rh, '/validate/', params, function(err, res) {
+                        if (err || !res.valid) {
+                            console.log('PUT - Pipeline validation failed');
+                            cb(err ? err : 'Pipeline is not valid');
+                        }
+                        else {
+                            getDbHandler(function(err, db) {
+                                if (err) {
+                                    return cb(err);
+                                }
 
-                            if (err) {
-                                return cb(err);
-                            }
-                            else if (!res.hasOwnProperty('id')) {
-                                return cb(new Error(
-                                        'Got invalid response from PUT'));
-                            }
-                            else
-                            {
-                                cb(null, { pipelineId: res.id });
-                            }
-                        });
+                                web.post(db, '/put', params, function(err, res) {
+                                    console.log('PUT came back', err, res);
+
+                                    if (err)
+                                        return cb(err);
+                                    else
+                                        cb(null, { pipelineId: res.id });
+                                });
+                            });
+                        }
+                    });
                 });
+
             }
             else {
-                return cb(new Error('Missing property "pipeline"'));
+                return cb(new Error('PUT - Missing property "pipeline"'));
             }
 		});
 

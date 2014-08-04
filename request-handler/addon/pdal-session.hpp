@@ -12,6 +12,7 @@ class PdalInstance
 public:
     PdalInstance();
 
+    void parse(const std::string& pipeline);
     void initialize(const std::string& pipeline);
 
     std::size_t getNumPoints() const;
@@ -60,12 +61,14 @@ private:
     static v8::Persistent<v8::Function> constructor;
 
     static v8::Handle<v8::Value> construct(const v8::Arguments& args);
+    static v8::Handle<v8::Value> parse(const v8::Arguments& args);
     static v8::Handle<v8::Value> create(const v8::Arguments& args);
     static v8::Handle<v8::Value> destroy(const v8::Arguments& args);
     static v8::Handle<v8::Value> getNumPoints(const v8::Arguments& args);
     static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
 
+    // Helper function to perform an errback.
     static void errorCallback(
             v8::Persistent<v8::Function> callback,
             std::string errMsg);
