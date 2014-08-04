@@ -12,7 +12,7 @@ var express = require("express"),
     _ = require('lodash'),
     seaport = require('seaport'),
 
-    PdalSession = require('./build/Release/pdalSession').PdalSession,
+    PdalSession = require('./build/Release/pdalBindings').PdalBindings,
 	poolModule = require('generic-pool'),
 
     app = express(),
@@ -20,7 +20,7 @@ var express = require("express"),
     pool = null;
 
 // configure express application
-app.configure(function(){
+app.configure(function() {
     app.use(methodOverride());
     app.use(bodyParser());
     app.use(express.errorHandler({
@@ -56,8 +56,8 @@ app.get("/", function(req, res) {
 app.get("/validate", function(req, res) {
     // TODO Specify a pool member instead of making one each time?
     // We'll probably have to new one up anyway since PDAL parsing alters the
-    // pipelineManager, but at least we could impose limits/precedences on the
-    // validation session via the pool manager.
+    // pipelineManager, but we would gain some benefits like precedence and
+    // limiting from the pool module.
     new PdalSession().parse(req.body.pipeline, function(err) {
         if (err) console.log('Pipeline validation error:', err);
         res.json({ valid: err ? false : true });
