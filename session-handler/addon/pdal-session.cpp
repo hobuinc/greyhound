@@ -7,35 +7,46 @@ PdalSession::PdalSession()
     : m_pipelineManager()
     , m_schema()
     , m_pointBuffer()
+    , m_parsed(false)
 { }
 
-void PdalSession::parse(const std::string& pipeline)
+void PdalSession::initialize(const std::string& pipeline, const bool execute)
 {
-    std::istringstream ssPipeline(pipeline);
-    pdal::PipelineReader pipelineReader(m_pipelineManager);
-    pipelineReader.readPipeline(ssPipeline);
-}
-
-void PdalSession::initialize(const std::string& pipeline)
-{
-    parse(pipeline);
-
-    m_pipelineManager.execute();
-    const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-    m_pointBuffer = pbSet.begin()->get();
-
-    try
+    if (!m_parsed)
     {
-        m_schema = packSchema(*m_pipelineManager.schema());
+        // Set this before doing the actual parsing, which may throw.  If we
+        // fail mid-parse, don't want to allow re-parsing on top of a
+        // possibly partially initialized pipeline.
+        m_parsed = true;
 
-        m_schema.getDimension("X");
-        m_schema.getDimension("Y");
-        m_schema.getDimension("Z");
+        std::istringstream ssPipeline(pipeline);
+        pdal::PipelineReader pipelineReader(m_pipelineManager);
+        pipelineReader.readPipeline(ssPipeline);
     }
-    catch (pdal::dimension_not_found&)
+    else
     {
-        throw std::runtime_error(
-                "Pipeline output should contain X, Y and Z dimensions");
+        throw std::runtime_error("Reinitialization not allowed");
+    }
+
+    if (execute)
+    {
+        m_pipelineManager.execute();
+        const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
+        m_pointBuffer = pbSet.begin()->get();
+
+        try
+        {
+            m_schema = packSchema(*m_pipelineManager.schema());
+
+            m_schema.getDimension("X");
+            m_schema.getDimension("Y");
+            m_schema.getDimension("Z");
+        }
+        catch (pdal::dimension_not_found&)
+        {
+            throw std::runtime_error(
+                    "Pipeline output should contain X, Y and Z dimensions");
+        }
     }
 }
 

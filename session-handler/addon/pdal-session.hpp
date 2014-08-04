@@ -10,8 +10,7 @@ class PdalSession
 public:
     PdalSession();
 
-    void parse(const std::string& pipeline);
-    void initialize(const std::string& pipeline);
+    void initialize(const std::string& pipeline, bool execute = true);
 
     std::size_t getNumPoints() const;
     std::string getSchema() const;
@@ -26,6 +25,7 @@ private:
     pdal::PipelineManager m_pipelineManager;
     pdal::Schema m_schema;
     const pdal::PointBuffer* m_pointBuffer;
+    bool m_parsed;
 
     pdal::Schema packSchema(const pdal::Schema& fullSchema);
 };
