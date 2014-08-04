@@ -58,11 +58,7 @@ var queryPipeline = function(id, cb) {
 	getDbHandler(function(err, db) {
 		if (err) return cb(err);
 
-		web.get(
-			db,
-			'/retrieve',
-			{ pipelineId: id },
-			function(err, res) {
+		web.get(db, '/retrieve', { pipelineId: id }, function(err, res) {
                 if (err)
                     return cb(err);
                 else
