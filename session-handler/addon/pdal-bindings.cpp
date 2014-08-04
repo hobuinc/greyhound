@@ -8,7 +8,7 @@ using namespace v8;
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
-    : m_pdalSession(new PdalSession)
+    : m_pdalSession()
 { }
 
 PdalBindings::~PdalBindings()
@@ -59,9 +59,10 @@ Handle<Value> PdalBindings::construct(const Arguments& args)
     }
 }
 
-Handle<Value> PdalBindings::parse(const Arguments& args)
+void PdalBindings::doInitialize(
+        const Arguments& args,
+        const bool execute)
 {
-    // TODO Pretty much all duplicate code between this and initialize().
     HandleScope scope;
 
     const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
@@ -70,9 +71,17 @@ Handle<Value> PdalBindings::parse(const Arguments& args)
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
-    // Store everything we'll need to perform the parse.
+    // Perform PdalSession construction here.  This way we can use a single
+    // PdalBindings object to validate multiple pipelines.
+    obj->m_pdalSession.reset(new PdalSession());
+
+    // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(obj->m_pdalSession, pipeline, callback);
+    req->data = new CreateData(
+            obj->m_pdalSession,
+            pipeline,
+            execute,
+            callback);
 
     uv_queue_work(
         uv_default_loop(),
@@ -82,7 +91,9 @@ Handle<Value> PdalBindings::parse(const Arguments& args)
 
             try
             {
-                createData->pdalSession->parse(createData->pipeline);
+                createData->pdalSession->initialize(
+                    createData->pipeline,
+                    createData->execute);
             }
             catch (const std::runtime_error& e)
             {
@@ -118,66 +129,26 @@ Handle<Value> PdalBindings::parse(const Arguments& args)
             delete req;
         }));
 
-    return scope.Close(Undefined());
+    scope.Close(Undefined());
 }
 
 Handle<Value> PdalBindings::create(const Arguments& args)
 {
     HandleScope scope;
-
-    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(args[1])));
-
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    obj->doInitialize(args);
+    return scope.Close(Undefined());
+}
 
-    // Store everything we'll need to perform the create.
-    uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(obj->m_pdalSession, pipeline, callback);
+Handle<Value> PdalBindings::parse(const Arguments& args)
+{
+    HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    obj->doInitialize(args, false);
 
-    uv_queue_work(
-        uv_default_loop(),
-        req,
-        (uv_work_cb)([](uv_work_t *req)->void {
-            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
-
-            try
-            {
-                createData->pdalSession->initialize(createData->pipeline);
-            }
-            catch (const std::runtime_error& e)
-            {
-                createData->errMsg = e.what();
-            }
-            catch (...)
-            {
-                createData->errMsg = "Unknown error";
-            }
-        }),
-        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
-            HandleScope scope;
-
-            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
-
-            // Output args.
-            const unsigned argc = 1;
-            Local<Value> argv[argc] =
-                {
-                    Local<Value>::New(String::New(
-                            createData->errMsg.data(),
-                            createData->errMsg.size()))
-                };
-
-            createData->callback->Call(
-                Context::GetCurrent()->Global(), argc, argv);
-
-            // Dispose of the persistent handle so the callback may be
-            // garbage collected.
-            createData->callback.Dispose();
-
-            delete createData;
-            delete req;
-        }));
+    // Release this session from memory now - we will need to reset the
+    // session anyway in order to use it after this.
+    obj->m_pdalSession.reset();
 
     return scope.Close(Undefined());
 }

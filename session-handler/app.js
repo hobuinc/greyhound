@@ -53,18 +53,22 @@ app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
 });
 
+// handlers for our API
 app.get("/validate", function(req, res) {
-    // TODO Specify a pool member instead of making one each time?
-    // We'll probably have to new one up anyway since PDAL parsing alters the
-    // pipelineManager, but we would gain some benefits like precedence and
-    // limiting from the pool module.
-    new PdalSession().parse(req.body.pipeline, function(err) {
-        if (err) console.log('Pipeline validation error:', err);
-        res.json({ valid: err ? false : true });
+    pool.acquire(function(err, s) {
+        if (err) {
+            console.log('erroring acquire on validation:', s);
+            return error(res)(err);
+        }
+
+        s.parse(req.body.pipeline, function(err) {
+            pool.destroy(s);
+            if (err) console.log('Pipeline validation error:', err);
+            res.json({ valid: err ? false : true });
+        });
     });
 });
 
-// handlers for our API
 app.post("/create", function(req, res) {
     pool.acquire(function(err, s) {
         if (err) {
@@ -75,7 +79,7 @@ app.post("/create", function(req, res) {
         s.create(req.body.pipeline, function(err) {
             if (err) {
                 console.log('erroring create:', err);
-                pool.release(s);
+                pool.destroy(s);
                 return error(res)(err);
             }
 
