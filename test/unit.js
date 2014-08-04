@@ -225,8 +225,6 @@ module.exports = {
     // PUT - test with malformed pipeline XML
     // Expect: failure status
     testPutMalformedPipeline: function(test) {
-        /*
-        // TODO Server needs to validate pipelines via PDAL
         doExchangeSet(
             test,
             [{
@@ -240,10 +238,6 @@ module.exports = {
                 }
             }]
         );
-        */
-
-        console.log('This test is a TODO');
-        test.done();
     },
 
     // PUT - test with missing pipeline parameter
@@ -670,6 +664,110 @@ module.exports = {
         );
     },
 
+    // READ - test multiple sessions with interleaved read requests
+    // Expect: all points read for both sessions, successful destroys
+    testReadMultipleSessions: function(test) {
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        if (bytesRead === sampleBytes) {
+                            // Reset for the next read.
+                            bytesRead = 0;
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  function(prevResponses) {
+                        // Issue a read on the second session created.
+                        var prev = prevResponses[1];
+                        return prev['session'];
+                    },
+                    'count':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  function(prevResponses) {
+                        // Issue a destroy on the second session created.
+                        var prev = prevResponses[1];
+                        return prev['session'];
+                    },
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
     // READ - test negative number of points requested
     // Expect: all points read
     testReadNegativeNumPoints: function(test) {
@@ -1081,10 +1179,80 @@ module.exports = {
     },
 
     // READ - test that multiple reads may be issued on the same session.
+    // Expect: both reads complete successfully
     testDoubleRead: function(test) {
-        // TODO
-        console.log('This test is a TODO');
-        test.done();
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    samplePoints,
+                    'start':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        if (bytesRead === sampleBytes) {
+                            // Reset the counter for the next read.
+                            bytesRead = 0;
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    samplePoints,
+                    'start':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // DESTROY - test command with missing 'session' parameter

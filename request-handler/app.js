@@ -12,12 +12,12 @@ var express = require("express"),
     _ = require('lodash'),
     seaport = require('seaport'),
 
-    createProcessPool = require('./lib/pdal-pool').createProcessPool,
+    PdalSession = require('./build/Release/pdalSession').PdalSession,
+	poolModule = require('generic-pool'),
 
     app = express(),
     ports = seaport.connect('localhost', 9090),
     pool = null;
-
 
 // configure express application
 app.configure(function(){
@@ -51,6 +51,17 @@ var createId = function() {
 
 app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
+});
+
+app.get("/validate", function(req, res) {
+    // TODO Specify a pool member instead of making one each time?
+    // We'll probably have to new one up anyway since PDAL parsing alters the
+    // pipelineManager, but at least we could impose limits/precedences on the
+    // validation session via the pool manager.
+    new PdalSession().parse(req.body.pipeline, function(err) {
+        if (err) console.log('Pipeline validation error:', err);
+        res.json({ valid: err ? false : true });
+    });
 });
 
 // handlers for our API
@@ -151,7 +162,22 @@ app.post("/read/:sessionId", function(req, res) {
 
 var port = ports.register('rh@0.0.1');
 app.listen(port, function() {
-    pool = createProcessPool();
+    pool = poolModule.Pool({
+        name: 'pdal-pool',
+        create: function(cb) {
+            var s = new PdalSession();
+            cb(s);
+        },
+
+        destroy: function(s) {
+            s.destroy();
+        },
+
+        max: 100,
+        min: 0,
+        idleTimeoutMillis: 10000,
+        log: false
+    });
 
     console.log('Request handler listening on port: ' + port);
 });

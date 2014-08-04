@@ -15,11 +15,16 @@ PdalInstance::PdalInstance()
     , m_pointBuffer()
 { }
 
-void PdalInstance::initialize(const std::string& pipeline)
+void PdalInstance::parse(const std::string& pipeline)
 {
     std::istringstream ssPipeline(pipeline);
     pdal::PipelineReader pipelineReader(m_pipelineManager);
     pipelineReader.readPipeline(ssPipeline);
+}
+
+void PdalInstance::initialize(const std::string& pipeline)
+{
+    parse(pipeline);
 
     m_pipelineManager.execute();
     const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
@@ -198,7 +203,9 @@ void PdalSession::init(v8::Handle<v8::Object> exports)
 
     // Prototype
     tpl->PrototypeTemplate()->Set(String::NewSymbol("construct"),
-        FunctionTemplate::New(create)->GetFunction());
+        FunctionTemplate::New(construct)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("parse"),
+        FunctionTemplate::New(parse)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("create"),
         FunctionTemplate::New(create)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("destroy"),
@@ -230,6 +237,68 @@ Handle<Value> PdalSession::construct(const Arguments& args)
         // Invoked as a function, turn into construct call.
         return scope.Close(constructor->NewInstance());
     }
+}
+
+Handle<Value> PdalSession::parse(const Arguments& args)
+{
+    // TODO Pretty much all duplicate code between this and initialize().
+    HandleScope scope;
+
+    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(args[1])));
+
+    PdalSession* obj = ObjectWrap::Unwrap<PdalSession>(args.This());
+
+    // Store everything we'll need to perform the parse.
+    uv_work_t* req(new uv_work_t);
+    req->data = new CreateData(obj->m_pdalInstance, pipeline, callback);
+
+    uv_queue_work(
+        uv_default_loop(),
+        req,
+        (uv_work_cb)([](uv_work_t *req)->void {
+            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
+
+            try
+            {
+                createData->pdalInstance->parse(createData->pipeline);
+            }
+            catch (const std::runtime_error& e)
+            {
+                createData->errMsg = e.what();
+            }
+            catch (...)
+            {
+                createData->errMsg = "Unknown error";
+            }
+        }),
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+            HandleScope scope;
+
+            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
+
+            // Output args.
+            const unsigned argc = 1;
+            Local<Value> argv[argc] =
+                {
+                    Local<Value>::New(String::New(
+                            createData->errMsg.data(),
+                            createData->errMsg.size()))
+                };
+
+            createData->callback->Call(
+                Context::GetCurrent()->Global(), argc, argv);
+
+            // Dispose of the persistent handle so the callback may be
+            // garbage collected.
+            createData->callback.Dispose();
+
+            delete createData;
+            delete req;
+        }));
+
+    return scope.Close(Undefined());
 }
 
 Handle<Value> PdalSession::create(const Arguments& args)

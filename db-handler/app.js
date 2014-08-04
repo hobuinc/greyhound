@@ -132,32 +132,19 @@ var retrieve = function(pipelineId, cb) {
     });
 }
 
-var validatePipeline = function(pipeline) {
-    // TODO - Use PDAL to validate pipeline.
-    return typeof pipeline === 'string' && pipeline.length !== 0;
-}
-
 app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
 });
 
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    var pipeline = req.body.pipeline;
+    put(req.body.pipeline, function(err, pipelineId) {
+        if (err)
+            return error(res)(err);
 
-    if (validatePipeline(pipeline)) {
-        put(pipeline, function(err, pipelineId) {
-            if (err)
-                return error(res)(err);
-
-            // Respond with database ID of the inserted pipeline.
-            return res.json({ id: pipelineId });
-        });
-    }
-    else {
-        console.log('Pipeline validation failed');
-        return error(res)(new Error('Invalid pipeline'));
-    }
+        // Respond with database ID of the inserted pipeline.
+        return res.json({ id: pipelineId });
+    });
 });
 
 app.get("/retrieve", function(req, res) {
