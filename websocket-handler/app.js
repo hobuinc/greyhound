@@ -235,10 +235,12 @@ process.nextTick(function() {
 				streamer.on('local-address', function(add) {
 					console.log('local-bound address for read: ', add);
 
-					web.post(sh, '/read/' + session, _.extend(add, {
-						start: msg.start,
-						count: msg.count
-					}), function(err, r) {
+                    var path = '/read/' + session;
+                    var params = _.extend(
+                        add,
+                        { start: msg.start, count: msg.count, });
+
+					web.post(sh, path, params, function(err, res) {
 						if (err) {
                             console.log(err);
 							streamer.close();
@@ -246,11 +248,11 @@ process.nextTick(function() {
 						}
 						console.log(
                             'TCP-WS: points: ',
-                            r.numPoints,
+                            res.numPoints,
                             'bytes:',
-                            r.numBytes);
+                            res.numBytes);
 
-						cb(null, r);
+						cb(null, res);
 						process.nextTick(function() {
 							streamer.startPushing();
 						});

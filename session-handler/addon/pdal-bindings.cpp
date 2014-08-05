@@ -65,9 +65,25 @@ void PdalBindings::doInitialize(
 {
     HandleScope scope;
 
-    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
+    std::string errMsg("");
+
+    if (args[0]->IsUndefined() || !args[0]->IsString())
+        errMsg = "'pipeline' must be a string - args[0]";
+    if (args[1]->IsUndefined() || !args[1]->IsFunction())
+        // Fatal.
+        throw std::runtime_error("Invalid callback supplied to 'create'");
+
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(args[1])));
+
+    if (errMsg.size())
+    {
+        errorCallback(callback, errMsg);
+        scope.Close(Undefined());
+        return;
+    }
+
+    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -156,8 +172,8 @@ Handle<Value> PdalBindings::parse(const Arguments& args)
 Handle<Value> PdalBindings::destroy(const Arguments& args)
 {
     HandleScope scope;
-
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
     obj->m_pdalSession.reset();
 
     return scope.Close(Undefined());
@@ -166,7 +182,6 @@ Handle<Value> PdalBindings::destroy(const Arguments& args)
 Handle<Value> PdalBindings::getNumPoints(const Arguments& args)
 {
     HandleScope scope;
-
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
     return scope.Close(Integer::New(obj->m_pdalSession->getNumPoints()));
@@ -175,8 +190,8 @@ Handle<Value> PdalBindings::getNumPoints(const Arguments& args)
 Handle<Value> PdalBindings::getSchema(const Arguments& args)
 {
     HandleScope scope;
-
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
     const std::string schema(obj->m_pdalSession->getSchema());
 
     return scope.Close(String::New(schema.data(), schema.size()));
@@ -185,15 +200,6 @@ Handle<Value> PdalBindings::getSchema(const Arguments& args)
 Handle<Value> PdalBindings::read(const Arguments& args)
 {
     HandleScope scope;
-
-    if (args[4]->IsUndefined() || !args[4]->IsFunction())
-    {
-        // Nothing we can do here, no callback supplied.
-        return scope.Close(Undefined());
-    }
-
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(args[4])));
 
     std::string errMsg("");
 
@@ -205,6 +211,12 @@ Handle<Value> PdalBindings::read(const Arguments& args)
         errMsg = "'start' offset must be a number - args[2]";
     else if (args[3]->IsUndefined() || !args[3]->IsNumber())
         errMsg = "'count' must be a number - args[3]";
+    else if (args[4]->IsUndefined() || !args[4]->IsFunction())
+        // Fatal.
+        throw std::runtime_error("Invalid callback supplied to 'read'");
+
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(args[4])));
 
     if (errMsg.size())
     {
@@ -363,7 +375,7 @@ void PdalBindings::errorCallback(
         Persistent<Function> callback,
         std::string errMsg)
 {
-    // Don't need a HandleScope here since the caller has already made one.
+    HandleScope scope;
 
     const unsigned argc = 1;
     Local<Value> argv[argc] =
@@ -376,6 +388,8 @@ void PdalBindings::errorCallback(
     // Dispose of the persistent handle so the callback may be garbage
     // collected.
     callback.Dispose();
+
+    scope.Close(Undefined());
 }
 
 //////////////////////////////////////////////////////////////////////////////
