@@ -82,7 +82,7 @@ public:
                 handler(npoints, nbytes);
             }
             else
-                handler(-1, 0);
+                handler(0, 0);
         }, [dhandler](message_ptr msg) {
             if (msg->get_opcode() == websocketpp::frame::opcode::binary)
                 dhandler(msg->get_payload());
@@ -239,6 +239,15 @@ int main(int argc, char* argv[])
                                 nbytes << " bytes will arrive." << std::endl;
 
                         ibytesToRead = nbytes;
+
+                        if (nbytes == 0)
+                        {
+                            std::cout <<
+                                "No points to arrive - exiting" <<
+                                std::endl;
+
+                            exit(1);
+                        }
                     },
                     [session, &client, &ibytesToRead, &bytesRead](
                         const std::string& data)
