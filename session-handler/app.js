@@ -123,6 +123,13 @@ app.get("/srs/:sessionId", function(req, res) {
     });
 });
 
+app.post("/cancel/:sessionId", function(req, res) {
+    getSession(res, req.params.sessionId, function(s, sid) {
+        console.log('Got CANCEL request');
+        s.cancel();
+    });
+});
+
 app.post("/read/:sessionId", function(req, res) {
     var host = req.body.host;
     var port = parseInt(req.body.port);

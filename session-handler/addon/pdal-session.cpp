@@ -178,13 +178,19 @@ BufferTransmitter::BufferTransmitter(
     }
 }
 
-void BufferTransmitter::transmit()
+void BufferTransmitter::transmit(
+        const std::size_t offset,
+        const std::size_t bytes)
 {
     boost::system::error_code ignored_error;
 
     boost::asio::write(
             *m_socket,
-            boost::asio::buffer(m_data, m_size),
+            boost::asio::buffer(
+                m_data + offset,
+                bytes ?
+                    std::min(bytes, m_size - offset) :
+                    m_size - offset),
             ignored_error);
 }
 

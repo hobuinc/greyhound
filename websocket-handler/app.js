@@ -204,6 +204,15 @@ process.nextTick(function() {
 			});
 		});
 
+        handler.on('cancel', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
+				if (err) return cb(err);
+				web.post(sh, '/cancel/' + session, function(err, res) {
+                    console.log('Cancel came back:', err, res);
+                    return cb(err, res);
+                });
+			});
+        });
 
 		handler.on('destroy', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, sh) {
@@ -235,12 +244,17 @@ process.nextTick(function() {
 				streamer.on('local-address', function(add) {
 					console.log('local-bound address for read: ', add);
 
-                    var path = '/read/' + session;
                     var params = _.extend(
                         add,
-                        { start: msg.start, count: msg.count, });
+                        {
+                            // TODO Check for isNumber here.
+                            start: msg.hasOwnProperty('start') ? msg.start : 0,
+                            count: msg.hasOwnProperty('count') ? msg.count : 0,
+                        });
 
-					web.post(sh, path, params, function(err, res) {
+                    var readPath = '/read/' + session;
+
+					web.post(sh, readPath, params, function(err, res) {
 						if (err) {
                             console.log(err);
 							streamer.close();
