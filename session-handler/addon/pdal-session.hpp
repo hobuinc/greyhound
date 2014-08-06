@@ -39,7 +39,7 @@ public:
             const unsigned char* data,
             std::size_t size);
 
-    void transmit();
+    void transmit(std::size_t offset = 0, std::size_t bytes = 0);
 
 private:
     std::unique_ptr<boost::asio::ip::tcp::socket> m_socket;

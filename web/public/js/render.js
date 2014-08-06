@@ -170,10 +170,12 @@
 				}
 			}
 			else {
-				_r = asDataView.getInt16(offset, true); offset += 2; 
+				_r = asDataView.getInt16(offset, true); offset += 2;
 				_g = asDataView.getInt16(offset, true); offset += 2;
 				_b = asDataView.getInt16(offset, true); offset += 2;
 			}
+
+            _intensity = 1.0;
 
 			colors[ 3*i ]     = _intensity * _r / 255.0;
 			colors[ 3*i + 1 ] = _intensity * _g / 255.0;
@@ -235,7 +237,7 @@
 				timeSinceLast = thisTime;
 			}
 		}
-		
+
 		frames ++;
 
 		renderer.render(scene, camera);

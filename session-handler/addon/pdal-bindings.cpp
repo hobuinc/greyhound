@@ -5,10 +5,16 @@
 
 using namespace v8;
 
+namespace
+{
+    const std::size_t chunkSize = 65536;
+}
+
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession()
+    , m_readData()
 { }
 
 PdalBindings::~PdalBindings()
@@ -34,6 +40,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getNumPoints)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSchema"),
         FunctionTemplate::New(getSchema)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("cancel"),
+        FunctionTemplate::New(cancel)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
 
@@ -243,14 +251,17 @@ Handle<Value> PdalBindings::read(const Arguments& args)
         // Store everything we'll need to perform the read.
         uv_work_t* readReq(new uv_work_t);
 
-        // This structure is the owner of the buffered point data.
-        readReq->data = new ReadData(
+        obj->m_readData = new ReadData(
                 obj->m_pdalSession,
                 host,
                 port,
                 start,
                 count,
                 callback);
+
+        // This structure is the owner of the buffered point data, and will
+        // delete it after this transmission is complete.
+        readReq->data = obj->m_readData;
 
         // Read points asynchronously.
         uv_queue_work(
@@ -341,7 +352,22 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
                         try
                         {
-                            readData->bufferTransmitter->transmit();
+                            const std::size_t numBytes(readData->numBytes);
+                            std::size_t offset(0);
+
+                            while (offset < numBytes && !readData->cancel)
+                            {
+                                readData->bufferTransmitter->transmit(
+                                    offset,
+                                    std::min(chunkSize, numBytes - offset));
+
+                                offset += chunkSize;
+                            }
+
+                            if (readData->cancel)
+                                std::cout << "CANCELLED at (" <<
+                                    offset << " / " << numBytes <<
+                                    ") bytes" << std::endl;
                         }
                         catch (...)
                         {
@@ -367,6 +393,25 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             })
         );
     }
+
+    return scope.Close(Undefined());
+}
+
+Handle<Value> PdalBindings::cancel(const Arguments& args)
+{
+    HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    // TODO Race condition.  Mutex here with the deletes in read().
+    if (obj->m_readData)
+    {
+        std::cout << "Cancelling..." << std::endl;
+        obj->m_readData->cancel = true;
+    }
+
+    // TODO Would be nice to block here (in a worker thread) until the
+    // uv_after_work_cb is called.  That way we wouldn't respond with a
+    // success status to 'cancel' until the data flow has actually stopped.
 
     return scope.Close(Undefined());
 }

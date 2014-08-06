@@ -4,12 +4,14 @@
 
 #include "pdal-session.hpp"
 
+
 class PdalBindings : public node::ObjectWrap
 {
 public:
     static void init(v8::Handle<v8::Object> exports);
 
 private:
+    struct ReadData;
     PdalBindings();
     ~PdalBindings();
 
@@ -27,6 +29,7 @@ private:
     static v8::Handle<v8::Value> getNumPoints(const v8::Arguments& args);
     static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
+    static v8::Handle<v8::Value> cancel(const v8::Arguments& args);
 
     // Helper function to perform an errback.
     static void errorCallback(
@@ -34,6 +37,7 @@ private:
             std::string errMsg);
 
     std::shared_ptr<PdalSession> m_pdalSession;
+    ReadData* m_readData;
 
     struct CreateData
     {
@@ -79,6 +83,7 @@ private:
             , numPoints(0)
             , errMsg()
             , callback(callback)
+            , cancel(false)
         { }
 
         // Inputs
@@ -96,6 +101,7 @@ private:
         std::string errMsg;
 
         v8::Persistent<v8::Function> callback;
+        bool cancel;
     };
 };
 
