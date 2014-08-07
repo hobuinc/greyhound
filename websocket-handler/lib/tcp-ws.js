@@ -30,7 +30,14 @@ var net = require('net'),
 	}
 
 	TcpToWs.prototype.wsSend = function(data) {
-		this.totalSent += data.length;
+        var self = this;
+
+        // Note: Increment totalSent BEFORE sending (do not use send()'s
+        // optional callback).  Once we enter the send routine it may take
+        // time to complete, but we can't unsend that data so count it
+        // immediately.  This is important for supplying the user an accurate
+        // count in the case of a cancel.
+        self.totalSent += data.length;
 		this.ws.send(data, { binary: true });
 	}
 
@@ -58,6 +65,7 @@ var net = require('net'),
 		});
 
 		server.on('connection', function(socket) {
+            o.socket = socket;
 			socket.on('end', function() {
 				// if the data has finished arriving even before
 				// we actually got a chance to push any data at all, we won't
@@ -121,14 +129,25 @@ var net = require('net'),
 			var o = this;
 			process.nextTick(function() {
 				o.emit('end');
-
 			});
 		}
 	}
 
+    TcpToWs.prototype.cancel = function() {
+        // Due to propagation delays between Greyhound components, we will
+        // still receive some buffered data after the cancel call.  Destroy
+        // socket immediately to halt any further I/O since the read has
+        // been canceled.
+        //
+        // This function should not be called on a clean exit, as it may
+        // cause truncated data.
+        this.socket.destroy();
+        this.close();
+    };
+
 	TcpToWs.prototype.close = function() {
 		if (this.server)
-			try { this.server.close(); } catch(e) { }
+			try { this.server.close(); } catch(e) { console.log('err', e); }
 		this.server = null;
 	};
 

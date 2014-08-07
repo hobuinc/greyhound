@@ -45,6 +45,9 @@ setup_greyhound() {
 
     # Get the database started with a pre-written sample.
     /vagrant/examples/cpp/put-pipeline
+
+    # Also add the large sample, needed for testing cancel functionality.
+    /vagrant/examples/cpp/put-pipeline /vagrant/examples/data/half-dome.xml
 }
 
 setup_base_packages

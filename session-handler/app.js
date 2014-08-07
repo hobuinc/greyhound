@@ -126,7 +126,7 @@ app.get("/srs/:sessionId", function(req, res) {
 app.post("/cancel/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(s, sid) {
         console.log('Got CANCEL request');
-        s.cancel();
+        res.json({ 'cancelled': s.cancel() });
     });
 });
 

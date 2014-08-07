@@ -15,7 +15,8 @@ var WebSocketServer = require('ws').Server
   , ports = seaport.connect('localhost', 9090)
 
   , CommandHandler = require('./lib/command-handler').CommandHandler
-  , TcpToWs = require('./lib/tcp-ws').TcpToWs;
+  , TcpToWs = require('./lib/tcp-ws').TcpToWs
+  , streamers = { };
 
 // setup redis client
 var redisClient = redis.createClient();
@@ -204,16 +205,6 @@ process.nextTick(function() {
 			});
 		});
 
-        handler.on('cancel', function(msg, cb) {
-			validateSessionAffinity(msg.session, function(err, session, sh) {
-				if (err) return cb(err);
-				web.post(sh, '/cancel/' + session, function(err, res) {
-                    console.log('Cancel came back:', err, res);
-                    return cb(err, res);
-                });
-			});
-        });
-
 		handler.on('destroy', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
@@ -236,18 +227,59 @@ process.nextTick(function() {
 			});
 		});
 
+        handler.on('cancel', function(msg, cb) {
+			validateSessionAffinity(msg.session, function(err, session, sh) {
+				if (err) return cb(err);
+				web.post(sh, '/cancel/' + session, function(err, res) {
+                    console.log('Cancel came back:', err, res);
+
+                    if (streamers[session]) {
+                        console.log(
+                            'Cancelled.  Arrived:',
+                            streamers[session].totalArrived,
+                            'Sent:',
+                            streamers[session].totalSent);
+
+                        res['numBytes'] = streamers[session].totalSent;
+
+                        streamers[session].cancel();
+
+                        delete streamers[session];
+                    }
+
+                    return cb(err, res);
+                });
+			});
+        });
+
 		handler.on('read', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
 
+                if (streamers[session])
+                    return cb(new Error(
+                            'A "read" request is already executing ' +
+                            'for this session'));
+
 				var streamer = new TcpToWs(ws);
+                streamers[session] = streamer;
+
 				streamer.on('local-address', function(add) {
 					console.log('local-bound address for read: ', add);
+
+                    if (msg.hasOwnProperty('start') &&
+                        !_.isNumber(msg['start'])) {
+                        return cb(new Error('"start" must be a number'));
+                    }
+
+                    if (msg.hasOwnProperty('count') &&
+                        !_.isNumber(msg['count'])) {
+                        return cb(new Error('"count" must be a number'));
+                    }
 
                     var params = _.extend(
                         add,
                         {
-                            // TODO Check for isNumber here.
                             start: msg.hasOwnProperty('start') ? msg.start : 0,
                             count: msg.hasOwnProperty('count') ? msg.count : 0,
                         });
@@ -256,6 +288,7 @@ process.nextTick(function() {
 
 					web.post(sh, readPath, params, function(err, res) {
 						if (err) {
+                            delete streamers[session];
                             console.log(err);
 							streamer.close();
 							return cb(err);
@@ -279,6 +312,8 @@ process.nextTick(function() {
                         streamer.totalArrived,
                         's:',
                         streamer.totalSent);
+
+                    delete streamers[session];
 				});
 
 				streamer.start();
