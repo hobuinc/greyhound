@@ -402,18 +402,17 @@ Handle<Value> PdalBindings::cancel(const Arguments& args)
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
+    bool cancelled(false);
+
     // TODO Race condition.  Mutex here with the deletes in read().
     if (obj->m_readData)
     {
-        std::cout << "Cancelling..." << std::endl;
         obj->m_readData->cancel = true;
+        cancelled = true;
+        std::cout << "Cancelling..." << std::endl;
     }
 
-    // TODO Would be nice to block here (in a worker thread) until the
-    // uv_after_work_cb is called.  That way we wouldn't respond with a
-    // success status to 'cancel' until the data flow has actually stopped.
-
-    return scope.Close(Undefined());
+    return scope.Close(Boolean::New(cancelled));
 }
 
 void PdalBindings::errorCallback(

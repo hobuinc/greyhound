@@ -3,11 +3,13 @@
 var fs = require('fs');
 var WebSocket = require('ws');
 var ws, timeoutObj;
-var timeoutMs = 1000;
+var timeoutMs = 15000;
 var samplePipelineId = 'd4f4cc08e63242a201de6132e5f54b08';
 var samplePoints = 10653;
 var sampleBytes = 213060;
 var sampleStride = 20;
+
+var bigPipelineId = '4a14c92da9bc6df24400d69fa9add65a';
 
 var send = function(obj) {
     ws.send(JSON.stringify(obj));
@@ -59,25 +61,17 @@ var doExchangeSet = function(test, exchangeSet) {
                 }
             }
             else {
-                var message = 'Got unexpected binary response';
-                if (exchangeSet[exchangeIndex]['req']
-                        .hasOwnProperty('command')) {
-                    message += ' to: ' +
-                        exchangeSet[exchangeIndex]['req']['command'];
-                }
-
-                test.ok(false, message);
-                endTest(test);
+                burst = !expected({ }, { }, JSON.parse(data));
             }
         }
         else {
             if (typeof(expected) === 'function') {
                 // The burst is over when the function returns true, at which
                 // point we can increment into the next exchange index.
-                burst = !expected(data);
+                burst = !expected(data, responses);
             }
             else {
-                var message = 'Got unexpected non-binary response';
+                var message = 'Got unexpected binary response';
                 if (exchangeSet[exchangeIndex]['req']
                         .hasOwnProperty('command')) {
                     message += ' to: ' +
@@ -94,7 +88,7 @@ var doExchangeSet = function(test, exchangeSet) {
             // Send request for the next exchange.
             if (++exchangeIndex < exchangeSet.length) {
                 var rawReq = exchangeSet[exchangeIndex]['req'];
-                var req = {};
+                var req = { };
 
                 for (var field in rawReq) {
                     if (typeof rawReq[field] !== 'function') {
@@ -222,6 +216,42 @@ module.exports = {
         );
     },
 
+    // PUT - test with non-string pipeline
+    // Expect: failure status
+    testPutWrongTypePipeline: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'put',
+                    'pipeline': 42,
+                },
+                res: {
+                    'command':  'put',
+                    'status':   ghFail,
+                }
+            }]
+        );
+    },
+
+    // PUT - test with non-string pipeline
+    // Expect: failure status
+    testPutFunctionPipeline: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'put',
+                    'pipeline': function() { console.log('Wrong'); },
+                },
+                res: {
+                    'command':  'put',
+                    'status':   ghFail,
+                }
+            }]
+        );
+    },
+
     // PUT - test with malformed pipeline XML
     // Expect: failure status
     testPutMalformedPipeline: function(test) {
@@ -315,12 +345,67 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command': 'create',
-                    'pipelineId': 'This is not a valid pipelineId',
+                    'command':      'create',
+                    'pipelineId':   'This is not a valid pipelineId',
                 },
                 res: {
-                    'command':  'create',
-                    'status':   ghFail,
+                    'command':      'create',
+                    'status':       ghFail,
+                },
+            }]
+        );
+    },
+
+    // CREATE - test with a non-string pipeline ID
+    // Expect: failure status
+    testCreateWrongTypePipelineId: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   42,
+                },
+                res: {
+                    'command':      'create',
+                    'status':       ghFail,
+                },
+            }]
+        );
+    },
+
+    // CREATE - test with a function as the pipeline ID
+    // Expect: failure status
+    testCreateFunctionPipelineId: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   function() { console.log('Wrong'); },
+                },
+                res: {
+                    'command':      'create',
+                    'status':       ghFail,
+                },
+            }]
+        );
+    },
+
+
+    // CREATE - test with a wildcard pipeline ID
+    // Expect: failure status
+    testCreateWildcardPipelineId: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   '*',
+                },
+                res: {
+                    'command':      'create',
+                    'status':       ghFail,
                 },
             }]
         );
@@ -438,6 +523,42 @@ module.exports = {
                 req: {
                     'command':  'pointsCount',
                     'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'pointsCount',
+                    'status':   ghFail,
+                },
+            }]
+        );
+    },
+
+    // POINTSCOUNT - test command with object 'session' parameter
+    // Expect: failure status
+    testPointsCountObjectSession: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'pointsCount',
+                    'session':  { session: 'I am an invalid session object!' }
+                },
+                res: {
+                    'command':  'pointsCount',
+                    'status':   ghFail,
+                },
+            }]
+        );
+    },
+
+    // POINTSCOUNT - test command with a function as the 'session' parameter
+    // Expect: failure status
+    testPointsCountFunctionSession: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':  'pointsCount',
+                    'session':  function() { console.log('Wrong'); },
                 },
                 res: {
                     'command':  'pointsCount',
@@ -768,6 +889,48 @@ module.exports = {
         );
     },
 
+    // READ - test string parameter for numPoints
+    // Expect: failure status - nothing read
+    testReadStringNumPoints: function(test) {
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    'Wrong type!',
+                },
+                res:
+                {
+                    'status':       ghFail,
+                    'command':      'read',
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
     // READ - test negative number of points requested
     // Expect: all points read
     testReadNegativeNumPoints: function(test) {
@@ -962,6 +1125,76 @@ module.exports = {
                     function(data) {
                         bytesRead += data.length;
                         return bytesRead === 10 * sampleStride;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
+    // READ - test cancel functionality
+    // Expect: Partially transmitted data
+    testReadCancel: function(test) {
+        console.log('Starting long test (~10 seconds)...');
+        var bytesRead = 0;
+        var bytesExpected = 7954265 * 20;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   bigPipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    0,
+                    'start':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    dontCare,
+                        'numBytes':     dontCare,
+                    },
+                    function(data, prevResponses, json) {
+                        if (json) {
+                            test.ok(json['command'] === 'cancel');
+                            test.ok(ghSuccess(json['status']));
+                            test.ok(json['cancelled'] === true);
+                            test.ok(json.hasOwnProperty('numBytes'));
+
+                            bytesExpected = json['numBytes'];
+                        }
+                        else {
+                            if (bytesRead === 0) {
+                                send({
+                                    'command': 'cancel',
+                                    'session': prevResponses[0].session,
+                                });
+                            }
+
+                            bytesRead += data.length;
+                        }
+
+                        return bytesRead === bytesExpected;
                     }
                 ]
             },
