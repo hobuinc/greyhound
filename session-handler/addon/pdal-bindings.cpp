@@ -40,6 +40,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getNumPoints)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSchema"),
         FunctionTemplate::New(getSchema)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
+        FunctionTemplate::New(getSrs)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("cancel"),
         FunctionTemplate::New(cancel)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
@@ -207,6 +209,16 @@ Handle<Value> PdalBindings::getSchema(const Arguments& args)
     const std::string schema(obj->m_pdalSession->getSchema());
 
     return scope.Close(String::New(schema.data(), schema.size()));
+}
+
+Handle<Value> PdalBindings::getSrs(const Arguments& args)
+{
+    HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    const std::string wkt(obj->m_pdalSession->getSrs());
+
+    return scope.Close(String::New(wkt.data(), wkt.size()));
 }
 
 Handle<Value> PdalBindings::read(const Arguments& args)

@@ -8,6 +8,7 @@ var samplePipelineId = 'd4f4cc08e63242a201de6132e5f54b08';
 var samplePoints = 10653;
 var sampleBytes = 213060;
 var sampleStride = 20;
+var sampleSrs = 'PROJCS["NAD_1983_HARN_Lambert_Conformal_Conic",GEOGCS["GCS_North_American_1983_HARN",DATUM["NAD83_High_Accuracy_Regional_Network",SPHEROID["GRS_1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6152"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",43],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_origin",41.75],PARAMETER["central_meridian",-120.5],PARAMETER["false_easting",1312335.958005249],PARAMETER["false_northing",0],UNIT["foot",0.3048,AUTHORITY["EPSG","9002"]]]';
 
 var bigPipelineId = '4a14c92da9bc6df24400d69fa9add65a';
 
@@ -682,20 +683,116 @@ module.exports = {
 
     // SRS - test command with missing 'session' parameter
     testSrsMissingSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'srs',
+                },
+                res: {
+                    'command':  'srs',
+                    'status':   ghFail,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // SRS - test command with invalid 'session' parameter
     testSrsInvalidSession: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'srs',
+                    'session':  'I am an invalid session string!',
+                },
+                res: {
+                    'command':  'srs',
+                    'status':   ghFail,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // SRS - test valid command
     testSrsValid: function(test) {
-        // TODO
-        test.done();
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'srs',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'srs',
+                    'status':   ghSuccess,
+                    'srs':      sampleSrs,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
     },
 
     // READ - test command with missing 'session' parameter
