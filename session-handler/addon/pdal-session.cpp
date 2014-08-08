@@ -32,7 +32,7 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
     {
         m_pipelineManager.execute();
         const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-        m_pointBuffer = pbSet.begin()->get();
+        m_pointBuffer = *pbSet.begin();
 
         try
         {

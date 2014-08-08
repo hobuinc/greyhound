@@ -24,7 +24,7 @@ public:
 private:
     pdal::PipelineManager m_pipelineManager;
     pdal::Schema m_schema;
-    const pdal::PointBuffer* m_pointBuffer;
+    pdal::PointBufferPtr m_pointBuffer;
     bool m_parsed;
 
     pdal::Schema packSchema(const pdal::Schema& fullSchema);

@@ -123,6 +123,10 @@ void PdalBindings::doInitialize(
             {
                 createData->errMsg = e.what();
             }
+            catch (const std::bad_alloc& ba)
+            {
+                createData->errMsg = "Memory allocation failed in CREATE";
+            }
             catch (...)
             {
                 createData->errMsg = "Unknown error";

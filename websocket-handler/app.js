@@ -140,27 +140,25 @@ process.nextTick(function() {
                     web.get(sh, '/validate/', params, function(err, res) {
                         if (err || !res.valid) {
                             console.log('PUT - Pipeline validation failed');
-                            cb(err ? err : 'Pipeline is not valid');
+                            return cb(err ? err : 'Pipeline is not valid');
                         }
-                        else {
-                            getDbHandler(function(err, db) {
-                                if (err) {
+
+                        getDbHandler(function(err, db) {
+                            if (err) {
+                                return cb(err);
+                            }
+
+                            web.post(db, '/put', params, function(err, res) {
+                                console.log('PUT came back', err, res);
+
+                                if (err)
                                     return cb(err);
-                                }
-
-                                web.post(db, '/put', params, function(err, res) {
-                                    console.log('PUT came back', err, res);
-
-                                    if (err)
-                                        return cb(err);
-                                    else
-                                        cb(null, { pipelineId: res.id });
-                                });
+                                else
+                                    cb(null, { pipelineId: res.id });
                             });
-                        }
+                        });
                     });
                 });
-
             }
             else {
                 return cb(new Error('PUT - Missing property "pipeline"'));

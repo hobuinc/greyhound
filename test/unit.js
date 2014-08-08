@@ -61,7 +61,7 @@ var doExchangeSet = function(test, exchangeSet) {
                 }
             }
             else {
-                burst = !expected({ }, { }, JSON.parse(data));
+                burst = !expected({}, {}, JSON.parse(data));
             }
         }
         else {
@@ -88,7 +88,7 @@ var doExchangeSet = function(test, exchangeSet) {
             // Send request for the next exchange.
             if (++exchangeIndex < exchangeSet.length) {
                 var rawReq = exchangeSet[exchangeIndex]['req'];
-                var req = { };
+                var req = {};
 
                 for (var field in rawReq) {
                     if (typeof rawReq[field] !== 'function') {
@@ -179,13 +179,11 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 //      SCHEMA
 //      SRS
 //      READ
+//      CANCEL
 //      DESTROY
 //      OTHER
 //
 //////////////////////////////////////////////////////////////////////////////
-
-// TODO Query sanitization
-// TODO Invalid types testing (strings for int fields, floats for ints, etc.)
 
 module.exports = {
     setUp: function(cb) {
@@ -391,7 +389,6 @@ module.exports = {
             }]
         );
     },
-
 
     // CREATE - test with a wildcard pipeline ID
     // Expect: failure status
@@ -1141,76 +1138,6 @@ module.exports = {
         );
     },
 
-    // READ - test cancel functionality
-    // Expect: Partially transmitted data
-    testReadCancel: function(test) {
-        console.log('Starting long test (~10 seconds)...');
-        var bytesRead = 0;
-        var bytesExpected = 7954265 * 20;
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   bigPipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':  'read',
-                    'session':  initialSession,
-                    'count':    0,
-                    'start':    0,
-                },
-                res: [
-                    {
-                        'status':       ghSuccess,
-                        'command':      'read',
-                        'numPoints':    dontCare,
-                        'numBytes':     dontCare,
-                    },
-                    function(data, prevResponses, json) {
-                        if (json) {
-                            test.ok(json['command'] === 'cancel');
-                            test.ok(ghSuccess(json['status']));
-                            test.ok(json['cancelled'] === true);
-                            test.ok(json.hasOwnProperty('numBytes'));
-
-                            bytesExpected = json['numBytes'];
-                        }
-                        else {
-                            if (bytesRead === 0) {
-                                send({
-                                    'command': 'cancel',
-                                    'session': prevResponses[0].session,
-                                });
-                            }
-
-                            bytesRead += data.length;
-                        }
-
-                        return bytesRead === bytesExpected;
-                    }
-                ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            }]
-        );
-    },
-
     // READ - test get complete buffer
     // Expect: all points read
     testReadAll: function(test) {
@@ -1472,6 +1399,169 @@ module.exports = {
                     function(data) {
                         bytesRead += data.length;
                         return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
+    // READ - test idle cancel (i.e. no ongoing read) followed by read
+    // Expect: cancel command succeeds (but useless), then all points read
+    testIdleCancel: function(test) {
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'cancel',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':      'cancel',
+                    'status':       ghSuccess,
+                    'cancelled':    false,
+                }
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
+    // CANCEL - test cancel functionality and subsequent read
+    // Expect: Partially transmitted data, successful cancel, successful read
+    testValidCancel: function(test) {
+        console.log('Starting long test (~10 seconds)...');
+        var bytesRead = 0;
+        var bytesExpected = 7954265 * 20;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   bigPipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    0,
+                    'start':    0,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    dontCare,
+                        'numBytes':     dontCare,
+                    },
+                    function(data, prevResponses, json) {
+                        if (json) {
+                            // At some point we'll get a reply to our cancel.
+                            test.ok(json['command'] === 'cancel');
+                            test.ok(ghSuccess(json['status']));
+                            test.ok(json['cancelled'] === true);
+                            test.ok(json.hasOwnProperty('numBytes'));
+
+                            // This reply will give us a new number of expected
+                            // bytes, so overwrite our expected number we got
+                            // from the response to 'read'.
+                            bytesExpected = json['numBytes'];
+                        }
+                        else {
+                            // On the first binary blob, send the cancel.
+                            if (bytesRead === 0) {
+                                send({
+                                    'command': 'cancel',
+                                    'session': prevResponses[0].session,
+                                });
+                            }
+
+                            // Consume all binary blobs.
+                            bytesRead += data.length;
+                        }
+
+                        if (bytesRead === bytesExpected) {
+                            // Reset this for the next test read.
+                            bytesRead = 0;
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'count':    20,
+                    'start':    30,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'numPoints':    20,
+                        'numBytes':     20 * 20,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === 20 * 20;
                     }
                 ]
             },
