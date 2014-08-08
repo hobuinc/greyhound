@@ -52,7 +52,7 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
 
 std::size_t PdalSession::getNumPoints() const
 {
-    return m_pointBuffer->getNumPoints();
+    return m_pointBuffer->size();
 }
 
 std::string PdalSession::getSchema() const
@@ -63,6 +63,11 @@ std::string PdalSession::getSchema() const
 std::size_t PdalSession::getStride() const
 {
     return m_schema.getByteSize();
+}
+
+std::string PdalSession::getSrs() const
+{
+    return m_pointBuffer->context().spatialRef().getRawWKT();
 }
 
 std::size_t PdalSession::read(

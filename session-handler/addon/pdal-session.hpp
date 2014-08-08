@@ -15,6 +15,7 @@ public:
     std::size_t getNumPoints() const;
     std::string getSchema() const;
     std::size_t getStride() const;
+    std::string getSrs() const;
 
     std::size_t read(
             unsigned char** buffer,
