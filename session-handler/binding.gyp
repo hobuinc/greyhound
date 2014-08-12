@@ -14,7 +14,6 @@
                 '-g',
                 '-std=c++11',
                 '-Wall',
-                '-Werror',
                 '-pedantic',
                 '-fexceptions',
                 '-frtti',

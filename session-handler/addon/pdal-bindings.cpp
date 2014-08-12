@@ -8,13 +8,23 @@ using namespace v8;
 namespace
 {
     const std::size_t chunkSize = 65536;
+
+    bool isInteger(const Value& value)
+    {
+        return value.IsInt32() || value.IsUint32();
+    }
+
+    bool isDouble(const Value& value)
+    {
+        return value.IsNumber() && !isInteger(value);
+    }
 }
 
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession()
-    , m_readData()
+    , m_readCommand()
 { }
 
 PdalBindings::~PdalBindings()
@@ -224,6 +234,19 @@ Handle<Value> PdalBindings::getSrs(const Arguments& args)
 Handle<Value> PdalBindings::read(const Arguments& args)
 {
     HandleScope scope;
+    //
+    // Provide access to m_pdalSession from within this static function.
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    obj->m_readCommand = createReadCommand(args, obj->m_pdalSession);
+
+    if (!obj->m_readCommand)
+    {
+        Persistent<Function> callback(
+                Persistent<Function>::New(Local<Function>::Cast(args[4])));
+        errorCallback(callback, "Could not create ReadCommand");
+        return scope.Close(Undefined());
+    }
 
     std::string errMsg("");
 
@@ -245,6 +268,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     if (errMsg.size())
     {
         errorCallback(callback, errMsg);
+        delete obj->m_readCommand;
         return scope.Close(Undefined());
     }
 
@@ -254,12 +278,10 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     const std::size_t start(args[2]->Uint32Value());
     const std::size_t count(args[3]->Uint32Value());
 
-    // Provide access to m_pdalSession from within this static function.
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
     if (start >= obj->m_pdalSession->getNumPoints())
     {
         errorCallback(callback, "Invalid start offset in 'read' request");
+        delete obj->m_readCommand;
         return scope.Close(Undefined());
     }
     else
@@ -267,69 +289,77 @@ Handle<Value> PdalBindings::read(const Arguments& args)
         // Store everything we'll need to perform the read.
         uv_work_t* readReq(new uv_work_t);
 
-        obj->m_readData = new ReadData(
-                obj->m_pdalSession,
-                host,
-                port,
-                start,
-                count,
-                callback);
-
-        // This structure is the owner of the buffered point data, and will
-        // delete it after this transmission is complete.
-        readReq->data = obj->m_readData;
+        readReq->data = obj->m_readCommand;
 
         // Read points asynchronously.
         uv_queue_work(
             uv_default_loop(),
             readReq,
             (uv_work_cb)([](uv_work_t *readReq)->void {
-                ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
+                ReadCommandUnindexed* readCommand(
+                    reinterpret_cast<ReadCommandUnindexed*>(readReq->data));
 
                 // Buffer the point data from PDAL.
                 try
                 {
-                    // This call will new up the readData->data array.
+                    unsigned char** data = readCommand->dataRef();
+
+                    // This call will new up the readCommand->data array.
+                    readCommand->numPoints(
+                        readCommand->pdalSession->read(
+                            data,
+                            readCommand->start,
+                            readCommand->count));
+
+                    /*
+                    // TODO Sample code for point+radius query.
                     readData->numPoints =
                         readData->pdalSession->read(
-                            &readData->data,
-                            readData->start,
-                            readData->count);
+                                &readData->data,
+                                true,
+                                637294.2068769321,
+                                851251.3222904349,
+                                434.391803247911,
+                                562500.0);
+                    */
 
-                    readData->numBytes =
-                        readData->numPoints *
-                        readData->pdalSession->getStride();
 
-                    // The BufferTransmitter must not delete readData->data,
+                    readCommand->numBytes(
+                        readCommand->numPoints() *
+                        readCommand->pdalSession->getStride());
+
+                    // The BufferTransmitter must not delete readCommand->data,
                     // and we must take care not to do so elsewhere until the
                     // BufferTransmitter::transmit() operation is complete.
-                    readData->bufferTransmitter.reset(
+                    readCommand->bufferTransmitter(
                         new BufferTransmitter(
-                                readData->host,
-                                readData->port,
-                                readData->data,
-                                readData->numBytes));
+                                readCommand->host,
+                                readCommand->port,
+                                readCommand->data(),
+                                readCommand->numBytes()));
                 }
                 catch (const std::runtime_error& e)
                 {
-                    readData->errMsg = e.what();
+                    readCommand->errMsg(e.what());
                 }
                 catch (...)
                 {
-                    readData->errMsg = "Unknown error";
+                    readCommand->errMsg("Unknown error");
                 }
             }),
             (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
-                ReadData* readData(reinterpret_cast<ReadData*>(readReq->data));
+                ReadCommandUnindexed* readCommand(
+                    reinterpret_cast<ReadCommandUnindexed*>(readReq->data));
 
-                if (readData->errMsg.size())
+                if (readCommand->errMsg().size())
                 {
                     // Propagate the error back to the remote host.
-                    errorCallback(readData->callback, readData->errMsg);
+                    errorCallback(
+                        readCommand->callback(),
+                        readCommand->errMsg());
 
                     // Clean up since we won't be calling the async send code.
-                    delete [] readData->data;
-                    delete readData;
+                    delete readCommand;
                     return;
                 }
 
@@ -339,23 +369,23 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                 Local<Value> argv[argc] =
                     {
                         Local<Value>::New(Null()), // err
-                        Local<Value>::New(Integer::New(readData->numPoints)),
-                        Local<Value>::New(Integer::New(readData->numBytes))
+                        Local<Value>::New(Integer::New(readCommand->numPoints())),
+                        Local<Value>::New(Integer::New(readCommand->numBytes()))
                     };
 
                 // Call the provided callback to return the status of the
                 // data about to be streamed to the remote host.
-                readData->callback->Call(
+                readCommand->callback()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
 
                 // Dispose of the persistent handle so this callback may be
                 // garbage collected.
-                readData->callback.Dispose();
+                readCommand->callback().Dispose();
 
                 // Create a token for the actual data transmission portion of
                 // the read.
                 uv_work_t* sendReq(new uv_work_t);
-                sendReq->data = readData;
+                sendReq->data = readCommand;
 
                 // Now stream all the buffered point data to the remote host
                 // asynchronously.
@@ -363,24 +393,25 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     uv_default_loop(),
                     sendReq,
                     (uv_work_cb)([](uv_work_t *sendReq)->void {
-                        ReadData* readData(
-                            reinterpret_cast<ReadData*>(sendReq->data));
+                        ReadCommandUnindexed* readCommand(
+                            reinterpret_cast<ReadCommandUnindexed*>(
+                                    sendReq->data));
 
                         try
                         {
-                            const std::size_t numBytes(readData->numBytes);
+                            const std::size_t numBytes(readCommand->numBytes());
                             std::size_t offset(0);
 
-                            while (offset < numBytes && !readData->cancel)
+                            while (offset < numBytes && !readCommand->cancel())
                             {
-                                readData->bufferTransmitter->transmit(
+                                readCommand->bufferTransmitter()->transmit(
                                     offset,
                                     std::min(chunkSize, numBytes - offset));
 
                                 offset += chunkSize;
                             }
 
-                            if (readData->cancel)
+                            if (readCommand->cancel())
                                 std::cout << "CANCELLED at (" <<
                                     offset << " / " << numBytes <<
                                     ") bytes" << std::endl;
@@ -393,14 +424,14 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                         }
                     }),
                     (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
-                        ReadData* readData(
-                            reinterpret_cast<ReadData*>(sendReq->data));
+                        ReadCommandUnindexed* readCommand(
+                            reinterpret_cast<ReadCommandUnindexed*>(
+                                    sendReq->data));
 
                         // Read and data transmission complete.  Clean
-                        // everything up - readData->bufferTransmitter may
+                        // everything up - readCommand->bufferTransmitter may
                         // no longer be used.
-                        delete [] readData->data;
-                        delete readData;
+                        delete readCommand;
                         delete sendReq;
                     })
                 );
@@ -421,35 +452,14 @@ Handle<Value> PdalBindings::cancel(const Arguments& args)
     bool cancelled(false);
 
     // TODO Race condition.  Mutex here with the deletes in read().
-    if (obj->m_readData)
+    if (obj->m_readCommand)
     {
-        obj->m_readData->cancel = true;
+        obj->m_readCommand->cancel(true);
         cancelled = true;
         std::cout << "Cancelling..." << std::endl;
     }
 
     return scope.Close(Boolean::New(cancelled));
-}
-
-void PdalBindings::errorCallback(
-        Persistent<Function> callback,
-        std::string errMsg)
-{
-    HandleScope scope;
-
-    const unsigned argc = 1;
-    Local<Value> argv[argc] =
-        {
-            Local<Value>::New(String::New(errMsg.data(), errMsg.size()))
-        };
-
-    callback->Call(Context::GetCurrent()->Global(), argc, argv);
-
-    // Dispose of the persistent handle so the callback may be garbage
-    // collected.
-    callback.Dispose();
-
-    scope.Close(Undefined());
 }
 
 //////////////////////////////////////////////////////////////////////////////
