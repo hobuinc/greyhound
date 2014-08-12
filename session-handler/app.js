@@ -166,11 +166,11 @@ app.post("/read/:sessionId", function(req, res) {
         if (
             req.body.hasOwnProperty('start') ||
             req.body.hasOwnProperty('count') ||
-            Object.keys(req.body).length == 2) {
+            Object.keys(req.body).length == 4) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
-            // of them exists, or if the only arguments are host+port, then
-            // use this branch.
+            // of them exists, or if the only arguments are
+            // host+port+cmd+session, then use this branch.
 
             var start = req.body.hasOwnProperty('start') ?
                 parseInt(req.body.start) : 0;
@@ -193,11 +193,12 @@ app.post("/read/:sessionId", function(req, res) {
             var radius = parseFloat(req.body.radius);
             var x = parseFloat(req.body.x);
             var y = parseFloat(req.body.y);
-            var z = is3d ? z : 0.0;
+            var z = is3d ? parseFloat(req.body.z) : 0.0;
 
             s.read(host, port, is3d, radius, x, y, z, readHandler);
         }
         else {
+            console.log('Got bad read request', req.body);
             return res.json(
                 400,
                 { message: 'Invalid read command - bad params' });

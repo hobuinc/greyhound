@@ -94,12 +94,29 @@
 						return cb(new Error(
                                 'Failed to create session, this is not good.'));
 
+                    var readParams = { command: 'read', session: msg.session };
+                    var urlParams = getUrlParameters(w.location.search);
+
+                    if (urlParams.hasOwnProperty('point') &&
+                        urlParams.hasOwnProperty('radius')) {
+                        var point = urlParams['point'].split(" ");
+
+                        if (point.length >= 2) {
+                            readParams['x'] = parseFloat(point[0]);
+                            readParams['y'] = parseFloat(point[1]);
+
+                            if (point.length == 3)
+                                readParams['z'] = parseFloat(point[2]);
+
+                            readParams['radius'] =
+                                parseFloat(urlParams['radius']);
+                        }
+                    }
+
+
 					// This is in response to our create request.  Now request
                     // to receive the data.
-					ws.send(JSON.stringify({
-						command: 'read',
-						session: msg.session
-					}));
+					ws.send(JSON.stringify(readParams));
 
 					session	= msg.session;
 

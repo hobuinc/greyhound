@@ -6,6 +6,7 @@
             'sources': [
                 './addon/pdal-session.cpp',
                 './addon/pdal-bindings.cpp',
+                './addon/read-command.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
@@ -14,6 +15,7 @@
                 '-g',
                 '-std=c++11',
                 '-Wall',
+                '-Werror',
                 '-pedantic',
                 '-fexceptions',
                 '-frtti',

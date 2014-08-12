@@ -262,8 +262,8 @@ process.nextTick(function() {
 				var streamer = new TcpToWs(ws);
                 streamers[session] = streamer;
 
-				streamer.on('local-address', function(add) {
-					console.log('local-bound address for read: ', add);
+				streamer.on('local-address', function(addr) {
+					console.log('local-bound address for read: ', addr);
 
                     if (msg.hasOwnProperty('start') &&
                         !_.isNumber(msg['start'])) {
@@ -275,13 +275,7 @@ process.nextTick(function() {
                         return cb(new Error('"count" must be a number'));
                     }
 
-                    var params = _.extend(
-                        add,
-                        {
-                            start: msg.hasOwnProperty('start') ? msg.start : 0,
-                            count: msg.hasOwnProperty('count') ? msg.count : 0,
-                        });
-
+                    var params = _.extend(addr, msg);
                     var readPath = '/read/' + session;
 
 					web.post(sh, readPath, params, function(err, res) {
@@ -292,9 +286,9 @@ process.nextTick(function() {
 							return cb(err);
 						}
 						console.log(
-                            'TCP-WS: points: ',
+                            'TCP-WS - points:',
                             res.numPoints,
-                            'bytes:',
+                            ', bytes:',
                             res.numBytes);
 
 						cb(null, res);
