@@ -242,7 +242,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     // the input args.  If there is an error with the input args, this call
     // will attempt to make an error callback (if a callback argument can be
     // identified) and return a null ptr.
-    obj->m_readCommand = createReadCommand(args, obj->m_pdalSession);
+    obj->m_readCommand = ReadCommandFactory::create(args, obj->m_pdalSession);
 
     if (!obj->m_readCommand)
     {
