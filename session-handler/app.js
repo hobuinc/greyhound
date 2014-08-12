@@ -144,6 +144,20 @@ app.post("/read/:sessionId", function(req, res) {
             400,
             { message: 'Destination port needs to be specified' });
 
+    if (
+        req.body.hasOwnProperty('start') &&
+        req.body.hasOwnProperty('count')) {
+        // Unindexed read.
+
+    }
+    else if (
+        req.body.hasOwnProperty('radius') &&
+        req.body.hasOwnProperty('x') &&
+        req.body.hasOwnProperty('y')) {
+        // Indexed read: point + radius query.
+
+    }
+
     var start = req.body.hasOwnProperty('start') ? parseInt(req.body.start) : 0;
     var count = req.body.hasOwnProperty('count') ? parseInt(req.body.count) : 0;
 
@@ -153,7 +167,7 @@ app.post("/read/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(s, sid) {
         console.log('read('+ sid + ')');
 
-        s.read(host, port, start, count, function(err, numPoints, numBytes) {
+        var readHandler = function(err, numPoints, numBytes) {
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
@@ -167,7 +181,11 @@ app.post("/read/:sessionId", function(req, res) {
                         host + ':' + port,
                 });
             }
-        });
+        };
+
+        s.read(host, port, start, count, readHandler);
+        // else
+        //s.read(host, port, radius, x, y, z, readHandler);
     });
 });
 

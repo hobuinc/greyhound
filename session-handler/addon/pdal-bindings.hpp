@@ -4,6 +4,7 @@
 
 #include "pdal-session.hpp"
 
+#include "read-command.hpp"
 
 class PdalBindings : public node::ObjectWrap
 {
@@ -32,13 +33,10 @@ private:
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
     static v8::Handle<v8::Value> cancel(const v8::Arguments& args);
 
-    // Helper function to perform an errback.
-    static void errorCallback(
-            v8::Persistent<v8::Function> callback,
-            std::string errMsg);
-
     std::shared_ptr<PdalSession> m_pdalSession;
-    ReadData* m_readData;
+
+    // Make this a member to facilitate cancel() functionality.
+    ReadCommand* m_readCommand;
 
     struct CreateData
     {

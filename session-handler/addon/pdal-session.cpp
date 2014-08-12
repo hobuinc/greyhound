@@ -8,6 +8,9 @@ PdalSession::PdalSession()
     , m_schema()
     , m_pointBuffer()
     , m_parsed(false)
+    , m_initialized(false)
+    , m_kdIndex2d()
+    , m_kdIndex3d()
 { }
 
 void PdalSession::initialize(const std::string& pipeline, const bool execute)
@@ -41,12 +44,28 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
             m_schema.getDimension("X");
             m_schema.getDimension("Y");
             m_schema.getDimension("Z");
+
+            m_initialized = true;
         }
         catch (pdal::dimension_not_found&)
         {
             throw std::runtime_error(
                     "Pipeline output should contain X, Y and Z dimensions");
         }
+    }
+}
+
+void PdalSession::indexData(const bool build3d)
+{
+    if (build3d)
+    {
+        m_kdIndex3d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
+        m_kdIndex3d->build(build3d);
+    }
+    else
+    {
+        m_kdIndex2d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
+        m_kdIndex2d->build(build3d);
     }
 }
 
@@ -96,6 +115,62 @@ std::size_t PdalSession::read(
         boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
 
         for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
+        {
+            for (boost::uint32_t d = 0; d < idx.size(); ++d)
+            {
+                if (!idx[d].isIgnored())
+                {
+                    m_pointBuffer->context().rawPtBuf()->getField(
+                            idx[d],
+                            i,
+                            pos);
+
+                    pos += idx[d].getByteSize();
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        throw std::runtime_error("Failed to read points from PDAL");
+    }
+
+    return pointsToRead;
+}
+
+std::size_t PdalSession::read(
+        unsigned char** buffer,
+        const bool is3d,
+        const double radius,
+        const double x,
+        const double y,
+        const double z)
+{
+    if (!indexed(is3d))
+    {
+        indexData(is3d);
+    }
+
+    pdal::KDIndex* activeKdIndex(
+            is3d ? m_kdIndex3d.get() : m_kdIndex2d.get());
+
+    // KDIndex::radius() takes r^2.
+    const std::vector<std::size_t> results(
+            activeKdIndex->radius(x, y, z, radius * radius));
+
+    const std::size_t pointsToRead(results.size());
+
+    try
+    {
+        const pdal::Schema* fullSchema(m_pipelineManager.schema());
+        const pdal::schema::index_by_index& idx(
+                fullSchema->getDimensions().get<pdal::schema::index>());
+
+        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
+
+        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
+
+        for (std::size_t i : results)
         {
             for (boost::uint32_t d = 0; d < idx.size(); ++d)
             {
