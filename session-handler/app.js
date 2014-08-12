@@ -144,26 +144,6 @@ app.post("/read/:sessionId", function(req, res) {
             400,
             { message: 'Destination port needs to be specified' });
 
-    if (
-        req.body.hasOwnProperty('start') &&
-        req.body.hasOwnProperty('count')) {
-        // Unindexed read.
-
-    }
-    else if (
-        req.body.hasOwnProperty('radius') &&
-        req.body.hasOwnProperty('x') &&
-        req.body.hasOwnProperty('y')) {
-        // Indexed read: point + radius query.
-
-    }
-
-    var start = req.body.hasOwnProperty('start') ? parseInt(req.body.start) : 0;
-    var count = req.body.hasOwnProperty('count') ? parseInt(req.body.count) : 0;
-
-    if (start < 0) start = 0;
-    if (count < 0) count = 0;
-
     getSession(res, req.params.sessionId, function(s, sid) {
         console.log('read('+ sid + ')');
 
@@ -183,9 +163,45 @@ app.post("/read/:sessionId", function(req, res) {
             }
         };
 
-        s.read(host, port, start, count, readHandler);
-        // else
-        //s.read(host, port, radius, x, y, z, readHandler);
+        if (
+            req.body.hasOwnProperty('start') ||
+            req.body.hasOwnProperty('count') ||
+            Object.keys(req.body).length == 2) {
+
+            // Unindexed read - 'start' and 'count' may be omitted.  If either
+            // of them exists, or if the only arguments are host+port, then
+            // use this branch.
+
+            var start = req.body.hasOwnProperty('start') ?
+                parseInt(req.body.start) : 0;
+            var count = req.body.hasOwnProperty('count') ?
+                parseInt(req.body.count) : 0;
+
+            if (start < 0) start = 0;
+            if (count < 0) count = 0;
+
+            s.read(host, port, start, count, readHandler);
+        }
+        else if (
+            req.body.hasOwnProperty('radius') &&
+            req.body.hasOwnProperty('x') &&
+            req.body.hasOwnProperty('y')) {
+
+            // Indexed read: point + radius query.
+
+            var is3d = req.body.hasOwnProperty('z');
+            var radius = parseFloat(req.body.radius);
+            var x = parseFloat(req.body.x);
+            var y = parseFloat(req.body.y);
+            var z = is3d ? z : 0.0;
+
+            s.read(host, port, is3d, radius, x, y, z, readHandler);
+        }
+        else {
+            return res.json(
+                400,
+                { message: 'Invalid read command - bad params' });
+        }
     });
 });
 
