@@ -62,45 +62,5 @@ private:
 
         v8::Persistent<v8::Function> callback;
     };
-
-    struct ReadData
-    {
-        ReadData(
-                std::shared_ptr<PdalSession> pdalSession,
-                std::string host,
-                std::size_t port,
-                std::size_t start,
-                std::size_t count,
-                v8::Persistent<v8::Function> callback)
-            : pdalSession(pdalSession)
-            , host(host)
-            , port(port)
-            , start(start)
-            , count(count)
-            , data(0)
-            , bufferTransmitter()
-            , numPoints(0)
-            , errMsg()
-            , callback(callback)
-            , cancel(false)
-        { }
-
-        // Inputs
-        const std::shared_ptr<PdalSession> pdalSession;
-        const std::string host;
-        const std::size_t port;
-        const std::size_t start;
-        const std::size_t count;
-
-        // Outputs
-        unsigned char* data;
-        std::shared_ptr<BufferTransmitter> bufferTransmitter;
-        std::size_t numPoints;
-        std::size_t numBytes;
-        std::string errMsg;
-
-        v8::Persistent<v8::Function> callback;
-        bool cancel;
-    };
 };
 

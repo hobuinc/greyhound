@@ -234,212 +234,145 @@ Handle<Value> PdalBindings::getSrs(const Arguments& args)
 Handle<Value> PdalBindings::read(const Arguments& args)
 {
     HandleScope scope;
-    //
+
     // Provide access to m_pdalSession from within this static function.
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
+    // Call the factory to get the specialized 'read' command based on
+    // the input args.  If there is an error with the input args, this call
+    // will attempt to make an error callback (if a callback argument can be
+    // identified) and return a null ptr.
     obj->m_readCommand = createReadCommand(args, obj->m_pdalSession);
 
     if (!obj->m_readCommand)
     {
-        Persistent<Function> callback(
-                Persistent<Function>::New(Local<Function>::Cast(args[4])));
-        errorCallback(callback, "Could not create ReadCommand");
         return scope.Close(Undefined());
     }
 
-    std::string errMsg("");
+    // Store our read command where our worker functions can access it.
+    uv_work_t* readReq(new uv_work_t);
+    readReq->data = obj->m_readCommand;
 
-    if (args[0]->IsUndefined() || !args[0]->IsString())
-        errMsg = "'host' must be a string - args[0]";
-    else if (args[1]->IsUndefined() || !args[1]->IsNumber())
-        errMsg = "'port' must be a number - args[1]";
-    else if (args[2]->IsUndefined() || !args[2]->IsNumber())
-        errMsg = "'start' offset must be a number - args[2]";
-    else if (args[3]->IsUndefined() || !args[3]->IsNumber())
-        errMsg = "'count' must be a number - args[3]";
-    else if (args[4]->IsUndefined() || !args[4]->IsFunction())
-        // Fatal.
-        throw std::runtime_error("Invalid callback supplied to 'read'");
+    // Read points asynchronously.
+    uv_queue_work(
+        uv_default_loop(),
+        readReq,
+        (uv_work_cb)([](uv_work_t *readReq)->void {
+            ReadCommand* readCommand(
+                reinterpret_cast<ReadCommand*>(readReq->data));
 
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(args[4])));
+            // Buffer the point data from PDAL.  If any exceptions occur,
+            // catch/store them so they can be passed to the callback.
+            try
+            {
+                readCommand->run();
+            }
+            catch (const std::runtime_error& e)
+            {
+                readCommand->errMsg(e.what());
+            }
+            catch (...)
+            {
+                readCommand->errMsg("Unknown error");
+            }
+        }),
+        (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
+            ReadCommand* readCommand(
+                reinterpret_cast<ReadCommand*>(readReq->data));
 
-    if (errMsg.size())
-    {
-        errorCallback(callback, errMsg);
-        delete obj->m_readCommand;
-        return scope.Close(Undefined());
-    }
+            if (readCommand->errMsg().size())
+            {
+                // Propagate the error back to the remote host.  This call
+                // will dispose of the callback.
+                errorCallback(
+                    readCommand->callback(),
+                    readCommand->errMsg());
 
-    // Input args.  Type validation is complete by this point.
-    const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
-    const std::size_t port(args[1]->Uint32Value());
-    const std::size_t start(args[2]->Uint32Value());
-    const std::size_t count(args[3]->Uint32Value());
+                // Clean up since we won't be calling the async send code.
+                delete readCommand;
+                return;
+            }
 
-    if (start >= obj->m_pdalSession->getNumPoints())
-    {
-        errorCallback(callback, "Invalid start offset in 'read' request");
-        delete obj->m_readCommand;
-        return scope.Close(Undefined());
-    }
-    else
-    {
-        // Store everything we'll need to perform the read.
-        uv_work_t* readReq(new uv_work_t);
+            HandleScope scope;
 
-        readReq->data = obj->m_readCommand;
-
-        // Read points asynchronously.
-        uv_queue_work(
-            uv_default_loop(),
-            readReq,
-            (uv_work_cb)([](uv_work_t *readReq)->void {
-                ReadCommandUnindexed* readCommand(
-                    reinterpret_cast<ReadCommandUnindexed*>(readReq->data));
-
-                // Buffer the point data from PDAL.
-                try
+            const unsigned argc = 3;
+            Local<Value> argv[argc] =
                 {
-                    unsigned char** data = readCommand->dataRef();
+                    Local<Value>::New(Null()), // err
+                    Local<Value>::New(Integer::New(readCommand->numPoints())),
+                    Local<Value>::New(Integer::New(readCommand->numBytes()))
+                };
 
-                    // This call will new up the readCommand->data array.
-                    readCommand->numPoints(
-                        readCommand->pdalSession->read(
-                            data,
-                            readCommand->start,
-                            readCommand->count));
+            // Call the provided callback to return the status of the
+            // data about to be streamed to the remote host.
+            readCommand->callback()->Call(
+                Context::GetCurrent()->Global(), argc, argv);
 
-                    /*
-                    // TODO Sample code for point+radius query.
-                    readData->numPoints =
-                        readData->pdalSession->read(
-                                &readData->data,
-                                true,
-                                637294.2068769321,
-                                851251.3222904349,
-                                434.391803247911,
-                                562500.0);
-                    */
+            // Dispose of the persistent handle so this callback may be
+            // garbage collected.
+            readCommand->callback().Dispose();
 
+            // Create a token for the actual data transmission portion of
+            // the read.
+            uv_work_t* sendReq(new uv_work_t);
+            sendReq->data = readCommand;
 
-                    readCommand->numBytes(
-                        readCommand->numPoints() *
-                        readCommand->pdalSession->getStride());
+            // Now stream all the buffered point data to the remote host
+            // asynchronously.
+            uv_queue_work(
+                uv_default_loop(),
+                sendReq,
+                (uv_work_cb)([](uv_work_t *sendReq)->void {
+                    ReadCommand* readCommand(
+                        reinterpret_cast<ReadCommand*>(
+                                sendReq->data));
 
-                    // The BufferTransmitter must not delete readCommand->data,
-                    // and we must take care not to do so elsewhere until the
-                    // BufferTransmitter::transmit() operation is complete.
-                    readCommand->bufferTransmitter(
-                        new BufferTransmitter(
-                                readCommand->host,
-                                readCommand->port,
-                                readCommand->data(),
-                                readCommand->numBytes()));
-                }
-                catch (const std::runtime_error& e)
-                {
-                    readCommand->errMsg(e.what());
-                }
-                catch (...)
-                {
-                    readCommand->errMsg("Unknown error");
-                }
-            }),
-            (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
-                ReadCommandUnindexed* readCommand(
-                    reinterpret_cast<ReadCommandUnindexed*>(readReq->data));
-
-                if (readCommand->errMsg().size())
-                {
-                    // Propagate the error back to the remote host.
-                    errorCallback(
-                        readCommand->callback(),
-                        readCommand->errMsg());
-
-                    // Clean up since we won't be calling the async send code.
-                    delete readCommand;
-                    return;
-                }
-
-                HandleScope scope;
-
-                const unsigned argc = 3;
-                Local<Value> argv[argc] =
+                    try
                     {
-                        Local<Value>::New(Null()), // err
-                        Local<Value>::New(Integer::New(readCommand->numPoints())),
-                        Local<Value>::New(Integer::New(readCommand->numBytes()))
-                    };
+                        const std::size_t numBytes(readCommand->numBytes());
+                        std::size_t offset(0);
 
-                // Call the provided callback to return the status of the
-                // data about to be streamed to the remote host.
-                readCommand->callback()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
-
-                // Dispose of the persistent handle so this callback may be
-                // garbage collected.
-                readCommand->callback().Dispose();
-
-                // Create a token for the actual data transmission portion of
-                // the read.
-                uv_work_t* sendReq(new uv_work_t);
-                sendReq->data = readCommand;
-
-                // Now stream all the buffered point data to the remote host
-                // asynchronously.
-                uv_queue_work(
-                    uv_default_loop(),
-                    sendReq,
-                    (uv_work_cb)([](uv_work_t *sendReq)->void {
-                        ReadCommandUnindexed* readCommand(
-                            reinterpret_cast<ReadCommandUnindexed*>(
-                                    sendReq->data));
-
-                        try
+                        while (offset < numBytes && !readCommand->cancel())
                         {
-                            const std::size_t numBytes(readCommand->numBytes());
-                            std::size_t offset(0);
+                            readCommand->transmit(
+                                offset,
+                                std::min(chunkSize, numBytes - offset));
 
-                            while (offset < numBytes && !readCommand->cancel())
-                            {
-                                readCommand->bufferTransmitter()->transmit(
-                                    offset,
-                                    std::min(chunkSize, numBytes - offset));
-
-                                offset += chunkSize;
-                            }
-
-                            if (readCommand->cancel())
-                                std::cout << "CANCELLED at (" <<
-                                    offset << " / " << numBytes <<
-                                    ") bytes" << std::endl;
+                            offset += chunkSize;
                         }
-                        catch (...)
+
+                        if (readCommand->cancel())
                         {
                             std::cout <<
-                                "Caught error transmitting buffer" <<
+                                "Cancelled at (" <<
+                                offset <<
+                                " / " <<
+                                numBytes <<
+                                ") bytes" <<
                                 std::endl;
                         }
-                    }),
-                    (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
-                        ReadCommandUnindexed* readCommand(
-                            reinterpret_cast<ReadCommandUnindexed*>(
-                                    sendReq->data));
+                    }
+                    catch (...)
+                    {
+                        std::cout <<
+                            "Caught error transmitting buffer" <<
+                            std::endl;
+                    }
+                }),
+                (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
+                    ReadCommand* readCommand(
+                        reinterpret_cast<ReadCommand*>(sendReq->data));
 
-                        // Read and data transmission complete.  Clean
-                        // everything up - readCommand->bufferTransmitter may
-                        // no longer be used.
-                        delete readCommand;
-                        delete sendReq;
-                    })
-                );
+                    // Read and data transmission complete.  Clean everything
+                    // up - the bufferTransmitter may no longer be used.
+                    delete readCommand;
+                    delete sendReq;
+                })
+            );
 
-                delete readReq;
-            })
-        );
-    }
+            delete readReq;
+        })
+    );
 
     return scope.Close(Undefined());
 }

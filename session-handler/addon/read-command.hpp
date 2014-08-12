@@ -46,42 +46,37 @@ static void errorCallback(
 class ReadCommand
 {
 public:
-    virtual std::size_t run() = 0;
+    virtual void run() = 0;
 
-    void data(unsigned char* data) { m_data = data; }
-    void bufferTransmitter(BufferTransmitter* bufferTransmitter)
-        { m_bufferTransmitter.reset(bufferTransmitter); }
-    void numPoints(std::size_t numPoints) { m_numPoints = numPoints; }
-    void numBytes(std::size_t numBytes) { m_numBytes = numBytes; }
-    void errMsg(std::string errMsg) { m_errMsg = errMsg; }
-    void callback(v8::Persistent<v8::Function> callback)
-        { m_callback = callback; }
     void cancel(bool cancel) { m_cancel = cancel; }
+    void errMsg(std::string errMsg) { m_errMsg = errMsg; }
 
-    unsigned char**  dataRef()      { return &m_data; }
-    unsigned char* data() const { return m_data; }
-    BufferTransmitter* bufferTransmitter() const
-        { return m_bufferTransmitter.get(); }
+    void transmit(std::size_t offset, std::size_t numBytes)
+    {
+        m_bufferTransmitter->transmit(offset, numBytes);
+    }
+
     std::size_t     numPoints() const { return m_numPoints; }
-    std::size_t     numBytes()  const { return m_numBytes; }
-    std::string     errMsg()    const { return m_errMsg; }
+    std::size_t     numBytes()  const { return m_numBytes;  }
+    std::string     errMsg()    const { return m_errMsg;    }
+    bool            cancel()    const { return m_cancel;    }
     v8::Persistent<v8::Function> callback() const { return m_callback; }
-    bool cancel() const { return m_cancel; }
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
             v8::Persistent<v8::Function> callback)
-        : pdalSession(pdalSession)
-        , host(host)
-        , port(port)
-        , m_data(0)
-        , m_bufferTransmitter()
-        , m_numPoints(0)
-        , m_errMsg()
+        : m_pdalSession(pdalSession)
+        , m_host(host)
+        , m_port(port)
         , m_callback(callback)
         , m_cancel(false)
+        , m_data(0)
+        , m_bufferTransmitter()
+        , m_errMsg()
+        , m_numPoints(0)
+        , m_numBytes(0)
     { }
 
     virtual ~ReadCommand()
@@ -90,21 +85,27 @@ public:
             delete [] m_data;
     }
 
-    // Inputs
-    const std::shared_ptr<PdalSession> pdalSession;
-    const std::string host;
-    const std::size_t port;
-
 protected:
-    // Outputs
-    unsigned char* m_data;
-    std::shared_ptr<BufferTransmitter> m_bufferTransmitter;
-    std::size_t m_numPoints;
-    std::size_t m_numBytes;
-    std::string m_errMsg;
+    const std::shared_ptr<PdalSession> m_pdalSession;
+    const std::string m_host;
+    const std::size_t m_port;
 
     v8::Persistent<v8::Function> m_callback;
     bool m_cancel;
+
+    unsigned char* m_data;
+    std::shared_ptr<BufferTransmitter> m_bufferTransmitter;
+    std::string m_errMsg;
+
+    void setNumPoints(std::size_t numPoints)
+    {
+        m_numPoints = numPoints;
+        m_numBytes  = numPoints * m_pdalSession->getStride();
+    }
+
+private:
+    std::size_t m_numPoints;
+    std::size_t m_numBytes;
 };
 
 class ReadCommandUnindexed : public ReadCommand
@@ -118,19 +119,20 @@ public:
             std::size_t count,
             v8::Persistent<v8::Function> callback)
         : ReadCommand(pdalSession, host, port, callback)
-        , start(start)
-        , count(count)
+        , m_start(start)
+        , m_count(count)
     { }
 
-    std::size_t run()
+    void run()
     {
-        return pdalSession->read(&m_data, start, count);
+        setNumPoints(m_pdalSession->read(&m_data, m_start, m_count));
+        m_bufferTransmitter.reset(
+                new BufferTransmitter(m_host, m_port, m_data, numBytes()));
     }
 
-// TODO
-//private:
-    const std::size_t start;
-    const std::size_t count;
+private:
+    const std::size_t m_start;
+    const std::size_t m_count;
 };
 
 class ReadCommandPointRadius : public ReadCommand
@@ -147,24 +149,33 @@ public:
             double z,
             v8::Persistent<v8::Function> callback)
         : ReadCommand(pdalSession, host, port, callback)
-        , is3d(is3d)
-        , radius(radius)
-        , x(x)
-        , y(y)
-        , z(z)
+        , m_is3d(is3d)
+        , m_radius(radius)
+        , m_x(x)
+        , m_y(y)
+        , m_z(z)
     { }
 
-    std::size_t run()
+    void run()
     {
-        return pdalSession->read(&m_data, is3d, radius, x, y, z);
+        setNumPoints(m_pdalSession->read(
+                &m_data,
+                m_is3d,
+                m_radius,
+                m_x,
+                m_y,
+                m_z));
+
+        m_bufferTransmitter.reset(
+                new BufferTransmitter(m_host, m_port, m_data, numBytes()));
     }
 
 private:
-    const bool is3d;
-    const double radius;
-    const double x;
-    const double y;
-    const double z;
+    const bool m_is3d;
+    const double m_radius;
+    const double m_x;
+    const double m_y;
+    const double m_z;
 };
 
 static ReadCommand* createReadCommand(
@@ -175,30 +186,82 @@ static ReadCommand* createReadCommand(
 
     ReadCommand* readCommand(0);
 
+    if (args.Length() == 0 || !args[args.Length() - 1]->IsFunction())
+    {
+        // If no callback is supplied there's nothing we can do here.
+        scope.Close(Undefined());
+        throw std::runtime_error("Invalid callback supplied to 'read'");
+    }
+
+    Persistent<Function> callback(
+        Persistent<Function>::New(
+            Local<Function>::Cast(args[args.Length() - 1])));
+
     // Validate host and port.
-    if (isDefined(args[0]) && args[0]->IsString() &&
+    if (
+        args.Length() > 2 &&
+        isDefined(args[0]) && args[0]->IsString() &&
         isDefined(args[1]) && isInteger(args[1]))
     {
         const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
         const std::size_t port(args[1]->Uint32Value());
 
-        if (isDefined(args[2]) && isInteger(args[2]) &&
+        // Unindexed read - starting offset and count supplied.
+        if (
+            args.Length() == 5 &&
+            isDefined(args[2]) && isInteger(args[2]) &&
             isDefined(args[3]) && isInteger(args[3]))
         {
-            if (args[4]->IsUndefined() || !args[4]->IsFunction())
-            {
-                scope.Close(Undefined());
-                throw std::runtime_error("Invalid callback");
-            }
+            const std::size_t start(args[2]->Uint32Value());
+            const std::size_t count(args[3]->Uint32Value());
 
-            readCommand = new ReadCommandUnindexed(
+            if (start < pdalSession->getNumPoints())
+            {
+                readCommand = new ReadCommandUnindexed(
+                        pdalSession,
+                        host,
+                        port,
+                        start,
+                        count,
+                        callback);
+            }
+            else
+            {
+                errorCallback(callback, "Invalid 'start' in 'read' request");
+            }
+        }
+        else if (
+            args.Length() == 8 &&
+            isDefined(args[2]) && args[2]->IsBoolean() &&
+            isDefined(args[3]) && isDouble(args[3]) &&
+            isDefined(args[4]) && isDouble(args[4]) &&
+            isDefined(args[5]) && isDouble(args[5]))
+        {
+            const bool is3d(args[2]->BooleanValue());
+            const double radius(args[3]->NumberValue());
+            const double x(args[4]->NumberValue());
+            const double y(args[5]->NumberValue());
+            const double z(args[6]->NumberValue());
+
+            readCommand = new ReadCommandPointRadius(
                     pdalSession,
                     host,
                     port,
-                    args[2]->Uint32Value(),
-                    args[3]->Uint32Value(),
-                    Persistent<Function>::New(Local<Function>::Cast(args[4])));
+                    is3d,
+                    radius,
+                    x,
+                    y,
+                    z,
+                    callback);
         }
+        else
+        {
+            errorCallback(callback, "Could not identify 'read' from args");
+        }
+    }
+    else
+    {
+        errorCallback(callback, "Host, port, and callback must be supplied");
     }
 
     scope.Close(Undefined());
