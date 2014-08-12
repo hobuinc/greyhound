@@ -97,6 +97,9 @@
                     var readParams = { command: 'read', session: msg.session };
                     var urlParams = getUrlParameters(w.location.search);
 
+                    /*
+                    // TODO Parses standard '+' separated query string.  Will
+                    // this be used for any queries, or all GeoJson?
                     if (urlParams.hasOwnProperty('point') &&
                         urlParams.hasOwnProperty('radius')) {
                         var point = urlParams['point'].split(" ");
@@ -112,7 +115,24 @@
                                 parseFloat(urlParams['radius']);
                         }
                     }
+                    */
 
+                    if (urlParams.hasOwnProperty('geo')) {
+                        var geo = jQuery.parseJSON(urlParams['geo']);
+
+                        if (geo['type'] === 'Point') {
+                            var coords = geo['coordinates'];
+
+                            readParams['x'] = coords[0];
+                            readParams['y'] = coords[1];
+
+                            if (coords.length === 3)
+                                readParams['z'] = coords[2];
+
+                            readParams['radius'] =
+                                parseFloat(urlParams['radius']);
+                        }
+                    }
 
 					// This is in response to our create request.  Now request
                     // to receive the data.

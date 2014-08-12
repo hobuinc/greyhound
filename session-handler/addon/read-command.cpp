@@ -5,12 +5,12 @@ using namespace v8;
 
 namespace
 {
-    bool isInteger(const v8::Local<v8::Value>& value)
+    bool isInteger(const Local<Value>& value)
     {
         return value->IsInt32() || value->IsUint32();
     }
 
-    bool isDefined(const v8::Local<v8::Value>& value)
+    bool isDefined(const Local<Value>& value)
     {
         return !value->IsUndefined();
     }
