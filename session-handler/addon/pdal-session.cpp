@@ -76,7 +76,9 @@ std::size_t PdalSession::getNumPoints() const
 
 std::string PdalSession::getSchema() const
 {
-    return pdal::Schema::to_xml(m_schema);
+    std::ostringstream oss;
+    oss << m_schema;
+    return oss.str();
 }
 
 std::size_t PdalSession::getStride() const
