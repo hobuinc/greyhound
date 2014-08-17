@@ -1,5 +1,6 @@
-#include <pdal/PipelineReader.hpp>
 #include <thread>
+
+#include <pdal/PipelineReader.hpp>
 
 #include "pdal-session.hpp"
 
@@ -9,6 +10,7 @@ PdalSession::PdalSession()
     , m_pointBuffer()
     , m_parsed(false)
     , m_initialized(false)
+    , m_quadIndex()
     , m_kdIndex2d()
     , m_kdIndex3d()
 { }
@@ -134,10 +136,47 @@ std::size_t PdalSession::read(
     }
     catch (...)
     {
+        if (*buffer)
+            delete [] *buffer;
+
         throw std::runtime_error("Failed to read points from PDAL");
     }
 
     return pointsToRead;
+}
+
+std::size_t PdalSession::read(
+        unsigned char** buffer,
+        const double xMin,
+        const double yMin,
+        const double xMax,
+        const double yMax,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
+{
+    if (!m_quadIndex)
+    {
+        m_quadIndex.reset(new pdal::QuadIndex(*m_pointBuffer.get()));
+
+        try
+        {
+            m_quadIndex->build();
+        }
+        catch (...)
+        {
+            throw std::runtime_error("Error creating quadtree index");
+        }
+    }
+
+    const std::vector<std::size_t> results(m_quadIndex->getPoints(
+            xMin,
+            yMin,
+            xMax,
+            yMax,
+            depthBegin,
+            depthEnd));
+
+    return readIndexList(buffer, results);
 }
 
 std::size_t PdalSession::read(
@@ -160,40 +199,7 @@ std::size_t PdalSession::read(
     const std::vector<std::size_t> results(
             activeKdIndex->radius(x, y, z, radius * radius));
 
-    const std::size_t pointsToRead(results.size());
-
-    try
-    {
-        const pdal::Schema* fullSchema(m_pipelineManager.schema());
-        const pdal::schema::index_by_index& idx(
-                fullSchema->getDimensions().get<pdal::schema::index>());
-
-        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
-
-        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
-
-        for (std::size_t i : results)
-        {
-            for (boost::uint32_t d = 0; d < idx.size(); ++d)
-            {
-                if (!idx[d].isIgnored())
-                {
-                    m_pointBuffer->context().rawPtBuf()->getField(
-                            idx[d],
-                            i,
-                            pos);
-
-                    pos += idx[d].getByteSize();
-                }
-            }
-        }
-    }
-    catch (...)
-    {
-        throw std::runtime_error("Failed to read points from PDAL");
-    }
-
-    return pointsToRead;
+    return readIndexList(buffer, results);
 }
 
 pdal::Schema PdalSession::packSchema(const pdal::Schema& fullSchema)
@@ -212,6 +218,49 @@ pdal::Schema PdalSession::packSchema(const pdal::Schema& fullSchema)
     }
 
     return packedSchema;
+}
+
+std::size_t PdalSession::readIndexList(
+        unsigned char** buffer,
+        const std::vector<std::size_t>& indexList)
+{
+    const std::size_t pointsToRead(indexList.size());
+
+    try
+    {
+        const pdal::Schema* fullSchema(m_pipelineManager.schema());
+        const pdal::schema::index_by_index& idx(
+                fullSchema->getDimensions().get<pdal::schema::index>());
+
+        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
+
+        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
+
+        for (std::size_t i : indexList)
+        {
+            for (boost::uint32_t d = 0; d < idx.size(); ++d)
+            {
+                if (!idx[d].isIgnored())
+                {
+                    m_pointBuffer->context().rawPtBuf()->getField(
+                            idx[d],
+                            i,
+                            pos);
+
+                    pos += idx[d].getByteSize();
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        if (*buffer)
+            delete [] *buffer;
+
+        throw std::runtime_error("Failed to read points from PDAL");
+    }
+
+    return pointsToRead;
 }
 
 //////////////////////////////////////////////////////////////////////////////
