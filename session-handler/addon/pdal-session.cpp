@@ -98,7 +98,6 @@ std::size_t PdalSession::read(
         const std::size_t start,
         const std::size_t count)
 {
-    *buffer = 0;
     if (start >= getNumPoints())
         throw std::runtime_error("Invalid starting offset in 'read'");
 
@@ -113,8 +112,6 @@ std::size_t PdalSession::read(
         const pdal::Schema* fullSchema(m_pipelineManager.schema());
         const pdal::schema::index_by_index& idx(
                 fullSchema->getDimensions().get<pdal::schema::index>());
-
-        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
 
         boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
 
@@ -136,9 +133,6 @@ std::size_t PdalSession::read(
     }
     catch (...)
     {
-        if (*buffer)
-            delete [] *buffer;
-
         throw std::runtime_error("Failed to read points from PDAL");
     }
 
@@ -168,6 +162,17 @@ std::size_t PdalSession::read(
         }
     }
 
+    double x0, y0, x1, y1;
+    m_quadIndex->getBounds(x0, y0, x1, y1);
+    std::cout <<
+        x0 <<
+        ", " <<
+        y0 <<
+        ", " <<
+        x1 <<
+        ", " <<
+        y1 << std::endl;
+
     const std::vector<std::size_t> results(m_quadIndex->getPoints(
             xMin,
             yMin,
@@ -176,7 +181,9 @@ std::size_t PdalSession::read(
             depthBegin,
             depthEnd));
 
-    return readIndexList(buffer, results);
+    std::size_t pointsRead = readIndexList(buffer, results);
+    m_quadIndex.reset(0);
+    return pointsRead;
 }
 
 std::size_t PdalSession::read(
@@ -232,8 +239,6 @@ std::size_t PdalSession::readIndexList(
         const pdal::schema::index_by_index& idx(
                 fullSchema->getDimensions().get<pdal::schema::index>());
 
-        *buffer = new unsigned char[m_schema.getByteSize() * pointsToRead];
-
         boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
 
         for (std::size_t i : indexList)
@@ -254,9 +259,6 @@ std::size_t PdalSession::readIndexList(
     }
     catch (...)
     {
-        if (*buffer)
-            delete [] *buffer;
-
         throw std::runtime_error("Failed to read points from PDAL");
     }
 
