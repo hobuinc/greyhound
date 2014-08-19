@@ -52,9 +52,35 @@ void ReadCommand::setNumPoints(const std::size_t numPoints)
 
 void ReadCommandUnindexed::run()
 {
-        setNumPoints(m_pdalSession->read(&m_data, m_start, m_count));
-        m_bufferTransmitter.reset(
-                new BufferTransmitter(m_host, m_port, m_data, numBytes()));
+    setNumPoints(m_pdalSession->read(&m_data, m_start, m_count));
+
+    m_bufferTransmitter.reset(
+            new BufferTransmitter(m_host, m_port, m_data, numBytes()));
+}
+
+void ReadCommandQuadIndex::run()
+{
+    if (m_isBBoxQuery)
+    {
+        setNumPoints(m_pdalSession->read(
+                &m_data,
+                m_xMin,
+                m_yMin,
+                m_xMax,
+                m_yMax,
+                m_depthBegin,
+                m_depthEnd));
+    }
+    else
+    {
+        setNumPoints(m_pdalSession->read(
+                &m_data,
+                m_depthBegin,
+                m_depthEnd));
+    }
+
+    m_bufferTransmitter.reset(
+            new BufferTransmitter(m_host, m_port, m_data, numBytes()));
 }
 
 void ReadCommandPointRadius::run()
@@ -86,6 +112,7 @@ ReadCommand* ReadCommandFactory::create(
         throw std::runtime_error("Invalid callback supplied to 'read'");
     }
 
+    // Callback is always the last argument.
     Persistent<Function> callback(
         Persistent<Function>::New(
             Local<Function>::Cast(args[args.Length() - 1])));
@@ -122,6 +149,75 @@ ReadCommand* ReadCommandFactory::create(
             {
                 errorCallback(callback, "Invalid 'start' in 'read' request");
             }
+        }
+        else if (
+            args.Length() == 6 &&
+            (
+                (isDefined(args[2]) &&
+                    args[2]->IsArray() &&
+                    Array::Cast(*args[2])->Length() >= 4) ||
+                !isDefined(args[2])
+            ) &&
+            isDefined(args[3]) && isInteger(args[3]) &&
+            isDefined(args[4]) && isInteger(args[4]))
+        {
+            const std::size_t depthBegin(args[3]->Uint32Value());
+            const std::size_t depthEnd(args[4]->Uint32Value());
+
+            if (isDefined(args[2]))
+            {
+                Local<Array> bbox(Array::Cast(*args[2]));
+
+                if (bbox->Get(Integer::New(0))->IsNumber() &&
+                    bbox->Get(Integer::New(1))->IsNumber() &&
+                    bbox->Get(Integer::New(2))->IsNumber() &&
+                    bbox->Get(Integer::New(3))->IsNumber())
+                {
+                    const double xMin(
+                            bbox->Get(Integer::New(0))->NumberValue());
+                    const double yMin(
+                            bbox->Get(Integer::New(1))->NumberValue());
+                    const double xMax(
+                            bbox->Get(Integer::New(2))->NumberValue());
+                    const double yMax(
+                            bbox->Get(Integer::New(3))->NumberValue());
+
+                    if (xMax >= xMin && yMax >= xMin)
+                    {
+                        readCommand = new ReadCommandQuadIndex(
+                                pdalSession,
+                                host,
+                                port,
+                                xMin,
+                                yMin,
+                                xMax,
+                                yMax,
+                                depthBegin,
+                                depthEnd,
+                                callback);
+                    }
+                    else
+                    {
+                        errorCallback(callback, "Invalid coords in query");
+                    }
+                }
+                else
+                {
+                    errorCallback(callback, "Invalid coord types in query");
+                }
+            }
+            else
+            {
+
+                readCommand = new ReadCommandQuadIndex(
+                        pdalSession,
+                        host,
+                        port,
+                        depthBegin,
+                        depthEnd,
+                        callback);
+            }
+
         }
         else if (
             args.Length() == 8 &&

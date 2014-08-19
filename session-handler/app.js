@@ -49,6 +49,16 @@ var createId = function() {
     return crypto.randomBytes(20).toString('hex');
 }
 
+var parseBBox = function(rawArray) {
+    var coords = [];
+
+    for (var i in rawArray) {
+        coords.push(parseFloat(rawArray[i]));
+    }
+
+    return coords;
+}
+
 app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
 });
@@ -181,6 +191,29 @@ app.post("/read/:sessionId", function(req, res) {
             if (count < 0) count = 0;
 
             s.read(host, port, start, count, readHandler);
+        }
+        else if (
+            req.body.hasOwnProperty('bbox') ||
+            req.body.hasOwnProperty('depthBegin') ||
+            req.body.hasOwnProperty('depthEnd')) {
+
+            // Indexed read: quadtree query.
+            var bbox =
+                req.body.hasOwnProperty('bbox') ?
+                    parseBBox(req.body.bbox) :
+                    undefined;
+
+            var depthBegin =
+                req.body.hasOwnProperty('depthBegin') ?
+                    parseInt(req.body.depthBegin) :
+                    0;
+
+            var depthEnd =
+                req.body.hasOwnProperty('depthEnd') ?
+                    parseInt(req.body.depthEnd) :
+                    0;
+
+            s.read(host, port, bbox, depthBegin, depthEnd, readHandler);
         }
         else if (
             req.body.hasOwnProperty('radius') &&

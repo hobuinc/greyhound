@@ -117,6 +117,8 @@
                     }
                     */
 
+                    // TODO This should all be server side.  Just pass query
+                    // parameters through and handle them on the server.
                     if (urlParams.hasOwnProperty('geo')) {
                         var geo = jQuery.parseJSON(urlParams['geo']);
 
@@ -132,7 +134,16 @@
                             readParams['radius'] =
                                 parseFloat(urlParams['radius']);
                         }
+
+                        if (geo.hasOwnProperty('bbox'))
+                            readParams['bbox'] = geo['bbox'];
                     }
+
+                    if (urlParams.hasOwnProperty('depthBegin'))
+                        readParams['depthBegin'] = urlParams['depthBegin'];
+
+                    if (urlParams.hasOwnProperty('depthEnd'))
+                        readParams['depthEnd'] = urlParams['depthEnd'];
 
 					// This is in response to our create request.  Now request
                     // to receive the data.
