@@ -22,7 +22,7 @@ _Greyhound_ allows clients to make use of pipelines that have been previously st
 
 _Greyhound_ also supports some spatially indexed queries via URL query parameters (these links operate on a large pipeline):
 
-- [Point-radius query](http://localhost:8080/data/4a14c92da9bc6df24400d69fa9add65a?radius=400&geo=%7B%22type%22:%22Point%22,%22coordinates%22:%5B276488.2105233709,4179808.998997613,2029.596267072244%5D%7D)
+- [Point-radius query](http://localhost:8080/data/4a14c92da9bc6df24400d69fa9add65a?radius=400&geo={%22type%22:%22Point%22,%22coordinates%22:[276488.2105233709,4179808.998997613,2029.596267072244]})
 - [BBox and quadtree search depth query](http://localhost:8080/data/4a14c92da9bc6df24400d69fa9add65a?geo={%22bbox%22:[276400,4179000,277100,4179700]}&depthEnd=10)
 
 ## Going further
