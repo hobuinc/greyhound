@@ -189,10 +189,10 @@ process.nextTick(function() {
 			});
 		});
 
-		handler.on('schema', function(msg, cb) {
+		handler.on('dimensions', function(msg, cb) {
 			validateSessionAffinity(msg.session, function(err, session, sh) {
 				if (err) return cb(err);
-				web.get(sh, '/schema/' + session, cb);
+				web.get(sh, '/dimensions/' + session, cb);
 			});
 		});
 
