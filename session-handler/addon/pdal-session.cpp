@@ -1,12 +1,28 @@
 #include <thread>
 
 #include <pdal/PipelineReader.hpp>
+#include <pdal/PointContext.hpp>
 
 #include "pdal-session.hpp"
 
+namespace
+{
+    // TODO Client should specify these in their read request.
+    const pdal::Dimension::IdList dims(
+        {
+            pdal::Dimension::Id::X,
+            pdal::Dimension::Id::Y,
+            pdal::Dimension::Id::Z,
+            pdal::Dimension::Id::Intensity,
+            pdal::Dimension::Id::Red,
+            pdal::Dimension::Id::Green,
+            pdal::Dimension::Id::Blue
+        }
+    );
+}
+
 PdalSession::PdalSession()
     : m_pipelineManager()
-    , m_schema()
     , m_pointBuffer()
     , m_parsed(false)
     , m_initialized(false)
@@ -39,20 +55,16 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
         m_pointBuffer = *pbSet.begin();
 
-        try
-        {
-            m_schema = packSchema(*m_pipelineManager.schema());
-
-            m_schema.getDimension("X");
-            m_schema.getDimension("Y");
-            m_schema.getDimension("Z");
-
-            m_initialized = true;
-        }
-        catch (pdal::dimension_not_found&)
+        if (!m_pointBuffer->context().hasDim(pdal::Dimension::Id::X) ||
+            !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Y) ||
+            !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Z))
         {
             throw std::runtime_error(
                     "Pipeline output should contain X, Y and Z dimensions");
+        }
+        else
+        {
+            m_initialized = true;
         }
     }
 }
@@ -62,12 +74,12 @@ void PdalSession::indexData(const bool build3d)
     if (build3d)
     {
         m_kdIndex3d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
-        m_kdIndex3d->build(build3d);
+        m_kdIndex3d->build(m_pointBuffer->context(), build3d);
     }
     else
     {
         m_kdIndex2d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
-        m_kdIndex2d->build(build3d);
+        m_kdIndex2d->build(m_pointBuffer->context(), build3d);
     }
 }
 
@@ -79,13 +91,22 @@ std::size_t PdalSession::getNumPoints() const
 std::string PdalSession::getSchema() const
 {
     std::ostringstream oss;
-    oss << m_schema;
+    // TODO
+    //oss << m_schema;
     return oss.str();
 }
 
 std::size_t PdalSession::getStride() const
 {
-    return m_schema.getByteSize();
+    std::size_t stride(0);
+
+    for (const auto& dim : dims)
+    {
+        stride += pdal::Dimension::size(
+                pdal::Dimension::defaultType(dim));
+    }
+
+    return stride;
 }
 
 std::string PdalSession::getSrs() const
@@ -109,25 +130,18 @@ std::size_t PdalSession::read(
 
     try
     {
-        const pdal::Schema* fullSchema(m_pipelineManager.schema());
-        const pdal::schema::index_by_index& idx(
-                fullSchema->getDimensions().get<pdal::schema::index>());
-
-        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
+        unsigned char* pos(*buffer);
 
         for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
         {
-            for (boost::uint32_t d = 0; d < idx.size(); ++d)
+            for (const auto& dim : dims)
             {
-                if (!idx[d].isIgnored())
-                {
-                    m_pointBuffer->context().rawPtBuf()->getField(
-                            idx[d],
-                            i,
-                            pos);
+                // TODO Type/size should come from client request.
+                m_pointBuffer->getRawField(dim, i, pos);
 
-                    pos += idx[d].getByteSize();
-                }
+                pos += pdal::Dimension::size(
+                        pdal::Dimension::defaultType(dim));
+
             }
         }
     }
@@ -209,51 +223,26 @@ std::size_t PdalSession::read(
     return readIndexList(buffer, results);
 }
 
-pdal::Schema PdalSession::packSchema(const pdal::Schema& fullSchema)
-{
-    pdal::Schema packedSchema;
-
-    const pdal::schema::index_by_index& idx(
-            fullSchema.getDimensions().get<pdal::schema::index>());
-
-    for (boost::uint32_t d = 0; d < idx.size(); ++d)
-    {
-        if (!idx[d].isIgnored())
-        {
-            packedSchema.appendDimension(idx[d]);
-        }
-    }
-
-    return packedSchema;
-}
-
 std::size_t PdalSession::readIndexList(
         unsigned char** buffer,
         const std::vector<std::size_t>& indexList)
 {
+
     const std::size_t pointsToRead(indexList.size());
 
     try
     {
-        const pdal::Schema* fullSchema(m_pipelineManager.schema());
-        const pdal::schema::index_by_index& idx(
-                fullSchema->getDimensions().get<pdal::schema::index>());
-
-        boost::uint8_t* pos(static_cast<boost::uint8_t*>(*buffer));
+        unsigned char* pos(*buffer);
 
         for (std::size_t i : indexList)
         {
-            for (boost::uint32_t d = 0; d < idx.size(); ++d)
+            for (const auto& dim : dims)
             {
-                if (!idx[d].isIgnored())
-                {
-                    m_pointBuffer->context().rawPtBuf()->getField(
-                            idx[d],
-                            i,
-                            pos);
+                // TODO Type/size should come from client request.
+                m_pointBuffer->getRawField(dim, i, pos);
 
-                    pos += idx[d].getByteSize();
-                }
+                pos += pdal::Dimension::size(
+                        pdal::Dimension::defaultType(dim));
             }
         }
     }

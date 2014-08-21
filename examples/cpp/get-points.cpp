@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
     const std::string pipelineId =
         argc == 2 ?
             argv[1] :
-            "d4f4cc08e63242a201de6132e5f54b08"; // ID of sample pipeline
+            "58a6ee2c990ba94db936d56bd42aa703"; // ID of sample pipeline
 
     int ibytesToRead = 0, bytesRead = 0;
 
