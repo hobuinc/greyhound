@@ -4,13 +4,13 @@ var fs = require('fs');
 var WebSocket = require('ws');
 var ws, timeoutObj;
 var timeoutMs = 15000;
-var samplePipelineId = 'd4f4cc08e63242a201de6132e5f54b08';
+var samplePipelineId = '58a6ee2c990ba94db936d56bd42aa703';
 var samplePoints = 10653;
-var sampleBytes = 213060;
-var sampleStride = 20;
+var sampleBytes = 330243;
+var sampleStride = 31;
 var sampleSrs = 'PROJCS["NAD_1983_HARN_Lambert_Conformal_Conic",GEOGCS["GCS_North_American_1983_HARN",DATUM["NAD83_High_Accuracy_Regional_Network",SPHEROID["GRS_1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6152"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",43],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_origin",41.75],PARAMETER["central_meridian",-120.5],PARAMETER["false_easting",1312335.958005249],PARAMETER["false_northing",0],UNIT["foot",0.3048,AUTHORITY["EPSG","9002"]]]';
 
-var bigPipelineId = '4a14c92da9bc6df24400d69fa9add65a';
+var bigPipelineId = '3c51e54a3f0e1b7f4ffd582d4d970162';
 
 var send = function(obj) {
     ws.send(JSON.stringify(obj));
@@ -1580,7 +1580,7 @@ module.exports = {
     testValidCancel: function(test) {
         console.log('Starting long test (~10 seconds)...');
         var bytesRead = 0;
-        var bytesExpected = 7954265 * 20;
+        var bytesExpected = 7954265 * sampleStride;
         doExchangeSet(
             test,
             [{
@@ -1657,11 +1657,11 @@ module.exports = {
                         'status':       ghSuccess,
                         'command':      'read',
                         'numPoints':    20,
-                        'numBytes':     20 * 20,
+                        'numBytes':     20 * sampleStride,
                     },
                     function(data) {
                         bytesRead += data.length;
-                        return bytesRead === 20 * 20;
+                        return bytesRead === 20 * sampleStride;
                     }
                 ]
             },

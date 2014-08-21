@@ -3,7 +3,6 @@
 #include <boost/asio.hpp>
 
 #include <pdal/PipelineManager.hpp>
-#include <pdal/Schema.hpp>
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
 
@@ -45,9 +44,9 @@ public:
             double x,
             double y,
             double z);
+
 private:
     pdal::PipelineManager m_pipelineManager;
-    pdal::Schema m_schema;
     pdal::PointBufferPtr m_pointBuffer;
     bool m_parsed;
     bool m_initialized;
@@ -56,8 +55,6 @@ private:
 
     std::unique_ptr<pdal::KDIndex> m_kdIndex2d;
     std::unique_ptr<pdal::KDIndex> m_kdIndex3d;
-
-    pdal::Schema packSchema(const pdal::Schema& fullSchema);
 
     bool indexed(bool is3d) const
     {

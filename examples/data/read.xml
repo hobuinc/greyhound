@@ -1,35 +1,8 @@
 <?xml version="1.0"?>
 <Pipeline version="1.0">
-	<Filter type="filters.selector">
-		<Option name="keep">
-			<Options>
-				<Option name="dimension">
-					X
-				</Option>
-				<Option name="dimension">
-					Y
-				</Option>
-				<Option name="dimension">
-					Z
-				</Option>
-				<Option name="dimension">
-					Intensity
-				</Option>
-				<Option name="dimension">
-					Red
-				</Option>
-				<Option name="dimension">
-					Green
-				</Option>
-				<Option name="dimension">
-					Blue
-				</Option>
-			</Options>
-		</Option>
-		<Reader type="drivers.las.reader">
-			<Option name="filename">
-                /vagrant/examples/data/autzen.las
-			</Option>
-		</Reader>
-	</Filter>
+    <Reader type="drivers.las.reader">
+        <Option name="filename">
+            /vagrant/examples/data/autzen.las
+        </Option>
+    </Reader>
 </Pipeline>
