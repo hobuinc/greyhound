@@ -119,10 +119,10 @@ app.get("/pointsCount/:sessionId", function(req, res) {
     });
 });
 
-app.get("/schema/:sessionId", function(req, res) {
+app.get("/dimensions/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('schema('+ sid + ')');
-        res.json({ schema: s.getSchema() });
+        console.log('dimensions('+ sid + ')');
+        res.json({ dimensions: s.getDimensions() });
     });
 });
 

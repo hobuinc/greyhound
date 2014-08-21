@@ -6,8 +6,8 @@ var ws, timeoutObj;
 var timeoutMs = 15000;
 var samplePipelineId = '58a6ee2c990ba94db936d56bd42aa703';
 var samplePoints = 10653;
-var sampleBytes = 330243;
-var sampleStride = 31;
+var sampleBytes = 340896;
+var sampleStride = 32;
 var sampleSrs = 'PROJCS["NAD_1983_HARN_Lambert_Conformal_Conic",GEOGCS["GCS_North_American_1983_HARN",DATUM["NAD83_High_Accuracy_Regional_Network",SPHEROID["GRS_1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6152"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",43],PARAMETER["standard_parallel_2",45.5],PARAMETER["latitude_of_origin",41.75],PARAMETER["central_meridian",-120.5],PARAMETER["false_easting",1312335.958005249],PARAMETER["false_northing",0],UNIT["foot",0.3048,AUTHORITY["EPSG","9002"]]]';
 
 var bigPipelineId = '3c51e54a3f0e1b7f4ffd582d4d970162';
@@ -177,7 +177,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 //      PUT
 //      CREATE
 //      POINTSCOUNT
-//      SCHEMA
+//      DIMENSIONS
 //      SRS
 //      READ
 //      CANCEL
@@ -606,44 +606,44 @@ module.exports = {
         );
     },
 
-    // SCHEMA - test command with missing 'session' parameter
+    // DIMENSIONS - test command with missing 'session' parameter
     // Expect: failure status
-    testSchemaMissingSession: function(test) {
+    testDimensionsMissingSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command': 'schema',
+                    'command': 'dimensions',
                 },
                 res: {
-                    'command':  'schema',
+                    'command':  'dimensions',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // SCHEMA - test command with invalid 'session' parameter
+    // DIMENSIONS - test command with invalid 'session' parameter
     // Expect: failure status
-    testSchemaInvalidSession: function(test) {
+    testDimensionsInvalidSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':  'schema',
+                    'command':  'dimensions',
                     'session':  'I am an invalid session string!',
                 },
                 res: {
-                    'command':  'schema',
+                    'command':  'dimensions',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // SCHEMA - test valid command
-    // Expect: Successful status and schema
-    testSchemaValid: function(test) {
+    // DIMENSIONS - test valid command
+    // Expect: Successful status and dimensions list
+    testDimensionsValid: function(test) {
         doExchangeSet(
             test,
             [{
@@ -659,13 +659,13 @@ module.exports = {
             },
             {
                 req: {
-                    'command':  'schema',
+                    'command':  'dimensions',
                     'session':  initialSession,
                 },
                 res: {
                     'status':   ghSuccess,
-                    'command':  'schema',
-                    'schema':   dontCare,
+                    'command':  'dimensions',
+                    'dimensions':   dontCare,
                 },
             },
             {
