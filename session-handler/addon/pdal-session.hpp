@@ -15,7 +15,7 @@ public:
     void indexData(bool build3d = false);
 
     std::size_t getNumPoints() const;
-    std::string getSchema() const;
+    std::string getDimensions() const;
     std::size_t getStride() const;
     std::string getSrs() const;
 

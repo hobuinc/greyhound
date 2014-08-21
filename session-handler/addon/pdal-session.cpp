@@ -88,12 +88,9 @@ std::size_t PdalSession::getNumPoints() const
     return m_pointBuffer->size();
 }
 
-std::string PdalSession::getSchema() const
+std::string PdalSession::getDimensions() const
 {
-    std::ostringstream oss;
-    // TODO
-    //oss << m_schema;
-    return oss.str();
+    return m_pointBuffer->context().dimsJson();
 }
 
 std::size_t PdalSession::getStride() const
