@@ -139,6 +139,47 @@
                             readParams['bbox'] = geo['bbox'];
                     }
 
+                    readParams['schema'] = {
+                        "dimensions":
+                        [
+                            {
+                                "name": "X",
+                                "type": "floating",
+                                "size": "4"
+                            },
+                            {
+                                "name": "Y",
+                                "type": "floating",
+                                "size": "4"
+                            },
+                            {
+                                "name": "Z",
+                                "type": "floating",
+                                "size": "4"
+                            },
+                            {
+                                "name": "Intensity",
+                                "type": "unsigned",
+                                "size": "2"
+                            },
+                            {
+                                "name": "Red",
+                                "type": "unsigned",
+                                "size": "2"
+                            },
+                            {
+                                "name": "Green",
+                                "type": "unsigned",
+                                "size": "2"
+                            },
+                            {
+                                "name": "Blue",
+                                "type": "unsigned",
+                                "size": "2"
+                            },
+                        ]
+                    };
+
                     if (urlParams.hasOwnProperty('depthBegin'))
                         readParams['depthBegin'] = urlParams['depthBegin'];
 
