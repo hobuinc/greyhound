@@ -143,49 +143,7 @@ app.post("/cancel/:sessionId", function(req, res) {
 app.post("/read/:sessionId", function(req, res) {
     var host = req.body.host;
     var port = parseInt(req.body.port);
-
-    // TODO Propagate to here.
-    // var schema = req.body.schemaRequest || { };
-    var schema = {
-        "dimensions":
-        [
-            {
-                "name": "X",
-                "type": "floating",
-                "size": "4"
-            },
-            {
-                "name": "Y",
-                "type": "floating",
-                "size": "4"
-            },
-            {
-                "name": "Z",
-                "type": "floating",
-                "size": "4"
-            },
-            {
-                "name": "Intensity",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Red",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Green",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Blue",
-                "type": "unsigned",
-                "size": "2"
-            },
-        ]
-    };
+    var schema = JSON.parse(req.body['schema']) || { };
 
     if (!host)
         return res.json(
@@ -219,7 +177,8 @@ app.post("/read/:sessionId", function(req, res) {
         if (
             req.body.hasOwnProperty('start') ||
             req.body.hasOwnProperty('count') ||
-            Object.keys(req.body).length == 4) {
+            Object.keys(req.body).length == 4 ||
+            Object.keys(req.body).length == 5) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are

@@ -12,6 +12,49 @@ var sampleSrs = 'PROJCS["NAD_1983_HARN_Lambert_Conformal_Conic",GEOGCS["GCS_Nort
 
 var bigPipelineId = '3c51e54a3f0e1b7f4ffd582d4d970162';
 
+// Request only attributes applicable for rendering the data visually.
+var rendererSchema = {
+    "dimensions":
+    [
+        {
+            "name": "X",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Y",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Z",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Intensity",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Red",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Green",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Blue",
+            "type": "unsigned",
+            "size": "2"
+        },
+    ]
+};
+
+
 var send = function(obj) {
     ws.send(JSON.stringify(obj));
 }
@@ -802,7 +845,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command': 'read',
+                    'command':  'read',
+                    'schema':   rendererSchema,
                 },
                 res: {
                     'command':  'read',
@@ -821,6 +865,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  'I am an invalid session string!',
+                    'schema':   rendererSchema,
                 },
                 res: {
                     'command':  'read',
@@ -851,6 +896,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    0,
                 },
                 res: [
@@ -911,6 +957,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    0,
                 },
                 res: [
@@ -941,6 +988,7 @@ module.exports = {
                         var prev = prevResponses[1];
                         return prev['session'];
                     },
+                    'schema':   rendererSchema,
                     'count':    0,
                 },
                 res: [
@@ -1004,6 +1052,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    'Wrong type!',
                 },
                 res:
@@ -1046,6 +1095,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    -2,
                 },
                 res: [
@@ -1095,6 +1145,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    samplePoints + 50,
                 },
                 res: [
@@ -1144,6 +1195,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    1,
                     'start':    samplePoints,
                 },
@@ -1157,6 +1209,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    10,
                 },
                 res: [
@@ -1206,6 +1259,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    10,
                     'start':    -1,
                 },
@@ -1256,6 +1310,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
                 },
@@ -1306,6 +1361,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    20,
                     'start':    30,
                 },
@@ -1356,6 +1412,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    20,
                 },
                 res: [
@@ -1407,6 +1464,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'start':    suppliedOffset,
                 },
                 res: [
@@ -1456,6 +1514,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
                 },
@@ -1483,6 +1542,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
                 },
@@ -1544,6 +1604,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    0,
                 },
                 res: [
@@ -1574,6 +1635,7 @@ module.exports = {
 
     // TODO Test READ with point/radius query
     // TODO Test READ with quadtree indexed queries
+    // TODO Test READ without schema parameter
 
     // CANCEL - test cancel functionality and subsequent read
     // Expect: Partially transmitted data, successful cancel, successful read
@@ -1598,6 +1660,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    0,
                     'start':    0,
                 },
@@ -1649,6 +1712,7 @@ module.exports = {
                 req: {
                     'command':  'read',
                     'session':  initialSession,
+                    'schema':   rendererSchema,
                     'count':    20,
                     'start':    30,
                 },
