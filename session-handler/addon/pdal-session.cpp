@@ -4,6 +4,7 @@
 #include <pdal/PointContext.hpp>
 
 #include "pdal-session.hpp"
+#include "read-command.hpp"
 
 PdalSession::PdalSession()
     : m_pipelineManager()
@@ -84,7 +85,7 @@ std::string PdalSession::getSrs() const
 
 std::size_t PdalSession::readDim(
         unsigned char* buffer,
-        const DimensionRequest& dim,
+        const DimInfo& dim,
         std::size_t index) const
 {
     if (dim.type == "floating")
@@ -136,7 +137,7 @@ std::size_t PdalSession::readDim(
 }
 
 std::size_t PdalSession::read(
-        unsigned char** buffer,
+        std::vector<unsigned char>& buffer,
         const Schema& schema,
         const std::size_t start,
         const std::size_t count)
@@ -152,11 +153,13 @@ std::size_t PdalSession::read(
 
     try
     {
-        unsigned char* pos(*buffer);
+        buffer.resize(pointsToRead * schema.stride());
+
+        unsigned char* pos(buffer.data());
 
         for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
         {
-            for (const auto& dim : schema)
+            for (const auto& dim : schema.dims)
             {
                 pos += readDim(pos, dim, i);
             }
@@ -171,7 +174,7 @@ std::size_t PdalSession::read(
 }
 
 std::size_t PdalSession::read(
-        unsigned char** buffer,
+        std::vector<unsigned char>& buffer,
         const Schema& schema,
         const double xMin,
         const double yMin,
@@ -219,7 +222,7 @@ std::size_t PdalSession::read(
 }
 
 std::size_t PdalSession::read(
-        unsigned char** buffer,
+        std::vector<unsigned char>& buffer,
         const Schema& schema,
         const bool is3d,
         const double radius,
@@ -243,7 +246,7 @@ std::size_t PdalSession::read(
 }
 
 std::size_t PdalSession::readIndexList(
-        unsigned char** buffer,
+        std::vector<unsigned char>& buffer,
         const Schema& schema,
         const std::vector<std::size_t>& indexList)
 {
@@ -251,11 +254,13 @@ std::size_t PdalSession::readIndexList(
 
     try
     {
-        unsigned char* pos(*buffer);
+        buffer.resize(pointsToRead * schema.stride());
+
+        unsigned char* pos(buffer.data());
 
         for (std::size_t i : indexList)
         {
-            for (const auto& dim : schema)
+            for (const auto& dim : schema.dims)
             {
                 pos += readDim(pos, dim, i);
             }

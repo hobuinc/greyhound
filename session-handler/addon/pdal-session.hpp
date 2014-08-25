@@ -6,7 +6,8 @@
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
 
-#include "read-command.hpp"
+class DimInfo;
+class Schema;
 
 class PdalSession
 {
@@ -22,7 +23,7 @@ public:
 
     // Read un-indexed data with an offset and a count.
     std::size_t read(
-            unsigned char** buffer,
+            std::vector<unsigned char>& buffer,
             const Schema& schema,
             std::size_t start,
             std::size_t count);
@@ -30,7 +31,7 @@ public:
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
     std::size_t read(
-            unsigned char** buffer,
+            std::vector<unsigned char>& buffer,
             const Schema& schema,
             double xMin,
             double yMin,
@@ -41,7 +42,7 @@ public:
 
     // Perform KD-indexed query of point + radius.
     std::size_t read(
-            unsigned char** buffer,
+            std::vector<unsigned char>& buffer,
             const Schema& schema,
             bool is3d,
             double radius,
@@ -72,14 +73,14 @@ private:
 
     // Read points out from a list that represents indices into m_pointBuffer.
     std::size_t readIndexList(
-            unsigned char** buffer,
+            std::vector<unsigned char>& buffer,
             const Schema& schema,
             const std::vector<std::size_t>& indexList);
 
     // Returns number of bytes read into buffer.
     std::size_t readDim(
             unsigned char* buffer,
-            const DimensionRequest& dimReq,
+            const DimInfo& dimReq,
             std::size_t index) const;
 };
 

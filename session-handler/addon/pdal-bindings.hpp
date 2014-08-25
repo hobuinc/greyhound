@@ -4,7 +4,7 @@
 
 #include "pdal-session.hpp"
 
-#include "read-command.hpp"
+class ReadCommand;
 
 class PdalBindings : public node::ObjectWrap
 {
