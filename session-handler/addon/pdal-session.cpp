@@ -11,9 +11,7 @@ PdalSession::PdalSession()
     , m_pointBuffer()
     , m_parsed(false)
     , m_initialized(false)
-    , m_quadIndex()
-    , m_kdIndex2d()
-    , m_kdIndex3d()
+    , m_pdalIndex(new PdalIndex())
 { }
 
 void PdalSession::initialize(const std::string& pipeline, const bool execute)
@@ -51,20 +49,6 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         {
             m_initialized = true;
         }
-    }
-}
-
-void PdalSession::indexData(const bool build3d)
-{
-    if (build3d)
-    {
-        m_kdIndex3d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
-        m_kdIndex3d->build(m_pointBuffer->context(), build3d);
-    }
-    else
-    {
-        m_kdIndex2d.reset(new pdal::KDIndex(*m_pointBuffer.get()));
-        m_kdIndex2d->build(m_pointBuffer->context(), build3d);
     }
 }
 
@@ -140,7 +124,7 @@ std::size_t PdalSession::read(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
         const std::size_t start,
-        const std::size_t count)
+        const std::size_t count) const
 {
     if (start >= getNumPoints())
         throw std::runtime_error("Invalid starting offset in 'read'");
@@ -183,32 +167,10 @@ std::size_t PdalSession::read(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    if (!m_quadIndex)
-    {
-        m_quadIndex.reset(new pdal::QuadIndex(*m_pointBuffer.get()));
+    m_pdalIndex->indexData(PdalIndex::QuadIndex, m_pointBuffer);
+    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
-        try
-        {
-            m_quadIndex->build();
-        }
-        catch (...)
-        {
-            throw std::runtime_error("Error creating quadtree index");
-        }
-    }
-
-    double x0, y0, x1, y1;
-    m_quadIndex->getBounds(x0, y0, x1, y1);
-    std::cout <<
-        x0 <<
-        ", " <<
-        y0 <<
-        ", " <<
-        x1 <<
-        ", " <<
-        y1 << std::endl;
-
-    const std::vector<std::size_t> results(m_quadIndex->getPoints(
+    const std::vector<std::size_t> results(quadIndex.getPoints(
             xMin,
             yMin,
             xMax,
@@ -217,7 +179,6 @@ std::size_t PdalSession::read(
             depthEnd));
 
     std::size_t pointsRead = readIndexList(buffer, schema, results);
-    m_quadIndex.reset(0);
     return pointsRead;
 }
 
@@ -230,17 +191,16 @@ std::size_t PdalSession::read(
         const double y,
         const double z)
 {
-    if (!indexed(is3d))
-    {
-        indexData(is3d);
-    }
+    m_pdalIndex->indexData(
+            is3d ? PdalIndex::KdIndex3d : PdalIndex::KdIndex2d,
+            m_pointBuffer);
 
-    pdal::KDIndex* activeKdIndex(
-            is3d ? m_kdIndex3d.get() : m_kdIndex2d.get());
+    const pdal::KDIndex& kdIndex(
+            is3d ? m_pdalIndex->kdIndex3d() : m_pdalIndex->kdIndex2d());
 
     // KDIndex::radius() takes r^2.
     const std::vector<std::size_t> results(
-            activeKdIndex->radius(x, y, z, radius * radius));
+            kdIndex.radius(x, y, z, radius * radius));
 
     return readIndexList(buffer, schema, results);
 }
@@ -248,7 +208,7 @@ std::size_t PdalSession::read(
 std::size_t PdalSession::readIndexList(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
-        const std::vector<std::size_t>& indexList)
+        const std::vector<std::size_t>& indexList) const
 {
     const std::size_t pointsToRead(indexList.size());
 
@@ -272,6 +232,47 @@ std::size_t PdalSession::readIndexList(
     }
 
     return pointsToRead;
+}
+
+bool PdalIndex::isIndexed(IndexType indexType) const
+{
+    switch (indexType)
+    {
+        case KdIndex2d:
+            return m_kdIndex2d.get();
+        case KdIndex3d:
+            return m_kdIndex3d.get();
+        case QuadIndex:
+            return m_quadIndex.get();
+        default:
+            throw std::runtime_error("Invalid PDAL index type");
+    }
+}
+
+void PdalIndex::indexData(
+        IndexType indexType,
+        const pdal::PointBufferPtr pointBuffer)
+{
+    if (!isIndexed(indexType))
+    {
+        switch (indexType)
+        {
+            case KdIndex2d:
+                m_kdIndex2d.reset(new pdal::KDIndex(*pointBuffer.get()));
+                m_kdIndex2d->build(pointBuffer->context(), false);
+                break;
+            case KdIndex3d:
+                m_kdIndex3d.reset(new pdal::KDIndex(*pointBuffer.get()));
+                m_kdIndex3d->build(pointBuffer->context(), true);
+                break;
+            case QuadIndex:
+                m_quadIndex.reset(new pdal::QuadIndex(*pointBuffer.get()));
+                m_quadIndex->build();
+                break;
+            default:
+                throw std::runtime_error("Invalid PDAL index type");
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
