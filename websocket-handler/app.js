@@ -278,7 +278,9 @@ process.nextTick(function() {
                     var params = _.extend(addr, msg);
                     var readPath = '/read/' + session;
 
-                    params['schema'] = JSON.stringify(params['schema']);
+                    if (params.hasOwnProperty('schema')) {
+                        params['schema'] = JSON.stringify(params['schema']);
+                    }
 
 					web.post(sh, readPath, params, function(err, res) {
 						if (err) {

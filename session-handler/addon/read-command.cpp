@@ -14,18 +14,6 @@ namespace
     {
         return !value->IsUndefined();
     }
-
-    std::size_t getStride(Schema schema)
-    {
-        std::size_t stride(0);
-
-        for (const auto& dim : schema)
-        {
-            stride += dim.size;
-        }
-
-        return stride;
-    }
 }
 
 void errorCallback(
@@ -59,31 +47,24 @@ ReadCommand::ReadCommand(
     , m_host(host)
     , m_port(port)
     , m_schema(schemaOrDefault(schema))
-    , m_stride(getStride(m_schema))
+    , m_numPoints(0)
     , m_callback(callback)
     , m_cancel(false)
-    , m_data(0)
+    , m_data()
     , m_bufferTransmitter()
     , m_errMsg()
-    , m_numPoints(0)
-    , m_numBytes(0)
-{
-    // For now this allocation is blocking.  If we allocate it on the heap
-    // during our background processing, we can't delete it from outside
-    // of the location of that allocation.
-    m_data = new unsigned char[m_stride * m_pdalSession->getNumPoints()];
-}
+{ }
 
 Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
 {
     // If no schema supplied, stream all dimensions in their native format.
-    if (reqSchema.size() > 0)
+    if (reqSchema.dims.size() > 0)
     {
         return reqSchema;
     }
     else
     {
-        Schema fullSchema;
+        std::vector<DimInfo> dims;
 
         const pdal::PointContext& pointContext(
                 m_pdalSession->pointBuffer().context());
@@ -92,11 +73,11 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
 
         for (const auto& id : idList)
         {
-            fullSchema.push_back(
-                    DimensionRequest(id, pointContext.dimType(id)));
+            dims.push_back(
+                    DimInfo(id, pointContext.dimType(id)));
         }
 
-        return fullSchema;
+        return Schema(dims);
     }
 }
 
@@ -107,60 +88,54 @@ void ReadCommand::transmit(
     m_bufferTransmitter->transmit(offset, numBytes);
 }
 
-void ReadCommand::setNumPoints(const std::size_t numPoints)
-{
-    m_numPoints = numPoints;
-    m_numBytes  = numPoints * m_stride;
-}
-
 void ReadCommandUnindexed::run()
 {
-    setNumPoints(m_pdalSession->read(&m_data, m_schema, m_start, m_count));
+    m_numPoints = m_pdalSession->read(m_data, m_schema, m_start, m_count);
 
     m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data, numBytes()));
+            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandQuadIndex::run()
 {
     if (m_isBBoxQuery)
     {
-        setNumPoints(m_pdalSession->read(
-                &m_data,
+        m_numPoints = m_pdalSession->read(
+                m_data,
                 m_schema,
                 m_xMin,
                 m_yMin,
                 m_xMax,
                 m_yMax,
                 m_depthBegin,
-                m_depthEnd));
+                m_depthEnd);
     }
     else
     {
-        setNumPoints(m_pdalSession->read(
-                &m_data,
+        m_numPoints = m_pdalSession->read(
+                m_data,
                 m_schema,
                 m_depthBegin,
-                m_depthEnd));
+                m_depthEnd);
     }
 
     m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data, numBytes()));
+            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandPointRadius::run()
 {
-    setNumPoints(m_pdalSession->read(
-            &m_data,
+    m_numPoints = m_pdalSession->read(
+            m_data,
             m_schema,
             m_is3d,
             m_radius,
             m_x,
             m_y,
-            m_z));
+            m_z);
 
     m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data, numBytes()));
+            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 ReadCommand* ReadCommandFactory::create(
@@ -192,7 +167,8 @@ ReadCommand* ReadCommandFactory::create(
     {
         const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
         const std::size_t port(args[1]->Uint32Value());
-        Schema schema;
+
+        std::vector<DimInfo> dims;
 
         // Unwrap the schema request into native C++ types.
         const Local<Object> schemaObj(args[2]->ToObject());
@@ -213,8 +189,8 @@ ReadCommand* ReadCommandFactory::create(
 
                 if (size)
                 {
-                    schema.push_back(
-                        DimensionRequest(
+                    dims.push_back(
+                        DimInfo(
                             *v8::String::Utf8Value(
                                 dimObj->Get(String::New("name"))->ToString()),
                             *v8::String::Utf8Value(
@@ -223,6 +199,8 @@ ReadCommand* ReadCommandFactory::create(
                 }
             }
         }
+
+        Schema schema(dims);
 
         // Unindexed read - starting offset and count supplied.
         if (

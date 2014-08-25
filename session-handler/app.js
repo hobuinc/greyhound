@@ -143,7 +143,8 @@ app.post("/cancel/:sessionId", function(req, res) {
 app.post("/read/:sessionId", function(req, res) {
     var host = req.body.host;
     var port = parseInt(req.body.port);
-    var schema = JSON.parse(req.body['schema']) || { };
+    var schema = req.body.hasOwnProperty('schema') ?
+        JSON.parse(req.body.schema) : { };
 
     if (!host)
         return res.json(

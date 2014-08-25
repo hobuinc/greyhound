@@ -15,13 +15,13 @@ void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
 
-struct DimensionRequest
+struct DimInfo
 {
-    DimensionRequest(std::string name, std::string type, std::size_t size)
+    DimInfo(std::string name, std::string type, std::size_t size)
         : id(pdal::Dimension::id(name)), type(type), size(size)
     { }
 
-    DimensionRequest(
+    DimInfo(
             const pdal::Dimension::Id::Enum id,
             const pdal::Dimension::Type::Enum type)
         : id(id)
@@ -34,7 +34,23 @@ struct DimensionRequest
     const std::size_t size;
 };
 
-typedef std::vector<DimensionRequest> Schema;
+struct Schema
+{
+    explicit Schema(std::vector<DimInfo> dims) : dims(dims) { }
+    const std::vector<DimInfo> dims;
+
+    std::size_t stride() const
+    {
+        std::size_t stride(0);
+
+        for (const auto& dim : dims)
+        {
+            stride += dim.size;
+        }
+
+        return stride;
+    }
+};
 
 class ReadCommand
 {
@@ -46,10 +62,10 @@ public:
 
     void transmit(std::size_t offset, std::size_t numBytes);
 
-    std::size_t     numPoints() const { return m_numPoints; }
-    std::size_t     numBytes()  const { return m_numBytes;  }
-    std::string     errMsg()    const { return m_errMsg;    }
-    bool            cancel()    const { return m_cancel;    }
+    std::size_t numPoints() const { return m_numPoints; }
+    std::size_t numBytes()  const { return m_numPoints * m_schema.stride(); }
+    std::string errMsg()    const { return m_errMsg;    }
+    bool        cancel()    const { return m_cancel;    }
     v8::Persistent<v8::Function> callback() const { return m_callback; }
 
     ReadCommand(
@@ -60,30 +76,23 @@ public:
             v8::Persistent<v8::Function> callback);
 
     virtual ~ReadCommand()
-    {
-        delete [] m_data;
-    }
+    { }
 
 protected:
     const std::shared_ptr<PdalSession> m_pdalSession;
     const std::string m_host;
     const std::size_t m_port;
     const Schema m_schema;
-    const std::size_t m_stride;
+    std::size_t m_numPoints;
 
     v8::Persistent<v8::Function> m_callback;
     bool m_cancel;
 
-    unsigned char* m_data;
+    std::vector<unsigned char> m_data;
     std::shared_ptr<BufferTransmitter> m_bufferTransmitter;
     std::string m_errMsg;
 
-    void setNumPoints(std::size_t numPoints);
-
 private:
-    std::size_t m_numPoints;
-    std::size_t m_numBytes;
-
     Schema schemaOrDefault(Schema reqSchema);
 };
 

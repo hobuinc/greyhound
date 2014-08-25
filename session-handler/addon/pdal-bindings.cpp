@@ -2,6 +2,7 @@
 #include <v8.h>
 
 #include "pdal-bindings.hpp"
+#include "read-command.hpp"
 
 using namespace v8;
 
