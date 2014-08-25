@@ -1,16 +1,40 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <v8.h>
 
-#include "pdal-session.hpp"
+#include <pdal/Dimension.hpp>
+#include <pdal/PointContext.hpp>
 
 class BufferTransmitter;
+class PdalSession;
 
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
+
+struct DimensionRequest
+{
+    DimensionRequest(std::string name, std::string type, std::size_t size)
+        : id(pdal::Dimension::id(name)), type(type), size(size)
+    { }
+
+    DimensionRequest(
+            const pdal::Dimension::Id::Enum id,
+            const pdal::Dimension::Type::Enum type)
+        : id(id)
+        , type(pdal::Dimension::toName(pdal::Dimension::base(type)))
+        , size(pdal::Dimension::size(type))
+    { }
+
+    const pdal::Dimension::Id::Enum id;
+    const std::string type;
+    const std::size_t size;
+};
+
+typedef std::vector<DimensionRequest> Schema;
 
 class ReadCommand
 {
@@ -32,24 +56,8 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
-            v8::Persistent<v8::Function> callback)
-        : m_pdalSession(pdalSession)
-        , m_host(host)
-        , m_port(port)
-        , m_callback(callback)
-        , m_cancel(false)
-        , m_data(0)
-        , m_bufferTransmitter()
-        , m_errMsg()
-        , m_numPoints(0)
-        , m_numBytes(0)
-    {
-        // For now this allocation is blocking.  If we allocate it on the heap
-        // during our background processing, we can't delete it from outside
-        // of the location of that allocation.
-        m_data = new unsigned char[
-            m_pdalSession->getStride() * m_pdalSession->getNumPoints()];
-    }
+            Schema schema,
+            v8::Persistent<v8::Function> callback);
 
     virtual ~ReadCommand()
     {
@@ -60,6 +68,8 @@ protected:
     const std::shared_ptr<PdalSession> m_pdalSession;
     const std::string m_host;
     const std::size_t m_port;
+    const Schema m_schema;
+    const std::size_t m_stride;
 
     v8::Persistent<v8::Function> m_callback;
     bool m_cancel;
@@ -73,6 +83,8 @@ protected:
 private:
     std::size_t m_numPoints;
     std::size_t m_numBytes;
+
+    Schema schemaOrDefault(Schema reqSchema);
 };
 
 class ReadCommandUnindexed : public ReadCommand
@@ -82,10 +94,11 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
+            Schema schema,
             std::size_t start,
             std::size_t count,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, callback)
+        : ReadCommand(pdalSession, host, port, schema, callback)
         , m_start(start)
         , m_count(count)
     { }
@@ -104,13 +117,14 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
+            Schema schema,
             bool is3d,
             double radius,
             double x,
             double y,
             double z,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, callback)
+        : ReadCommand(pdalSession, host, port, schema, callback)
         , m_is3d(is3d)
         , m_radius(radius)
         , m_x(x)
@@ -135,6 +149,7 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
+            Schema schema,
             double xMin,
             double yMin,
             double xMax,
@@ -142,7 +157,7 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, callback)
+        : ReadCommand(pdalSession, host, port, schema, callback)
         , m_xMin(xMin)
         , m_yMin(yMin)
         , m_xMax(xMax)
@@ -156,10 +171,11 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::string host,
             std::size_t port,
+            Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, callback)
+        : ReadCommand(pdalSession, host, port, schema, callback)
         , m_xMin()
         , m_yMin()
         , m_xMax()

@@ -144,6 +144,49 @@ app.post("/read/:sessionId", function(req, res) {
     var host = req.body.host;
     var port = parseInt(req.body.port);
 
+    // TODO Propagate to here.
+    // var schema = req.body.schemaRequest || { };
+    var schema = {
+        "dimensions":
+        [
+            {
+                "name": "X",
+                "type": "floating",
+                "size": "4"
+            },
+            {
+                "name": "Y",
+                "type": "floating",
+                "size": "4"
+            },
+            {
+                "name": "Z",
+                "type": "floating",
+                "size": "4"
+            },
+            {
+                "name": "Intensity",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Red",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Green",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Blue",
+                "type": "unsigned",
+                "size": "2"
+            },
+        ]
+    };
+
     if (!host)
         return res.json(
             400,
@@ -190,7 +233,7 @@ app.post("/read/:sessionId", function(req, res) {
             if (start < 0) start = 0;
             if (count < 0) count = 0;
 
-            s.read(host, port, start, count, readHandler);
+            s.read(host, port, schema, start, count, readHandler);
         }
         else if (
             req.body.hasOwnProperty('bbox') ||
@@ -213,7 +256,7 @@ app.post("/read/:sessionId", function(req, res) {
                     parseInt(req.body.depthEnd) :
                     0;
 
-            s.read(host, port, bbox, depthBegin, depthEnd, readHandler);
+            s.read(host, port, schema, bbox, depthBegin, depthEnd, readHandler);
         }
         else if (
             req.body.hasOwnProperty('radius') &&
@@ -228,7 +271,7 @@ app.post("/read/:sessionId", function(req, res) {
             var y = parseFloat(req.body.y);
             var z = is3d ? parseFloat(req.body.z) : 0.0;
 
-            s.read(host, port, is3d, radius, x, y, z, readHandler);
+            s.read(host, port, schema, is3d, radius, x, y, z, readHandler);
         }
         else {
             console.log('Got bad read request', req.body);

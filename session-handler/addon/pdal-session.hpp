@@ -6,6 +6,8 @@
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
 
+#include "read-command.hpp"
+
 class PdalSession
 {
 public:
@@ -16,12 +18,12 @@ public:
 
     std::size_t getNumPoints() const;
     std::string getDimensions() const;
-    std::size_t getStride() const;
     std::string getSrs() const;
 
     // Read un-indexed data with an offset and a count.
     std::size_t read(
             unsigned char** buffer,
+            const Schema& schema,
             std::size_t start,
             std::size_t count);
 
@@ -29,6 +31,7 @@ public:
     // depths to search.
     std::size_t read(
             unsigned char** buffer,
+            const Schema& schema,
             double xMin,
             double yMin,
             double xMax,
@@ -39,11 +42,17 @@ public:
     // Perform KD-indexed query of point + radius.
     std::size_t read(
             unsigned char** buffer,
+            const Schema& schema,
             bool is3d,
             double radius,
             double x,
             double y,
             double z);
+
+    const pdal::PointBuffer& pointBuffer()
+    {
+        return *m_pointBuffer.get();
+    }
 
 private:
     pdal::PipelineManager m_pipelineManager;
@@ -64,7 +73,14 @@ private:
     // Read points out from a list that represents indices into m_pointBuffer.
     std::size_t readIndexList(
             unsigned char** buffer,
+            const Schema& schema,
             const std::vector<std::size_t>& indexList);
+
+    // Returns number of bytes read into buffer.
+    std::size_t readDim(
+            unsigned char* buffer,
+            const DimensionRequest& dimReq,
+            std::size_t index) const;
 };
 
 class BufferTransmitter

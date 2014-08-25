@@ -29,9 +29,9 @@
 		var pc = arr.byteLength / recSize;
 
 		for (var i = 0 ; i < pc ; i++) {
-			var x = arr.getInt32(recSize * i + 0, true);
-			var y = arr.getInt32(recSize * i + 4, true);
-			var z = arr.getInt32(recSize * i + 8, true);
+			var x = arr.getFloat32(recSize * i + 0, true);
+			var y = arr.getFloat32(recSize * i + 4, true);
+			var z = arr.getFloat32(recSize * i + 8, true);
 
 			var intensity = doIntensity ? arr.getInt16( recSize * i + 12, true) : 0;
 
@@ -141,9 +141,9 @@
 		var offset = 0;
 		for ( var i = 0; i < particles ; i++) {
 			// positions
-			var _x = asDataView.getInt32(offset, true); offset += 4;
-			var _y = asDataView.getInt32(offset, true); offset += 4;
-			var _z = asDataView.getInt32(offset, true); offset += 4;
+			var _x = asDataView.getFloat32(offset, true); offset += 4;
+			var _y = asDataView.getFloat32(offset, true); offset += 4;
+			var _z = asDataView.getFloat32(offset, true); offset += 4;
 
 			var _intensity = 1.0;
 			if(!nointensity) {
