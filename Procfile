@@ -5,4 +5,5 @@ sh: node ./session-handler/app.js
 ws: node ./websocket-handler/app.js
 web: env PORT=8080 node ./web/app.js
 db: node ./db-handler/app.js
+mongo: mongod --dbpath /home/vagrant/data --port 21212 --logpath /home/vagrant/log.txt
 

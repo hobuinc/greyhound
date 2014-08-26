@@ -8,7 +8,6 @@ setup_base_packages() {
 	sudo gem install foreman --no-rdoc --no-ri
 	sudo npm install -g hipache
     sudo npm install -g nodeunit
-    sudo npm install -g sqlite3 --build-from-source
 }
 
 setup_npm_packages() {
@@ -33,21 +32,24 @@ setup_cpp_components() {
 }
 
 setup_greyhound() {
-    # Initialize the database with sample file and launch services.
+    # Initialize the database with sample files and launch services.
+    echo Making DB dir
+    su -l vagrant -c "mkdir -p /home/vagrant/data"
 
     # Launch Greyhound.
     chmod 755 /vagrant/gh
-    /vagrant/gh start
+    echo Launching Greyhound
+    su -l vagrant -c "/vagrant/gh start"
 
     # TODO Need some method to ensure that all Greyhound components are
     # launched before we can perform the PUT.  For now hack in a sleep.
     sleep 10
 
     # Get the database started with a pre-written sample.
-    /vagrant/examples/cpp/put-pipeline
+    su -l vagrant -c "/vagrant/examples/cpp/put-pipeline"
 
     # Also add the large sample, needed for testing cancel functionality.
-    /vagrant/examples/cpp/put-pipeline /vagrant/examples/data/half-dome.xml
+    su -l vagrant -c "/vagrant/examples/cpp/put-pipeline /vagrant/examples/data/half-dome.xml"
 }
 
 setup_base_packages

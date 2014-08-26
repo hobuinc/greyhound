@@ -5,17 +5,18 @@ start)
     if [ $# -eq 2 ]; then
         if [ $2 == "-q" ] || [ $2 == "--quiet" ]; then
             echo "Using quiet"
-            foreman start -f ProcfileQuiet&
+            foreman start -f /vagrant/ProcfileQuiet&
         else
             echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
         fi
     else
-        foreman start&
+        foreman start -f /vagrant/Procfile &
     fi
     ;;
 stop)
-    pkill gh_*
-    killall nodejs    # TODO Hipache workers don't seem to allow naming.
+    sudo pkill gh_*
+    sudo killall nodejs > /dev/null 2>&1 # TODO Hipache workers don't seem to allow naming.
+    sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1
     ;;
 *)
     echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
