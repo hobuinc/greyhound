@@ -5,7 +5,7 @@ examples/cpp/get-points
 examples/cpp/put-pipeline
 *.log
 *.swp
-db-handler/db/*
+db-handler/data/*
 
 node_modules
 npm-debug.log

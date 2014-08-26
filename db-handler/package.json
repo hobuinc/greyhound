@@ -8,6 +8,8 @@
         "method-override": "*",
         "body-parser": "*",
         "seaport": "*",
-        "mkdirp": "*"
+        "mongo": "*",
+        "mongoskin": "*"
 	}
 }
+
