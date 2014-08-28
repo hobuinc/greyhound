@@ -6,6 +6,7 @@ examples/cpp/put-pipeline
 *.log
 *.swp
 db-handler/data/*
+*.rdb
 
 node_modules
 npm-debug.log

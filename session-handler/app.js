@@ -1,5 +1,5 @@
 // app.js
-// Main entry point for pdal session pooling
+// Main entry point for pdal session delegation
 //
 process.title = 'gh_sh';
 
@@ -13,11 +13,9 @@ var express = require("express"),
     seaport = require('seaport'),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
-	poolModule = require('generic-pool'),
 
     app = express(),
-    ports = seaport.connect('localhost', 9090),
-    pool = null;
+    ports = seaport.connect('localhost', 9090);
 
 // configure express application
 app.configure(function() {
@@ -30,13 +28,17 @@ app.configure(function() {
     app.use(app.router);
 });
 
-var sessions = {};
+// TODO For now, never expire a PdalSession.  Need to keep track of when
+// they are used so we can expire them.
+var sessions    = { }; // sessionId -> pdalSession (many to one)
+var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
 
 var getSession = function(res, sessionId, cb) {
     if (!sessions[sessionId])
         return res.json(404, { message: 'No such session' });
 
-    cb(sessions[sessionId], sessionId);
+    // TODO Update timestamp for this session.
+    cb(sessionId, sessions[sessionId]);
 };
 
 var error = function(res) {
@@ -65,86 +67,80 @@ app.get("/", function(req, res) {
 
 // handlers for our API
 app.get("/validate", function(req, res) {
-    pool.acquire(function(err, s) {
-        if (err) {
-            console.log('erroring acquire on validation:', s);
-            return error(res)(err);
-        }
-
-        s.parse(req.body.pipeline, function(err) {
-            pool.destroy(s);
-            if (err) console.log('Pipeline validation error:', err);
-            res.json({ valid: err ? false : true });
-        });
+    var pdalSession = new PdalSession();
+    pdalSession.parse(req.body.pipeline, function(err) {
+        pdalSession.destroy();
+        if (err) console.log('Pipeline validation error:', err);
+        res.json({ valid: err ? false : true });
     });
 });
 
 app.post("/create", function(req, res) {
-    pool.acquire(function(err, s) {
+    console.log('got create');
+    var pipelineId = req.body.pipelineId;
+    var pipeline = req.body.pipeline;
+    var pdalSession = pipelineIds[pipelineId] || new PdalSession();
+
+    // It is safe to call create multiple times on a PdalSession, and it will
+    // only actually be created one time.  Subsequent create calls will come
+    // back immediately if the initial creation is complete, or if the initial
+    // creation is still in progress, then the callback will be executed when
+    // that call completes.
+    pdalSession.create(pipeline, function(err) {
+        console.log('created!');
         if (err) {
-            console.log('erroring acquire:', s);
+            console.log('Error in CREATE:', err);
             return error(res)(err);
         }
 
-        s.create(req.body.pipeline, function(err) {
-            if (err) {
-                console.log('erroring create:', err);
-                pool.destroy(s);
-                return error(res)(err);
-            }
-
-            var id = createId();
-            sessions[id] = s;
-
-            console.log('create =', id);
-            res.json({ sessionId: id });
-        });
+        var sessionId = createId();
+        sessions[sessionId] = pdalSession;
+        // TODO Initialize timestamp for this session.
+        pipelineIds[pipelineId] = pdalSession;
+        console.log('Created session:', sessionId);
+        res.json({ sessionId: sessionId });
     });
 });
 
 app.delete("/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('delete('+ sid + ')');
-        delete sessions[sid];
-
-        pool.destroy(s);
-        res.json({ message: 'Session destroyed' });
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        delete sessions[sessionId];
+        console.log('Deleted session:', sessionId);
+        res.json({ message: 'Session deleted' });
     });
 });
 
 app.get("/pointsCount/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('pointsCount('+ sid + ')');
-        res.json({ count: s.getNumPoints() });
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        res.json({ count: pdalSession.getNumPoints() });
     });
 });
 
 app.get("/dimensions/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('dimensions('+ sid + ')');
-        res.json({ dimensions: s.getDimensions() });
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        res.json({ dimensions: pdalSession.getDimensions() });
     });
 });
 
 app.get("/srs/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('srs('+ sid + ')');
-        res.json({ srs: s.getSrs() });
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        res.json({ srs: pdalSession.getSrs() });
     });
 });
 
 app.post("/cancel/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('Got CANCEL request');
-        res.json({ 'cancelled': s.cancel() });
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        console.log('Got CANCEL request for session', sessionId);
+        res.json({ 'cancelled': pdalSession.cancel() });
     });
 });
 
 app.post("/read/:sessionId", function(req, res) {
-    var host = req.body.host;
-    var port = parseInt(req.body.port);
-    var schema = req.body.hasOwnProperty('schema') ?
-        JSON.parse(req.body.schema) : { };
+    var args = req.body;
+
+    var host = args.host;
+    var port = parseInt(args.port);
+    var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : { };
 
     if (!host)
         return res.json(
@@ -156,8 +152,8 @@ app.post("/read/:sessionId", function(req, res) {
             400,
             { message: 'Destination port needs to be specified' });
 
-    getSession(res, req.params.sessionId, function(s, sid) {
-        console.log('read('+ sid + ')');
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        console.log('read('+ sessionId + ')');
 
         var readHandler = function(err, numPoints, numBytes) {
             if (err) {
@@ -176,65 +172,87 @@ app.post("/read/:sessionId", function(req, res) {
         };
 
         if (
-            req.body.hasOwnProperty('start') ||
-            req.body.hasOwnProperty('count') ||
-            Object.keys(req.body).length == 4 ||
-            Object.keys(req.body).length == 5) {
+            args.hasOwnProperty('start') ||
+            args.hasOwnProperty('count') ||
+            Object.keys(args).length == 4 ||
+            Object.keys(args).length == 5) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
             // host+port+cmd+session, then use this branch.
 
-            var start = req.body.hasOwnProperty('start') ?
-                parseInt(req.body.start) : 0;
-            var count = req.body.hasOwnProperty('count') ?
-                parseInt(req.body.count) : 0;
+            var start = args.hasOwnProperty('start') ?
+                parseInt(args.start) : 0;
+            var count = args.hasOwnProperty('count') ?
+                parseInt(args.count) : 0;
 
             if (start < 0) start = 0;
             if (count < 0) count = 0;
 
-            s.read(host, port, schema, start, count, readHandler);
+            pdalSession.read(
+                    host,
+                    port,
+                    schema,
+                    start,
+                    count,
+                    readHandler);
         }
         else if (
-            req.body.hasOwnProperty('bbox') ||
-            req.body.hasOwnProperty('depthBegin') ||
-            req.body.hasOwnProperty('depthEnd')) {
+            args.hasOwnProperty('bbox') ||
+            args.hasOwnProperty('depthBegin') ||
+            args.hasOwnProperty('depthEnd')) {
 
             // Indexed read: quadtree query.
             var bbox =
-                req.body.hasOwnProperty('bbox') ?
-                    parseBBox(req.body.bbox) :
+                args.hasOwnProperty('bbox') ?
+                    parseBBox(args.bbox) :
                     undefined;
 
             var depthBegin =
-                req.body.hasOwnProperty('depthBegin') ?
-                    parseInt(req.body.depthBegin) :
+                args.hasOwnProperty('depthBegin') ?
+                    parseInt(args.depthBegin) :
                     0;
 
             var depthEnd =
-                req.body.hasOwnProperty('depthEnd') ?
-                    parseInt(req.body.depthEnd) :
+                args.hasOwnProperty('depthEnd') ?
+                    parseInt(args.depthEnd) :
                     0;
 
-            s.read(host, port, schema, bbox, depthBegin, depthEnd, readHandler);
+            pdalSession.read(
+                    host,
+                    port,
+                    schema,
+                    bbox,
+                    depthBegin,
+                    depthEnd,
+                    readHandler);
         }
         else if (
-            req.body.hasOwnProperty('radius') &&
-            req.body.hasOwnProperty('x') &&
-            req.body.hasOwnProperty('y')) {
+            args.hasOwnProperty('radius') &&
+            args.hasOwnProperty('x') &&
+            args.hasOwnProperty('y')) {
 
             // Indexed read: point + radius query.
 
-            var is3d = req.body.hasOwnProperty('z');
-            var radius = parseFloat(req.body.radius);
-            var x = parseFloat(req.body.x);
-            var y = parseFloat(req.body.y);
-            var z = is3d ? parseFloat(req.body.z) : 0.0;
+            var is3d = args.hasOwnProperty('z');
+            var radius = parseFloat(args.radius);
+            var x = parseFloat(args.x);
+            var y = parseFloat(args.y);
+            var z = is3d ? parseFloat(args.z) : 0.0;
 
-            s.read(host, port, schema, is3d, radius, x, y, z, readHandler);
+            pdalSession.read(
+                    host,
+                    port,
+                    schema,
+                    is3d,
+                    radius,
+                    x,
+                    y,
+                    z,
+                    readHandler);
         }
         else {
-            console.log('Got bad read request', req.body);
+            console.log('Got bad read request', args);
             return res.json(
                 400,
                 { message: 'Invalid read command - bad params' });
@@ -244,23 +262,6 @@ app.post("/read/:sessionId", function(req, res) {
 
 var port = ports.register('sh@0.0.1');
 app.listen(port, function() {
-    pool = poolModule.Pool({
-        name: 'pdal-pool',
-        create: function(cb) {
-            var s = new PdalSession();
-            cb(s);
-        },
-
-        destroy: function(s) {
-            s.destroy();
-        },
-
-        max: 100,
-        min: 0,
-        idleTimeoutMillis: 10000,
-        log: false
-    });
-
     console.log('Session handler listening on port: ' + port);
 });
 
