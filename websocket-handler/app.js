@@ -31,7 +31,6 @@ var pickSessionHandler = function(cb) {
     // TODO Check pipeline affinity.  Only pick random if empty.
 
     ports.get('sh', function(services) {
-        console.log('sh:', services);
         var service = services[Math.floor(Math.random() * services.length)];
         cb(null, service.host + ':' + service.port);
     });
@@ -60,7 +59,6 @@ var getOrAssignPipelineAffinity = function(pipelineId, cb) {
     var hash = 'pipelineAffinity';
 
     redisClient.hget(hash, pipelineId, function(err, sh) {
-        console.log('did hget', err, sh);
         if (!sh) {
             pickSessionHandler(function(err, sh_) {
                 redisClient.hset(hash, pipelineId, sh_, function(err) {
@@ -241,7 +239,7 @@ process.nextTick(function() {
 
         handler.on('destroy', function(msg, cb) {
             var session = msg['session'];
-            if (!session) return cb(propError('srs', 'session'));
+            if (!session) return cb(propError('destroy', 'session'));
 
             getSessionAffinity(session, function(err, sessionHandler) {
                 if (err) return cb(err);
@@ -261,14 +259,18 @@ process.nextTick(function() {
 
         handler.on('cancel', function(msg, cb) {
             var session = msg['session'];
-            if (!session) return cb(propError('srs', 'session'));
+            var readId  = msg['readId'];
+            if (!session) return cb(propError('cancel', 'session'));
+            if (!readId)  return cb(propError('cancel', 'session'));
 
             getSessionAffinity(session, function(err, sessionHandler) {
                 if (err) return cb(err);
 
                 var cancel = '/cancel/' + session;
-                web.post(sessionHandler, cancel, function(err, res) {
-                    // TODO Implement per-session read tokens?
+                var params = { readId: readId };
+
+                web.post(sessionHandler, cancel, params, function(err, res) {
+                    console.log('post came back', err);
                     var streamer = streamers[session];
                     if (streamer) {
                         console.log(
@@ -302,6 +304,8 @@ process.nextTick(function() {
                             'for this session'));
 
                 var streamer = new TcpToWs(ws);
+
+                // TODO Should map from session + readId.
                 streamers[session] = streamer;
 
                 streamer.on('local-address', function(addr) {

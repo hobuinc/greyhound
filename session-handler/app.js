@@ -76,7 +76,6 @@ app.get("/validate", function(req, res) {
 });
 
 app.post("/create", function(req, res) {
-    console.log('got create');
     var pipelineId = req.body.pipelineId;
     var pipeline = req.body.pipeline;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
@@ -87,7 +86,6 @@ app.post("/create", function(req, res) {
     // creation is still in progress, then the callback will be executed when
     // that call completes.
     pdalSession.create(pipeline, function(err) {
-        console.log('created!');
         if (err) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
@@ -131,7 +129,7 @@ app.get("/srs/:sessionId", function(req, res) {
 app.post("/cancel/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('Got CANCEL request for session', sessionId);
-        res.json({ 'cancelled': pdalSession.cancel() });
+        res.json({ 'cancelled': pdalSession.cancel(req.body.readId) });
     });
 });
 
@@ -155,13 +153,14 @@ app.post("/read/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('read('+ sessionId + ')');
 
-        var readHandler = function(err, numPoints, numBytes) {
+        var readHandler = function(err, readId, numPoints, numBytes) {
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
             }
             else {
                 return res.json({
+                    readId: readId,
                     numPoints: numPoints,
                     numBytes: numBytes,
                     message:

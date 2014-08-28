@@ -903,6 +903,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -964,6 +965,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -995,6 +997,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1102,6 +1105,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1152,6 +1156,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1216,6 +1221,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    10,
                         'numBytes':     10 * sampleStride,
                     },
@@ -1267,6 +1273,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    10,
                         'numBytes':     10 * sampleStride,
                     },
@@ -1318,6 +1325,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1369,6 +1377,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    20,
                         'numBytes':     20 * sampleStride,
                     },
@@ -1419,6 +1428,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    20,
                         'numBytes':     20 * sampleStride,
                     },
@@ -1471,6 +1481,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints - suppliedOffset,
                         'numBytes':     expectedBytes,
                     },
@@ -1522,6 +1533,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1550,6 +1562,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1593,6 +1606,7 @@ module.exports = {
                 req: {
                     'command':  'cancel',
                     'session':  initialSession,
+                    'readId':   'not a valid readId'
                 },
                 res: {
                     'command':      'cancel',
@@ -1611,6 +1625,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    samplePoints,
                         'numBytes':     sampleBytes,
                     },
@@ -1668,6 +1683,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    dontCare,
                         'numBytes':     dontCare,
                     },
@@ -1688,8 +1704,9 @@ module.exports = {
                             // On the first binary blob, send the cancel.
                             if (bytesRead === 0) {
                                 send({
-                                    'command': 'cancel',
-                                    'session': prevResponses[0].session,
+                                    'command':  'cancel',
+                                    'readId':   prevResponses[1].readId,
+                                    'session':  prevResponses[0].session,
                                 });
                             }
 
@@ -1720,6 +1737,7 @@ module.exports = {
                     {
                         'status':       ghSuccess,
                         'command':      'read',
+                        'readId':       dontCare,
                         'numPoints':    20,
                         'numBytes':     20 * sampleStride,
                     },

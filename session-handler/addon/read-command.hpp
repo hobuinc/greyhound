@@ -62,6 +62,7 @@ public:
 
     void transmit(std::size_t offset, std::size_t numBytes);
 
+    std::string readId()    const { return m_readId; }
     std::size_t numPoints() const { return m_numPoints; }
     std::size_t numBytes()  const { return m_numPoints * m_schema.stride(); }
     std::string errMsg()    const { return m_errMsg;    }
@@ -70,6 +71,8 @@ public:
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
@@ -78,8 +81,21 @@ public:
     virtual ~ReadCommand()
     { }
 
+    // PdalBindings::m_readCommands maintains a map of currently executing
+    // READ commands.  These entries need to be removed once their execution
+    // is complete.  However, the only objects that may be accessed from
+    // the uv_work_queue background threading functions are those which are
+    // wrapped within this ReadCommand* class.  So when this ReadCommand is
+    // finished executing, we need to erase ourselves from this map.
+    void eraseSelf()
+    {
+        m_readCommands.erase(m_readId);
+    }
+
 protected:
     const std::shared_ptr<PdalSession> m_pdalSession;
+    std::map<std::string, ReadCommand*>& m_readCommands;
+    const std::string m_readId;
     const std::string m_host;
     const std::size_t m_port;
     const Schema m_schema;
@@ -101,13 +117,22 @@ class ReadCommandUnindexed : public ReadCommand
 public:
     ReadCommandUnindexed(
             std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             std::size_t start,
             std::size_t count,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, schema, callback)
+        : ReadCommand(
+                pdalSession,
+                readCommands,
+                readId,
+                host,
+                port,
+                schema,
+                callback)
         , m_start(start)
         , m_count(count)
     { }
@@ -124,6 +149,8 @@ class ReadCommandPointRadius : public ReadCommand
 public:
     ReadCommandPointRadius(
             std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
@@ -133,7 +160,14 @@ public:
             double y,
             double z,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, schema, callback)
+        : ReadCommand(
+                pdalSession,
+                readCommands,
+                readId,
+                host,
+                port,
+                schema,
+                callback)
         , m_is3d(is3d)
         , m_radius(radius)
         , m_x(x)
@@ -156,6 +190,8 @@ class ReadCommandQuadIndex : public ReadCommand
 public:
     ReadCommandQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
@@ -166,7 +202,14 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, schema, callback)
+        : ReadCommand(
+                pdalSession,
+                readCommands,
+                readId,
+                host,
+                port,
+                schema,
+                callback)
         , m_xMin(xMin)
         , m_yMin(yMin)
         , m_xMax(xMax)
@@ -178,13 +221,22 @@ public:
 
     ReadCommandQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> callback)
-        : ReadCommand(pdalSession, host, port, schema, callback)
+        : ReadCommand(
+                pdalSession,
+                readCommands,
+                readId,
+                host,
+                port,
+                schema,
+                callback)
         , m_xMin()
         , m_yMin()
         , m_xMax()
@@ -211,7 +263,9 @@ class ReadCommandFactory
 {
 public:
     static ReadCommand* create(
-            const v8::Arguments& args,
-            std::shared_ptr<PdalSession> pdalSession);
+            std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
+            const v8::Arguments& args);
 };
 
