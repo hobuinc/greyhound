@@ -9,6 +9,8 @@ using namespace v8;
 namespace
 {
     const std::size_t chunkSize = 65536;
+    const std::size_t readIdSize = 24;
+    const std::string hexValues = "0123456789ABCDEF";
 
     bool isInteger(const Value& value)
     {
@@ -19,13 +21,25 @@ namespace
     {
         return value.IsNumber() && !isInteger(value);
     }
+
+    std::string generateReadId()
+    {
+        std::string id(readIdSize, '0');
+
+        for (std::size_t i(0); i < id.size(); ++i)
+        {
+            id[i] = hexValues[rand() % hexValues.size()];
+        }
+
+        return id;
+    }
 }
 
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession()
-    , m_readCommand()
+    , m_readCommands()
 { }
 
 PdalBindings::~PdalBindings()
@@ -243,16 +257,25 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     // the input args.  If there is an error with the input args, this call
     // will attempt to make an error callback (if a callback argument can be
     // identified) and return a null ptr.
-    obj->m_readCommand = ReadCommandFactory::create(args, obj->m_pdalSession);
+    const std::string readId(generateReadId());
 
-    if (!obj->m_readCommand)
+    ReadCommand* readCommand(
+        ReadCommandFactory::create(
+            obj->m_pdalSession,
+            obj->m_readCommands,
+            readId,
+            args));
+
+    if (!readCommand)
     {
         return scope.Close(Undefined());
     }
 
+    obj->m_readCommands[readId] = readCommand;
+
     // Store our read command where our worker functions can access it.
     uv_work_t* readReq(new uv_work_t);
-    readReq->data = obj->m_readCommand;
+    readReq->data = readCommand;
 
     // Read points asynchronously.
     uv_queue_work(
@@ -296,10 +319,13 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
             HandleScope scope;
 
-            const unsigned argc = 3;
+            const std::string id(readCommand->readId());
+
+            const unsigned argc = 4;
             Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
+                    Local<Value>::New(String::New(id.data(), id.size())),
                     Local<Value>::New(Integer::New(readCommand->numPoints())),
                     Local<Value>::New(Integer::New(readCommand->numBytes()))
                 };
@@ -364,6 +390,8 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     ReadCommand* readCommand(
                         reinterpret_cast<ReadCommand*>(sendReq->data));
 
+                    readCommand->eraseSelf();
+
                     // Read and data transmission complete.  Clean everything
                     // up - the bufferTransmitter may no longer be used.
                     delete readCommand;
@@ -381,16 +409,23 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 Handle<Value> PdalBindings::cancel(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
     bool cancelled(false);
 
-    // TODO Race condition.  Mutex here with the deletes in read().
-    if (obj->m_readCommand)
+    if (!args[0]->IsUndefined() && args[0]->IsString())
     {
-        obj->m_readCommand->cancel(true);
-        cancelled = true;
-        std::cout << "Cancelling..." << std::endl;
+        const std::string readId(*v8::String::Utf8Value(args[0]->ToString()));
+
+        PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+        auto it(obj->m_readCommands.find(readId));
+
+        // TODO Race condition.  Mutex here with the deletes in read().
+        if (it != obj->m_readCommands.end())
+        {
+            it->second->cancel(true);
+            cancelled = true;
+            std::cout << "Cancelling..." << std::endl;
+        }
     }
 
     return scope.Close(Boolean::New(cancelled));

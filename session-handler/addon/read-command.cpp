@@ -39,11 +39,15 @@ void errorCallback(
 
 ReadCommand::ReadCommand(
         std::shared_ptr<PdalSession> pdalSession,
-        std::string host,
-        std::size_t port,
-        Schema schema,
+        std::map<std::string, ReadCommand*>& readCommands,
+        const std::string readId,
+        const std::string host,
+        const std::size_t port,
+        const Schema schema,
         v8::Persistent<v8::Function> callback)
     : m_pdalSession(pdalSession)
+    , m_readCommands(readCommands)
+    , m_readId(readId)
     , m_host(host)
     , m_port(port)
     , m_schema(schemaOrDefault(schema))
@@ -139,8 +143,10 @@ void ReadCommandPointRadius::run()
 }
 
 ReadCommand* ReadCommandFactory::create(
-        const Arguments& args,
-        std::shared_ptr<PdalSession> pdalSession)
+        std::shared_ptr<PdalSession> pdalSession,
+        std::map<std::string, ReadCommand*>& readCommands,
+        const std::string readId,
+        const Arguments& args)
 {
     HandleScope scope;
 
@@ -215,6 +221,8 @@ ReadCommand* ReadCommandFactory::create(
             {
                 readCommand = new ReadCommandUnindexed(
                         pdalSession,
+                        readCommands,
+                        readId,
                         host,
                         port,
                         schema,
@@ -263,6 +271,8 @@ ReadCommand* ReadCommandFactory::create(
                     {
                         readCommand = new ReadCommandQuadIndex(
                                 pdalSession,
+                                readCommands,
+                                readId,
                                 host,
                                 port,
                                 schema,
@@ -289,6 +299,8 @@ ReadCommand* ReadCommandFactory::create(
 
                 readCommand = new ReadCommandQuadIndex(
                         pdalSession,
+                        readCommands,
+                        readId,
                         host,
                         port,
                         schema,
@@ -314,6 +326,8 @@ ReadCommand* ReadCommandFactory::create(
 
             readCommand = new ReadCommandPointRadius(
                     pdalSession,
+                    readCommands,
+                    readId,
                     host,
                     port,
                     schema,

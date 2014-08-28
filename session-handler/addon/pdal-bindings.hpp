@@ -36,7 +36,7 @@ private:
     std::shared_ptr<PdalSession> m_pdalSession;
 
     // Make this a member to facilitate cancel() functionality.
-    ReadCommand* m_readCommand;
+    std::map<std::string, ReadCommand*> m_readCommands;
 
     struct CreateData
     {
