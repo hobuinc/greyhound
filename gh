@@ -17,6 +17,7 @@ stop)
     sudo pkill gh_*
     sudo killall nodejs > /dev/null 2>&1 # TODO Hipache workers don't seem to allow naming.
     sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1
+    redis-cli flushall
     ;;
 *)
     echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
