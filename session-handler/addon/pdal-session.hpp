@@ -12,15 +12,54 @@ class DimInfo;
 class Schema;
 class PdalIndex;
 
+// The Once class allows concurrent users of a shared session to avoid
+// duplicating work, while hiding the shared aspect of the session from callers.
 class Once
 {
 public:
     Once() : m_done(false), m_mutex() { }
-    void lock()     { m_mutex.lock(); }
-    void unlock()   { m_done = true; m_mutex.unlock(); }
+
     bool done() const { return m_done; }
 
+    // This function ensures that the function parameter is executed only one
+    // time, even with multithreaded callers.  It also ensures that subsequent
+    // callers will block until the work is completed if they call while the
+    // work is in progress.
+    //
+    // After execution is complete, no additional blocking or work will be
+    // performed.
+    void ensure(std::function<void ()> function)
+    {
+        if (!done())
+        {
+            lock();
+
+            if (!done())
+            {
+                try
+                {
+                    function();
+                }
+                catch(std::runtime_error& e)
+                {
+                    unlock();
+                    throw e;
+                }
+                catch(...)
+                {
+                    unlock();
+                    throw std::runtime_error("Error in ensure function");
+                }
+            }
+
+            unlock();
+        }
+    }
+
 private:
+    void lock()     { m_mutex.lock(); }
+    void unlock()   { m_done = true; m_mutex.unlock(); } // Must be this order!
+
     bool m_done;
     std::mutex m_mutex;
 };
@@ -103,6 +142,9 @@ public:
         : m_kdIndex2d()
         , m_kdIndex3d()
         , m_quadIndex()
+        , m_kd2dOnce()
+        , m_kd3dOnce()
+        , m_quadOnce()
     { }
 
     enum IndexType
@@ -112,10 +154,9 @@ public:
         QuadIndex
     };
 
-    bool isIndexed(IndexType indexType) const;
     void ensureIndex(
             IndexType indexType,
-            const pdal::PointBufferPtr pointBuffer);
+            const pdal::PointBufferPtr pointBufferPtr);
 
     const pdal::KDIndex& kdIndex2d()    { return *m_kdIndex2d.get(); }
     const pdal::KDIndex& kdIndex3d()    { return *m_kdIndex3d.get(); }
@@ -125,6 +166,10 @@ private:
     std::unique_ptr<pdal::KDIndex> m_kdIndex2d;
     std::unique_ptr<pdal::KDIndex> m_kdIndex3d;
     std::unique_ptr<pdal::QuadIndex> m_quadIndex;
+
+    Once m_kd2dOnce;
+    Once m_kd3dOnce;
+    Once m_quadOnce;
 
     // Disallow copy/assignment.
     PdalIndex(const PdalIndex&);

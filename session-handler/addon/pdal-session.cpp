@@ -15,51 +15,30 @@ PdalSession::PdalSession()
 
 void PdalSession::initialize(const std::string& pipeline, const bool execute)
 {
-    // Calls occuring after initialization has finished should not bother
-    // trying the mutex.
-    if (!m_initOnce.done())
-    {
-        // The first caller will obtain this lock and initialize the session.
-        // If subsequent callers try to initialize the session while it is in
-        // progress, they will block here until completion.  Because the
-        // initializer sets m_initialized = true, subsequent callers will not
-        // repeat any initialization work.  However we must block them until
-        // initialization completes so they don't make any other calls on the
-        // partially initialized session.
-        //
-        // Having any concurrent callers lock/unlock the mutex is not ideal,
-        // however the possibility of spurious failure in
-        // std::mutex::try_lock() precludes it as an option in this situation.
-        // Once initialization is finished this is no longer an issue.
-        m_initOnce.lock();
 
-        if (!m_initOnce.done())
+    m_initOnce.ensure([this, &pipeline, execute]() {
+        std::istringstream ssPipeline(pipeline);
+        pdal::PipelineReader pipelineReader(m_pipelineManager);
+        pipelineReader.readPipeline(ssPipeline);
+
+        // This block could take a substantial amount of time.  The
+        // PdalBindings wrapper ensures that it will run in a non-blocking
+        // manner in the uv_work_queue.
+        if (execute)
         {
-            std::istringstream ssPipeline(pipeline);
-            pdal::PipelineReader pipelineReader(m_pipelineManager);
-            pipelineReader.readPipeline(ssPipeline);
+            m_pipelineManager.execute();
+            const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
+            m_pointBuffer = *pbSet.begin();
 
-            // This block could take a substantial amount of time.  The
-            // PdalBindings wrapper ensures that it will run in a non-blocking
-            // manner in the uv_work_queue.
-            if (execute)
+            if (!m_pointBuffer->context().hasDim(pdal::Dimension::Id::X) ||
+                !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Y) ||
+                !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Z))
             {
-                m_pipelineManager.execute();
-                const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-                m_pointBuffer = *pbSet.begin();
-
-                if (!m_pointBuffer->context().hasDim(pdal::Dimension::Id::X) ||
-                    !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Y) ||
-                    !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Z))
-                {
-                    throw std::runtime_error(
-                        "Pipeline output should contain X, Y and Z dimensions");
-                }
+                throw std::runtime_error(
+                    "Pipeline output should contain X, Y and Z dimensions");
             }
         }
-
-        m_initOnce.unlock();
-    }
+    });
 }
 
 std::size_t PdalSession::getNumPoints() const
@@ -244,44 +223,34 @@ std::size_t PdalSession::readIndexList(
     return pointsToRead;
 }
 
-bool PdalIndex::isIndexed(const IndexType indexType) const
+void PdalIndex::ensureIndex(
+        const IndexType indexType,
+        const pdal::PointBufferPtr pointBufferPtr)
 {
+    const pdal::PointBuffer& pointBuffer(*pointBufferPtr.get());
+
     switch (indexType)
     {
         case KdIndex2d:
-            return m_kdIndex2d.get();
+            m_kd2dOnce.ensure([this, &pointBuffer]() {
+                m_kdIndex2d.reset(new pdal::KDIndex(pointBuffer));
+                m_kdIndex2d->build(pointBuffer.context(), false);
+            });
+            break;
         case KdIndex3d:
-            return m_kdIndex3d.get();
+            m_kd3dOnce.ensure([this, &pointBuffer]() {
+                m_kdIndex3d.reset(new pdal::KDIndex(pointBuffer));
+                m_kdIndex3d->build(pointBuffer.context(), true);
+            });
+            break;
         case QuadIndex:
-            return m_quadIndex.get();
+            m_quadOnce.ensure([this, &pointBuffer]() {
+                m_quadIndex.reset(new pdal::QuadIndex(pointBuffer));
+                m_quadIndex->build();
+            });
+            break;
         default:
             throw std::runtime_error("Invalid PDAL index type");
-    }
-}
-
-void PdalIndex::ensureIndex(
-        const IndexType indexType,
-        const pdal::PointBufferPtr pointBuffer)
-{
-    if (!isIndexed(indexType))
-    {
-        switch (indexType)
-        {
-            case KdIndex2d:
-                m_kdIndex2d.reset(new pdal::KDIndex(*pointBuffer.get()));
-                m_kdIndex2d->build(pointBuffer->context(), false);
-                break;
-            case KdIndex3d:
-                m_kdIndex3d.reset(new pdal::KDIndex(*pointBuffer.get()));
-                m_kdIndex3d->build(pointBuffer->context(), true);
-                break;
-            case QuadIndex:
-                m_quadIndex.reset(new pdal::QuadIndex(*pointBuffer.get()));
-                m_quadIndex->build();
-                break;
-            default:
-                throw std::runtime_error("Invalid PDAL index type");
-        }
     }
 }
 
