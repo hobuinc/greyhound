@@ -38,7 +38,7 @@ namespace
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
-    : m_pdalSession()
+    : m_pdalSession(new PdalSession())
     , m_readCommands()
 { }
 
@@ -121,10 +121,6 @@ void PdalBindings::doInitialize(
     const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
-    // Perform PdalSession construction here.  This way we can use a single
-    // PdalBindings object to validate multiple pipelines.
-    obj->m_pdalSession.reset(new PdalSession());
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
