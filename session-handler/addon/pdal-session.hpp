@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include <boost/asio.hpp>
 
 #include <pdal/PipelineManager.hpp>
@@ -9,6 +11,19 @@
 class DimInfo;
 class Schema;
 class PdalIndex;
+
+class Once
+{
+public:
+    Once() : m_done(false), m_mutex() { }
+    void lock()     { m_mutex.lock(); }
+    void unlock()   { m_done = true; m_mutex.unlock(); }
+    bool done() const { return m_done; }
+
+private:
+    bool m_done;
+    std::mutex m_mutex;
+};
 
 class PdalSession
 {
@@ -59,8 +74,8 @@ public:
 private:
     pdal::PipelineManager m_pipelineManager;
     pdal::PointBufferPtr m_pointBuffer;
-    bool m_parsed;
-    bool m_initialized;
+
+    Once m_initOnce;
 
     std::unique_ptr<PdalIndex> m_pdalIndex;
 
@@ -84,7 +99,11 @@ private:
 class PdalIndex
 {
 public:
-    PdalIndex() : m_kdIndex2d(), m_kdIndex3d(), m_quadIndex() { }
+    PdalIndex()
+        : m_kdIndex2d()
+        , m_kdIndex3d()
+        , m_quadIndex()
+    { }
 
     enum IndexType
     {
@@ -94,7 +113,9 @@ public:
     };
 
     bool isIndexed(IndexType indexType) const;
-    void indexData(IndexType indexType, const pdal::PointBufferPtr pointBuffer);
+    void ensureIndex(
+            IndexType indexType,
+            const pdal::PointBufferPtr pointBuffer);
 
     const pdal::KDIndex& kdIndex2d()    { return *m_kdIndex2d.get(); }
     const pdal::KDIndex& kdIndex3d()    { return *m_kdIndex3d.get(); }

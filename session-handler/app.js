@@ -80,6 +80,13 @@ app.post("/create", function(req, res) {
     var pipeline = req.body.pipeline;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
 
+    // Make sure to set these outside of the callback so that if another
+    // request for this pipeline comes immediately after this one, it doesn't
+    // create a new PdalSession and clobber our pipelineIds mapping.
+    var sessionId = createId();
+    sessions[sessionId]     = pdalSession;
+    pipelineIds[pipelineId] = pdalSession;
+
     // It is safe to call create multiple times on a PdalSession, and it will
     // only actually be created one time.  Subsequent create calls will come
     // back immediately if the initial creation is complete, or if the initial
@@ -91,10 +98,6 @@ app.post("/create", function(req, res) {
             return error(res)(err);
         }
 
-        var sessionId = createId();
-        sessions[sessionId] = pdalSession;
-        // TODO Initialize timestamp for this session.
-        pipelineIds[pipelineId] = pdalSession;
         console.log('Created session:', sessionId);
         res.json({ sessionId: sessionId });
     });

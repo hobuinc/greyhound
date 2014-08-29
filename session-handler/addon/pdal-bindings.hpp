@@ -20,9 +20,7 @@ private:
 
     static v8::Handle<v8::Value> construct(const v8::Arguments& args);
 
-    static void doInitialize(
-            const v8::Arguments& args,
-            bool execute = true);
+    static void doInitialize(const v8::Arguments& args, bool execute = true);
     static v8::Handle<v8::Value> parse(const v8::Arguments& args);
     static v8::Handle<v8::Value> create(const v8::Arguments& args);
 
