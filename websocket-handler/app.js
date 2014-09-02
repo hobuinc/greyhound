@@ -82,7 +82,9 @@ var propError = function(missingProp) {
 //      hash("plCount:<pipelineId>"):
 //          hash mapping each session handler from above with its client count
 //      hash("sessionAffinity"):
-//          hash mapping of a sessionId to a session handler
+//          hash mapping a sessionId to a session handler
+//      hash("sessionToPipeline"):
+//          hash mapping a sessionId to its pipelineId
 
 var redisClient = redis.createClient();
 redisClient.on('error', function(err) {
@@ -104,7 +106,7 @@ var addToPlAffList = function(pipelineId, sh, cb) {
 }
 
 var delFromPlAffList = function(pipelineId, sh, cb) {
-    redisClient.lrem(plAffList(pipelineId), sh, 0, function(err) {
+    redisClient.lrem(plAffList(pipelineId), 0, sh, function(err) {
         cb(err);
     });
 }
@@ -114,8 +116,8 @@ var countsHash = function(pipelineId) {
 }
 
 var incrCountsHash = function(pipelineId, sh, cb) {
-    redisClient.hincrby(countsHash(pipelineId), sh, 1, function(err) {
-        cb(err);
+    redisClient.hincrby(countsHash(pipelineId), sh, 1, function(err, val) {
+        cb(err, val);
     });
 }
 
@@ -127,7 +129,7 @@ var decrCountsHash = function(pipelineId, sh, cb) {
             });
         }
         else {
-            return cb(err);
+            return cb(err, val);
         }
     });
 }
@@ -139,15 +141,18 @@ var getCounts = function(pipelineId, cb) {
 };
 
 var redisShHash = "sessionAffinity";
+var redisSessionToPl = "sessionToPipeline";
 
-// TODO
-var setSessionAffinity = function(sessionId, sh, cb) {
+var setSessionAffinity = function(sessionId, pipelineId, sh, cb) {
     redisClient.hset(redisShHash, sessionId, sh, function(err) {
-        cb(err);
+        if (err) return cb(err);
+
+        redisClient.hset(redisSessionToPl, sessionId, pipelineId, function(err) {
+            cb(err);
+        });
     });
 }
 
-// TODO
 var getSessionAffinity = function(sessionId, cb) {
     if (!sessionId) return cb(propError('session'));
 
@@ -158,10 +163,21 @@ var getSessionAffinity = function(sessionId, cb) {
     });
 }
 
-// TODO
-var delSessionAffinity = function(sessionId, cb) {
+var delSessionAffinity = function(sessionId, sh, cb) {
     redisClient.hdel(redisShHash, sessionId, function(err) {
-        cb(err);
+        if (err) return cb(err);
+
+        redisClient.hget(redisSessionToPl, sessionId, function(err, plId) {
+            if (err) return cb(err);
+
+            redisClient.hdel(redisSessionToPl, sessionId, function(err) {
+                if (err) return cb(err);
+
+                decrCountsHash(plId, sh, function(err, count) {
+                    return cb(err);
+                });
+            });
+        });
     });
 }
 
@@ -298,9 +314,14 @@ var createSession = function(pipelineId, pipeline, cb) {
             if (!res.hasOwnProperty('sessionId'))
                 return cb('Invalid response from CREATE');
 
-            setSessionAffinity(res.sessionId, sessionHandler, function(err) {
-                return cb(err, { session: res.sessionId });
-            });
+            setSessionAffinity(
+                res.sessionId,
+                pipelineId,
+                sessionHandler,
+                function(err) {
+                    return cb(err, { session: res.sessionId });
+                }
+            );
         });
     });
 }
@@ -417,7 +438,7 @@ process.nextTick(function() {
                 web._delete(sessionHandler, '/' + session, function(err, res) {
                     if (err) return cb(err);
 
-                    delSessionAffinity(session, function(err) {
+                    delSessionAffinity(session, sessionHandler, function(err) {
                         if (err)
                             console.log('Delete unclean for session', session);
 
