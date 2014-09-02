@@ -28,8 +28,6 @@ app.configure(function() {
     app.use(app.router);
 });
 
-// TODO For now, never expire a PdalSession.  Need to keep track of when
-// they are used so we can expire them.
 var sessions    = { }; // sessionId -> pdalSession (many to one)
 var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
 
@@ -37,7 +35,6 @@ var getSession = function(res, sessionId, cb) {
     if (!sessions[sessionId])
         return res.json(404, { message: 'No such session' });
 
-    // TODO Update timestamp for this session.
     cb(sessionId, sessions[sessionId]);
 };
 
