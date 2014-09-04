@@ -7,7 +7,6 @@ var WebSocketServer = require('ws').Server
   , http = require('http')
   , express = require('express')
   , seaport = require('seaport')
-  , redis = require('redis')
 
   , web = require('./lib/web')
   , port = (process.env.PORT || 8080)
@@ -15,13 +14,17 @@ var WebSocketServer = require('ws').Server
 
   , CommandHandler = require('./lib/command-handler').CommandHandler
   , TcpToWs = require('./lib/tcp-ws').TcpToWs
+  , Affinity = require('./lib/affinity').Affinity
   , streamers = { }
 
   // TODO Configuration options.
   , softSessionShareMax = 2
   , hardSessionShareMax = 0
-  , sessionTimeoutMinutes = 1
+  , sessionTimeoutMinutes = .25
+  , expirePeriodSec = 5;
   ;
+
+var affinity = new Affinity(expirePeriodSec, sessionTimeoutMinutes);
 
 var getTimeSec = function() {
     return Math.round(Date.now() / 1000);
@@ -78,176 +81,17 @@ var propError = function(missingProp) {
     return new Error('Missing property: ' + missingProp);
 }
 
-// REDIS SCHEMA:
-//      hash("plAffinities:<pipelineId>"):
-//          hash mapping each session handler with an affinity for this
-//          pipeline with its number of open client connections to the pipeline
-//      hash("plTouched:<pipelineId>"):
-//          hash mapping each session handler from above with its last used time
-//
-//      hash("sessionAffinity"):
-//          hash mapping a sessionId to a session handler
-//      hash("sessionToPipeline"):
-//          hash mapping a sessionId to its pipelineId
+var getShCandidate = function(pipelineId, cb) {
+    affinity.getPipelineHandlers(pipelineId, function(err, counts) {
+        var shList = Object.keys(counts);
 
-var redisClient = redis.createClient();
-redisClient.on('error', function(err) {
-    console.log('Connection to redis server errored: ' + err);
-});
+        console.log('COUNTS', counts);
 
-redisClient.on('ready', function() {
-    console.log('Connection to redis server established.');
-});
-
-var plAffinities = function(pipelineId) {
-    return "plAffinities:" + pipelineId;
-}
-
-var addToPlAffinities = function(pipelineId, sh, cb) {
-    redisClient.hincrby(plAffinities(pipelineId), sh, 1, function(err) {
-        return cb(err);
-    });
-}
-
-var getPlAffinities = function(pipelineId, cb) {
-    redisClient.hkeys(plAffinities(pipelineId), function(err, plAffinities) {
-        return cb(err, plAffinities);
-    });
-}
-
-var delFromPlAffinities = function(pipelineId, sh, cb) {
-    redisClient.hincrby(plAffinities(pipelineId), sh, -1, function(err, val) {
-        if (!val || err) {
-            redisClient.hdel(plAffinities(pipelineId), sh, function(err) {
-                return cb(err);
-            });
-        }
-        else {
-            return cb(err);
-        }
-    });
-}
-
-var getPlCounts = function(pipelineId, cb) {
-    redisClient.hgetall(plAffinities(pipelineId), function(err, usage) {
-        console.log('COUNT GET', usage);
-        if (err) return cb(err);
-
-        var shList = Object.keys(usage);
-        var bestSh = shList[0];
-        var bestShCount = parseInt(usage[bestSh]);
-
-        console.log(shList);
-
-        for (var curSh in usage) {
-            var curCount = parseInt(usage[curSh]);
-            if (curCount < bestShCount) {
-                bestSh = curSh;
-                bestShCount = curCount;
-            }
-        }
-
-        console.log('best:', bestSh, bestShCount);
-
-        return cb(err, shList, bestSh, bestShCount);
-    });
-};
-
-/*
-var touchedHash = function(pipelineId) {
-    return "plTouched:" + pipelineId;
-}
-
-var touch = function(pipelineId, sh, cb) {
-    redisClient.hset(touchedHash(pipelineId), sh, getTimeSec(), function(err, t) {
-        return cb(err, t);
-    });
-}
-
-var getTouchedTime = function(pipelineId, sh, cb) {
-    redisClient.hget(touchedHash(pipelineId), sh, function(err, touched) {
-        return cb(err, touched);
-    });
-}
-*/
-
-var redisShHash = "sessionAffinity";
-var redisSessionToPl = "sessionToPipeline";
-
-var setSessionAffinity = function(sessionId, pipelineId, sh, cb) {
-    redisClient.hset(redisShHash, sessionId, sh, function(err) {
-        if (err) return cb(err);
-
-        redisClient.hset(redisSessionToPl, sessionId, pipelineId, function(err) {
-            cb(err);
-        });
-    });
-}
-
-var getSessionAffinity = function(sessionId, cb) {
-    if (!sessionId) return cb(propError('session'));
-
-    redisClient.hget(redisShHash, sessionId, function(err, sh) {
-        if (!err && !sh) {
-            err = new Error('Could not retrieve session ' + sessionId);
-        }
-        else {
-            // TODO Update this the last-touched time for this sessionHandler
-            // and this pipelineId.  Need to get the pipelineId for this
-            // sessionId.
-        }
-
-        return cb(err, sh);
-    });
-}
-
-var delSessionAffinity = function(sessionId, sh, cb) {
-    redisClient.hdel(redisShHash, sessionId, function(err) {
-        if (err) return cb(err);
-
-        redisClient.hget(redisSessionToPl, sessionId, function(err, plId) {
-            if (err) return cb(err);
-
-            redisClient.hdel(redisSessionToPl, sessionId, function(err) {
-                if (err) return cb(err);
-
-                delFromPlAffinities(plId, sh, function(err, count) {
-                    return cb(err);
-                });
-            });
-        });
-    });
-}
-
-var addNewPlAffinity = function(pipelineId, sh, cb) {
-    // No binding for this pipelineId.  Pick a sessionHandler for it.
-    addToPlAffList(pipelineId, sh, function(err) {
-        if (err) return cb(err);
-
-        addToPlAffinities(pipelineId, sh, function(err) {
-            if (err) {
-                delFromPlAffList(pipelineId, sh, function(err) {
-                    console.log('Could not delete pipeline affinity');
-                    return cb(err);
-                });
-            }
-
-            return cb(err);
-        });
-    });
-}
-
-var getOrAssignPipelineAffinity = function(pipelineId, cb) {
-    getPlAffinities(pipelineId, function(err, plAffinities) {
-        if (!plAffinities.length) {
+        if (!shList.length) {
             console.log('Assigning initial pipeline affinity');
             // This pipeline has no affinities.  Assign a random one.
             pickSessionHandler({ }, function(err, sh) {
-                if (err) return cb(err);
-
-                addToPlAffinities(pipelineId, sh, function(err) {
-                    return cb(err, sh);
-                });
+                return cb(err, sh);
             });
         }
         else {
@@ -255,52 +99,52 @@ var getOrAssignPipelineAffinity = function(pipelineId, cb) {
             // If there are too many concurrent sessions for the pipeline on
             // the same session handler, we'll try to offload to a new one.
             // Otherwise we prefer to share.
-            getPlCounts(pipelineId, function(err, shList, bestSh, bestShCount) {
-                if (err) return cb(err);
+            var bestSh = shList[0];
+            var bestShCount = counts[bestSh];
 
-                if (bestShCount < softSessionShareMax ||
-                    softSessionShareMax <= 0) {
-
-                    console.log('Adding to shared pipeline affinity');
-
-                    addToPlAffinities(pipelineId, bestSh, function(err) {
-                        return cb(err, bestSh);
-                    });
+            for (var curSh in shList) {
+                var curCount = counts[curSh];
+                if (curCount < bestShCount) {
+                    bestSh = curSh;
+                    bestShCount = curCount;
                 }
-                else {
-                    // Every session handler that currently has this pipeline
-                    // open is too overloaded for comfort.  If there are any
-                    // other session handlers available, open this pipeline on
-                    // one of them.  Otherwise if every session handler
-                    // currently has this pipeline active, then add this session
-                    // to the session handler that has the smallest client
-                    // loading for this pipeline.
-                    pickSessionHandler(shList, function(err, sh) {
-                        if (err) return cb(err);
+            }
 
-                        if (sh) {
-                            console.log('Offloading pipelineAff to new SH');
-                            addToPlAffinities(pipelineId, sh, function(err) {
-                                return cb(err, sh);
-                            });
+            if (bestShCount < softSessionShareMax ||
+                softSessionShareMax <= 0) {
+
+                console.log('Sharing!');
+                return cb(err, bestSh);
+            }
+            else {
+                // Every session handler that currently has this pipeline
+                // open is too overloaded for comfort.  If there are any
+                // other session handlers available, open this pipeline on
+                // one of them.  Otherwise if every session handler
+                // currently has this pipeline active, then add this session
+                // to the session handler that has the smallest client
+                // loading for this pipeline.
+                pickSessionHandler(shList, function(err, sh) {
+                    if (err) return cb(err);
+
+                    if (sh) {
+                        console.log('Offloading pipelineAff to new SH');
+                        return cb(err, sh);
+                    }
+                    else {
+                        if (bestShCount < hardSessionShareMax ||
+                            hardSessionShareMax <= 0) {
+
+                            console.log('OVERLOADED soft - assigning anyway');
+                            return cb(err, bestSh);
                         }
                         else {
-                            if (bestShCount < hardSessionShareMax ||
-                                hardSessionShareMax <= 0) {
-
-                                console.log('OVERLOADED soft - assigning anyway');
-                                addToPlAffinities(pipelineId, bestSh, function(err) {
-                                    return cb(err, bestSh);
-                                });
-                            }
-                            else {
-                                console.log('No assign, hard limit exceeded');
-                                return "OVERLOADED past hard limit";
-                            }
+                            console.log('No assign - hard limit exceeded');
+                            return "OVERLOADED past hard limit";
                         }
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
     });
 }
@@ -324,7 +168,7 @@ var queryPipeline = function(pipelineId, cb) {
 }
 
 var createSession = function(pipelineId, pipeline, cb) {
-    getOrAssignPipelineAffinity(pipelineId, function(err, sessionHandler) {
+    getShCandidate(pipelineId, function(err, sessionHandler) {
         if (err) return cb(err);
 
         var params = {
@@ -338,10 +182,10 @@ var createSession = function(pipelineId, pipeline, cb) {
             if (!res.hasOwnProperty('sessionId'))
                 return cb('Invalid response from CREATE');
 
-            setSessionAffinity(
-                res.sessionId,
+            affinity.addSession(
                 pipelineId,
                 sessionHandler,
+                res.sessionId,
                 function(err) {
                     return cb(err, { session: res.sessionId });
                 }
@@ -351,8 +195,6 @@ var createSession = function(pipelineId, pipeline, cb) {
 }
 
 process.nextTick(function() {
-    // setup a basic express server
-    //
     var app = express();
     app.use(function(req, res, next) {
         res.header('X-Powered-By', 'Hobu, Inc.');
@@ -382,7 +224,7 @@ process.nextTick(function() {
 
             var params = { pipeline: msg.pipeline };
 
-            pickSessionHandler(function(err, sh) {
+            pickSessionHandler({ }, function(err, sh) {
                 web.get(sh, '/validate/', params, function(err, res) {
                     if (err || !res.valid) {
                         console.log('PUT - Pipeline validation failed');
@@ -426,7 +268,7 @@ process.nextTick(function() {
             var session = msg['session'];
             if (!session) return cb(propError('pointsCount', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
                 web.get(sessionHandler, '/pointsCount/' + session, cb);
             });
@@ -436,7 +278,7 @@ process.nextTick(function() {
             var session = msg['session'];
             if (!session) return cb(propError('dimensions', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
                 web.get(sessionHandler, '/dimensions/' + session, cb);
             });
@@ -446,23 +288,29 @@ process.nextTick(function() {
             var session = msg['session'];
             if (!session) return cb(propError('srs', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
                 web.get(sessionHandler, '/srs/' + session, cb);
             });
         });
 
         handler.on('destroy', function(msg, cb) {
+            // Note: this function does not destroy the actual PdalSession that
+            // was used for this session.  This just erases the session.  The
+            // PdalSession will be destroyed once it has expired, meaning no
+            // sessions have used it for a while.
             var session = msg['session'];
             if (!session) return cb(propError('destroy', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
 
-                web._delete(sessionHandler, '/' + session, function(err, res) {
+                var path = '/sessions/' + session;
+                web._delete(sessionHandler, path, function(err, res) {
                     if (err) return cb(err);
+                    console.log('Erased session', err, res);
 
-                    delSessionAffinity(session, sessionHandler, function(err) {
+                    affinity.delSession(session, function(err) {
                         if (err)
                             console.log('Delete unclean for session', session);
 
@@ -478,7 +326,7 @@ process.nextTick(function() {
             if (!session) return cb(propError('cancel', 'session'));
             if (!readId)  return cb(propError('cancel', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
 
                 var cancel = '/cancel/' + session;
@@ -510,7 +358,7 @@ process.nextTick(function() {
             var session = msg['session'];
             if (!session) return cb(propError('srs', 'session'));
 
-            getSessionAffinity(session, function(err, sessionHandler) {
+            affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
 
                 if (streamers[session])
