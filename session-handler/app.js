@@ -28,7 +28,7 @@ app.configure(function() {
     app.use(app.router);
 });
 
-var sessions    = { }; // sessionId -> pdalSession (many to one)
+var sessions    = { }; // sessionId -> pdalSession (may be many to one)
 var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
 
 var getSession = function(res, sessionId, cb) {
@@ -100,12 +100,37 @@ app.post("/create", function(req, res) {
     });
 });
 
-app.delete("/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.delete("/sessions/:sessionId", function(req, res) {
+    var sessionId = req.params.sessionId;
+    if (sessions.hasOwnProperty(sessionId)) {
         delete sessions[sessionId];
-        console.log('Deleted session:', sessionId);
-        res.json({ message: 'Session deleted' });
-    });
+    }
+    return res.json({ message: 'Removed session' + sessionId });
+});
+
+app.delete("/:pipelineId", function(req, res) {
+    var sessionsRemoved = [];
+    var pipelineId = req.params.pipelineId;
+
+    if (pipelineIds.hasOwnProperty(pipelineId)) {
+        for (var sessionId in sessions) {
+            if (sessions[sessionId] === pipelineIds[pipelineId]) {
+                sessionsRemoved.push(sessionId);
+                delete sessions[sessionId];
+            }
+        }
+
+        pipelineIds[pipelineId].destroy();
+        delete pipelineIds[pipelineId];
+
+        console.log('DESTROY pipelineId', pipelineId);
+        return res.json({ message: 'Deleted', sessions: sessionsRemoved });
+    }
+    else {
+        return res.json(
+            400,
+            { message: 'Pipeline not found' });
+    }
 });
 
 app.get("/pointsCount/:sessionId", function(req, res) {
