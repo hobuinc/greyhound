@@ -8,8 +8,8 @@ export NUMTHREADS
 
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
-sudo git checkout point-context-schema
-cmake   -G "Unix Makefiles"  \
+cmake   -G "Unix Makefiles" \
+        -DWITH_STUBS=OFF \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DPDAL_EMBED_BOOST=OFF \

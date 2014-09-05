@@ -8,6 +8,13 @@ setup_base_packages() {
 	sudo gem install foreman --no-rdoc --no-ri
 	sudo npm install -g hipache
     sudo npm install -g nodeunit
+
+    # Install png++
+    wget http://download.savannah.nongnu.org/releases/pngpp/png++-0.2.5.tar.gz
+    tar zxvf png++-0.2.5.tar.gz
+    cd png++-0.2.5
+    sudo make install PREFIX=/usr
+    cd -;
 }
 
 setup_npm_packages() {

@@ -16,8 +16,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   ppaRepos = [
-      "ppa:ubuntugis/ubuntugis-unstable",
-      "ppa:boost-latest/ppa"
+      "ppa:ubuntugis/ubuntugis-unstable"
   ]
 
   packageList = [
@@ -37,7 +36,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       "python-all-dev",
       "python-numpy",
       "libxml2-dev",
-      "libboost-all-dev",
+      "libboost1.55-all-dev",
       "libbz2-dev",
       "libsqlite0-dev",
       "cmake-curses-gui",
