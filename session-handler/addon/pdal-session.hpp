@@ -4,9 +4,10 @@
 
 #include <boost/asio.hpp>
 
-#include <pdal/PipelineManager.hpp>
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
+#include <pdal/PointContext.hpp>
+#include <pdal/PipelineManager.hpp>
 
 class DimInfo;
 class Schema;
@@ -110,9 +111,15 @@ public:
         return *m_pointBuffer.get();
     }
 
+    const pdal::PointContext& pointContext() const
+    {
+        return m_pointContext;
+    }
+
 private:
     pdal::PipelineManager m_pipelineManager;
     pdal::PointBufferPtr m_pointBuffer;
+    pdal::PointContext m_pointContext;
 
     Once m_initOnce;
 

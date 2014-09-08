@@ -20,7 +20,7 @@ var WebSocketServer = require('ws').Server
   // TODO Configuration options.
   , softSessionShareMax = 2
   , hardSessionShareMax = 0
-  , sessionTimeoutMinutes = .25
+  , sessionTimeoutMinutes = 5
   , expirePeriodSec = 5;
   ;
 
@@ -85,7 +85,7 @@ var getShCandidate = function(pipelineId, cb) {
     affinity.getPipelineHandlers(pipelineId, function(err, counts) {
         var shList = Object.keys(counts);
 
-        console.log('COUNTS', counts);
+        // console.log('COUNTS', counts);
 
         if (!shList.length) {
             console.log('Assigning initial pipeline affinity');
@@ -156,14 +156,13 @@ var queryPipeline = function(pipelineId, cb) {
         var params = { pipelineId: pipelineId };
 
         web.get(db, '/retrieve', params, function(err, res) {
-                if (err)
-                    return cb(err);
-                if (!res.hasOwnProperty('pipeline'))
-                    return cb('Invalid response from RETRIEVE');
-                else
-                    return cb(null, res.pipeline);
-            }
-        );
+            if (err)
+                return cb(err);
+            if (!res.hasOwnProperty('pipeline'))
+                return cb('Invalid response from RETRIEVE');
+            else
+                return cb(null, res.pipeline);
+        });
     });
 }
 
@@ -334,19 +333,26 @@ process.nextTick(function() {
 
                 web.post(sessionHandler, cancel, params, function(err, res) {
                     console.log('post came back', err);
-                    var streamer = streamers[session];
-                    if (streamer) {
-                        console.log(
-                            'Cancelled.  Arrived:',
-                            streamer.totalArrived,
-                            'Sent:',
-                            streamer.totalSent);
+                    if (streamers.hasOwnProperty(session)) {
+                        var streamer = streamers[session][readId];
 
-                        res['numBytes'] = streamer.totalSent;
+                        if (streamer) {
+                            console.log(
+                                'Cancelled.  Arrived:',
+                                streamer.totalArrived,
+                                'Sent:',
+                                streamer.totalSent);
 
-                        streamer.cancel();
+                            res['numBytes'] = streamer.totalSent;
 
-                        delete streamers[session];
+                            streamer.cancel();
+
+                            delete streamers[session][readId];
+
+                            if (Object.keys(streamers[session]) == 0) {
+                                delete streamers[session];
+                            }
+                        }
                     }
 
                     return cb(err, res);
@@ -356,20 +362,13 @@ process.nextTick(function() {
 
         handler.on('read', function(msg, cb) {
             var session = msg['session'];
+            var readId = 0;
             if (!session) return cb(propError('srs', 'session'));
 
             affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
 
-                if (streamers[session])
-                    return cb(new Error(
-                            'A "read" request is already executing ' +
-                            'for this session'));
-
                 var streamer = new TcpToWs(ws);
-
-                // TODO Should map from session + readId.
-                streamers[session] = streamer;
 
                 streamer.on('local-address', function(addr) {
                     console.log('local-bound address for read: ', addr);
@@ -397,11 +396,19 @@ process.nextTick(function() {
                         params,
                         function(err, res) {
                             if (err) {
-                                delete streamers[session];
                                 console.log(err);
                                 streamer.close();
                                 return cb(err);
                             }
+
+                            readId = res.readId;
+
+                            if (!streamers.hasOwnProperty(session)) {
+                                streamers[session] = { };
+                            }
+
+                            streamers[session][readId] = streamer;
+
                             console.log(
                                 'TCP-WS - points:',
                                 res.numPoints,
@@ -423,7 +430,11 @@ process.nextTick(function() {
                         's:',
                         streamer.totalSent);
 
-                    delete streamers[session];
+                    delete streamers[session][readId];
+
+                    if (Object.keys(streamers[session]) == 0) {
+                        delete streamers[session];
+                    }
                 });
 
                 streamer.start();

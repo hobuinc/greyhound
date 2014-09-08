@@ -70,8 +70,7 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
     {
         std::vector<DimInfo> dims;
 
-        const pdal::PointContext& pointContext(
-                m_pdalSession->pointBuffer().context());
+        const pdal::PointContext& pointContext(m_pdalSession->pointContext());
 
         const pdal::Dimension::IdList& idList(pointContext.dims());
 

@@ -1,7 +1,9 @@
 #include <thread>
 
+#include <boost/property_tree/json_parser.hpp>
+
 #include <pdal/PipelineReader.hpp>
-#include <pdal/PointContext.hpp>
+#include <pdal/PDALUtils.hpp>
 
 #include "pdal-session.hpp"
 #include "read-command.hpp"
@@ -15,7 +17,6 @@ PdalSession::PdalSession()
 
 void PdalSession::initialize(const std::string& pipeline, const bool execute)
 {
-
     m_initOnce.ensure([this, &pipeline, execute]() {
         std::istringstream ssPipeline(pipeline);
         pdal::PipelineReader pipelineReader(m_pipelineManager);
@@ -27,12 +28,13 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         if (execute)
         {
             m_pipelineManager.execute();
+            m_pointContext = m_pipelineManager.context();
             const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
             m_pointBuffer = *pbSet.begin();
 
-            if (!m_pointBuffer->context().hasDim(pdal::Dimension::Id::X) ||
-                !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Y) ||
-                !m_pointBuffer->context().hasDim(pdal::Dimension::Id::Z))
+            if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
+                !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
+                !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
             {
                 throw std::runtime_error(
                     "Pipeline output should contain X, Y and Z dimensions");
@@ -48,12 +50,15 @@ std::size_t PdalSession::getNumPoints() const
 
 std::string PdalSession::getDimensions() const
 {
-    return m_pointBuffer->context().dimsJson();
+    std::ostringstream oss;
+    boost::property_tree::ptree tree(pdal::utils::toPTree(m_pointContext));
+    boost::property_tree::write_json(oss, tree);
+    return oss.str();
 }
 
 std::string PdalSession::getSrs() const
 {
-    return m_pointBuffer->context().spatialRef().getRawWKT();
+    return m_pointContext.spatialRef().getRawWKT();
 }
 
 std::size_t PdalSession::readDim(
@@ -234,13 +239,13 @@ void PdalIndex::ensureIndex(
         case KdIndex2d:
             m_kd2dOnce.ensure([this, &pointBuffer]() {
                 m_kdIndex2d.reset(new pdal::KDIndex(pointBuffer));
-                m_kdIndex2d->build(pointBuffer.context(), false);
+                m_kdIndex2d->build(false);
             });
             break;
         case KdIndex3d:
             m_kd3dOnce.ensure([this, &pointBuffer]() {
                 m_kdIndex3d.reset(new pdal::KDIndex(pointBuffer));
-                m_kdIndex3d->build(pointBuffer.context(), true);
+                m_kdIndex3d->build(true);
             });
             break;
         case QuadIndex:
