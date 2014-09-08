@@ -105,7 +105,7 @@ app.delete("/sessions/:sessionId", function(req, res) {
     if (sessions.hasOwnProperty(sessionId)) {
         delete sessions[sessionId];
     }
-    return res.json({ message: 'Removed session' + sessionId });
+    return res.json({ message: 'Removed session ' + sessionId });
 });
 
 app.delete("/:pipelineId", function(req, res) {

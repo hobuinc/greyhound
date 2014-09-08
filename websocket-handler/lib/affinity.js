@@ -38,7 +38,6 @@ var Affinity = function(expirePeriodSec, sessionTimeoutMinutes) {
             redisClient.srandmember(pipelineIdsSet(plId), function(err, sh) {
                 if (err || !sh) return;
 
-                console.log('Expire candidate:', plId, sh);
                 var targetSh = pipelineIdsSet(plId, sh);
 
                 // Same for this pipeline/sh combo and its last-touched time.
