@@ -273,13 +273,13 @@ process.nextTick(function() {
             });
         });
 
-        handler.on('dimensions', function(msg, cb) {
+        handler.on('schema', function(msg, cb) {
             var session = msg['session'];
-            if (!session) return cb(propError('dimensions', 'session'));
+            if (!session) return cb(propError('schema', 'session'));
 
             affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
-                web.get(sessionHandler, '/dimensions/' + session, cb);
+                web.get(sessionHandler, '/schema/' + session, cb);
             });
         });
 

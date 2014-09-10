@@ -26,7 +26,7 @@ private:
 
     static v8::Handle<v8::Value> destroy(const v8::Arguments& args);
     static v8::Handle<v8::Value> getNumPoints(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getDimensions(const v8::Arguments& args);
+    static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
     static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
     static v8::Handle<v8::Value> cancel(const v8::Arguments& args);

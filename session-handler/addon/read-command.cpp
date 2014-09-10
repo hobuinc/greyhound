@@ -178,10 +178,10 @@ ReadCommand* ReadCommandFactory::create(
         // Unwrap the schema request into native C++ types.
         const Local<Object> schemaObj(args[2]->ToObject());
 
-        if (schemaObj->Has(String::New("dimensions")))
+        if (schemaObj->Has(String::New("schema")))
         {
             const Local<Array> dimArray(
-                    Array::Cast(*(schemaObj->Get(String::New("dimensions")))));
+                    Array::Cast(*(schemaObj->Get(String::New("schema")))));
 
             for (std::size_t i(0); i < dimArray->Length(); ++i)
             {

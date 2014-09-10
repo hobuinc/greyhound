@@ -48,7 +48,7 @@ std::size_t PdalSession::getNumPoints() const
     return m_pointBuffer->size();
 }
 
-std::string PdalSession::getDimensions() const
+std::string PdalSession::getSchema() const
 {
     std::ostringstream oss;
     boost::property_tree::ptree tree(pdal::utils::toPTree(m_pointContext));
