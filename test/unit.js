@@ -14,7 +14,7 @@ var bigPipelineId = '3c51e54a3f0e1b7f4ffd582d4d970162';
 
 // Request only attributes applicable for rendering the data visually.
 var rendererSchema = {
-    "dimensions":
+    "schema":
     [
         {
             "name": "X",
@@ -220,7 +220,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 //      PUT
 //      CREATE
 //      POINTSCOUNT
-//      DIMENSIONS
+//      SCHEMA
 //      SRS
 //      READ
 //      CANCEL
@@ -649,44 +649,44 @@ module.exports = {
         );
     },
 
-    // DIMENSIONS - test command with missing 'session' parameter
+    // SCHEMA - test command with missing 'session' parameter
     // Expect: failure status
-    testDimensionsMissingSession: function(test) {
+    testSchemaMissingSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command': 'dimensions',
+                    'command': 'schema',
                 },
                 res: {
-                    'command':  'dimensions',
+                    'command':  'schema',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // DIMENSIONS - test command with invalid 'session' parameter
+    // SCHEMA - test command with invalid 'session' parameter
     // Expect: failure status
-    testDimensionsInvalidSession: function(test) {
+    testSchemaInvalidSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':  'dimensions',
+                    'command':  'schema',
                     'session':  'I am an invalid session string!',
                 },
                 res: {
-                    'command':  'dimensions',
+                    'command':  'schema',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // DIMENSIONS - test valid command
+    // SCHEMA - test valid command
     // Expect: Successful status and dimensions list
-    testDimensionsValid: function(test) {
+    testSchemaValid: function(test) {
         doExchangeSet(
             test,
             [{
@@ -702,13 +702,13 @@ module.exports = {
             },
             {
                 req: {
-                    'command':  'dimensions',
+                    'command':  'schema',
                     'session':  initialSession,
                 },
                 res: {
                     'status':   ghSuccess,
-                    'command':  'dimensions',
-                    'dimensions':   dontCare,
+                    'command':  'schema',
+                    'schema':   dontCare,
                 },
             },
             {

@@ -74,7 +74,7 @@ public:
     void indexData(bool build3d = false);
 
     std::size_t getNumPoints() const;
-    std::string getDimensions() const;
+    std::string getSchema() const;
     std::string getSrs() const;
 
     // Read un-indexed data with an offset and a count.

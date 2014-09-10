@@ -139,9 +139,9 @@ app.get("/pointsCount/:sessionId", function(req, res) {
     });
 });
 
-app.get("/dimensions/:sessionId", function(req, res) {
+app.get("/schema/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
-        res.json({ dimensions: pdalSession.getDimensions() });
+        res.json({ schema: pdalSession.getSchema() });
     });
 });
 

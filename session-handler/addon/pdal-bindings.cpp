@@ -63,8 +63,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(destroy)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getNumPoints"),
         FunctionTemplate::New(getNumPoints)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getDimensions"),
-        FunctionTemplate::New(getDimensions)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSchema"),
+        FunctionTemplate::New(getSchema)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
         FunctionTemplate::New(getSrs)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("cancel"),
@@ -222,14 +222,14 @@ Handle<Value> PdalBindings::getNumPoints(const Arguments& args)
     return scope.Close(Integer::New(obj->m_pdalSession->getNumPoints()));
 }
 
-Handle<Value> PdalBindings::getDimensions(const Arguments& args)
+Handle<Value> PdalBindings::getSchema(const Arguments& args)
 {
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
-    const std::string dimensions(obj->m_pdalSession->getDimensions());
+    const std::string schema(obj->m_pdalSession->getSchema());
 
-    return scope.Close(String::New(dimensions.data(), dimensions.size()));
+    return scope.Close(String::New(schema.data(), schema.size()));
 }
 
 Handle<Value> PdalBindings::getSrs(const Arguments& args)
