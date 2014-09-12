@@ -4,9 +4,20 @@
 
 #include <pdal/PipelineReader.hpp>
 #include <pdal/PDALUtils.hpp>
+#include <pdal/Dimension.hpp>
 
 #include "pdal-session.hpp"
 #include "read-command.hpp"
+
+namespace
+{
+    bool rasterOmit(pdal::Dimension::Id::Enum id)
+    {
+        // These Dimensions are not explicitly placed in the output buffer
+        // for rasterized requests.
+        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
+    }
+}
 
 PdalSession::PdalSession()
     : m_pipelineManager()
@@ -158,6 +169,44 @@ std::size_t PdalSession::read(
         const double yMin,
         const double xMax,
         const double yMax,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
+    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
+
+    if (false)//rasterize)
+    {
+        // TODO
+        /*
+        const std::vector<std::size_t> results(quadIndex.getPoints(
+                xMin,
+                yMin,
+                xMax,
+                yMax,
+                rasterize,
+                rasterize + 1));
+
+                */
+        return 0;
+    }
+    else
+    {
+        const std::vector<std::size_t> results(quadIndex.getPoints(
+                xMin,
+                yMin,
+                xMax,
+                yMax,
+                depthBegin,
+                depthEnd));
+
+        return readIndexList(buffer, schema, results);
+    }
+}
+
+std::size_t PdalSession::read(
+        std::vector<unsigned char>& buffer,
+        const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -165,15 +214,61 @@ std::size_t PdalSession::read(
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
-            xMin,
-            yMin,
-            xMax,
-            yMax,
             depthBegin,
             depthEnd));
 
-    std::size_t pointsRead = readIndexList(buffer, schema, results);
-    return pointsRead;
+    return readIndexList(buffer, schema, results);
+}
+
+std::size_t PdalSession::read(
+        std::vector<unsigned char>& buffer,
+        const Schema& schema,
+        const std::size_t rasterize,
+        double& xBegin,
+        double& xStep,
+        std::size_t& xNum,
+        double& yBegin,
+        double& yStep,
+        std::size_t& yNum)
+{
+    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
+    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
+
+    //double xBegin, xEnd, xStep, yBegin, yEnd, yStep;
+    double xEnd, yEnd;
+
+    //std::cout << "RASTERING!!!" << std::endl;
+
+    const std::vector<std::size_t> results(quadIndex.getPoints(
+            rasterize,
+            xBegin,
+            xEnd,
+            xStep,
+            yBegin,
+            yEnd,
+            yStep));
+
+    xNum = std::round((xEnd - xBegin) / xStep);
+    yNum = std::round((yEnd - yBegin) / yStep);
+
+    /*
+    std::cout << "RASTER STUFF" << xBegin << ", " << xEnd << ", " <<
+        xStep << " --- " <<
+        yBegin << ", " << yEnd << ", " << yStep << std::endl;
+
+    std::cout << "Test " << std::numeric_limits<std::size_t>::max() <<
+        ", sz " << results.size() << ", rs " << rasterize << std::endl;
+
+    int empty(0);
+    for (std::size_t i(0); i < results.size(); ++i)
+    {
+        if (results[i] == std::numeric_limits<std::size_t>::max())
+            ++empty;
+    }
+    std::cout << empty << " / " << results.size() << " EMPTY" << std::endl;
+    */
+
+    return readIndexList(buffer, schema, results, true);
 }
 
 std::size_t PdalSession::read(
@@ -202,21 +297,46 @@ std::size_t PdalSession::read(
 std::size_t PdalSession::readIndexList(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
-        const std::vector<std::size_t>& indexList) const
+        const std::vector<std::size_t>& indexList,
+        const bool rasterize) const
 {
     const std::size_t pointsToRead(indexList.size());
 
+    std::size_t stride(schema.stride());
+
+    if (rasterize)
+    {
+        for (auto dim : schema.dims)
+        {
+            if (rasterOmit(dim.id))
+            {
+                // TODO Throw if X or Y isn't in the schema?
+                stride -= dim.size;
+            }
+        }
+    }
+
     try
     {
-        buffer.resize(pointsToRead * schema.stride());
+        buffer.resize(pointsToRead * stride, 0);
 
         unsigned char* pos(buffer.data());
 
         for (std::size_t i : indexList)
         {
-            for (const auto& dim : schema.dims)
+            if (i != std::numeric_limits<std::size_t>::max())
             {
-                pos += readDim(pos, dim, i);
+                for (const auto& dim : schema.dims)
+                {
+                    if (!rasterize || !rasterOmit(dim.id))
+                    {
+                        pos += readDim(pos, dim, i);
+                    }
+                }
+            }
+            else
+            {
+                pos += stride;
             }
         }
     }

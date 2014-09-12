@@ -317,8 +317,52 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
             const std::string id(readCommand->readId());
 
-            const unsigned argc = 4;
-            Local<Value> argv[argc] =
+            if (readCommand->rasterize())
+            {
+                ReadCommandQuadIndex* readCommandQuadIndex(
+                        reinterpret_cast<ReadCommandQuadIndex*>(readCommand));
+
+                if (readCommandQuadIndex)
+                {
+                    const unsigned argc = 11;
+                    Local<Value> argv[argc] =
+                    {
+                        Local<Value>::New(Null()), // err
+                        Local<Value>::New(String::New(id.data(), id.size())),
+                        Local<Value>::New(Integer::New(
+                                    readCommandQuadIndex->numPoints())),
+                        Local<Value>::New(Integer::New(
+                                    readCommandQuadIndex->numBytes())),
+                        Local<Value>::New(Integer::New(
+                                    readCommandQuadIndex->rasterize())),
+                        Local<Value>::New(Number::New(
+                                    readCommandQuadIndex->xStart())),
+                        Local<Value>::New(Number::New(
+                                    readCommandQuadIndex->xStep())),
+                        Local<Value>::New(Integer::New(
+                                    readCommandQuadIndex->xNum())),
+                        Local<Value>::New(Number::New(
+                                    readCommandQuadIndex->yStart())),
+                        Local<Value>::New(Number::New(
+                                    readCommandQuadIndex->yStep())),
+                        Local<Value>::New(Integer::New(
+                                    readCommandQuadIndex->yNum()))
+                    };
+
+                    readCommand->callback()->Call(
+                        Context::GetCurrent()->Global(), argc, argv);
+                }
+                else
+                {
+                    errorCallback(
+                        readCommand->callback(),
+                        "Invalid ReadCommand");
+                }
+            }
+            else
+            {
+                const unsigned argc = 4;
+                Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
@@ -326,10 +370,11 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     Local<Value>::New(Integer::New(readCommand->numBytes()))
                 };
 
-            // Call the provided callback to return the status of the
-            // data about to be streamed to the remote host.
-            readCommand->callback()->Call(
-                Context::GetCurrent()->Global(), argc, argv);
+                // Call the provided callback to return the status of the
+                // data about to be streamed to the remote host.
+                readCommand->callback()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+            }
 
             // Dispose of the persistent handle so this callback may be
             // garbage collected.

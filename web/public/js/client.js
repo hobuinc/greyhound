@@ -83,6 +83,7 @@
 		var session;
 		var pointsCount;
 		var dataBuffer = null; // buffer to collect recieved data
+        var meta = null;
 
 		ws.onmessage = function(evt) {
 			if (typeof(evt.data) === "string") {
@@ -140,7 +141,7 @@
                     }
 
                     readParams['schema'] = {
-                        "dimensions":
+                        "schema":
                         [
                             {
                                 "name": "X",
@@ -186,6 +187,9 @@
                     if (urlParams.hasOwnProperty('depthEnd'))
                         readParams['depthEnd'] = urlParams['depthEnd'];
 
+                    if (urlParams.hasOwnProperty('rasterize'))
+                        readParams['rasterize'] = urlParams['rasterize'];
+
 					// This is in response to our create request.  Now request
                     // to receive the data.
 					ws.send(JSON.stringify(readParams));
@@ -207,6 +211,20 @@
 					count		= 0;
 					pointsCount	= msg.numPoints;
 					dataBuffer	= new Int8Array(msg.numBytes);
+
+                    console.log('RASTER?', msg.hasOwnProperty('rasterize'));
+
+                    if (msg.hasOwnProperty('rasterize'))
+                    {
+                        meta = {
+                            xBegin: msg.xBegin,
+                            xStep: msg.xStep,
+                            xNum: msg.xNum,
+                            yBegin: msg.yBegin,
+                            yStep: msg.yStep,
+                            yNum: msg.yNum
+                        };
+                    }
 				}
 				else if (msg.command === "destroy") {
 					if (msg.status === 1) {
@@ -239,7 +257,7 @@
                 // Use setTimeout so that we call the callback outside the
                 // context of ws.onclose
 				setTimeout(function() {
-					cb(null, dataBuffer, pointsCount);
+					cb(null, dataBuffer, pointsCount, meta);
 				}, 0);
 			}
 		};
@@ -247,7 +265,7 @@
 
 	w.doIt = function() {
 		$("#stats").hide();
-		downloadData(message, function(err, data, count) {
+		downloadData(message, function(err, data, count, meta) {
 			if (err)
 				return errorOut(err.message);
 
@@ -260,7 +278,7 @@
 
 			message("Data download complete, handing over to renderer.");
 			try {
-				renderPoints(data, count, message);
+				renderPoints(data, count, meta, message);
 			}
 			catch(e) {
 				errorOut(e.message);
