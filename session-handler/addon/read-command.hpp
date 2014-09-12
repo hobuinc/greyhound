@@ -56,6 +56,7 @@ class ReadCommand
 {
 public:
     virtual void run() = 0;
+    virtual bool rasterize() const { return false; }
 
     void cancel(bool cancel) { m_cancel = cancel; }
     void errMsg(std::string errMsg) { m_errMsg = errMsg; }
@@ -64,7 +65,7 @@ public:
 
     std::string readId()    const { return m_readId; }
     std::size_t numPoints() const { return m_numPoints; }
-    std::size_t numBytes()  const { return m_numPoints * m_schema.stride(); }
+    std::size_t numBytes()  const { return m_data.size(); }
     std::string errMsg()    const { return m_errMsg;    }
     bool        cancel()    const { return m_cancel;    }
     v8::Persistent<v8::Function> callback() const { return m_callback; }
@@ -201,6 +202,7 @@ public:
             double yMax,
             std::size_t depthBegin,
             std::size_t depthEnd,
+            std::size_t rasterize,
             v8::Persistent<v8::Function> callback)
         : ReadCommand(
                 pdalSession,
@@ -216,6 +218,7 @@ public:
         , m_yMax(yMax)
         , m_depthBegin(depthBegin)
         , m_depthEnd(depthEnd)
+        , m_rasterize(rasterize)
         , m_isBBoxQuery(true)
     { }
 
@@ -228,6 +231,7 @@ public:
             Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
+            std::size_t rasterize,
             v8::Persistent<v8::Function> callback)
         : ReadCommand(
                 pdalSession,
@@ -243,10 +247,21 @@ public:
         , m_yMax()
         , m_depthBegin(depthBegin)
         , m_depthEnd(depthEnd)
+        , m_rasterize(rasterize)
         , m_isBBoxQuery(false)
     { }
 
     virtual void run();
+    virtual bool rasterize() const { return m_rasterize != 0; }
+
+    // TODO Split up raster/non-raster queries.  These functions only valid
+    // for rasterized.
+    double xStart() const       { return m_xStart; }
+    double xStep() const        { return m_xStep; }
+    std::size_t xNum() const    { return m_xNum; }
+    double yStart() const       { return m_yStart; }
+    double yStep() const        { return m_yStep; }
+    std::size_t yNum() const    { return m_yNum; }
 
 private:
     const double m_xMin;
@@ -255,6 +270,10 @@ private:
     const double m_yMax;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
+    const std::size_t m_rasterize;
+
+    double m_xStart, m_xStep, m_yStart, m_yStep;
+    std::size_t m_xNum, m_yNum;
 
     const bool m_isBBoxQuery;
 };

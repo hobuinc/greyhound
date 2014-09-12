@@ -178,28 +178,47 @@ app.post("/read/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('read('+ sessionId + ')');
 
-        var readHandler = function(err, readId, numPoints, numBytes) {
+        var readHandler = function(err, readId, numPoints, numBytes,
+            rasterize, xBegin, xStep, xNum, yBegin, yStep, yNum) {
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
             }
             else {
-                return res.json({
-                    readId: readId,
-                    numPoints: numPoints,
-                    numBytes: numBytes,
-                    message:
-                        'Request queued for transmission to ' +
-                        host + ':' + port,
-                });
+                if (rasterize) {
+                    return res.json({
+                        readId: readId,
+                        numPoints: numPoints,
+                        numBytes: numBytes,
+                        rasterize: rasterize,
+                        xBegin: xBegin,
+                        xStep: xStep,
+                        xNum: xNum,
+                        yBegin: yBegin,
+                        yStep: yStep,
+                        yNum: yNum,
+                        message:
+                            'Request queued for transmission to ' +
+                            host + ':' + port,
+                    });
+                }
+                else {
+                    return res.json({
+                        readId: readId,
+                        numPoints: numPoints,
+                        numBytes: numBytes,
+                        message:
+                            'Request queued for transmission to ' +
+                            host + ':' + port,
+                    });
+                }
             }
         };
 
         if (
             args.hasOwnProperty('start') ||
             args.hasOwnProperty('count') ||
-            Object.keys(args).length == 4 ||
-            Object.keys(args).length == 5) {
+            Object.keys(args).length == 4) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
@@ -224,7 +243,8 @@ app.post("/read/:sessionId", function(req, res) {
         else if (
             args.hasOwnProperty('bbox') ||
             args.hasOwnProperty('depthBegin') ||
-            args.hasOwnProperty('depthEnd')) {
+            args.hasOwnProperty('depthEnd') ||
+            args.hasOwnProperty('rasterize')) {
 
             // Indexed read: quadtree query.
             var bbox =
@@ -242,6 +262,11 @@ app.post("/read/:sessionId", function(req, res) {
                     parseInt(args.depthEnd) :
                     0;
 
+            var rasterize =
+                args.hasOwnProperty('rasterize') ?
+                    parseInt(args.rasterize) :
+                    0;
+
             pdalSession.read(
                     host,
                     port,
@@ -249,6 +274,7 @@ app.post("/read/:sessionId", function(req, res) {
                     bbox,
                     depthBegin,
                     depthEnd,
+                    rasterize,
                     readHandler);
         }
         else if (

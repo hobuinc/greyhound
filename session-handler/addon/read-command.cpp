@@ -112,14 +112,32 @@ void ReadCommandQuadIndex::run()
                 m_yMax,
                 m_depthBegin,
                 m_depthEnd);
+
+        // TODO Rasterized bbox query
     }
     else
     {
-        m_numPoints = m_pdalSession->read(
-                m_data,
-                m_schema,
-                m_depthBegin,
-                m_depthEnd);
+        if (rasterize())
+        {
+            m_numPoints = m_pdalSession->read(
+                    m_data,
+                    m_schema,
+                    m_rasterize,
+                    m_xStart,
+                    m_xStep,
+                    m_xNum,
+                    m_yStart,
+                    m_yStep,
+                    m_yNum);
+        }
+        else
+        {
+            m_numPoints = m_pdalSession->read(
+                    m_data,
+                    m_schema,
+                    m_depthBegin,
+                    m_depthEnd);
+        }
     }
 
     m_bufferTransmitter.reset(
@@ -235,7 +253,7 @@ ReadCommand* ReadCommandFactory::create(
             }
         }
         else if (
-            args.Length() == 7 &&
+            args.Length() == 8 &&
             (
                 (isDefined(args[3]) &&
                     args[3]->IsArray() &&
@@ -243,10 +261,12 @@ ReadCommand* ReadCommandFactory::create(
                 !isDefined(args[3])
             ) &&
             isDefined(args[4]) && isInteger(args[4]) &&
-            isDefined(args[5]) && isInteger(args[5]))
+            isDefined(args[5]) && isInteger(args[5]) &&
+            isDefined(args[6]) && isInteger(args[6]))
         {
             const std::size_t depthBegin(args[4]->Uint32Value());
             const std::size_t depthEnd(args[5]->Uint32Value());
+            const std::size_t rasterize(args[6]->Uint32Value());
 
             if (isDefined(args[3]))
             {
@@ -281,6 +301,7 @@ ReadCommand* ReadCommandFactory::create(
                                 yMax,
                                 depthBegin,
                                 depthEnd,
+                                rasterize,
                                 callback);
                     }
                     else
@@ -305,6 +326,7 @@ ReadCommand* ReadCommandFactory::create(
                         schema,
                         depthBegin,
                         depthEnd,
+                        rasterize,
                         callback);
             }
 

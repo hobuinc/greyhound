@@ -96,6 +96,43 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    // Read quad-tree indexed data with a bounding box query and depth level
+    // for rasterization.
+    // TODO
+    /*
+    std::size_t read(
+            std::vector<unsigned char>& buffer,
+            const Schema& schema,
+            double xMin,
+            double yMin,
+            double xMax,
+            double yMax,
+            std::size_t rasterize);
+    */
+
+    // Read quad-tree indexed data with min/max tree depths to search.
+    std::size_t read(
+            std::vector<unsigned char>& buffer,
+            const Schema& schema,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+
+    // Read quad-tree indexed data with depth level for rasterization.
+    std::size_t read(
+            std::vector<unsigned char>& buffer,
+            const Schema& schema,
+            std::size_t rasterize,
+            // TODO Put these 3-tuples in a struct somewhere?  Lots of repeated
+            // args everywhere.
+            // Should probably give it xEnd instead of xNum, and calculate num
+            // only when sending back info for the read.
+            double& xBegin,
+            double& xStep,
+            std::size_t& xNum,
+            double& yBegin,
+            double& yStep,
+            std::size_t& yNum);
+
     // Perform KD-indexed query of point + radius.
     std::size_t read(
             std::vector<unsigned char>& buffer,
@@ -129,7 +166,8 @@ private:
     std::size_t readIndexList(
             std::vector<unsigned char>& buffer,
             const Schema& schema,
-            const std::vector<std::size_t>& indexList) const;
+            const std::vector<std::size_t>& indexList,
+            bool rasterize = false) const;
 
     // Returns number of bytes read into buffer.
     std::size_t readDim(
