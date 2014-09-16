@@ -724,6 +724,47 @@ module.exports = {
         );
     },
 
+
+    // STATS - test valid command
+    // Expect: Successful status and dimensions list
+    testStatsValid: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'stats',
+                    'session':  initialSession,
+                },
+                res: {
+                    'status':   ghSuccess,
+                    'command':  'stats',
+                    'stats':   dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
     // SRS - test command with missing 'session' parameter
     testSrsMissingSession: function(test) {
         doExchangeSet(

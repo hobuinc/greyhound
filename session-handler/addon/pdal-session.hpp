@@ -75,6 +75,7 @@ public:
 
     std::size_t getNumPoints() const;
     std::string getSchema() const;
+    std::string getStats() const;
     std::string getSrs() const;
 
     // Read un-indexed data with an offset and a count.
