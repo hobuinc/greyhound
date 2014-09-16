@@ -4,6 +4,8 @@
 
 #include <pdal/PipelineReader.hpp>
 #include <pdal/PDALUtils.hpp>
+#include <pdal/Options.hpp>
+#include <pdal/Metadata.hpp>
 
 #include "pdal-session.hpp"
 #include "read-command.hpp"
@@ -27,7 +29,15 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         // manner in the uv_work_queue.
         if (execute)
         {
+            pdal::Options options;
+            options.add("do_sample", false);
+            m_pipelineManager.addFilter(
+                "filters.stats",
+                m_pipelineManager.getStage(),
+                options);
+
             m_pipelineManager.execute();
+
             m_pointContext = m_pipelineManager.context();
             const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
             m_pointBuffer = *pbSet.begin();
@@ -54,6 +64,11 @@ std::string PdalSession::getSchema() const
     boost::property_tree::ptree tree(pdal::utils::toPTree(m_pointContext));
     boost::property_tree::write_json(oss, tree);
     return oss.str();
+}
+
+std::string PdalSession::getStats() const
+{
+    return m_pipelineManager.getMetadata().toJSON();
 }
 
 std::string PdalSession::getSrs() const

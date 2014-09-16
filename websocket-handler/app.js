@@ -18,10 +18,10 @@ var WebSocketServer = require('ws').Server
   , streamers = { }
 
   // TODO Configuration options.
-  , softSessionShareMax = 2
+  , softSessionShareMax = 8
   , hardSessionShareMax = 0
-  , sessionTimeoutMinutes = 5
-  , expirePeriodSec = 5;
+  , sessionTimeoutMinutes = 60
+  , expirePeriodSec = 10;
   ;
 
 var affinity = new Affinity(expirePeriodSec, sessionTimeoutMinutes);
@@ -280,6 +280,16 @@ process.nextTick(function() {
             affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
                 web.get(sessionHandler, '/schema/' + session, cb);
+            });
+        });
+
+        handler.on('stats', function(msg, cb) {
+            var session = msg['session'];
+            if (!session) return cb(propError('stats', 'session'));
+
+            affinity.getSh(session, function(err, sessionHandler) {
+                if (err) return cb(err);
+                web.get(sessionHandler, '/stats/' + session, cb);
             });
         });
 

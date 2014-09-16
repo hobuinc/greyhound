@@ -145,6 +145,12 @@ app.get("/schema/:sessionId", function(req, res) {
     });
 });
 
+app.get("/stats/:sessionId", function(req, res) {
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        res.json({ stats: pdalSession.getStats() });
+    });
+});
+
 app.get("/srs/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         res.json({ srs: pdalSession.getSrs() });
