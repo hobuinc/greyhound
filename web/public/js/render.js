@@ -89,15 +89,17 @@
 		scene = new THREE.Scene();
 
         // Populate content
-        var test = false;//true;
+        var test = true;
         var sub = 0;
 
         if (!meta) {
             initPoints(data, count);
         }
         else {
-            if (!test) sub = initRaster(data, count, meta);
-            else initPointsRasterTest(data, count, meta);
+            if (!test)
+                sub = initRaster(data, count, meta);
+            else
+                sub = initBufferGeometry(data, count, meta);
         }
 
         // Render
@@ -320,6 +322,293 @@
 		scene.add(particleSystem);
 	}
 
+    function getX(meta, xIndex) {
+        return meta.xBegin + meta.xStep * xIndex;
+    }
+
+    function getY(meta, yIndex) {
+        return meta.yBegin + meta.yStep * yIndex;
+    }
+
+    function getZIndex(meta, xIndex, yIndex, recordSize) {
+        return recordSize * (yIndex * meta.xNum + xIndex);
+    }
+
+    function initBufferGeometry(data, count, meta) {
+        console.log("INITING BUFFER GEOMETRY");
+        var geometry = new THREE.BufferGeometry();
+		var asDataView = new DataView(data.buffer);
+        var recordSize = 12;
+        var allCornersPresent = true;
+        var triangles = 0;
+
+        console.log(meta.xNum, meta.yNum, 'total', meta.xNum * meta.yNum);
+        for (var y = 0; y < meta.yNum - 1; ++y) {
+            for (var x = 0; x < meta.xNum - 1; ++x) {
+                allCornersPresent = true;
+
+                for (var j = 0; j < 2; ++j) {
+                    for (var i = 0; i < 2; ++i) {
+                        var xIndex = x + i;
+                        var yIndex = x + j;
+                        var pointBase =
+                            recordSize * (yIndex * meta.xNum + xIndex);
+
+                        if (asDataView.getUint32(pointBase, true) == 0) {
+                            allCornersPresent = false;
+                        }
+                    }
+                }
+
+                // Two triangles per square.
+                if (allCornersPresent) triangles += 2;
+            }
+        }
+
+        var xNorm = (meta.xBegin + (meta.xBegin + meta.xStep * meta.xNum)) / 2;
+        var yNorm = (meta.yBegin + (meta.yBegin + meta.yStep * meta.yNum)) / 2;
+
+        // TODO REMOVE
+        //triangles = 2;
+
+        var positions = new Float32Array(triangles * 3 * 3);
+        var normals = new Float32Array(triangles * 3 * 3);
+        var colors = new Float32Array(triangles * 3 * 3);
+
+        // Some preallocations.
+        var color = new THREE.Color();
+
+        var pA = new THREE.Vector3();
+        var pB = new THREE.Vector3();
+        var pC = new THREE.Vector3();
+        var pD = new THREE.Vector3();
+
+        var ab = new THREE.Vector3();
+        var cb = new THREE.Vector3();
+        var bc = new THREE.Vector3();
+        var dc = new THREE.Vector3();
+
+        var pos = 0;
+        var pointBase;
+
+        //TODO REMOVE
+        //var xBase = 0, yBase = 0;
+
+        for (var yBase = 0; yBase < meta.yNum - 1; ++yBase) {
+            for (var xBase = 0; xBase < meta.xNum - 1; ++xBase) {
+                allCornersPresent = true;
+
+                for (var yOffset = 0; yOffset < 2; ++yOffset) {
+                    for (var xOffset = 0; xOffset < 2; ++xOffset) {
+                        var xIndex = xBase + xOffset;
+                        var yIndex = yBase + yOffset;
+                        var pointBase =
+                            recordSize * (yIndex * meta.xNum + xIndex);
+
+                        if (asDataView.getUint32(pointBase, true) == 0) {
+                            allCornersPresent = false;
+                        }
+                    }
+                }
+
+                // Two triangles per square.
+                if (allCornersPresent) {
+                    pointBase = getZIndex(meta, xBase, yBase, recordSize);
+                    var xA = getX(meta, xBase) - xNorm;
+                    var yA = getY(meta, yBase) - yNorm;
+                    var zA = asDataView.getFloat32(pointBase, true);
+                    var rA = asDataView.getUint16(pointBase + 6, true);
+                    var gA = asDataView.getUint16(pointBase + 8, true);
+                    var bA = asDataView.getUint16(pointBase + 10, true);
+
+                    ++xBase;
+
+                    pointBase = getZIndex(meta, xBase, yBase, recordSize);
+                    var xB = getX(meta, xBase) - xNorm;
+                    var yB = getY(meta, yBase) - yNorm;
+                    var zB = asDataView.getFloat32(pointBase, true);
+                    var rB = asDataView.getUint16(pointBase + 6, true);
+                    var gB = asDataView.getUint16(pointBase + 8, true);
+                    var bB = asDataView.getUint16(pointBase + 10, true);
+
+                    --xBase; ++yBase;
+
+                    pointBase = getZIndex(meta, xBase, yBase, recordSize);
+                    var xC = getX(meta, xBase) - xNorm;
+                    var yC = getY(meta, yBase) - yNorm;
+                    var zC = asDataView.getFloat32(pointBase, true);
+                    var rC = asDataView.getUint16(pointBase + 6, true);
+                    var gC = asDataView.getUint16(pointBase + 8, true);
+                    var bC = asDataView.getUint16(pointBase + 10, true);
+
+                    ++xBase;
+
+                    pointBase = getZIndex(meta, xBase, yBase, recordSize);
+                    var xD = getX(meta, xBase) - xNorm;
+                    var yD = getY(meta, yBase) - yNorm;
+                    var zD = asDataView.getFloat32(pointBase, true);
+                    var rD = asDataView.getUint16(pointBase + 6, true);
+                    var gD = asDataView.getUint16(pointBase + 8, true);
+                    var bD = asDataView.getUint16(pointBase + 10, true);
+
+                    --xBase; --yBase;
+
+                    // TODO REMOVE.
+                    //zA = zB = zC = zD = 0;
+
+                    // TODO For now we aren't sharing vertices so we're using
+                    // extra memory.
+                    // Triangle 0
+                    positions[pos + 0] = xA;
+                    positions[pos + 1] = yA;
+                    positions[pos + 2] = zA;
+
+                    positions[pos + 3] = xB;
+                    positions[pos + 4] = yB;
+                    positions[pos + 5] = zB;
+
+                    positions[pos + 6] = xC;
+                    positions[pos + 7] = yC;
+                    positions[pos + 8] = zC;
+
+                    // Triangle 1
+                    positions[pos + 9 ] = xB;
+                    positions[pos + 10] = yB;
+                    positions[pos + 11] = zB;
+
+                    positions[pos + 12] = xD;
+                    positions[pos + 13] = yD;
+                    positions[pos + 14] = zD;
+
+                    positions[pos + 15] = xC;
+                    positions[pos + 16] = yC;
+                    positions[pos + 17] = zC;
+
+                    pA.set(xA, yA, zA);
+					pB.set(xB, yB, zB);
+					pC.set(xC, yC, zC);
+                    pD.set(xD, yD, zD);
+
+					cb.subVectors(pC, pB);
+					ab.subVectors(pA, pB);
+					cb.cross(ab);
+                    bc.subVectors(pC, pD);
+                    dc.subVectors(pC, pB);
+                    bc.cross(dc);
+
+					cb.normalize();
+                    bc.normalize();
+
+					var nx0 = cb.x;
+					var ny0 = cb.y;
+					var nz0 = cb.z;
+
+                    var nx1 = bc.x;
+                    var ny1 = bc.y;
+                    var nz1 = bc.z;
+
+                    normals[pos + 0] = nx0;
+					normals[pos + 1] = ny0;
+					normals[pos + 2] = nz0;
+
+					normals[pos + 3] = nx0;
+					normals[pos + 4] = ny0;
+					normals[pos + 5] = nz0;
+
+					normals[pos + 6] = nx0;
+					normals[pos + 7] = ny0;
+					normals[pos + 8] = nz0;
+
+                    normals[pos + 9 ] = nx1;
+					normals[pos + 10] = ny1;
+					normals[pos + 11] = nz1;
+
+                    normals[pos + 12] = nx1;
+					normals[pos + 13] = ny1;
+					normals[pos + 14] = nz1;
+
+                    normals[pos + 15] = nx1;
+					normals[pos + 16] = ny1;
+					normals[pos + 17] = nz1;
+
+                    colors[pos + 0] = rA / 255.0;
+                    colors[pos + 1] = gA / 255.0;
+                    colors[pos + 2] = bA / 255.0;
+
+                    colors[pos + 3] = rB / 255.0;
+                    colors[pos + 4] = gB / 255.0;
+                    colors[pos + 5] = bB / 255.0;
+
+                    colors[pos + 6] = rC / 255.0;
+                    colors[pos + 7] = gC / 255.0;
+                    colors[pos + 8] = bC / 255.0;
+
+                    colors[pos + 9 ] = rB / 255.0;
+                    colors[pos + 10] = gB / 255.0;
+                    colors[pos + 11] = bB / 255.0;
+
+                    colors[pos + 12] = rD / 255.0;
+                    colors[pos + 13] = gD / 255.0;
+                    colors[pos + 14] = bD / 255.0;
+
+                    colors[pos + 15] = rC / 255.0;
+                    colors[pos + 16] = gC / 255.0;
+                    colors[pos + 17] = bC / 255.0;
+
+                    pos += 18;
+                }
+            }
+        }
+
+        // break geometry into chunks of 21,845 triangles (3 unique vertices
+        // per triangle) for indices to fit into 16 bit integer number
+        // floor(2^16 / 3) = 21845
+        var chunkSize = 21845;
+
+        var indices = new Uint16Array(triangles * 3);
+
+        for (var i = 0; i < indices.length; ++i) {
+            indices[i] = i % (3 * chunkSize);
+        }
+
+        geometry.addAttribute('index', new THREE.BufferAttribute(indices, 1));
+        geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+        geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        var offsets = triangles / chunkSize;
+        console.log('tris', triangles, chunkSize);
+        console.log('num offsets', offsets);
+
+        for (var i = 0; i < offsets; ++i) {
+            var offset = {
+                start: i * chunkSize * 3,
+                index: i * chunkSize * 3,
+                count: Math.min(triangles - (i * chunkSize), chunkSize) * 3
+            };
+
+            console.log(offset);
+
+            geometry.offsets.push(offset);
+        }
+
+        geometry.computeBoundingSphere();
+
+        /*
+        var material = new THREE.MeshPhongMaterial({
+                color: 0xaaaaaa, ambient: 0xaaaaaa, specular: 0xffffff, shininess: 250,
+                side: THREE.DoubleSide, vertexColors: THREE.VertexColors
+        });
+        */
+        var material = new THREE.MeshBasicMaterial(
+                {vertexColors: THREE.VertexColors});
+
+        var mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        return 0;
+    }
+
     function initRaster(data, count, meta) {
 		var asDataView = new DataView(data.buffer);
 		var recordSize = data.byteLength / count;
@@ -338,8 +627,6 @@
 
         var missed = 0;
         var testMissed = 0;
-
-        var testVectors = [];
 
         for (var y = 0; y < meta.yNum - 1; ++y) {
             for (var x = 0; x < meta.xNum - 1; ++x) {
@@ -375,8 +662,6 @@
                 if (got) {
                     geom.faces.push(new THREE.Face3(0, 1, 3));
                     geom.faces.push(new THREE.Face3(3, 2, 0));
-                    // TODO Or vertex normals?
-                    //geom.computeFaceNormals();
 
                     geom.faces[0].vertexColors[0] = colors[0];
                     geom.faces[0].vertexColors[1] = colors[1];
