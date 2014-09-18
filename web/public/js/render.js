@@ -183,7 +183,7 @@
 
             x = (x - bounds.mx) / maxBound * 800 - 400;
             y = (y - bounds.my) / maxBound * 800 - 400;
-            z = (z - bounds.mz) / maxBound * 400 - 400;
+            z = (z - bounds.mz) / maxBound * 400;
 
             positions[ 3*i ]     = x;
             positions[ 3*i + 1 ] = y;
@@ -327,7 +327,7 @@
                     var yA = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
                     var zA =
                         (asDataView.getFloat32(pointBase, true) - zMin) /
-                                maxBound * 400 - 400;
+                                maxBound * 400;
                     var rA = asDataView.getUint16(pointBase + 6, true);
                     var gA = asDataView.getUint16(pointBase + 8, true);
                     var bA = asDataView.getUint16(pointBase + 10, true);
@@ -339,7 +339,7 @@
                     var yB = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
                     var zB =
                         (asDataView.getFloat32(pointBase, true) - zMin) /
-                                maxBound * 400 - 400;
+                                maxBound * 400;
                     var rB = asDataView.getUint16(pointBase + 6, true);
                     var gB = asDataView.getUint16(pointBase + 8, true);
                     var bB = asDataView.getUint16(pointBase + 10, true);
@@ -351,7 +351,7 @@
                     var yC = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
                     var zC =
                         (asDataView.getFloat32(pointBase, true) - zMin) /
-                                maxBound * 400 - 400;
+                                maxBound * 400;
                     var rC = asDataView.getUint16(pointBase + 6, true);
                     var gC = asDataView.getUint16(pointBase + 8, true);
                     var bC = asDataView.getUint16(pointBase + 10, true);
@@ -363,7 +363,7 @@
                     var yD = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
                     var zD =
                         (asDataView.getFloat32(pointBase, true) - zMin) /
-                                maxBound * 400 - 400;
+                                maxBound * 400;
                     var rD = asDataView.getUint16(pointBase + 6, true);
                     var gD = asDataView.getUint16(pointBase + 8, true);
                     var bD = asDataView.getUint16(pointBase + 10, true);

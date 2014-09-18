@@ -93,7 +93,11 @@ void ReadCommand::transmit(
 
 void ReadCommandUnindexed::run()
 {
-    m_numPoints = m_pdalSession->read(m_data, m_schema, m_start, m_count);
+    m_numPoints = m_pdalSession->readUnindexed(
+            m_data,
+            m_schema,
+            m_start,
+            m_count);
 
     m_bufferTransmitter.reset(
             new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
