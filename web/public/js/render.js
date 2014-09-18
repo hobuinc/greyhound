@@ -89,17 +89,13 @@
 		scene = new THREE.Scene();
 
         // Populate content
-        var test = true;
         var sub = 0;
 
         if (!meta) {
             initPoints(data, count);
         }
         else {
-            if (!test)
-                sub = initRaster(data, count, meta);
-            else
-                sub = initBufferGeometry(data, count, meta);
+            sub = initBufferGeometry(data, count, meta);
         }
 
         // Render
@@ -115,103 +111,6 @@
 		$("#pointCount").html(numberWithCommas(count - sub) + " points");
 		$("#stats").show();
     };
-
-	function initPointsRasterTest(data, count, meta) {
-		var recordSize = data.byteLength / count;
-
-		if (recordSize !== 12) {
-			console.log("Record size: ", recordSize);
-			throw new Error('Cannot determine schema type from record size');
-		}
-
-		// Since each point record now has values of different
-		// sizes, we'd use a DataView to make our lives simpler
-		//
-		var asDataView = new DataView(data.buffer);
-		var pointsCount = count;
-
-		console.log('Total', pointsCount, 'points');
-
-		var bounds = getBounds(asDataView, recordSize, false);
-		console.log(bounds);
-
-		var maxBound = Math.max(bounds.xx - bounds.mx,
-								Math.max(bounds.xy - bounds.my,
-										 bounds.xz - bounds.mz));
-
-		console.log('Max bound:', maxBound);
-
-		var particles = 0;
-
-		for (var j = 0; j < meta.yNum; ++j) {
-            for (var i = 0; i < meta.xNum; ++i) {
-                var offset = 12 * (j * meta.xNum + i);
-                var _z = asDataView.getUint32(offset, true);
-                if (_z != 0) {
-                   ++particles;
-                   console.log('Z', asDataView.getFloat32(offset, true));
-               }
-            }
-        }
-
-        console.log('PARTICLES', particles);
-
-		var geometry = new THREE.BufferGeometry();
-
-		geometry.addAttribute( 'position', Float32Array, particles, 3 );
-		geometry.addAttribute( 'color', Float32Array, particles, 3 );
-
-		var positions = geometry.attributes.position.array;
-		var colors = geometry.attributes.color.array;
-
-        var index = 0;
-		for (var j = 0; j < meta.yNum; ++j) {
-            for (var i = 0; i < meta.xNum; ++i) {
-                var offset = 12 * (j * meta.xNum + i);
-
-                // positions
-                var _x = meta.xBegin + i * meta.xStep;
-                var _y = meta.yBegin + j * meta.yStep;
-                var _z = asDataView.getFloat32(offset, true);
-                var missed = asDataView.getUint32(offset, true) == 0;
-
-                var x = _x - meta.xBegin;
-                var y = _y - meta.yBegin;
-                var z = 0;//_z;
-
-                /*
-                var x = (_x - bounds.mx) / maxBound * 800 - 400;
-                var y = (_y - bounds.my) / maxBound * 800 - 400;
-                var z = (_z - bounds.mz) / maxBound * 400;
-                */
-
-                if (!missed) {
-                    positions[ 3*index+0 ] = x;
-                    positions[ 3*index+1 ] = y;
-                    positions[ 3*index+2 ] = z;
-
-                    var _r = asDataView.getInt16(offset + 6, true);
-                    var _g = asDataView.getInt16(offset + 8, true);
-                    var _b = asDataView.getInt16(offset + 10, true);
-
-                    _r = _g = _b = 255.0;
-
-                    colors[ 3*index+0 ] = _r;
-                    colors[ 3*index+1 ] = _g;
-                    colors[ 3*index+2 ] = _b;
-
-                    ++index;
-                }
-            }
-		}
-
-		// setup material to use vertex colors
-		var material = new THREE.ParticleSystemMaterial(
-                { size: 1, vertexColors: true });
-
-		var particleSystem = new THREE.ParticleSystem(geometry, material);
-		scene.add(particleSystem);
-	}
 
 	function initPoints(data, count) {
 		var recordSize = data.byteLength / count;
@@ -335,11 +234,10 @@
     }
 
     function initBufferGeometry(data, count, meta) {
-        console.log("INITING BUFFER GEOMETRY");
         var geometry = new THREE.BufferGeometry();
 		var asDataView = new DataView(data.buffer);
         var recordSize = 12;
-        var allCornersPresent = true;
+        var allCornersPresent;
         var triangles = 0;
 
         console.log(meta.xNum, meta.yNum, 'total', meta.xNum * meta.yNum);
@@ -368,9 +266,6 @@
         var xNorm = (meta.xBegin + (meta.xBegin + meta.xStep * meta.xNum)) / 2;
         var yNorm = (meta.yBegin + (meta.yBegin + meta.yStep * meta.yNum)) / 2;
 
-        // TODO REMOVE
-        //triangles = 2;
-
         var positions = new Float32Array(triangles * 3 * 3);
         var normals = new Float32Array(triangles * 3 * 3);
         var colors = new Float32Array(triangles * 3 * 3);
@@ -390,9 +285,6 @@
 
         var pos = 0;
         var pointBase;
-
-        //TODO REMOVE
-        //var xBase = 0, yBase = 0;
 
         for (var yBase = 0; yBase < meta.yNum - 1; ++yBase) {
             for (var xBase = 0; xBase < meta.xNum - 1; ++xBase) {
@@ -452,9 +344,6 @@
                     var bD = asDataView.getUint16(pointBase + 10, true);
 
                     --xBase; --yBase;
-
-                    // TODO REMOVE.
-                    //zA = zB = zC = zD = 0;
 
                     // TODO For now we aren't sharing vertices so we're using
                     // extra memory.
@@ -594,12 +483,6 @@
 
         geometry.computeBoundingSphere();
 
-        /*
-        var material = new THREE.MeshPhongMaterial({
-                color: 0xaaaaaa, ambient: 0xaaaaaa, specular: 0xffffff, shininess: 250,
-                side: THREE.DoubleSide, vertexColors: THREE.VertexColors
-        });
-        */
         var material = new THREE.MeshBasicMaterial(
                 {vertexColors: THREE.VertexColors});
 
@@ -607,82 +490,6 @@
         scene.add(mesh);
 
         return 0;
-    }
-
-    function initRaster(data, count, meta) {
-		var asDataView = new DataView(data.buffer);
-		var recordSize = data.byteLength / count;
-
-        // Z, intensity, and RGB values.
-        if (recordSize != 12 || meta.xNum * meta.yNum != count) {
-			console.log("Record size: ", recordSize);
-			throw new Error('Cannot determine raster type from record size');
-        }
-
-        var offsetX = (meta.xBegin + (meta.xBegin + meta.xStep * meta.xNum)) / 2;
-        var offsetY = (meta.yBegin + (meta.yBegin + meta.yStep * meta.yNum)) / 2;
-
-        //meta.yNum = 2; meta.xNum = 2;
-        console.log(meta.xNum, meta.xStep, meta.xBegin);
-
-        var missed = 0;
-        var testMissed = 0;
-
-        for (var y = 0; y < meta.yNum - 1; ++y) {
-            for (var x = 0; x < meta.xNum - 1; ++x) {
-                var geom = new THREE.Geometry();
-                var colors = [];
-                var got = true;
-
-                for (var j = 0; j < 2; ++j) {
-                    for (var i = 0; i < 2; ++i) {
-                        // 2 3
-                        // 0 1
-
-                        var xId = x + i;
-                        var yId = y + j;
-                        var pointBase = recordSize * (yId * meta.xNum + xId);
-                        var r = asDataView.getUint16(pointBase + 6, true);
-                        var g = asDataView.getUint16(pointBase + 8, true);
-                        var b = asDataView.getUint16(pointBase + 10, true);
-
-                        geom.vertices.push(new THREE.Vector3(
-                                meta.xBegin + meta.xStep * xId - offsetX,
-                                meta.yBegin + meta.yStep * yId - offsetY,
-                                asDataView.getFloat32(pointBase, true)));
-
-                        if (asDataView.getUint32(pointBase, true) == 0)
-                            got = false;
-
-                        colors.push(new THREE.Color('rgb('
-                                        + r + ',' + g + ',' + b + ')'));
-                    }
-                }
-
-                if (got) {
-                    geom.faces.push(new THREE.Face3(0, 1, 3));
-                    geom.faces.push(new THREE.Face3(3, 2, 0));
-
-                    geom.faces[0].vertexColors[0] = colors[0];
-                    geom.faces[0].vertexColors[1] = colors[1];
-                    geom.faces[0].vertexColors[2] = colors[3];
-                    geom.faces[1].vertexColors[0] = colors[3];
-                    geom.faces[1].vertexColors[1] = colors[2];
-                    geom.faces[1].vertexColors[2] = colors[0];
-
-                    var colorMat = new THREE.MeshBasicMaterial(
-                            {vertexColors: THREE.VertexColors});
-                    var square = new THREE.Mesh(geom, colorMat);
-                    scene.add(square);
-                }
-                else {
-                    ++missed;
-                }
-            }
-        }
-
-        console.log('MISSED', missed);
-        return missed;
     }
 
 	function onWindowResize() {
@@ -728,3 +535,4 @@
 
 
 })(window);
+
