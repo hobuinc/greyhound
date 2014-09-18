@@ -150,9 +150,6 @@
 			throw new Error("The record size is too small to even " +
                     "contain XYZ values, check source");
 
-		// Since each point record now has values of different
-		// sizes, we'd use a DataView to make our lives simpler
-		//
 		var asDataView = new DataView(data.buffer);
 		var pointsCount = count;
 
@@ -170,8 +167,8 @@
 		var particles = pointsCount;
 		var geometry = new THREE.BufferGeometry();
 
-		geometry.addAttribute( 'position', Float32Array, particles, 3 );
-		geometry.addAttribute( 'color', Float32Array, particles, 3 );
+		geometry.addAttribute('position', Float32Array, particles, 3);
+		geometry.addAttribute('color', Float32Array, particles, 3);
 
 		var positions = geometry.attributes.position.array;
 		var colors = geometry.attributes.color.array;
@@ -179,46 +176,46 @@
 		var offset = 0;
 		for ( var i = 0; i < particles; i++) {
 			// positions
-			var _x = asDataView.getFloat32(offset, true); offset += 4;
-			var _y = asDataView.getFloat32(offset, true); offset += 4;
-			var _z = asDataView.getFloat32(offset, true); offset += 4;
+			var x = asDataView.getFloat32(offset, true); offset += 4;
+			var y = asDataView.getFloat32(offset, true); offset += 4;
+			var z = asDataView.getFloat32(offset, true); offset += 4;
 
-			var _intensity = 1.0;
+			var intensity = 1.0;
 			if(!nointensity) {
-				_intensity = asDataView.getInt16(offset, true); offset += 2;
-				_intensity = (_intensity - bounds.mi) / (bounds.xi - bounds.mi);
+				intensity = asDataView.getInt16(offset, true); offset += 2;
+				intensity = (intensity - bounds.mi) / (bounds.xi - bounds.mi);
 			}
 
-			var x = (_x - bounds.mx) / maxBound * 800 - 400;
-			var y = (_y - bounds.my) / maxBound * 800 - 400;
-			var z = (_z - bounds.mz) / maxBound * 400 - 400;
+			x = (x - bounds.mx) / maxBound * 800 - 400;
+			y = (y - bounds.my) / maxBound * 800 - 400;
+			z = (z - bounds.mz) / maxBound * 400 - 400;
 
 			positions[ 3*i ]     = x;
 			positions[ 3*i + 1 ] = y;
 			positions[ 3*i + 2 ] = z;
 
 			// colors
-			var _r = 0.0, _g = 0.0, _b = 0.0;
+			var r = 0.0, g = 0.0, b = 0.0;
 			if (nocolor) {
 				if (nointensity) {
-					_r = _g = _b =
-                        255.0 * (_z - bounds.mz) / (bounds.xz - bounds.mz);
+					r = g = b =
+                        255.0 * (z - bounds.mz) / (bounds.xz - bounds.mz);
 				}
 				else {
-					_r = _g = _b = 255.0 * _intensity;
+					r = g = b = 255.0 * intensity;
 				}
 			}
 			else {
-				_r = asDataView.getInt16(offset, true); offset += 2;
-				_g = asDataView.getInt16(offset, true); offset += 2;
-				_b = asDataView.getInt16(offset, true); offset += 2;
+				r = asDataView.getInt16(offset, true); offset += 2;
+				g = asDataView.getInt16(offset, true); offset += 2;
+				b = asDataView.getInt16(offset, true); offset += 2;
 			}
 
-            _intensity = 1.0;
+            intensity = 1.0;
 
-			colors[ 3*i ]     = _intensity * _r / 255.0;
-			colors[ 3*i + 1 ] = _intensity * _g / 255.0;
-			colors[ 3*i + 2 ] = _intensity * _b / 255.0;
+			colors[ 3*i ]     = intensity * r / 255.0;
+			colors[ 3*i + 1 ] = intensity * g / 255.0;
+			colors[ 3*i + 2 ] = intensity * b / 255.0;
 		}
 
 		// setup material to use vertex colors
