@@ -84,6 +84,7 @@
 		var pointsCount;
 		var dataBuffer = null; // buffer to collect recieved data
         var meta = null;
+        var stats = null;
 
 		ws.onmessage = function(evt) {
 			if (typeof(evt.data) === "string") {
@@ -91,11 +92,22 @@
 				console.log('Incoming:', msg);
 
 				if (msg.command === "create") {
+                    session	= msg.session;
+
+                    ws.send(JSON.stringify({
+                        command: 'stats',
+                        session: msg.session
+                    }));
+                }
+                else if (msg.command === "stats") {
+                    stats = JSON.parse(msg.stats);
+                    console.log(stats.stages['filters.stats']);
+
 					if (msg.status === 0)
 						return cb(new Error(
                                 'Failed to create session, this is not good.'));
 
-                    var readParams = { command: 'read', session: msg.session };
+                    var readParams = { command: 'read', session: session };
                     var urlParams = getUrlParameters(w.location.search);
 
                     /*
@@ -118,8 +130,6 @@
                     }
                     */
 
-                    // TODO This should all be server side.  Just pass query
-                    // parameters through and handle them on the server.
                     if (urlParams.hasOwnProperty('geo')) {
                         var geo = jQuery.parseJSON(urlParams['geo']);
 
@@ -194,7 +204,6 @@
                     // to receive the data.
 					ws.send(JSON.stringify(readParams));
 
-					session	= msg.session;
 
 					status_cb("Read initiated, waiting for response...");
 				}
@@ -211,8 +220,6 @@
 					count		= 0;
 					pointsCount	= msg.numPoints;
 					dataBuffer	= new Int8Array(msg.numBytes);
-
-                    console.log('RASTER?', msg.hasOwnProperty('rasterize'));
 
                     if (msg.hasOwnProperty('rasterize'))
                     {
@@ -257,7 +264,7 @@
                 // Use setTimeout so that we call the callback outside the
                 // context of ws.onclose
 				setTimeout(function() {
-					cb(null, dataBuffer, pointsCount, meta);
+					cb(null, dataBuffer, pointsCount, meta, stats);
 				}, 0);
 			}
 		};
@@ -265,7 +272,7 @@
 
 	w.doIt = function() {
 		$("#stats").hide();
-		downloadData(message, function(err, data, count, meta) {
+		downloadData(message, function(err, data, count, meta, stats) {
 			if (err)
 				return errorOut(err.message);
 
@@ -278,7 +285,7 @@
 
 			message("Data download complete, handing over to renderer.");
 			try {
-				renderPoints(data, count, meta, message);
+				renderPoints(data, count, meta, stats, message);
 			}
 			catch(e) {
 				errorOut(e.message);

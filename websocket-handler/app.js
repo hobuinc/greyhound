@@ -18,10 +18,10 @@ var WebSocketServer = require('ws').Server
   , streamers = { }
 
   // TODO Configuration options.
-  , softSessionShareMax = 2
+  , softSessionShareMax = 8
   , hardSessionShareMax = 0
-  , sessionTimeoutMinutes = 5
-  , expirePeriodSec = 5;
+  , sessionTimeoutMinutes = 60
+  , expirePeriodSec = 10;
   ;
 
 var affinity = new Affinity(expirePeriodSec, sessionTimeoutMinutes);
@@ -77,8 +77,9 @@ var getDbHandler = function(cb) {
     });
 }
 
-var propError = function(missingProp) {
-    return new Error('Missing property: ' + missingProp);
+var propError = function(cmd, missingProp) {
+    return new Error(
+            'Missing property "' + missingProp + '" in "' + cmd + '" command');
 }
 
 var getShCandidate = function(pipelineId, cb) {
@@ -283,6 +284,16 @@ process.nextTick(function() {
             });
         });
 
+        handler.on('stats', function(msg, cb) {
+            var session = msg['session'];
+            if (!session) return cb(propError('stats', 'session'));
+
+            affinity.getSh(session, function(err, sessionHandler) {
+                if (err) return cb(err);
+                web.get(sessionHandler, '/stats/' + session, cb);
+            });
+        });
+
         handler.on('srs', function(msg, cb) {
             var session = msg['session'];
             if (!session) return cb(propError('srs', 'session'));
@@ -323,7 +334,7 @@ process.nextTick(function() {
             var session = msg['session'];
             var readId  = msg['readId'];
             if (!session) return cb(propError('cancel', 'session'));
-            if (!readId)  return cb(propError('cancel', 'session'));
+            if (!readId)  return cb(propError('cancel', 'readId'));
 
             affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);
@@ -363,7 +374,7 @@ process.nextTick(function() {
         handler.on('read', function(msg, cb) {
             var session = msg['session'];
             var readId = 0;
-            if (!session) return cb(propError('srs', 'session'));
+            if (!session) return cb(propError('read', 'session'));
 
             affinity.getSh(session, function(err, sessionHandler) {
                 if (err) return cb(err);

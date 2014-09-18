@@ -12,13 +12,14 @@
 
 	var cross;
 
-	w.renderPoints = function(data, count, meta, status_cb) {
-		init(data, count, meta);
+	w.renderPoints = function(data, count, meta, stats, status_cb) {
+		init(data, count, meta, stats);
 		animate();
 
 		if(status_cb) {
 			var vendor =
-				renderer.context.getParameter(renderer.context.VERSION) + ", Provider: " +
+				renderer.context.getParameter(renderer.context.VERSION) +
+                ", Provider: " +
 				renderer.context.getParameter(renderer.context.VENDOR);
 			status_cb(vendor);
 		}
@@ -33,7 +34,8 @@
 			var y = arr.getFloat32(recSize * i + 4, true);
 			var z = arr.getFloat32(recSize * i + 8, true);
 
-			var intensity = doIntensity ? arr.getInt16( recSize * i + 12, true) : 0;
+			var intensity = doIntensity ?
+                arr.getInt16( recSize * i + 12, true) : 0;
 
 			if (i === 0) {
 				bounds = {
@@ -64,7 +66,7 @@
 		return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 	};
 
-    function init(data, count, meta) {
+    function init(data, count, meta, stats) {
         // Set up
 		camera = new THREE.PerspectiveCamera(60,
 			window.innerWidth / window.innerHeight, 1, 10000);
@@ -89,13 +91,13 @@
 		scene = new THREE.Scene();
 
         // Populate content
-        var sub = 0;
+        var tris = 0;
 
         if (!meta) {
             initPoints(data, count);
         }
         else {
-            sub = initBufferGeometry(data, count, meta);
+            tris = initRaster(data, count, meta, stats);
         }
 
         // Render
@@ -108,7 +110,13 @@
 
 		window.addEventListener( 'resize', onWindowResize, false );
 
-		$("#pointCount").html(numberWithCommas(count - sub) + " points");
+        if (!meta) {
+            $("#pointCount").html(numberWithCommas(count) + " points");
+        }
+        else {
+            $("#pointCount").html(numberWithCommas(tris) + " triangles");
+        }
+
 		$("#stats").show();
     };
 
@@ -183,7 +191,7 @@
 
 			var x = (_x - bounds.mx) / maxBound * 800 - 400;
 			var y = (_y - bounds.my) / maxBound * 800 - 400;
-			var z = (_z - bounds.mz) / maxBound * 400;
+			var z = (_z - bounds.mz) / maxBound * 400 - 400;
 
 			positions[ 3*i ]     = x;
 			positions[ 3*i + 1 ] = y;
@@ -233,18 +241,19 @@
         return recordSize * (yIndex * meta.xNum + xIndex);
     }
 
-    function initBufferGeometry(data, count, meta) {
+    function initRaster(data, count, meta, stats) {
         var geometry = new THREE.BufferGeometry();
 		var asDataView = new DataView(data.buffer);
         var recordSize = 12;
         var allCornersPresent;
         var triangles = 0;
 
-        console.log(meta.xNum, meta.yNum, 'total', meta.xNum * meta.yNum);
         for (var y = 0; y < meta.yNum - 1; ++y) {
             for (var x = 0; x < meta.xNum - 1; ++x) {
                 allCornersPresent = true;
 
+                // TODO Should draw one triangle if three corners present to
+                // avoid jagged edges.  For now we only draw full squares.
                 for (var j = 0; j < 2; ++j) {
                     for (var i = 0; i < 2; ++i) {
                         var xIndex = x + i;
@@ -252,6 +261,8 @@
                         var pointBase =
                             recordSize * (yIndex * meta.xNum + xIndex);
 
+                        // TODO Should probably use the max or min value as the
+                        // "no point here" value.
                         if (asDataView.getUint32(pointBase, true) == 0) {
                             allCornersPresent = false;
                         }
@@ -263,8 +274,19 @@
             }
         }
 
-        var xNorm = (meta.xBegin + (meta.xBegin + meta.xStep * meta.xNum)) / 2;
-        var yNorm = (meta.yBegin + (meta.yBegin + meta.yStep * meta.yNum)) / 2;
+        var xMax = meta.xBegin + meta.xStep * meta.xNum;
+        var yMax = meta.yBegin + meta.yStep * meta.yNum;
+        var zMax = parseFloat(
+                stats.stages['filters.stats'].statistic[2].maximum.value);
+
+        var xMin = meta.xBegin;
+        var yMin = meta.yBegin;
+        var zMin = parseFloat(
+                stats.stages['filters.stats'].statistic[2].minimum.value);
+
+        var maxBound = Math.max(
+                xMax - xMin,
+                Math.max(yMax - yMin, zMax - zMin));
 
         var positions = new Float32Array(triangles * 3 * 3);
         var normals = new Float32Array(triangles * 3 * 3);
@@ -306,9 +328,11 @@
                 // Two triangles per square.
                 if (allCornersPresent) {
                     pointBase = getZIndex(meta, xBase, yBase, recordSize);
-                    var xA = getX(meta, xBase) - xNorm;
-                    var yA = getY(meta, yBase) - yNorm;
-                    var zA = asDataView.getFloat32(pointBase, true);
+                    var xA = (getX(meta, xBase) - xMin) / maxBound * 800 - 400;
+                    var yA = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
+                    var zA =
+                        (asDataView.getFloat32(pointBase, true) - zMin) /
+                                maxBound * 400 - 400;
                     var rA = asDataView.getUint16(pointBase + 6, true);
                     var gA = asDataView.getUint16(pointBase + 8, true);
                     var bA = asDataView.getUint16(pointBase + 10, true);
@@ -316,9 +340,11 @@
                     ++xBase;
 
                     pointBase = getZIndex(meta, xBase, yBase, recordSize);
-                    var xB = getX(meta, xBase) - xNorm;
-                    var yB = getY(meta, yBase) - yNorm;
-                    var zB = asDataView.getFloat32(pointBase, true);
+                    var xB = (getX(meta, xBase) - xMin) / maxBound * 800 - 400;
+                    var yB = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
+                    var zB =
+                        (asDataView.getFloat32(pointBase, true) - zMin) /
+                                maxBound * 400 - 400;
                     var rB = asDataView.getUint16(pointBase + 6, true);
                     var gB = asDataView.getUint16(pointBase + 8, true);
                     var bB = asDataView.getUint16(pointBase + 10, true);
@@ -326,9 +352,11 @@
                     --xBase; ++yBase;
 
                     pointBase = getZIndex(meta, xBase, yBase, recordSize);
-                    var xC = getX(meta, xBase) - xNorm;
-                    var yC = getY(meta, yBase) - yNorm;
-                    var zC = asDataView.getFloat32(pointBase, true);
+                    var xC = (getX(meta, xBase) - xMin) / maxBound * 800 - 400;
+                    var yC = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
+                    var zC =
+                        (asDataView.getFloat32(pointBase, true) - zMin) /
+                                maxBound * 400 - 400;
                     var rC = asDataView.getUint16(pointBase + 6, true);
                     var gC = asDataView.getUint16(pointBase + 8, true);
                     var bC = asDataView.getUint16(pointBase + 10, true);
@@ -336,9 +364,11 @@
                     ++xBase;
 
                     pointBase = getZIndex(meta, xBase, yBase, recordSize);
-                    var xD = getX(meta, xBase) - xNorm;
-                    var yD = getY(meta, yBase) - yNorm;
-                    var zD = asDataView.getFloat32(pointBase, true);
+                    var xD = (getX(meta, xBase) - xMin) / maxBound * 800 - 400;
+                    var yD = (getY(meta, yBase) - yMin) / maxBound * 800 - 400;
+                    var zD =
+                        (asDataView.getFloat32(pointBase, true) - zMin) /
+                                maxBound * 400 - 400;
                     var rD = asDataView.getUint16(pointBase + 6, true);
                     var gD = asDataView.getUint16(pointBase + 8, true);
                     var bD = asDataView.getUint16(pointBase + 10, true);
@@ -466,8 +496,6 @@
         geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
 
         var offsets = triangles / chunkSize;
-        console.log('tris', triangles, chunkSize);
-        console.log('num offsets', offsets);
 
         for (var i = 0; i < offsets; ++i) {
             var offset = {
@@ -475,8 +503,6 @@
                 index: i * chunkSize * 3,
                 count: Math.min(triangles - (i * chunkSize), chunkSize) * 3
             };
-
-            console.log(offset);
 
             geometry.offsets.push(offset);
         }
@@ -489,7 +515,7 @@
         var mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
 
-        return 0;
+        return triangles;
     }
 
 	function onWindowResize() {
@@ -500,7 +526,6 @@
 
 		controls.handleResize();
 		render();
-
 	}
 
 	function animate() {
@@ -516,10 +541,13 @@
 
 	var timeSinceLast = null;
 	var frames = 0;
+
 	function render() {
 		var thisTime = t();
-		if (timeSinceLast === null)
+
+		if (timeSinceLast === null) {
 			timeSinceLast = thisTime;
+        }
 		else {
 			if (thisTime - timeSinceLast > 1000) {
 				$("#fps").html (frames + "fps");
@@ -528,11 +556,9 @@
 			}
 		}
 
-		frames ++;
-
+		++frames;
 		renderer.render(scene, camera);
 	}
-
 
 })(window);
 
