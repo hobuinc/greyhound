@@ -3,92 +3,92 @@
 //
 
 (function(w) {
-	"use strict";
+    "use strict";
 
-	if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+    if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
-	var container, stats;
-	var camera, controls, scene, renderer;
+    var container, stats;
+    var camera, controls, scene, renderer;
 
-	var cross;
+    var cross;
 
-	w.renderPoints = function(data, count, meta, stats, status_cb) {
-		init(data, count, meta, stats);
-		animate();
+    w.renderPoints = function(data, count, meta, stats, status_cb) {
+        init(data, count, meta, stats);
+        animate();
 
-		if(status_cb) {
-			var vendor =
-				renderer.context.getParameter(renderer.context.VERSION) +
+        if(status_cb) {
+            var vendor =
+                renderer.context.getParameter(renderer.context.VERSION) +
                 ", Provider: " +
-				renderer.context.getParameter(renderer.context.VENDOR);
-			status_cb(vendor);
-		}
-	};
+                renderer.context.getParameter(renderer.context.VENDOR);
+            status_cb(vendor);
+        }
+    };
 
-	var getBounds = function(arr, recSize, doIntensity) {
-		var bounds = {};
-		var pc = arr.byteLength / recSize;
+    var getBounds = function(arr, recSize, doIntensity) {
+        var bounds = {};
+        var pc = arr.byteLength / recSize;
 
-		for (var i = 0 ; i < pc ; i++) {
-			var x = arr.getFloat32(recSize * i + 0, true);
-			var y = arr.getFloat32(recSize * i + 4, true);
-			var z = arr.getFloat32(recSize * i + 8, true);
+        for (var i = 0 ; i < pc ; i++) {
+            var x = arr.getFloat32(recSize * i + 0, true);
+            var y = arr.getFloat32(recSize * i + 4, true);
+            var z = arr.getFloat32(recSize * i + 8, true);
 
-			var intensity = doIntensity ?
+            var intensity = doIntensity ?
                 arr.getInt16( recSize * i + 12, true) : 0;
 
-			if (i === 0) {
-				bounds = {
-					mx: x, xx: x,
-					my: y, xy: y,
-					mz: z, xz: z,
-					mi: intensity, xi: intensity};
-			}
-			else {
-				bounds.mx = Math.min(bounds.mx, x);
-				bounds.xx = Math.max(bounds.xx, x);
+            if (i === 0) {
+                bounds = {
+                    mx: x, xx: x,
+                    my: y, xy: y,
+                    mz: z, xz: z,
+                    mi: intensity, xi: intensity};
+            }
+            else {
+                bounds.mx = Math.min(bounds.mx, x);
+                bounds.xx = Math.max(bounds.xx, x);
 
-				bounds.my = Math.min(bounds.my, y);
-				bounds.xy = Math.max(bounds.xy, y);
+                bounds.my = Math.min(bounds.my, y);
+                bounds.xy = Math.max(bounds.xy, y);
 
-				bounds.mz = Math.min(bounds.mz, z);
-				bounds.xz = Math.max(bounds.xz, z);
+                bounds.mz = Math.min(bounds.mz, z);
+                bounds.xz = Math.max(bounds.xz, z);
 
-				bounds.mi = Math.min(bounds.mi, intensity);
-				bounds.xi = Math.max(bounds.xi, intensity);
-			}
-		}
+                bounds.mi = Math.min(bounds.mi, intensity);
+                bounds.xi = Math.max(bounds.xi, intensity);
+            }
+        }
 
-		return bounds;
-	};
+        return bounds;
+    };
 
-	var numberWithCommas = function(x) {
-		return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-	};
+    var numberWithCommas = function(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
 
     function init(data, count, meta, stats) {
         // Set up
-		camera = new THREE.PerspectiveCamera(60,
-			window.innerWidth / window.innerHeight, 1, 10000);
-		camera.position.z = 500;
+        camera = new THREE.PerspectiveCamera(60,
+            window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.z = 500;
 
-		controls = new THREE.TrackballControls( camera );
+        controls = new THREE.TrackballControls( camera );
 
-		controls.rotateSpeed = 1.0;
-		controls.zoomSpeed = 1.2;
-		controls.panSpeed = 0.8;
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
 
-		controls.noZoom = false;
-		controls.noPan = false;
+        controls.noZoom = false;
+        controls.noPan = false;
 
-		controls.staticMoving = true;
-		controls.dynamicDampingFactor = 0.3;
+        controls.staticMoving = true;
+        controls.dynamicDampingFactor = 0.3;
 
-		controls.keys = [ 65, 83, 68 ];
-		controls.addEventListener( 'change', render );
+        controls.keys = [ 65, 83, 68 ];
+        controls.addEventListener( 'change', render );
 
-		// world
-		scene = new THREE.Scene();
+        // world
+        scene = new THREE.Scene();
 
         // Populate content
         var tris = 0;
@@ -101,14 +101,14 @@
         }
 
         // Render
-		renderer = new THREE.WebGLRenderer( { antialias: false } );
-		renderer.setClearColor("#111");
-		renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer = new THREE.WebGLRenderer( { antialias: false } );
+        renderer.setClearColor("#111");
+        renderer.setSize( window.innerWidth, window.innerHeight );
 
-		container = document.getElementById( 'container' );
-		container.appendChild( renderer.domElement );
+        container = document.getElementById( 'container' );
+        container.appendChild( renderer.domElement );
 
-		window.addEventListener( 'resize', onWindowResize, false );
+        window.addEventListener( 'resize', onWindowResize, false );
 
         if (!meta) {
             $("#pointCount").html(numberWithCommas(count) + " points");
@@ -117,114 +117,111 @@
             $("#pointCount").html(numberWithCommas(tris) + " triangles");
         }
 
-		$("#stats").show();
+        $("#stats").show();
     };
 
-	function initPoints(data, count) {
-		var recordSize = data.byteLength / count;
+    function initPoints(data, count) {
+        var recordSize = data.byteLength / count;
 
-		// we only support two formats here, XYZ and XYZ + 2 byte per RGB
-		// For anything else right now, we just continue by assuming no color
-		var nocolor = false, noxyz = false, nointensity = false;
+        // we only support two formats here, XYZ and XYZ + 2 byte per RGB
+        // For anything else right now, we just continue by assuming no color
+        var nocolor = false, noxyz = false, nointensity = false;
 
-		if (recordSize === 3*4) {
-			nocolor = nointensity = true;
-		}
-		else if (recordSize === 3*4 + 2) {
-			nocolor = true;
-		}
-		else if (recordSize === 3*4 + 3*2) {
-			nointensity = true;
-		}
-		else if (recordSize !== 3*4 + 2 + 3*2) {
-			console.log("Record size: ", recordSize);
-			throw new Error('Cannot determine schema type from record size');
-		}
+        if (recordSize === 3*4) {
+            nocolor = nointensity = true;
+        }
+        else if (recordSize === 3*4 + 2) {
+            nocolor = true;
+        }
+        else if (recordSize === 3*4 + 3*2) {
+            nointensity = true;
+        }
+        else if (recordSize !== 3*4 + 2 + 3*2) {
+            console.log("Record size: ", recordSize);
+            throw new Error('Cannot determine schema type from record size');
+        }
 
-		console.log(
+        console.log(
                 'nocolor:', nocolor,
                 'noxyz:', noxyz,
                 'nointensity', nointensity);
 
-		if (noxyz)
-			throw new Error("The record size is too small to even " +
+        if (noxyz)
+            throw new Error("The record size is too small to even " +
                     "contain XYZ values, check source");
 
-		var asDataView = new DataView(data.buffer);
-		var pointsCount = count;
+        var asDataView = new DataView(data.buffer);
+        var pointsCount = count;
 
-		console.log('Total', pointsCount, 'points');
+        console.log('Total', pointsCount, 'points');
 
-		var bounds = getBounds(asDataView, recordSize, !nointensity);
-		console.log(bounds);
+        var bounds = getBounds(asDataView, recordSize, !nointensity);
+        console.log(bounds);
 
-		var maxBound = Math.max(bounds.xx - bounds.mx,
-								Math.max(bounds.xy - bounds.my,
-										 bounds.xz - bounds.mz));
+        var maxBound = Math.max(bounds.xx - bounds.mx,
+                                Math.max(bounds.xy - bounds.my,
+                                         bounds.xz - bounds.mz));
 
-		console.log('Max bound:', maxBound);
+        console.log('Max bound:', maxBound);
 
-		var particles = pointsCount;
-		var geometry = new THREE.BufferGeometry();
+        var particles = pointsCount;
+        var geometry = new THREE.BufferGeometry();
 
-		geometry.addAttribute('position', Float32Array, particles, 3);
-		geometry.addAttribute('color', Float32Array, particles, 3);
+        var positions = geometry.attributes.position.array;
+        var colors = geometry.attributes.color.array;
 
-		var positions = geometry.attributes.position.array;
-		var colors = geometry.attributes.color.array;
+        var offset = 0;
+        for ( var i = 0; i < particles; i++) {
+            // positions
+            var x = asDataView.getFloat32(offset, true); offset += 4;
+            var y = asDataView.getFloat32(offset, true); offset += 4;
+            var z = asDataView.getFloat32(offset, true); offset += 4;
 
-		var offset = 0;
-		for ( var i = 0; i < particles; i++) {
-			// positions
-			var x = asDataView.getFloat32(offset, true); offset += 4;
-			var y = asDataView.getFloat32(offset, true); offset += 4;
-			var z = asDataView.getFloat32(offset, true); offset += 4;
+            var intensity = 1.0;
+            if(!nointensity) {
+                intensity = asDataView.getInt16(offset, true); offset += 2;
+                intensity = (intensity - bounds.mi) / (bounds.xi - bounds.mi);
+            }
 
-			var intensity = 1.0;
-			if(!nointensity) {
-				intensity = asDataView.getInt16(offset, true); offset += 2;
-				intensity = (intensity - bounds.mi) / (bounds.xi - bounds.mi);
-			}
+            x = (x - bounds.mx) / maxBound * 800 - 400;
+            y = (y - bounds.my) / maxBound * 800 - 400;
+            z = (z - bounds.mz) / maxBound * 400 - 400;
 
-			x = (x - bounds.mx) / maxBound * 800 - 400;
-			y = (y - bounds.my) / maxBound * 800 - 400;
-			z = (z - bounds.mz) / maxBound * 400 - 400;
+            positions[ 3*i ]     = x;
+            positions[ 3*i + 1 ] = y;
+            positions[ 3*i + 2 ] = z;
 
-			positions[ 3*i ]     = x;
-			positions[ 3*i + 1 ] = y;
-			positions[ 3*i + 2 ] = z;
-
-			// colors
-			var r = 0.0, g = 0.0, b = 0.0;
-			if (nocolor) {
-				if (nointensity) {
-					r = g = b =
+            // colors
+            var r = 0.0, g = 0.0, b = 0.0;
+            if (nocolor) {
+                if (nointensity) {
+                    r = g = b =
                         255.0 * (z - bounds.mz) / (bounds.xz - bounds.mz);
-				}
-				else {
-					r = g = b = 255.0 * intensity;
-				}
-			}
-			else {
-				r = asDataView.getInt16(offset, true); offset += 2;
-				g = asDataView.getInt16(offset, true); offset += 2;
-				b = asDataView.getInt16(offset, true); offset += 2;
-			}
+                }
+                else {
+                    r = g = b = 255.0 * intensity;
+                }
+            }
+            else {
+                r = asDataView.getInt16(offset, true); offset += 2;
+                g = asDataView.getInt16(offset, true); offset += 2;
+                b = asDataView.getInt16(offset, true); offset += 2;
+            }
 
             intensity = 1.0;
 
-			colors[ 3*i ]     = intensity * r / 255.0;
-			colors[ 3*i + 1 ] = intensity * g / 255.0;
-			colors[ 3*i + 2 ] = intensity * b / 255.0;
-		}
+            colors[ 3*i ]     = intensity * r / 255.0;
+            colors[ 3*i + 1 ] = intensity * g / 255.0;
+            colors[ 3*i + 2 ] = intensity * b / 255.0;
+        }
 
-		// setup material to use vertex colors
-		var material = new THREE.ParticleSystemMaterial(
+        // setup material to use vertex colors
+        var material = new THREE.ParticleSystemMaterial(
                 { size: 1, vertexColors: true });
 
-		var particleSystem = new THREE.ParticleSystem(geometry, material);
-		scene.add(particleSystem);
-	}
+        var particleSystem = new THREE.ParticleSystem(geometry, material);
+        scene.add(particleSystem);
+    }
 
     function getX(meta, xIndex) {
         return meta.xBegin + meta.xStep * xIndex;
@@ -240,7 +237,7 @@
 
     function initRaster(data, count, meta, stats) {
         var geometry = new THREE.BufferGeometry();
-		var asDataView = new DataView(data.buffer);
+        var asDataView = new DataView(data.buffer);
         var recordSize = 12;
         var allCornersPresent;
         var triangles = 0;
@@ -401,51 +398,51 @@
                     positions[pos + 17] = zC;
 
                     pA.set(xA, yA, zA);
-					pB.set(xB, yB, zB);
-					pC.set(xC, yC, zC);
+                    pB.set(xB, yB, zB);
+                    pC.set(xC, yC, zC);
                     pD.set(xD, yD, zD);
 
-					cb.subVectors(pC, pB);
-					ab.subVectors(pA, pB);
-					cb.cross(ab);
+                    cb.subVectors(pC, pB);
+                    ab.subVectors(pA, pB);
+                    cb.cross(ab);
                     bc.subVectors(pC, pD);
                     dc.subVectors(pC, pB);
                     bc.cross(dc);
 
-					cb.normalize();
+                    cb.normalize();
                     bc.normalize();
 
-					var nx0 = cb.x;
-					var ny0 = cb.y;
-					var nz0 = cb.z;
+                    var nx0 = cb.x;
+                    var ny0 = cb.y;
+                    var nz0 = cb.z;
 
                     var nx1 = bc.x;
                     var ny1 = bc.y;
                     var nz1 = bc.z;
 
                     normals[pos + 0] = nx0;
-					normals[pos + 1] = ny0;
-					normals[pos + 2] = nz0;
+                    normals[pos + 1] = ny0;
+                    normals[pos + 2] = nz0;
 
-					normals[pos + 3] = nx0;
-					normals[pos + 4] = ny0;
-					normals[pos + 5] = nz0;
+                    normals[pos + 3] = nx0;
+                    normals[pos + 4] = ny0;
+                    normals[pos + 5] = nz0;
 
-					normals[pos + 6] = nx0;
-					normals[pos + 7] = ny0;
-					normals[pos + 8] = nz0;
+                    normals[pos + 6] = nx0;
+                    normals[pos + 7] = ny0;
+                    normals[pos + 8] = nz0;
 
                     normals[pos + 9 ] = nx1;
-					normals[pos + 10] = ny1;
-					normals[pos + 11] = nz1;
+                    normals[pos + 10] = ny1;
+                    normals[pos + 11] = nz1;
 
                     normals[pos + 12] = nx1;
-					normals[pos + 13] = ny1;
-					normals[pos + 14] = nz1;
+                    normals[pos + 13] = ny1;
+                    normals[pos + 14] = nz1;
 
                     normals[pos + 15] = nx1;
-					normals[pos + 16] = ny1;
-					normals[pos + 17] = nz1;
+                    normals[pos + 16] = ny1;
+                    normals[pos + 17] = nz1;
 
                     colors[pos + 0] = rA / 255.0;
                     colors[pos + 1] = gA / 255.0;
@@ -515,47 +512,47 @@
         return triangles;
     }
 
-	function onWindowResize() {
-		camera.aspect = window.innerWidth / window.innerHeight;
-		camera.updateProjectionMatrix();
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
 
-		renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(window.innerWidth, window.innerHeight);
 
-		controls.handleResize();
-		render();
-	}
+        controls.handleResize();
+        render();
+    }
 
-	function animate() {
-		requestAnimationFrame(animate);
-		controls.update();
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
 
-		render();
-	}
+        render();
+    }
 
-	var t = function() {
-		return (new Date()).getTime();
-	}
+    var t = function() {
+        return (new Date()).getTime();
+    }
 
-	var timeSinceLast = null;
-	var frames = 0;
+    var timeSinceLast = null;
+    var frames = 0;
 
-	function render() {
-		var thisTime = t();
+    function render() {
+        var thisTime = t();
 
-		if (timeSinceLast === null) {
-			timeSinceLast = thisTime;
+        if (timeSinceLast === null) {
+            timeSinceLast = thisTime;
         }
-		else {
-			if (thisTime - timeSinceLast > 1000) {
-				$("#fps").html (frames + "fps");
-				frames = 0;
-				timeSinceLast = thisTime;
-			}
-		}
+        else {
+            if (thisTime - timeSinceLast > 1000) {
+                $("#fps").html (frames + "fps");
+                frames = 0;
+                timeSinceLast = thisTime;
+            }
+        }
 
-		++frames;
-		renderer.render(scene, camera);
-	}
+        ++frames;
+        renderer.render(scene, camera);
+    }
 
 })(window);
 
