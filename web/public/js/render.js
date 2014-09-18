@@ -151,9 +151,8 @@
                     "contain XYZ values, check source");
 
         var asDataView = new DataView(data.buffer);
-        var pointsCount = count;
 
-        console.log('Total', pointsCount, 'points');
+        console.log('Total', count, 'points');
 
         var bounds = getBounds(asDataView, recordSize, !nointensity);
         console.log(bounds);
@@ -164,14 +163,13 @@
 
         console.log('Max bound:', maxBound);
 
-        var particles = pointsCount;
         var geometry = new THREE.BufferGeometry();
 
-        var positions = geometry.attributes.position.array;
-        var colors = geometry.attributes.color.array;
+        var positions = new Float32Array(count * 3);
+        var colors = new Float32Array(count * 3);
 
         var offset = 0;
-        for ( var i = 0; i < particles; i++) {
+        for ( var i = 0; i < count; i++) {
             // positions
             var x = asDataView.getFloat32(offset, true); offset += 4;
             var y = asDataView.getFloat32(offset, true); offset += 4;
@@ -215,11 +213,14 @@
             colors[ 3*i + 2 ] = intensity * b / 255.0;
         }
 
+        geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
+
         // setup material to use vertex colors
-        var material = new THREE.ParticleSystemMaterial(
+        var material = new THREE.PointCloudMaterial(
                 { size: 1, vertexColors: true });
 
-        var particleSystem = new THREE.ParticleSystem(geometry, material);
+        var particleSystem = new THREE.PointCloud(geometry, material);
         scene.add(particleSystem);
     }
 
