@@ -321,6 +321,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     readCommand->errMsg());
 
                 // Clean up since we won't be calling the async send code.
+                readCommand->eraseSelf();
                 delete readCommand;
                 return;
             }

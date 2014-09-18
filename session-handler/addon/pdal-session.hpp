@@ -79,7 +79,7 @@ public:
     std::string getSrs() const;
 
     // Read un-indexed data with an offset and a count.
-    std::size_t read(
+    std::size_t readUnindexed(
             std::vector<unsigned char>& buffer,
             const Schema& schema,
             std::size_t start,

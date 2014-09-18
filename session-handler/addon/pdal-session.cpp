@@ -140,7 +140,7 @@ std::size_t PdalSession::readDim(
     return dim.size;
 }
 
-std::size_t PdalSession::read(
+std::size_t PdalSession::readUnindexed(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
         const std::size_t start,
@@ -249,10 +249,7 @@ std::size_t PdalSession::read(
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
-    //double xBegin, xEnd, xStep, yBegin, yEnd, yStep;
     double xEnd, yEnd;
-
-    //std::cout << "RASTERING!!!" << std::endl;
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
             rasterize,
@@ -265,23 +262,6 @@ std::size_t PdalSession::read(
 
     xNum = std::round((xEnd - xBegin) / xStep);
     yNum = std::round((yEnd - yBegin) / yStep);
-
-    /*
-    std::cout << "RASTER STUFF" << xBegin << ", " << xEnd << ", " <<
-        xStep << " --- " <<
-        yBegin << ", " << yEnd << ", " << yStep << std::endl;
-
-    std::cout << "Test " << std::numeric_limits<std::size_t>::max() <<
-        ", sz " << results.size() << ", rs " << rasterize << std::endl;
-
-    int empty(0);
-    for (std::size_t i(0); i < results.size(); ++i)
-    {
-        if (results[i] == std::numeric_limits<std::size_t>::max())
-            ++empty;
-    }
-    std::cout << empty << " / " << results.size() << " EMPTY" << std::endl;
-    */
 
     return readIndexList(buffer, schema, results, true);
 }
