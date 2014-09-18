@@ -224,7 +224,8 @@ app.post("/read/:sessionId", function(req, res) {
         if (
             args.hasOwnProperty('start') ||
             args.hasOwnProperty('count') ||
-            Object.keys(args).length == 4) {
+            Object.keys(args).length == 4 ||
+            (args.hasOwnProperty('schema') && Object.keys(args).length == 5)) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
