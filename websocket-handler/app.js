@@ -17,14 +17,14 @@ var WebSocketServer = require('ws').Server
   , Affinity = require('./lib/affinity').Affinity
   , streamers = { }
 
-  // TODO Configuration options.
-  , softSessionShareMax = 8
-  , hardSessionShareMax = 0
-  , sessionTimeoutMinutes = 60
-  , expirePeriodSec = 10;
+  , config = require('./config')
+  , softSessionShareMax = (config.softSessionShareMax || 16)
+  , hardSessionShareMax = (config.hardSessionShareMax || 0)
+  , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)
+  , expirePeriodSeconds = (config.expirePeriodSeconds || 10);
   ;
 
-var affinity = new Affinity(expirePeriodSec, sessionTimeoutMinutes);
+var affinity = new Affinity(expirePeriodSeconds, sessionTimeoutMinutes);
 
 var getTimeSec = function() {
     return Math.round(Date.now() / 1000);

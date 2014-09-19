@@ -5,7 +5,7 @@ start)
     if [ $# -eq 2 ]; then
         if [ $2 == "-q" ] || [ $2 == "--quiet" ]; then
             echo "Using quiet"
-            foreman start -f /vagrant/ProcfileQuiet&
+            foreman start -f /vagrant/ProcfileQuiet &
         else
             echo "Usage: $0 {start|stop} [-q|--quiet]" >&2
         fi
