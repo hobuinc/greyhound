@@ -8,8 +8,9 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
 
+#include "pdal-session.hpp"
+
 class BufferTransmitter;
-class PdalSession;
 
 void errorCallback(
         v8::Persistent<v8::Function> callback,
@@ -219,6 +220,7 @@ public:
         , m_depthBegin(depthBegin)
         , m_depthEnd(depthEnd)
         , m_rasterize(rasterize)
+        , m_rasterMeta()
         , m_isBBoxQuery(true)
     { }
 
@@ -248,20 +250,15 @@ public:
         , m_depthBegin(depthBegin)
         , m_depthEnd(depthEnd)
         , m_rasterize(rasterize)
+        , m_rasterMeta()
         , m_isBBoxQuery(false)
     { }
 
     virtual void run();
     virtual bool rasterize() const { return m_rasterize != 0; }
 
-    // TODO Split up raster/non-raster queries.  These functions only valid
-    // for rasterized.
-    double xStart() const       { return m_xStart; }
-    double xStep() const        { return m_xStep; }
-    std::size_t xNum() const    { return m_xNum; }
-    double yStart() const       { return m_yStart; }
-    double yStep() const        { return m_yStep; }
-    std::size_t yNum() const    { return m_yNum; }
+    // TODO Split up raster/non-raster queries.  This is only valid for rasters.
+    RasterMeta rasterMeta() const { return m_rasterMeta; }
 
 private:
     const double m_xMin;
@@ -272,8 +269,7 @@ private:
     const std::size_t m_depthEnd;
     const std::size_t m_rasterize;
 
-    double m_xStart, m_xStep, m_yStart, m_yStep;
-    std::size_t m_xNum, m_yNum;
+    RasterMeta m_rasterMeta;
 
     const bool m_isBBoxQuery;
 };
