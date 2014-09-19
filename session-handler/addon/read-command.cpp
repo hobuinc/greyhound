@@ -127,12 +127,7 @@ void ReadCommandQuadIndex::run()
                     m_data,
                     m_schema,
                     m_rasterize,
-                    m_xStart,
-                    m_xStep,
-                    m_xNum,
-                    m_yStart,
-                    m_yStep,
-                    m_yNum);
+                    m_rasterMeta);
         }
         else
         {

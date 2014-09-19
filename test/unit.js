@@ -1692,6 +1692,7 @@ module.exports = {
     // TODO Test READ with point/radius query
     // TODO Test READ with quadtree indexed queries
     // TODO Test READ without schema parameter
+    // TODO Test READ with raster queries
 
     // CANCEL - test cancel functionality and subsequent read
     // Expect: Partially transmitted data, successful cancel, successful read

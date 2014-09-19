@@ -190,33 +190,15 @@ std::size_t PdalSession::read(
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
-    if (false)//rasterize)
-    {
-        // TODO
-        /*
-        const std::vector<std::size_t> results(quadIndex.getPoints(
-                xMin,
-                yMin,
-                xMax,
-                yMax,
-                rasterize,
-                rasterize + 1));
+    const std::vector<std::size_t> results(quadIndex.getPoints(
+            xMin,
+            yMin,
+            xMax,
+            yMax,
+            depthBegin,
+            depthEnd));
 
-                */
-        return 0;
-    }
-    else
-    {
-        const std::vector<std::size_t> results(quadIndex.getPoints(
-                xMin,
-                yMin,
-                xMax,
-                yMax,
-                depthBegin,
-                depthEnd));
-
-        return readIndexList(buffer, schema, results);
-    }
+    return readIndexList(buffer, schema, results);
 }
 
 std::size_t PdalSession::read(
@@ -239,29 +221,19 @@ std::size_t PdalSession::read(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
         const std::size_t rasterize,
-        double& xBegin,
-        double& xStep,
-        std::size_t& xNum,
-        double& yBegin,
-        double& yStep,
-        std::size_t& yNum)
+        RasterMeta& rasterMeta)
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
-    double xEnd, yEnd;
-
     const std::vector<std::size_t> results(quadIndex.getPoints(
             rasterize,
-            xBegin,
-            xEnd,
-            xStep,
-            yBegin,
-            yEnd,
-            yStep));
-
-    xNum = std::round((xEnd - xBegin) / xStep);
-    yNum = std::round((yEnd - yBegin) / yStep);
+            rasterMeta.xBegin,
+            rasterMeta.xEnd,
+            rasterMeta.xStep,
+            rasterMeta.yBegin,
+            rasterMeta.yEnd,
+            rasterMeta.yStep));
 
     return readIndexList(buffer, schema, results, true);
 }

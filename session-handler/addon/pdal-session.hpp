@@ -65,6 +65,19 @@ private:
     std::mutex m_mutex;
 };
 
+struct RasterMeta
+{
+    double xBegin;
+    double xEnd;
+    double xStep;
+    double yBegin;
+    double yEnd;
+    double yStep;
+
+    std::size_t xNum() const { return std::round((xEnd - xBegin) / xStep); }
+    std::size_t yNum() const { return std::round((yEnd - yBegin) / yStep); }
+};
+
 class PdalSession
 {
 public:
@@ -123,16 +136,7 @@ public:
             std::vector<unsigned char>& buffer,
             const Schema& schema,
             std::size_t rasterize,
-            // TODO Put these 3-tuples in a struct somewhere?  Lots of repeated
-            // args everywhere.
-            // Should probably give it xEnd instead of xNum, and calculate num
-            // only when sending back info for the read.
-            double& xBegin,
-            double& xStep,
-            std::size_t& xNum,
-            double& yBegin,
-            double& yStep,
-            std::size_t& yNum);
+            RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
     std::size_t read(

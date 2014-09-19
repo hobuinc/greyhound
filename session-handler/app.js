@@ -184,8 +184,19 @@ app.post("/read/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('read('+ sessionId + ')');
 
-        var readHandler = function(err, readId, numPoints, numBytes,
-            rasterize, xBegin, xStep, xNum, yBegin, yStep, yNum) {
+        var readHandler = function(
+            err,
+            readId,
+            numPoints,
+            numBytes,
+            rasterize,
+            xBegin,
+            xStep,
+            xNum,
+            yBegin,
+            yStep,
+            yNum)
+        {
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
