@@ -27,6 +27,7 @@ setup_npm_packages() {
         /vagrant/db-handler \
         /vagrant/examples/js \
         /vagrant/test \
+        /vagrant/common \
         ; do
 		cd $P ; npm install ; cd -
 	done
