@@ -88,6 +88,7 @@
                         if (aliveC % 5 === 0 && aliveC !== 0)
                             console.log('alive!:', name);
                         redis.expire(keyName, 10);
+                        aliveC++;
                     }, 5000);
 
                     val.unregister = function() {
