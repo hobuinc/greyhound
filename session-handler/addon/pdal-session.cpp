@@ -90,7 +90,7 @@ std::string PdalSession::getSrs() const
 std::size_t PdalSession::readDim(
         unsigned char* buffer,
         const DimInfo& dim,
-        std::size_t index) const
+        const std::size_t index) const
 {
     if (dim.type == "floating")
     {
@@ -269,15 +269,19 @@ std::size_t PdalSession::readIndexList(
 {
     const std::size_t pointsToRead(indexList.size());
 
+    // Rasterization
     std::size_t stride(schema.stride());
 
     if (rasterize)
     {
+        // Clientward rasterization schemas always contain a byte to specify
+        // whether a point at this location in the raster exists.
+        ++stride;
+
         for (auto dim : schema.dims)
         {
             if (rasterOmit(dim.id))
             {
-                // TODO Throw if X or Y isn't in the schema?
                 stride -= dim.size;
             }
         }
@@ -293,6 +297,13 @@ std::size_t PdalSession::readIndexList(
         {
             if (i != std::numeric_limits<std::size_t>::max())
             {
+                if (rasterize)
+                {
+                    // Mark this point as a valid point.
+                    std::fill(pos, pos + 1, 1);
+                    ++pos;
+                }
+
                 for (const auto& dim : schema.dims)
                 {
                     if (!rasterize || !rasterOmit(dim.id))
@@ -303,6 +314,12 @@ std::size_t PdalSession::readIndexList(
             }
             else
             {
+                if (rasterize)
+                {
+                    // Mark this point as a hole.
+                    std::fill(pos, pos + 1, 0);
+                }
+
                 pos += stride;
             }
         }

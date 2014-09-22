@@ -233,13 +233,13 @@
     }
 
     function getZIndex(meta, xIndex, yIndex, recordSize) {
-        return recordSize * (yIndex * meta.xNum + xIndex);
+        return recordSize * (yIndex * meta.xNum + xIndex) + 1;
     }
 
     function initRaster(data, count, meta, stats) {
         var geometry = new THREE.BufferGeometry();
         var asDataView = new DataView(data.buffer);
-        var recordSize = 12;
+        var recordSize = 13;
         var allCornersPresent;
         var triangles = 0;
 
@@ -256,9 +256,7 @@
                         var pointBase =
                             recordSize * (yIndex * meta.xNum + xIndex);
 
-                        // TODO Should probably use the max or min value as the
-                        // "no point here" value.
-                        if (asDataView.getUint32(pointBase, true) == 0) {
+                        if (asDataView.getUint8(pointBase, true) == 0) {
                             allCornersPresent = false;
                         }
                     }
@@ -314,7 +312,7 @@
                         var pointBase =
                             recordSize * (yIndex * meta.xNum + xIndex);
 
-                        if (asDataView.getUint32(pointBase, true) == 0) {
+                        if (asDataView.getUint8(pointBase, true) == 0) {
                             allCornersPresent = false;
                         }
                     }

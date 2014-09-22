@@ -286,6 +286,23 @@ app.post("/read/:sessionId", function(req, res) {
                     parseInt(args.rasterize) :
                     0;
 
+            if (rasterize && schema.hasOwnProperty('schema')) {
+                var xFound = false, yFound = false;
+                for (var i = 0; i < schema.schema.length; ++i) {
+                    if      (schema.schema[i].name == 'X') xFound = true;
+                    else if (schema.schema[i].name == 'Y') yFound = true;
+                }
+
+                if (!xFound || !yFound) {
+                    console.log(
+                            'Invalid schema in raster request', schema.schema);
+
+                    return res.json(
+                        400,
+                        { message: 'Bad schema - must contain X and Y' });
+                }
+            }
+
             pdalSession.read(
                     host,
                     port,

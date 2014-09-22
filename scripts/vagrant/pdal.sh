@@ -20,7 +20,7 @@ cmake   -G "Unix Makefiles" \
         -DWITH_SQLITE=ON \
         -DWITH_P2G=ON \
         -DWITH_HEXER=ON \
-        -DWITH_NITRO=ON \
+        -DWITH_NITRO=OFF \
         -DWITH_TESTS=OFF
 
 make -j $NUMTHREADS
