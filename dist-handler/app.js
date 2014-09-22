@@ -4,8 +4,8 @@
 process.title = 'gh_dist';
 
 var
-	seaport = require('seaport'),
 	redis = require('redis'),
+    disco = require('../common').disco,
 	_ = require('lodash'),
 	redisClient = redis.createClient();
 
@@ -29,7 +29,7 @@ var unregisterForHipache = function(service, cb) {
 var registerForHipache = function(service, cb) {
 	var host = (process.env.HOST || 'localhost');
 	var key = 'frontend:' + host;
-	var self = 'http://' + service.host + ':' + service.port;
+	var self = 'http://' + (service.host || "localhost") + ':' + service.port;
 
 	redisClient.rpush(key, self, cb || function() { });
 }
@@ -47,33 +47,28 @@ var prepHipacheConfig = function(cb) {
 
 var start = function() {
 	prepHipacheConfig(function(err) {
-		if (err) 
+		if (err)
 			return console.log('Could not clear initial state');
 
-		var server = seaport.createServer();
-		server.listen(9090);
-		
 		var desc = function(service) {
-			return service.role + '@' + service.host + ':' + service.port;
+			return service.name + '@' + (service.host || "localhost") + ':' + service.port;
 		};
 
-		server.on('register', function(service) {
-			if (service.role === 'ws') {
-				registerForHipache(service, function(err) {
-					if (err) return console.log('Could not register service for hipache: ' + desc(service));
-					console.log('hipache registration: ' + desc(service));
-				});
-			}
+        var watcher = disco.watchForService("ws");
+		watcher.on('register', function(service) {
+            registerForHipache(service, function(err) {
+                if (err) return console.log('Could not register service for hipache: ' + desc(service));
+                console.log('hipache registration: ' + desc(service));
+            });
 		});
 
-		server.on('free', function(service) {
-			console.log('Service is going away: ' + desc(service));
-			if (service.role === 'ws') {
-				unregisterForHipache(service, function(err) {
-					if (err) return console.log('Unregistering failed: ' + err + ' for ' + desc(service));
-				});
-			}
-		});
+        watcher.on('unregister', function(service) {
+            console.log('Service is going away: ' + desc(service));
+            unregisterForHipache(service, function(err) {
+                if (err) return console.log('Unregistering failed: ' + err + ' for ' + desc(service));
+            });
+        });
+    });
 
 
 		/*
@@ -101,7 +96,6 @@ var start = function() {
 
 		pserver.listen(80);
 		*/
-	});
 }
 
 process.nextTick(start);

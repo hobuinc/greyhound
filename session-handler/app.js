@@ -10,12 +10,11 @@ var express = require("express"),
     path = require('path'),
     crypto = require('crypto'),
     _ = require('lodash'),
-    seaport = require('seaport'),
+    disco = require('../common').disco,
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
 
-    app = express(),
-    ports = seaport.connect('localhost', 9090);
+    app = express();
 
 // configure express application
 app.configure(function() {
@@ -171,6 +170,8 @@ app.post("/read/:sessionId", function(req, res) {
     var port = parseInt(args.port);
     var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : { };
 
+    console.log("session handler: /read/:" + JSON.stringify(schema, null, "    "));
+
     if (!host)
         return res.json(
             400,
@@ -317,8 +318,14 @@ app.post("/read/:sessionId", function(req, res) {
     });
 });
 
-var port = ports.register('sh@0.0.1');
-app.listen(port, function() {
-    console.log('Session handler listening on port: ' + port);
+
+disco.register("sh", function(err, service) {
+    if (err) return console.log("Failed to start service:", err);
+
+    var port = service.port;
+
+    app.listen(port, function() {
+        console.log('Session handler listening on port: ' + port);
+    });
 });
 
