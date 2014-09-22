@@ -3,26 +3,25 @@
 process.title = 'gh_ws';
 
 var WebSocketServer = require('ws').Server
-  , _ = require('lodash')
-  , http = require('http')
-  , express = require('express')
-  , seaport = require('seaport')
+    , _ = require('lodash')
+    , http = require('http')
+    , express = require('express')
 
-  , web = require('./lib/web')
-  , port = (process.env.PORT || 8080)
-  , ports = seaport.connect('localhost', 9090)
+    , web = require('./lib/web')
+    , port = (process.env.PORT || 8080)
+    , disco = require('../common').disco
 
-  , CommandHandler = require('./lib/command-handler').CommandHandler
-  , TcpToWs = require('./lib/tcp-ws').TcpToWs
-  , Affinity = require('./lib/affinity').Affinity
-  , streamers = { }
+    , CommandHandler = require('./lib/command-handler').CommandHandler
+    , TcpToWs = require('./lib/tcp-ws').TcpToWs
+    , Affinity = require('./lib/affinity').Affinity
+    , streamers = { }
 
-  , config = require('./config')
-  , softSessionShareMax = (config.softSessionShareMax || 16)
-  , hardSessionShareMax = (config.hardSessionShareMax || 0)
-  , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)
-  , expirePeriodSeconds = (config.expirePeriodSeconds || 10);
-  ;
+    , config = require('./config')
+    , softSessionShareMax = (config.softSessionShareMax || 16)
+    , hardSessionShareMax = (config.hardSessionShareMax || 0)
+    , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)
+    , expirePeriodSeconds = (config.expirePeriodSeconds || 10);
+    ;
 
 var affinity = new Affinity(expirePeriodSeconds, sessionTimeoutMinutes);
 
@@ -31,7 +30,9 @@ var getTimeSec = function() {
 }
 
 var pickSessionHandler = function(exclude, cb) {
-    ports.get('sh', function(services) {
+    disco.get('sh', function(err, services) {
+        if (err) return cb(err);
+        console.log("pickSessionHandler: dist.get:", services);
         var servicesPruned = { };
 
         for (var i = 0; i < services.length; ++i) {
@@ -71,9 +72,10 @@ var pickSessionHandler = function(exclude, cb) {
 }
 
 var getDbHandler = function(cb) {
-    ports.get('db', function (services) {
+    disco.get('db', function (err, services) {
+        if (err) return cb(err);
         var service = services[0];
-        cb(null, service.host + ':' + service.port);
+        cb(null, (service.host || "localhost") + ':' + service.port);
     });
 }
 
@@ -151,7 +153,9 @@ var getShCandidate = function(pipelineId, cb) {
 }
 
 var queryPipeline = function(pipelineId, cb) {
+    console.log("queryPipeline: getting DB handler");
     getDbHandler(function(err, db) {
+        console.log("    :getDbHandler result:", err, db);
         if (err) return cb(err);
 
         var params = { pipelineId: pipelineId };
@@ -169,6 +173,7 @@ var queryPipeline = function(pipelineId, cb) {
 
 var createSession = function(pipelineId, pipeline, cb) {
     getShCandidate(pipelineId, function(err, sessionHandler) {
+        console.log("    :getShCandidate:", err, sessionHandler);
         if (err) return cb(err);
 
         var params = {
@@ -177,6 +182,7 @@ var createSession = function(pipelineId, pipeline, cb) {
         };
 
         web.post(sessionHandler, '/create', params, function(err, res) {
+            console.log("    :/create:", err, res);
             if (err)
                 return cb(err);
             if (!res.hasOwnProperty('sessionId'))
@@ -187,6 +193,7 @@ var createSession = function(pipelineId, pipeline, cb) {
                 sessionHandler,
                 res.sessionId,
                 function(err) {
+                    console.log("    :addSession:", err);
                     return cb(err, { session: res.sessionId });
                 }
             );
@@ -206,249 +213,271 @@ process.nextTick(function() {
     });
 
     var server = http.createServer(app);
-    var port = ports.register('ws@0.0.1');
+    disco.register("ws", function(err, service) {
+        if (err) return console.log("Failed to start service:", err);
 
-    server.listen(port)
-    var wss = new WebSocketServer({server: server});
+        var port = service.port;
 
-    console.log('Websocket server running on port: ' + port);
 
-    wss.on('connection', function(ws) {
-        var handler = new CommandHandler(ws);
-        console.log('Got a connection');
+        server.listen(port)
+        var wss = new WebSocketServer({server: server});
 
-        handler.on('put', function(msg, cb) {
-            // Validate this pipeline and then hand it to the db-handler.
-            if (!msg.hasOwnProperty('pipeline'))
-                return cb(propError('put', 'pipeline'));
+        console.log('Websocket server running on port: ' + port);
 
-            var params = { pipeline: msg.pipeline };
+        wss.on('connection', function(ws) {
+            console.log("websocket::connection");
+            var handler = new CommandHandler(ws);
 
-            pickSessionHandler({ }, function(err, sh) {
-                web.get(sh, '/validate/', params, function(err, res) {
-                    if (err || !res.valid) {
-                        console.log('PUT - Pipeline validation failed');
-                        return cb(err || 'Pipeline is not valid');
-                    }
+            handler.on('put', function(msg, cb) {
+                console.log("websocket::handler::put");
+                // Validate this pipeline and then hand it to the db-handler.
+                if (!msg.hasOwnProperty('pipeline'))
+                    return cb(propError('put', 'pipeline'));
 
-                    getDbHandler(function(err, db) {
-                        if (err) return cb(err);
+                var params = { pipeline: msg.pipeline };
 
-                        web.post(db, '/put', params, function(err, res) {
-                            if (err)
-                                return cb(err);
-                            if (!res.hasOwnProperty('id'))
-                                return cb(new Error('Invalid response from PUT'));
-                            else
-                                cb(null, { pipelineId: res.id });
+                pickSessionHandler({ }, function(err, sh) {
+                    web.get(sh, '/validate/', params, function(err, res) {
+                        if (err || !res.valid) {
+                            console.log('PUT - Pipeline validation failed');
+                            return cb(err || 'Pipeline is not valid');
+                        }
+
+                        getDbHandler(function(err, db) {
+                            if (err) return cb(err);
+
+                            web.post(db, '/put', params, function(err, res) {
+                                if (err)
+                                    return cb(err);
+                                if (!res.hasOwnProperty('id'))
+                                    return cb(new Error('Invalid response from PUT'));
+                                else
+                                    cb(null, { pipelineId: res.id });
+                            });
                         });
                     });
                 });
             });
-        });
 
-        handler.on('create', function(msg, cb) {
-            // Get the stored pipeline corresponding to the requested
-            // pipelineId from the db-handler, then defer to the
-            // request-handler to create the session.
-            if (!msg.hasOwnProperty('pipelineId'))
-                return cb(propError('create', 'pipelineId'));
 
-            var pipelineId = msg.pipelineId;
+            handler.on('create', function(msg, cb) {
+                console.log("websocket::handler::create");
+                // Get the stored pipeline corresponding to the requested
+                // pipelineId from the db-handler, then defer to the
+                // request-handler to create the session.
+                if (!msg.hasOwnProperty('pipelineId'))
+                    return cb(propError('create', 'pipelineId'));
 
-            queryPipeline(pipelineId, function(err, pipeline) {
-                if (err)
-                    return cb(err);
-                else
-                    createSession(pipelineId, pipeline, cb);
+                var pipelineId = msg.pipelineId;
+
+                console.log("    :querying pipeline", pipelineId);
+                queryPipeline(pipelineId, function(err, pipeline) {
+                    if (err)
+                        return cb(err);
+                    else
+                        createSession(pipelineId, pipeline, cb);
+                });
             });
-        });
 
-        handler.on('pointsCount', function(msg, cb) {
-            var session = msg['session'];
-            if (!session) return cb(propError('pointsCount', 'session'));
+            handler.on('pointsCount', function(msg, cb) {
+                console.log("websocket::handler::pointsCount");
 
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-                web.get(sessionHandler, '/pointsCount/' + session, cb);
-            });
-        });
+                var session = msg['session'];
+                if (!session) return cb(propError('pointsCount', 'session'));
 
-        handler.on('schema', function(msg, cb) {
-            var session = msg['session'];
-            if (!session) return cb(propError('schema', 'session'));
-
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-                web.get(sessionHandler, '/schema/' + session, cb);
-            });
-        });
-
-        handler.on('stats', function(msg, cb) {
-            var session = msg['session'];
-            if (!session) return cb(propError('stats', 'session'));
-
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-                web.get(sessionHandler, '/stats/' + session, cb);
-            });
-        });
-
-        handler.on('srs', function(msg, cb) {
-            var session = msg['session'];
-            if (!session) return cb(propError('srs', 'session'));
-
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-                web.get(sessionHandler, '/srs/' + session, cb);
-            });
-        });
-
-        handler.on('destroy', function(msg, cb) {
-            // Note: this function does not destroy the actual PdalSession that
-            // was used for this session.  This just erases the session.  The
-            // PdalSession will be destroyed once it has expired, meaning no
-            // sessions have used it for a while.
-            var session = msg['session'];
-            if (!session) return cb(propError('destroy', 'session'));
-
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-
-                var path = '/sessions/' + session;
-                web._delete(sessionHandler, path, function(err, res) {
+                affinity.getSh(session, function(err, sessionHandler) {
                     if (err) return cb(err);
-                    console.log('Erased session', err, res);
+                    web.get(sessionHandler, '/pointsCount/' + session, cb);
+                });
+            });
 
-                    affinity.delSession(session, function(err) {
-                        if (err)
-                            console.log('Delete unclean for session', session);
+            handler.on('schema', function(msg, cb) {
+                console.log("websocket::handler::schema");
+                var session = msg['session'];
+                if (!session) return cb(propError('schema', 'session'));
 
-                        cb();
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+                    web.get(sessionHandler, '/schema/' + session, cb);
+                });
+            });
+
+            handler.on('stats', function(msg, cb) {
+                console.log("websocket::handler::stats");
+                var session = msg['session'];
+                if (!session) return cb(propError('stats', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+                    web.get(sessionHandler, '/stats/' + session, cb);
+                });
+            });
+
+            handler.on('srs', function(msg, cb) {
+                console.log("websocket::handler::srs");
+                var session = msg['session'];
+                if (!session) return cb(propError('srs', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+                    web.get(sessionHandler, '/srs/' + session, cb);
+                });
+            });
+
+            handler.on('destroy', function(msg, cb) {
+                console.log("websocket::handler::destroy");
+                // Note: this function does not destroy the actual PdalSession that
+                // was used for this session.  This just erases the session.  The
+                // PdalSession will be destroyed once it has expired, meaning no
+                // sessions have used it for a while.
+                var session = msg['session'];
+                if (!session) return cb(propError('destroy', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+
+                    var path = '/sessions/' + session;
+                    web._delete(sessionHandler, path, function(err, res) {
+                        if (err) return cb(err);
+                        console.log('Erased session', err, res);
+
+                        affinity.delSession(session, function(err) {
+                            if (err)
+                                console.log('Delete unclean for session', session);
+
+                            cb();
+                        });
                     });
                 });
             });
-        });
 
-        handler.on('cancel', function(msg, cb) {
-            var session = msg['session'];
-            var readId  = msg['readId'];
-            if (!session) return cb(propError('cancel', 'session'));
-            if (!readId)  return cb(propError('cancel', 'readId'));
+            handler.on('cancel', function(msg, cb) {
+                console.log("websocket::handler::cancel");
+                var session = msg['session'];
+                var readId  = msg['readId'];
+                if (!session) return cb(propError('cancel', 'session'));
+                if (!readId)  return cb(propError('cancel', 'readId'));
 
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
 
-                var cancel = '/cancel/' + session;
-                var params = { readId: readId };
+                    var cancel = '/cancel/' + session;
+                    var params = { readId: readId };
 
-                web.post(sessionHandler, cancel, params, function(err, res) {
-                    console.log('post came back', err);
-                    if (streamers.hasOwnProperty(session)) {
-                        var streamer = streamers[session][readId];
+                    web.post(sessionHandler, cancel, params, function(err, res) {
+                        console.log('post came back', err);
+                        if (streamers.hasOwnProperty(session)) {
+                            var streamer = streamers[session][readId];
 
-                        if (streamer) {
-                            console.log(
-                                'Cancelled.  Arrived:',
-                                streamer.totalArrived,
-                                'Sent:',
-                                streamer.totalSent);
+                            if (streamer) {
+                                console.log(
+                                    'Cancelled.  Arrived:',
+                                    streamer.totalArrived,
+                                    'Sent:',
+                                    streamer.totalSent);
 
-                            res['numBytes'] = streamer.totalSent;
+                                    res['numBytes'] = streamer.totalSent;
 
-                            streamer.cancel();
+                                    streamer.cancel();
+
+                                    delete streamers[session][readId];
+
+                                    if (Object.keys(streamers[session]) == 0) {
+                                        delete streamers[session];
+                                    }
+                            }
+                        }
+
+                        return cb(err, res);
+                    });
+                });
+            });
+
+            handler.on('read', function(msg, cb) {
+                console.log("websocket::handler::read");
+                var session = msg['session'];
+                var readId = 0;
+                if (!session) return cb(propError('read', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+
+                    var streamer = new TcpToWs(ws);
+
+                    streamer.on('local-address', function(addr) {
+                        console.log('local-bound address for read: ', addr);
+
+
+                        if (msg.hasOwnProperty('start') &&
+                            !_.isNumber(msg['start'])) {
+                            return cb(new Error('"start" must be a number'));
+                        }
+
+                        if (msg.hasOwnProperty('count') &&
+                            !_.isNumber(msg['count'])) {
+                            return cb(new Error('"count" must be a number'));
+                        }
+
+                        var params = _.extend(addr, msg);
+                        var readPath = '/read/' + session;
+
+                        if (params.hasOwnProperty('schema')) {
+                            params['schema'] = JSON.stringify(params['schema']);
+                        }
+
+
+                        console.log("Read Params:", JSON.stringify(params, null, "    "));
+
+
+                        web.post(
+                            sessionHandler,
+                            readPath,
+                            params,
+                            function(err, res) {
+                                if (err) {
+                                    console.log(err);
+                                    streamer.close();
+                                    return cb(err);
+                                }
+
+                                readId = res.readId;
+
+                                if (!streamers.hasOwnProperty(session)) {
+                                    streamers[session] = { };
+                                }
+
+                                streamers[session][readId] = streamer;
+
+                                console.log(
+                                    'TCP-WS - points:',
+                                    res.numPoints,
+                                    ', bytes:',
+                                    res.numBytes);
+
+                                    cb(null, res);
+                                    process.nextTick(function() {
+                                        streamer.startPushing();
+                                    });
+                            }
+                        );
+                    });
+
+                    streamer.on('end', function() {
+                        console.log(
+                            'Done transmitting point data, r:',
+                            streamer.totalArrived,
+                            's:',
+                            streamer.totalSent);
 
                             delete streamers[session][readId];
 
                             if (Object.keys(streamers[session]) == 0) {
                                 delete streamers[session];
                             }
-                        }
-                    }
+                    });
 
-                    return cb(err, res);
+                    streamer.start();
                 });
-            });
-        });
-
-        handler.on('read', function(msg, cb) {
-            var session = msg['session'];
-            var readId = 0;
-            if (!session) return cb(propError('read', 'session'));
-
-            affinity.getSh(session, function(err, sessionHandler) {
-                if (err) return cb(err);
-
-                var streamer = new TcpToWs(ws);
-
-                streamer.on('local-address', function(addr) {
-                    console.log('local-bound address for read: ', addr);
-
-                    if (msg.hasOwnProperty('start') &&
-                        !_.isNumber(msg['start'])) {
-                        return cb(new Error('"start" must be a number'));
-                    }
-
-                    if (msg.hasOwnProperty('count') &&
-                        !_.isNumber(msg['count'])) {
-                        return cb(new Error('"count" must be a number'));
-                    }
-
-                    var params = _.extend(addr, msg);
-                    var readPath = '/read/' + session;
-
-                    if (params.hasOwnProperty('schema')) {
-                        params['schema'] = JSON.stringify(params['schema']);
-                    }
-
-                    web.post(
-                        sessionHandler,
-                        readPath,
-                        params,
-                        function(err, res) {
-                            if (err) {
-                                console.log(err);
-                                streamer.close();
-                                return cb(err);
-                            }
-
-                            readId = res.readId;
-
-                            if (!streamers.hasOwnProperty(session)) {
-                                streamers[session] = { };
-                            }
-
-                            streamers[session][readId] = streamer;
-
-                            console.log(
-                                'TCP-WS - points:',
-                                res.numPoints,
-                                ', bytes:',
-                                res.numBytes);
-
-                            cb(null, res);
-                            process.nextTick(function() {
-                                streamer.startPushing();
-                            });
-                        }
-                    );
-                });
-
-                streamer.on('end', function() {
-                    console.log(
-                        'Done transmitting point data, r:',
-                        streamer.totalArrived,
-                        's:',
-                        streamer.totalSent);
-
-                    delete streamers[session][readId];
-
-                    if (Object.keys(streamers[session]) == 0) {
-                        delete streamers[session];
-                    }
-                });
-
-                streamer.start();
             });
         });
     });
