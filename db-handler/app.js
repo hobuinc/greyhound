@@ -5,8 +5,7 @@ var express = require('express')
   , app = express()
   , methodOverride = require('method-override')
   , bodyParser = require('body-parser')
-  , seaport = require('seaport')
-  , ports = seaport.connect('localhost', 9090)
+  , disco = require('../common').disco
   , crypto = require('crypto')
   , mongo = require('mongoskin')
   , db = mongo.db('mongodb://localhost:21212/greyhound', { native_parser: true })
@@ -40,9 +39,12 @@ var put = function(pipeline, cb) {
 }
 
 var retrieve = function(pipelineId, cb) {
+    console.log("db.retrieve");
     var query = { 'id': pipelineId };
 
+    console.log("    :querying for pipelines");
     db.collection('pipelines').findOne(query, function(err, entry) {
+        console.log("    db.collection.findOne:", err, entry);
         if (!err && (!entry || !entry.hasOwnProperty('pipeline')))
             return cb('Invalid entry retreived');
 
@@ -52,9 +54,21 @@ var retrieve = function(pipelineId, cb) {
 
 var error = function(res) {
 	return function(err) {
+        console.log("Responding with a 500 ERROR:", err);
 		res.json(500, { message: err.message || 'Unknown error' });
 	};
 };
+
+var safe = function(res, f) {
+    try {
+        f();
+    }
+    catch(e) {
+        console.log("Request failed!", e);
+        error(res)(e);
+    }
+}
+
 
 app.get("/", function(req, res) {
 	res.json(404, { message: 'Invalid service URL' });
@@ -72,15 +86,20 @@ app.post("/put", function(req, res) {
 });
 
 app.get("/retrieve", function(req, res) {
-    var pipelineId = req.body.pipelineId;
+    safe(res, function() {
+        var pipelineId = req.body.pipelineId;
+        console.log("/retrieve with pipeline:", pipelineId);
 
-    retrieve(pipelineId.toString(), function(err, foundPipeline) {
-        if (err)
-            return error(res)(err);
-        else if (!foundPipeline)
-            return error(res)('Could not retrieve pipeline');
+        retrieve(pipelineId.toString(), function(err, foundPipeline) {
+            console.log("    retrieve:", err, foundPipeline);
+            if (err)
+                return error(res)(err);
+            else if (!foundPipeline)
+                return error(res)('Could not retrieve pipeline');
 
-        return res.json({ pipeline: foundPipeline });
+            console.log(pipelineId, "->", foundPipeline);
+            return res.json({ pipeline: foundPipeline });
+        });
     });
 });
 
@@ -90,8 +109,10 @@ db.collection('pipelines').ensureIndex(
         function(err, replies) { });
 
 // Set up the database and start listening.
-var port = ports.register('db@0.0.1');
-app.listen(port, function() {
-    console.log('Database handler listening on port: ' + port);
+disco.register('db', function(err, service) {
+    if (err) return console.log("Failed to start service:", err);
+    app.listen(service.port, function() {
+        console.log('Database handler listening on port: ' + service.port);
+    });
 });
 
