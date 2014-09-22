@@ -110,20 +110,6 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    // Read quad-tree indexed data with a bounding box query and depth level
-    // for rasterization.
-    // TODO
-    /*
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
-            double xMin,
-            double yMin,
-            double xMax,
-            double yMax,
-            std::size_t rasterize);
-    */
-
     // Read quad-tree indexed data with min/max tree depths to search.
     std::size_t read(
             std::vector<unsigned char>& buffer,
