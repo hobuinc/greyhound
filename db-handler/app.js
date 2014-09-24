@@ -44,7 +44,7 @@ var retrieve = function(pipelineId, cb) {
 
     console.log("    :querying for pipelines");
     db.collection('pipelines').findOne(query, function(err, entry) {
-        console.log("    db.collection.findOne:", err, entry);
+        if (err) console.log("    db.collection.findOne:", err);
         if (!err && (!entry || !entry.hasOwnProperty('pipeline')))
             return cb('Invalid entry retreived');
 
@@ -88,16 +88,15 @@ app.post("/put", function(req, res) {
 app.get("/retrieve", function(req, res) {
     safe(res, function() {
         var pipelineId = req.body.pipelineId;
-        console.log("/retrieve with pipeline:", pipelineId);
+        console.log("/retrieve with pipelineId:", pipelineId);
 
         retrieve(pipelineId.toString(), function(err, foundPipeline) {
-            console.log("    retrieve:", err, foundPipeline);
             if (err)
                 return error(res)(err);
             else if (!foundPipeline)
                 return error(res)('Could not retrieve pipeline');
 
-            console.log(pipelineId, "->", foundPipeline);
+            console.log("/retrieve with pipelineId:", pipelineId, "successful");
             return res.json({ pipeline: foundPipeline });
         });
     });
