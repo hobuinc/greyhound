@@ -8,7 +8,6 @@ var express = require("express"),
     bodyParser = require('body-parser'),
     Q = require('q'),
     path = require('path'),
-    crypto = require('crypto'),
     _ = require('lodash'),
     disco = require('../common').disco,
 
@@ -43,10 +42,6 @@ var error = function(res) {
     };
 };
 
-var createId = function() {
-    return crypto.randomBytes(20).toString('hex');
-}
-
 var parseBBox = function(rawArray) {
     var coords = [];
 
@@ -72,14 +67,15 @@ app.get("/validate", function(req, res) {
 });
 
 app.post("/create", function(req, res) {
+    console.log(':session-handler:CREATE');
     var pipelineId = req.body.pipelineId;
     var pipeline = req.body.pipeline;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
+    var sessionId = req.body.sessionId;
 
     // Make sure to set these outside of the callback so that if another
     // request for this pipeline comes immediately after this one, it doesn't
     // create a new PdalSession and clobber our pipelineIds mapping.
-    var sessionId = createId();
     sessions[sessionId]     = pdalSession;
     pipelineIds[pipelineId] = pdalSession;
 
@@ -170,7 +166,7 @@ app.post("/read/:sessionId", function(req, res) {
     var port = parseInt(args.port);
     var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : { };
 
-    console.log("session handler: /read/:" + JSON.stringify(schema, null, "    "));
+    console.log("session handler: /read/");
 
     if (!host)
         return res.json(
