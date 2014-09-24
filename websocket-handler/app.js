@@ -6,6 +6,7 @@ var WebSocketServer = require('ws').Server
     , _ = require('lodash')
     , http = require('http')
     , express = require('express')
+    , crypto = require('crypto')
 
     , web = require('./lib/web')
     , port = (process.env.PORT || 8080)
@@ -25,6 +26,10 @@ var WebSocketServer = require('ws').Server
 
 var affinity = new Affinity(expirePeriodSeconds, sessionTimeoutMinutes);
 
+var createSessionId = function() {
+    return crypto.randomBytes(20).toString('hex');
+}
+
 var getTimeSec = function() {
     return Math.round(Date.now() / 1000);
 }
@@ -32,7 +37,6 @@ var getTimeSec = function() {
 var pickSessionHandler = function(exclude, cb) {
     disco.get('sh', function(err, services) {
         if (err) return cb(err);
-        console.log("pickSessionHandler: dist.get:", services);
         var servicesPruned = { };
 
         for (var i = 0; i < services.length; ++i) {
@@ -88,7 +92,7 @@ var getShCandidate = function(pipelineId, cb) {
     affinity.getPipelineHandlers(pipelineId, function(err, counts) {
         var shList = Object.keys(counts);
 
-        // console.log('COUNTS', counts);
+        console.log('Pipeline affinity counts:', counts);
 
         if (!shList.length) {
             console.log('Assigning initial pipeline affinity');
@@ -176,27 +180,30 @@ var createSession = function(pipelineId, pipeline, cb) {
         console.log("    :getShCandidate:", err, sessionHandler);
         if (err) return cb(err);
 
-        var params = {
-            pipelineId: pipelineId,
-            pipeline: pipeline
-        };
+        var sId = createSessionId();
 
-        web.post(sessionHandler, '/create', params, function(err, res) {
-            console.log("    :/create:", err, res);
-            if (err)
-                return cb(err);
-            if (!res.hasOwnProperty('sessionId'))
-                return cb('Invalid response from CREATE');
+        affinity.addSession(pipelineId, sessionHandler, sId, function(err) {
+            console.log("    :addSession:", err);
 
-            affinity.addSession(
-                pipelineId,
-                sessionHandler,
-                res.sessionId,
-                function(err) {
-                    console.log("    :addSession:", err);
-                    return cb(err, { session: res.sessionId });
+            if (err) {
+                return affinity.delSession(sId, function() { cb(err); });
+            }
+
+            var params = {
+                pipelineId: pipelineId,
+                pipeline: pipeline,
+                sessionId: sId
+            };
+
+            web.post(sessionHandler, '/create', params, function(err, res) {
+                console.log("    :/create:", err, res);
+                if (err) {
+                    return affinity.delSession(sId, function() { cb(err); });
                 }
-            );
+                else {
+                    cb(err, { session: sId });
+                }
+            });
         });
     });
 }
@@ -250,7 +257,8 @@ process.nextTick(function() {
                                 if (err)
                                     return cb(err);
                                 if (!res.hasOwnProperty('id'))
-                                    return cb(new Error('Invalid response from PUT'));
+                                    return cb(new Error(
+                                            'Invalid response from PUT'));
                                 else
                                     cb(null, { pipelineId: res.id });
                             });
@@ -377,9 +385,7 @@ process.nextTick(function() {
                                     streamer.totalSent);
 
                                     res['numBytes'] = streamer.totalSent;
-
                                     streamer.cancel();
-
                                     delete streamers[session][readId];
 
                                     if (Object.keys(streamers[session]) == 0) {
@@ -424,10 +430,6 @@ process.nextTick(function() {
                         if (params.hasOwnProperty('schema')) {
                             params['schema'] = JSON.stringify(params['schema']);
                         }
-
-
-                        console.log("Read Params:", JSON.stringify(params, null, "    "));
-
 
                         web.post(
                             sessionHandler,
