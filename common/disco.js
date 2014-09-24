@@ -85,8 +85,6 @@
                 redis.set(keyName, JSON.stringify(val), function() {
                     var aliveC = 0;
                     var ti = setInterval(function() {
-                        if (aliveC % 5 === 0 && aliveC !== 0)
-                            console.log('alive!:', name);
                         redis.expire(keyName, 10);
                         aliveC++;
                     }, 5000);

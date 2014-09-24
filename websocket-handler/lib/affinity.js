@@ -152,7 +152,12 @@ var Affinity = function(expirePeriodSec, sessionTimeoutMinutes) {
         sessionId,
         cb)
     {
-        console.log("Affinity.addSession:", pipelineId, sessionHandler, sessionId);
+        console.log(
+                "Affinity.addSession:",
+                pipelineId,
+                sessionHandler,
+                sessionId);
+
         redisClient.multi()
             // Run through the pipelineIds sets.
             .sadd(pipelineIdsSet(), pipelineId)
@@ -211,8 +216,7 @@ var Affinity = function(expirePeriodSec, sessionTimeoutMinutes) {
 
     Affinity.prototype.getPipelineHandlers = function(pipelineId, cb) {
         redisClient.smembers(pipelineIdsSet(pipelineId), function(err, shList) {
-            if (err || !shList)
-                return cb(err);
+            if (err || !shList) return cb(err);
 
             var multi = redisClient.multi();
 
