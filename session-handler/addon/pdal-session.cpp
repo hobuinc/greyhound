@@ -35,7 +35,7 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         pdal::PipelineReader pipelineReader(m_pipelineManager);
         pipelineReader.readPipeline(ssPipeline);
 
-        // This block could take a substantial amount of time.  The
+        // This segment could take a substantial amount of time.  The
         // PdalBindings wrapper ensures that it will run in a non-blocking
         // manner in the uv_work_queue.
         if (execute)
