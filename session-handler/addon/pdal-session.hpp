@@ -18,9 +18,10 @@ class PdalIndex;
 class Once
 {
 public:
-    Once() : m_done(false), m_mutex() { }
+    Once() : m_done(false), m_err(false), m_mutex() { }
 
     bool done() const { return m_done; }
+    bool err() const { return m_err; }
 
     // This function ensures that the function parameter is executed only one
     // time, even with multithreaded callers.  It also ensures that subsequent
@@ -29,11 +30,18 @@ public:
     //
     // After execution is complete, no additional blocking or work will be
     // performed.
-    void ensure(std::function<void ()> function)
+    void ensure(std::function<void()> function)
     {
         if (!done())
         {
             lock();
+
+            if (err())
+            {
+                unlock(true);
+                throw std::runtime_error(
+                        "Could not ensure function - previous error");
+            }
 
             if (!done())
             {
@@ -43,13 +51,14 @@ public:
                 }
                 catch(std::runtime_error& e)
                 {
-                    unlock();
+                    unlock(true);
                     throw e;
                 }
                 catch(...)
                 {
-                    unlock();
-                    throw std::runtime_error("Error in ensure function");
+                    unlock(true);
+                    throw std::runtime_error(
+                            "Could not ensure function - unknown error");
                 }
             }
 
@@ -59,9 +68,17 @@ public:
 
 private:
     void lock()     { m_mutex.lock(); }
-    void unlock()   { m_done = true; m_mutex.unlock(); } // Must be this order!
+
+    void unlock(bool err = false)
+    {
+        m_done = !err;
+        m_err = err;
+
+        m_mutex.unlock();
+    }
 
     bool m_done;
+    bool m_err;
     std::mutex m_mutex;
 };
 
