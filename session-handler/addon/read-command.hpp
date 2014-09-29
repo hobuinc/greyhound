@@ -126,18 +126,7 @@ public:
             Schema schema,
             std::size_t start,
             std::size_t count,
-            v8::Persistent<v8::Function> callback)
-        : ReadCommand(
-                pdalSession,
-                readCommands,
-                readId,
-                host,
-                port,
-                schema,
-                callback)
-        , m_start(start)
-        , m_count(count)
-    { }
+            v8::Persistent<v8::Function> callback);
 
     virtual void run();
 
@@ -161,21 +150,7 @@ public:
             double x,
             double y,
             double z,
-            v8::Persistent<v8::Function> callback)
-        : ReadCommand(
-                pdalSession,
-                readCommands,
-                readId,
-                host,
-                port,
-                schema,
-                callback)
-        , m_is3d(is3d)
-        , m_radius(radius)
-        , m_x(x)
-        , m_y(y)
-        , m_z(z)
-    { }
+            v8::Persistent<v8::Function> callback);
 
     virtual void run();
 
@@ -197,81 +172,91 @@ public:
             std::string host,
             std::size_t port,
             Schema schema,
-            double xMin,
-            double yMin,
-            double xMax,
-            double yMax,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t rasterize,
-            v8::Persistent<v8::Function> callback)
-        : ReadCommand(
-                pdalSession,
-                readCommands,
-                readId,
-                host,
-                port,
-                schema,
-                callback)
-        , m_xMin(xMin)
-        , m_yMin(yMin)
-        , m_xMax(xMax)
-        , m_yMax(yMax)
-        , m_depthBegin(depthBegin)
-        , m_depthEnd(depthEnd)
-        , m_rasterize(rasterize)
-        , m_rasterMeta()
-        , m_isBBoxQuery(true)
-    { }
+            v8::Persistent<v8::Function> callback);
 
-    ReadCommandQuadIndex(
+    virtual void run();
+
+protected:
+    const std::size_t m_depthBegin;
+    const std::size_t m_depthEnd;
+};
+
+class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
+{
+public:
+    ReadCommandBoundedQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
+            double xMin,
+            double yMin,
+            double xMax,
+            double yMax,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t rasterize,
-            v8::Persistent<v8::Function> callback)
-        : ReadCommand(
-                pdalSession,
-                readCommands,
-                readId,
-                host,
-                port,
-                schema,
-                callback)
-        , m_xMin()
-        , m_yMin()
-        , m_xMax()
-        , m_yMax()
-        , m_depthBegin(depthBegin)
-        , m_depthEnd(depthEnd)
-        , m_rasterize(rasterize)
-        , m_rasterMeta()
-        , m_isBBoxQuery(false)
-    { }
+            v8::Persistent<v8::Function> callback);
 
     virtual void run();
-    virtual bool rasterize() const { return m_rasterize != 0; }
-
-    // TODO Split up raster/non-raster queries.  This is only valid for rasters.
-    RasterMeta rasterMeta() const { return m_rasterMeta; }
 
 private:
     const double m_xMin;
     const double m_yMin;
     const double m_xMax;
     const double m_yMax;
-    const std::size_t m_depthBegin;
-    const std::size_t m_depthEnd;
-    const std::size_t m_rasterize;
+};
 
+class ReadCommandRastered : public ReadCommand
+{
+public:
+    ReadCommandRastered(
+            std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
+            std::string host,
+            std::size_t port,
+            Schema schema,
+            v8::Persistent<v8::Function> callback);
+
+    ReadCommandRastered(
+            std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
+            std::string host,
+            std::size_t port,
+            Schema schema,
+            RasterMeta rasterMeta,
+            v8::Persistent<v8::Function> callback);
+
+    virtual void run();
+    virtual bool rasterize() const { return true; }
+    RasterMeta rasterMeta() const { return m_rasterMeta; }
+
+protected:
     RasterMeta m_rasterMeta;
+};
 
-    const bool m_isBBoxQuery;
+class ReadCommandQuadLevel : public ReadCommandRastered
+{
+public:
+    ReadCommandQuadLevel(
+            std::shared_ptr<PdalSession> pdalSession,
+            std::map<std::string, ReadCommand*>& readCommands,
+            std::string readId,
+            std::string host,
+            std::size_t port,
+            Schema schema,
+            std::size_t level,
+            v8::Persistent<v8::Function> callback);
+
+    virtual void run();
+
+private:
+    const std::size_t m_level;
 };
 
 class ReadCommandFactory

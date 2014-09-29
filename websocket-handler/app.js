@@ -413,7 +413,6 @@ process.nextTick(function() {
                     streamer.on('local-address', function(addr) {
                         console.log('local-bound address for read: ', addr);
 
-
                         if (msg.hasOwnProperty('start') &&
                             !_.isNumber(msg['start'])) {
                             return cb(new Error('"start" must be a number'));
@@ -429,6 +428,11 @@ process.nextTick(function() {
 
                         if (params.hasOwnProperty('schema')) {
                             params['schema'] = JSON.stringify(params['schema']);
+                        }
+
+                        if (params.hasOwnProperty('resolution')) {
+                            params['resolution'] =
+                                JSON.stringify(params['resolution']);
                         }
 
                         web.post(
