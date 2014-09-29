@@ -150,6 +150,22 @@
                             readParams['bbox'] = geo['bbox'];
                     }
 
+                    // TODO
+                    /*
+                    if (urlParams.hasOwnProperty('resolution')) {
+                        var resolution =
+                            jQuery.parseJSON(urlParams['resolution']);
+
+                        var x = resolution['x'];
+                        var y = resolution['y'];
+
+                        if (x && y) {
+                            readParams['resolution'] = { x: x, y: y };
+                        }
+                    }
+                    */
+                    readParams['resolution'] = { x: 256, y: 256 };
+
                     readParams['schema'] = {
                         "schema":
                         [
@@ -204,7 +220,6 @@
                     // to receive the data.
 					ws.send(JSON.stringify(readParams));
 
-
 					status_cb("Read initiated, waiting for response...");
 				}
 				else if (msg.command === "read") {
@@ -221,7 +236,7 @@
 					pointsCount	= msg.numPoints;
 					dataBuffer	= new Int8Array(msg.numBytes);
 
-                    if (msg.hasOwnProperty('rasterize'))
+                    if (msg.hasOwnProperty('xNum') && msg.hasOwnProperty('yNum'))
                     {
                         meta = {
                             xBegin: msg.xBegin,
@@ -231,6 +246,14 @@
                             yStep: msg.yStep,
                             yNum: msg.yNum
                         };
+                    }
+
+                    if (pointsCount == 0) {
+                        // we're done reading data, close connection
+                        ws.send(JSON.stringify({
+                            command: 'destroy',
+                            session: session
+                        }));
                     }
 				}
 				else if (msg.command === "destroy") {

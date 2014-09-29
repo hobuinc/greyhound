@@ -241,6 +241,25 @@ std::size_t PdalSession::read(
 std::size_t PdalSession::read(
         std::vector<unsigned char>& buffer,
         const Schema& schema,
+        const RasterMeta& rasterMeta)
+{
+    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
+    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
+
+    const std::vector<std::size_t> results(quadIndex.getPoints(
+            rasterMeta.xBegin,
+            rasterMeta.xEnd,
+            rasterMeta.xStep,
+            rasterMeta.yBegin,
+            rasterMeta.yEnd,
+            rasterMeta.yStep));
+
+    return readIndexList(buffer, schema, results, true);
+}
+
+std::size_t PdalSession::read(
+        std::vector<unsigned char>& buffer,
+        const Schema& schema,
         const bool is3d,
         const double radius,
         const double x,

@@ -332,25 +332,23 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
             if (readCommand->rasterize())
             {
-                ReadCommandQuadIndex* readCommandQuadIndex(
-                        reinterpret_cast<ReadCommandQuadIndex*>(readCommand));
+                ReadCommandRastered* readCommandRastered(
+                        reinterpret_cast<ReadCommandRastered*>(readCommand));
 
-                if (readCommandQuadIndex)
+                if (readCommandRastered)
                 {
                     const RasterMeta rasterMeta(
-                            readCommandQuadIndex->rasterMeta());
+                            readCommandRastered->rasterMeta());
 
-                    const unsigned argc = 11;
+                    const unsigned argc = 10;
                     Local<Value> argv[argc] =
                     {
                         Local<Value>::New(Null()), // err
                         Local<Value>::New(String::New(id.data(), id.size())),
                         Local<Value>::New(Integer::New(
-                                    readCommandQuadIndex->numPoints())),
+                                    readCommand->numPoints())),
                         Local<Value>::New(Integer::New(
-                                    readCommandQuadIndex->numBytes())),
-                        Local<Value>::New(Integer::New(
-                                    readCommandQuadIndex->rasterize())),
+                                    readCommand->numBytes())),
                         Local<Value>::New(Number::New(
                                     rasterMeta.xBegin)),
                         Local<Value>::New(Number::New(

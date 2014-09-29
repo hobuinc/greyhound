@@ -84,6 +84,23 @@ private:
 
 struct RasterMeta
 {
+    RasterMeta() : xBegin(), xEnd(), xStep(), yBegin(), yEnd(), yStep() { }
+
+    RasterMeta(
+            double xBegin,
+            double xEnd,
+            double xStep,
+            double yBegin,
+            double yEnd,
+            double yStep)
+        : xBegin(xBegin)
+        , xEnd(xEnd)
+        , xStep(xStep)
+        , yBegin(yBegin)
+        , yEnd(yEnd)
+        , yStep(yStep)
+    { }
+
     double xBegin;
     double xEnd;
     double xStep;
@@ -140,6 +157,12 @@ public:
             const Schema& schema,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
+
+    // Read a bounded set of points into a raster of pre-determined resolution.
+    std::size_t read(
+            std::vector<unsigned char>& buffer,
+            const Schema& schema,
+            const RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
     std::size_t read(

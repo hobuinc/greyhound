@@ -166,6 +166,10 @@ app.post("/read/:sessionId", function(req, res) {
     var port = parseInt(args.port);
     var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : { };
 
+    if (args.hasOwnProperty('resolution')) {
+        args['resolution'] = JSON.parse(args.resolution);
+    }
+
     console.log("session handler: /read/");
 
     if (!host)
@@ -186,7 +190,6 @@ app.post("/read/:sessionId", function(req, res) {
             readId,
             numPoints,
             numBytes,
-            rasterize,
             xBegin,
             xStep,
             xNum,
@@ -199,12 +202,11 @@ app.post("/read/:sessionId", function(req, res) {
                 return res.json(400, { message: err });
             }
             else {
-                if (rasterize) {
+                if (xNum && yNum) {
                     return res.json({
                         readId: readId,
                         numPoints: numPoints,
                         numBytes: numBytes,
-                        rasterize: rasterize,
                         xBegin: xBegin,
                         xStep: xStep,
                         xNum: xNum,
@@ -239,10 +241,8 @@ app.post("/read/:sessionId", function(req, res) {
             // of them exists, or if the only arguments are
             // host+port+cmd+session, then use this branch.
 
-            var start = args.hasOwnProperty('start') ?
-                parseInt(args.start) : 0;
-            var count = args.hasOwnProperty('count') ?
-                parseInt(args.count) : 0;
+            var start = args.hasOwnProperty('start') ? parseInt(args.start) : 0;
+            var count = args.hasOwnProperty('count') ? parseInt(args.count) : 0;
 
             if (start < 0) start = 0;
             if (count < 0) count = 0;
@@ -254,6 +254,27 @@ app.post("/read/:sessionId", function(req, res) {
                     start,
                     count,
                     readHandler);
+        }
+        else if (
+            args.hasOwnProperty('bbox') &&
+            args.hasOwnProperty('resolution') &&
+            args.resolution.hasOwnProperty('x') &&
+            args.resolution.hasOwnProperty('y') &&
+            parseInt(args.resolution.x) > 0 &&
+            parseInt(args.resolution.y) > 0) {
+
+            var bbox = parseBBox(args.bbox);
+            var x = parseInt(args.resolution.x);
+            var y = parseInt(args.resolution.y);
+
+            pdalSession.read(
+                host,
+                port,
+                schema,
+                bbox,
+                x,
+                y,
+                readHandler);
         }
         else if (
             args.hasOwnProperty('bbox') ||
