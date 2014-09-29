@@ -242,17 +242,18 @@
         var recordSize = 13;
         var allCornersPresent;
         var triangles = 0;
+        var holes = 0;
 
-        for (var y = 0; y < meta.yNum - 1; ++y) {
-            for (var x = 0; x < meta.xNum - 1; ++x) {
+        for (var yBase = 0; yBase < meta.yNum - 1; ++yBase) {
+            for (var xBase = 0; xBase < meta.xNum - 1; ++xBase) {
                 allCornersPresent = true;
 
                 // TODO Should draw one triangle if three corners present to
                 // avoid jagged edges.  For now we only draw full squares.
-                for (var j = 0; j < 2; ++j) {
-                    for (var i = 0; i < 2; ++i) {
-                        var xIndex = x + i;
-                        var yIndex = x + j;
+                for (var yOffset = 0; yOffset < 2; ++yOffset) {
+                    for (var xOffset = 0; xOffset < 2; ++xOffset) {
+                        var xIndex = xBase + xOffset;
+                        var yIndex = yBase + yOffset;
                         var pointBase =
                             recordSize * (yIndex * meta.xNum + xIndex);
 
@@ -264,8 +265,12 @@
 
                 // Two triangles per square.
                 if (allCornersPresent) triangles += 2;
+                else ++holes;
             }
         }
+
+        console.log('Holes: ', holes);
+        console.log('Hole%: ', holes / (meta.xNum * meta.yNum));
 
         var xMax = meta.xBegin + meta.xStep * meta.xNum;
         var yMax = meta.yBegin + meta.yStep * meta.yNum;
