@@ -150,21 +150,19 @@
                             readParams['bbox'] = geo['bbox'];
                     }
 
-                    // TODO
-                    /*
                     if (urlParams.hasOwnProperty('resolution')) {
                         var resolution =
                             jQuery.parseJSON(urlParams['resolution']);
 
-                        var x = resolution['x'];
-                        var y = resolution['y'];
+                        if (resolution.length == 2) {
+                            var x = resolution[0];
+                            var y = resolution[1];
 
-                        if (x && y) {
-                            readParams['resolution'] = { x: x, y: y };
+                            if (x && y) {
+                                readParams['resolution'] = { x: x, y: y };
+                            }
                         }
                     }
-                    */
-                    readParams['resolution'] = { x: 256, y: 256 };
 
                     readParams['schema'] = {
                         "schema":
