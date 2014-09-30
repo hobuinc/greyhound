@@ -24,9 +24,11 @@ _Greyhound_ also supports some spatially indexed queries via URL query parameter
 
 - [Point-radius query](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?radius=400&geo={%22type%22:%22Point%22,%22coordinates%22:[276488.2105233709,4179808.998997613,2029.596267072244]})
 - [BBox and quadtree search depth query](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?geo={%22bbox%22:[276400,4179000,277100,4179700]}&depthEnd=10)
+- [Quad-tree single-level raster](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?rasterize=9)
+- [Custom resolution bounded raster](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?geo={%22bbox%22:[276400,4179000,277100,4179700]}&resolution=[256,256])
 
 ## Going further
-To get more functionality than looking at the sample point cloud in your browser, you'll need to SSH into your Vagrant machine with:
+To get more functionality than looking at the sample point clouds in your browser, you'll need to SSH into your Vagrant machine with:
 
 	vagrant ssh
 
@@ -40,11 +42,6 @@ When _Greyhound_ services are running, you can try out the sample C++ client cod
 - `./examples/cpp/put-pipeline [/path/to/pipeline.xml]` Write the chosen pipeline into the _Greyhound_ database.  The assigned _Greyhound_ ID will be printed to stdout.
 - `./examples/cpp/get-points [GreyhoundPipelineId]`     Get points specified by the chosen pipeline ID.
 - `nodeunit test/unit.js`                               Run all _Greyhound_ unit tests.
-
-# Other info
-The client side web application uses pretty rudimentary logic to detect whether color information is available.  Your output needs to have the XYZ dimensions as signed 4-byte integers and, optionally, the RGB dimensions for color information as unsigned 2-byte shorts.  A record size of 18 indicates that color information is available (3 * 4 + 2 * 3) while a record size of 12 indicates no color information.
-
-This will change as we finalize schema transfer.
 
 # License
 _Greyhound_ is under **MIT** license and is Copyright [Howard Butler](http://hobu.biz), [Uday Verma](https://github.com/verma), and [Connor Manning](https://github.com/connormanning).
