@@ -454,7 +454,7 @@ ReadCommand* ReadCommandFactory::create(
         }
         // Quad index query, bounded and unbounded.
         else if (
-            args.Length() == 8 &&
+            args.Length() == 7 &&
             (
                 (isDefined(args[3]) &&
                     args[3]->IsArray() &&
@@ -530,19 +530,23 @@ ReadCommand* ReadCommandFactory::create(
         }
         // Custom bounds rasterized query.
         else if (
-            args.Length() == 7 &&
+            args.Length() == 6 &&
             (isDefined(args[3]) &&
                 args[3]->IsArray() &&
                 Array::Cast(*args[3])->Length() >= 4) &&
-            isDefined(args[4]) && isInteger(args[4]) &&
-            isDefined(args[5]) && isInteger(args[5]))
+            (isDefined(args[4]) &&
+                args[4]->IsArray() &&
+                Array::Cast(*args[4])->Length() == 2))
         {
             Local<Array> bbox(Array::Cast(*args[3]));
+            Local<Array> dims(Array::Cast(*args[4]));
 
             if (bbox->Get(Integer::New(0))->IsNumber() &&
                 bbox->Get(Integer::New(1))->IsNumber() &&
                 bbox->Get(Integer::New(2))->IsNumber() &&
-                bbox->Get(Integer::New(3))->IsNumber())
+                bbox->Get(Integer::New(3))->IsNumber() &&
+                isInteger(dims->Get(Integer::New(0))) &&
+                isInteger(dims->Get(Integer::New(1))))
             {
                 double xMin(
                         bbox->Get(Integer::New(0))->NumberValue());
@@ -553,8 +557,10 @@ ReadCommand* ReadCommandFactory::create(
                 double yMax(
                         bbox->Get(Integer::New(3))->NumberValue());
 
-                const std::size_t xNum(1 + args[4]->Uint32Value());
-                const std::size_t yNum(1 + args[5]->Uint32Value());
+                const std::size_t xNum(
+                        dims->Get(Integer::New(0))->Uint32Value());
+                const std::size_t yNum(
+                        dims->Get(Integer::New(1))->Uint32Value());
 
                 if (xMax >= xMin && yMax >= xMin)
                 {

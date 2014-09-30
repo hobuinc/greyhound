@@ -269,6 +269,7 @@
             }
         }
 
+        console.log('Meta: ', meta);
         console.log('Holes: ', holes);
         console.log('Hole%: ', holes / (meta.xNum * meta.yNum));
 

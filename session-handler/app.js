@@ -240,6 +240,7 @@ app.post("/read/:sessionId", function(req, res) {
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
             // host+port+cmd+session, then use this branch.
+            console.log('    Got unindexed read request');
 
             var start = args.hasOwnProperty('start') ? parseInt(args.start) : 0;
             var count = args.hasOwnProperty('count') ? parseInt(args.count) : 0;
@@ -263,24 +264,28 @@ app.post("/read/:sessionId", function(req, res) {
             parseInt(args.resolution.x) > 0 &&
             parseInt(args.resolution.y) > 0) {
 
+            console.log('    Got generic raster read request');
+
             var bbox = parseBBox(args.bbox);
-            var x = parseInt(args.resolution.x);
-            var y = parseInt(args.resolution.y);
+            var resolution = [
+                parseInt(args.resolution.x),
+                parseInt(args.resolution.y)
+            ];
 
             pdalSession.read(
                 host,
                 port,
                 schema,
                 bbox,
-                x,
-                y,
+                resolution,
                 readHandler);
         }
         else if (
             args.hasOwnProperty('bbox') ||
             args.hasOwnProperty('depthBegin') ||
-            args.hasOwnProperty('depthEnd') ||
-            args.hasOwnProperty('rasterize')) {
+            args.hasOwnProperty('depthEnd')) {
+
+            console.log('    Got quad-tree depth range read request');
 
             // Indexed read: quadtree query.
             var bbox =
@@ -296,11 +301,6 @@ app.post("/read/:sessionId", function(req, res) {
             var depthEnd =
                 args.hasOwnProperty('depthEnd') ?
                     parseInt(args.depthEnd) :
-                    0;
-
-            var rasterize =
-                args.hasOwnProperty('rasterize') ?
-                    parseInt(args.rasterize) :
                     0;
 
             if (rasterize && schema.hasOwnProperty('schema')) {
@@ -327,6 +327,17 @@ app.post("/read/:sessionId", function(req, res) {
                     bbox,
                     depthBegin,
                     depthEnd,
+                    readHandler);
+        }
+        else if (args.hasOwnProperty('rasterize')) {
+            var rasterize = parseInt(args.rasterize);
+
+            console.log('    Got quad-tree single-level raster read request');
+
+            pdalSession.read(
+                    host,
+                    port,
+                    schema,
                     rasterize,
                     readHandler);
         }
@@ -336,6 +347,7 @@ app.post("/read/:sessionId", function(req, res) {
             args.hasOwnProperty('y')) {
 
             // Indexed read: point + radius query.
+            console.log('    Got point-radius read request');
 
             var is3d = args.hasOwnProperty('z');
             var radius = parseFloat(args.radius);
