@@ -383,13 +383,17 @@ ReadCommand* ReadCommandFactory::create(
 
                 if (size)
                 {
-                    dims.push_back(
-                        DimInfo(
-                            *v8::String::Utf8Value(
-                                dimObj->Get(String::New("name"))->ToString()),
-                            *v8::String::Utf8Value(
-                                dimObj->Get(String::New("type"))->ToString()),
-                            size));
+                    const std::string name(*v8::String::Utf8Value(
+                            dimObj->Get(String::New("name"))->ToString()));
+
+                    const std::string type(*v8::String::Utf8Value(
+                            dimObj->Get(String::New("type"))->ToString()));
+
+                    if (pdalSession->pointContext().hasDim(
+                                pdal::Dimension::id(name)))
+                    {
+                        dims.push_back(DimInfo(name, type, size));
+                    }
                 }
             }
         }
