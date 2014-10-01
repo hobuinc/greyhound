@@ -60,12 +60,14 @@ Command Set
 Command and Response format
 -------------------------------------------------------------------------------
 
-Greyhound commands are issued as JSON objects over a WebSocket connection, and every command sent to Greyhound will initiate a response.  Strings are UTF-8 encoded, and all commands are case sensitive.
+Greyhound commands are issued as JSON objects over a WebSocket connection, and every command sent to Greyhound will initiate a JSON response.  Strings are UTF-8 encoded, and all commands are case sensitive.
 
 Parentheses ``()`` around a key indicate optional or conditional keys that will not necessarily be present.  Quotation marks ``""`` around a field indicate a string literal, as opposed to a description.
 
 Each command shares a common basic format:
 
++------------------------------------------------------------------------------------+
+| Command                                                                            |
 +---------------------+-------------+------------------------------------------------+
 | Key                 | Type        | Value                                          |
 +=====================+=============+================================================+
@@ -78,6 +80,8 @@ Each command shares a common basic format:
 
 Greyhound only transmits data in response to a command, and does not send any transmissions unprompted.  Responses also share a common format:
 
++-----------------------------------------------------------------------------------------+
+| Response                                                                                |
 +-----------------------+--------------+--------------------------------------------------+
 | Key                   | Type         | Value                                            |
 +=======================+==============+==================================================+
@@ -93,6 +97,10 @@ Greyhound only transmits data in response to a command, and does not send any tr
 +-----------------------+--------------+--------------------------------------------------+
 
 |
+
+If the returning ``status`` field is ``0``, then ``reason`` will contain an error message if applicable.  If the returning ``status`` is zero, then there are no valid command-dependent response parameters.
+
+There is only one exception to this command-and-response format, which occurs only for the ``read`` command, which includes a binary transmission following the traditional JSON response.  This scenario is the only non-JSON output from Greyhound.  See `Read (basics)`_ for details.
 
 Command Details
 -------------------------------------------------------------------------------
@@ -122,10 +130,9 @@ Put
 | ``"pipelineId"``  | String     | Greyhound pipeline ID                              |
 +-------------------+------------+----------------------------------------------------+
 
-TODO
-    Error behavior - invalid PDAL XML or missing pipeline param.
-
-    Response format - returns pipelineId of inserted pipeline.
+Notes:
+ - ``pipeline``: must contain valid PDAL XML, which will be validated before storage.  If the pipeline XML is not valid, the returning ``status`` will be ``0`` and the pipeline will not be stored.
+ - ``pipelineId``: used in the future to instantiate a PDAL session for this pipeline.  A given pipeline XML string will always return the same ``pipelineId`` value.
 
 Create
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -152,10 +159,9 @@ Create
 | ``"session"``     | String     | Greyhound session ID                               |
 +-------------------+------------+----------------------------------------------------+
 
-TODO
-    Error behavior - invalid pipelineId
-
-    Response format - returns session ID.
+Notes:
+ - ``pipelineId``: stored from the results of a previous ``put`` command.  If the given ``pipelineId`` does not exist within Greyhound, then the returning ``status`` will be ``0``.
+ - ``session``: represents a token required for future use of this session.  All Greyhound commands except for ``put`` and ``create`` require an active Greyhound session token as a parameter.
 
 Points Count
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -182,11 +188,6 @@ Points Count
 | ``"count"``       | Integer    | Number of points in this session                   |
 +-------------------+------------+----------------------------------------------------+
 
-TODO
-    Error behavior
-
-    Response format
-
 Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -212,12 +213,8 @@ Schema
 | ``"schema"``      | String     | JSON stringified Greyhound schema for this session     |
 +-------------------+------------+--------------------------------------------------------+
 
-TODO
-    Describe JSON schema
-
-    Error behavior
-
-    Response format
+Notes:
+ - ``schema``: see `Session Schema`_.
     
 Spatial Reference System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -244,33 +241,86 @@ Spatial Reference System
 | ``"srs"``         | String     | Spatial reference system for this session              |
 +-------------------+------------+--------------------------------------------------------+
 
-TODO
-    Describe SRS string?
+Notes:
+ - ``srs``: a string formatted by PDAL representing the spatial reference system.
     
-    Error behavior
+Read (Basics)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Response format
++----------------------------------------------------------------------------------------+
+| Command                                                                                |
++---------------------+------------+-----------------------------------------------------+
+| Key                 | Type       | Value                                               |
++=====================+============+=====================================================+
+| ``"command"``       | String     | ``"read"``                                          |
++---------------------+------------+-----------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                |
++---------------------+------------+-----------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data             |
++---------------------|------------+-----------------------------------------------------+
 
-Read
+Notes:
+ - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.
+
++-----------------------------------------------------------------------------------------+
+| Response                                                                                |
++-------------------+------------+--------------------------------------------------------+
+| Key               | Type       | Value                                                  |
++===================+============+========================================================+
+| ``"command"``     | String     | ``"read"``                                             |
++-------------------+------------+--------------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"readId"``      | String     | Identification token for this ``read`` request         |
++-------------------+------------+--------------------------------------------------------+
+| ``"numPoints"``   | Integer    | Number of points that will be transmitted - may be zero|
++-------------------+------------+--------------------------------------------------------+
+| ``"numBytes"``    | Integer    | Number of bytes that will be transmitted - may be zero |
++-------------------+------------+--------------------------------------------------------+
+
+Notes:
+ - ``readId``: This identification string is required to cancel this ``read`` request (see `Cancel`_).
+ - ``numPoints``: Number of points that will follow in a binary transmission.
+ - ``numBytes``: Number of bytes that will follow in a binary transmission.
+
+After Greyhound transmits the above JSON response, if ``numBytes`` is non-zero, a binary transmission sequence will follow.  This binary data will arrive in the format specified by ``schema`` (see `Schema`_) if one is supplied as a parameter to ``read``, or as the default returned by the ``schema`` query.
+
+If ``numBytes`` is non-zero (and ``status`` is ``1``), a client should expect to consume ``numBytes`` bytes of binary data.  After ``numBytes`` of binary data is has arrived, the ``read`` response is complete.
+
+Important:
+ - Because binary data from multiple ``read`` commands cannot be differentiated, no new ``read`` command should be issued until a previous ``read`` query completes or is successfully cancelled.  All other commands may still be issued during this time period.
+ - There is no further response from Greyhound to indicate that a ``read`` transmission is complete, so a client must take note of ``numBytes`` and track the number of binary bytes received accordingly.
+ - Binary data may arrive in multiple "chunked" transmissions.  Chunk size may vary, even within the same response sequence.  Chunks will always arrive in order and may be appended.  Chunk boundaries may not align with point or dimension boundaries, so a single point, or even a single dimension within a point, may be spread across multiple chunks.
+ 
+Read - Unindexed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++----------------------------------------------------------------------------------------+
+| Command                                                                                |
++---------------------+------------+-----------------------------------------------------+
+| Key                 | Type       | Value                                               |
++=====================+============+=====================================================+
+| ``"command"``       | String     | ``"read"``                                          |
++---------------------+------------+-----------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                |
++---------------------+------------+-----------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data             |
++---------------------+------------+-----------------------------------------------------+
+| (``"start"``)       | Integer    | Starting offset from which to read                  |
++---------------------+------------+-----------------------------------------------------+
+| (``"count"``)       | Integer    | Number of points to read sequentially from ``start``|
++---------------------+------------+-----------------------------------------------------+
+
+Notes:
+ - See `Read (Basics)`_ for information on the Greyhound response.
+ - ``start``: If omitted or negative, defaults to zero.  If greater than or equal to the value returned by `Points Count`_, no points will be read.
+ - ``count``: If omitted or negative, reads from ``start`` through the last point.  If the sum of ``start`` and ``count`` is greater than or equal to the value returned by `Points Count`_, the ``read`` will read from ``start`` through the last point.
+ - A client that simply wants to duplicate the entire buffer may issue a ``read`` with only the ``command`` and ``session`` parameters to read all points in their native dimenion formats.
+
+Read - Indexed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 TODO
-
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| command       | String     | 'read'                                         |
-+---------------+------------+------------------------------------------------+
-| session       | String     | <Greyhound session ID>                         |
-+---------------+------------+------------------------------------------------+
-
-TODO
-    Various types of 'read' commands.
-
-TODO
-    Error behavior
-
-    Response format
 
 Cancel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -302,6 +352,183 @@ Destroy
 
 TODO
     Descriptions
+    
+Working with Greyhound
+===============================================================================
+
+The Schema
+-------------------------------------------------------------------------------
+
+Session Schema
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The transfer schema used by Greyhound is a stringified JSON array of dimension information.  Each dimension entry contains:
+
++---------------+--------------------------------------------------------------------------------+
+| Field         | Value                                                                          |
++===============+================================================================================+
+| ``"name"``    | PDAL Dimension name.                                                           |
++---------------+--------------------------------------------------------------------------------+
+| ``"type"``    | Dimension type.  Possible values: ``"signed"``, ``"unsigned"``, ``"floating"`` |
++---------------+--------------------------------------------------------------------------------+
+| ``"size"``    | Dimension size in bytes.  Possible values: ``"1"``, ``"2"``, ``"4"``, ``"8"``  |
++---------------+--------------------------------------------------------------------------------+
+
+An example return object from the ``schema`` call looks something like: ::
+
+    "schema":
+    {
+        "dimensions":
+        [
+            {
+                "name": "X",
+                "type": "floating",
+                "size": "8"
+            },
+            {
+                "name": "Y",
+                "type": "floating",
+                "size": "8"
+            },
+            {
+                "name": "Z",
+                "type": "floating",
+                "size": "8"
+            },
+            {
+                "name": "GpsTime",
+                "type": "floating",
+                "size": "8"
+            },
+            {
+                "name": "ScanAngleRank",
+                "type": "floating",
+                "size": "4"
+            },
+            {
+                "name": "Intensity",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "PointSourceId",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Red",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Green",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "Blue",
+                "type": "unsigned",
+                "size": "2"
+            },
+            {
+                "name": "ReturnNumber",
+                "type": "unsigned",
+                "size": "1"
+            },
+            {
+                "name": "NumberOfReturns",
+                "type": "unsigned",
+                "size": "1"
+            },
+            {
+                "name": "ScanDirectionFlag",
+                "type": "unsigned",
+                "size": "1"
+            },
+            {
+                "name": "EdgeOfFlightLine",
+                "type": "unsigned",
+                "size": "1"
+            },
+            {
+                "name": "Classification",
+                "type": "unsigned",
+                "size": "1"
+            },
+            {
+                "name": "UserData",
+                "type": "unsigned",
+                "size": "1"
+            }
+        ]
+    }
+
+This schema represents the native PDAL dimensions and storage types inherent to the requested session.  However, not all of these dimensions may be necessary for a given ``read``, and retrieving needed dimensions in their native types may not be ideal for every situation.
+
+
+
+Manipulating the Schema
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For various reasons, a client may wish to ``read`` with a different schema than the native schema.  For example,
+
+ - Reducing transfer bandwidth by lowering the resolution of some dimensions (e.g. ``double`` to ``float`` type in C++)
+ - Needing only a subset of the dimensions from the entire available schema
+ - Wanting dimensions expressed as different types than the native types
+ 
+Therefore Greyhound provides the ability to request the results of a ``read`` in a flexible way.  By supplying a ``schema`` parameter in the ``read`` request, the resulting ``read`` will format its binary data in accordance with the requested ``schema`` instead of the default.  The default schema can be queried with the `Schema` request.
+
+Dimension names should be a subset of those returned from ``schema``.  Names that do not exist in the current session will be silently ignored by Greyhound as if they were not present in the requested ``schema``.
+
+Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A visual rendering client may only with to retrieve dimensions relevant to displaying the data.  This example ``schema``, to be included in each ``read`` request, demonstrates the client's ability to
+
+ - retrieve only a subset of all existing dimensions in the session
+ - halve the bandwidth required to transmit the ``X``, ``Y``, and ``Z`` dimensions by requesting them as 4 bytes rather than the native 8
+ 
+::
+
+    [
+        {
+            "name": "X",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Y",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Z",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Intensity",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Red",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Green",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Blue",
+            "type": "unsigned",
+            "size": "2"
+        }
+    ]
+
+
 
 Deploying Greyhound
 ===============================================================================
