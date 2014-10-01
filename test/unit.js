@@ -51,6 +51,12 @@ var rendererSchema = {
             "type": "unsigned",
             "size": "2"
         },
+        {
+            // Invalid dimension in schema request - will always be omitted.
+            "name": "BAD DIMENSION NAME",
+            "type": "unsigned",
+            "size": "2"
+        },
     ]
 };
 
@@ -221,6 +227,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 //      CREATE
 //      POINTSCOUNT
 //      SCHEMA
+//      STATS
 //      SRS
 //      READ
 //      CANCEL
