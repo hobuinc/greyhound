@@ -446,6 +446,9 @@ Notes:
  - See `Read (Raster Basics)`_ for information on the Greyhound response.
  - This query requires a quad-tree index to be created prior to reading, so the first quad-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.
 
+Important:
+ - Results are in raster format.
+
 ----
 
 Read - Generic Raster
@@ -472,6 +475,9 @@ Notes:
  - ``bbox``: Formatted as ``[xMin, yMin, xMax, yMax]``.
  - ``resolution``: Formatted as ``[xResolution, yResolution]``.
  - This query requires a quad-tree index to be created prior to reading, so the first quad-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.
+
+Important:
+ - Results are in raster format.
 
 ----
 
@@ -714,7 +720,91 @@ A visual rendering client may only with to retrieve dimensions relevant to displ
 Raster Metadata
 -------------------------------------------------------------------------------
 
-TODO
+Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this scenario we will get a raster of only the ``Z`` dimension values.  So the ``schema`` parameter transmitted with the ``read`` request may look like:
+
+::
+
+    "schema":
+    [
+        {
+            "name": "X",
+        },
+        {
+            "name": "Y",
+        },
+        {
+            "name": "Z",
+            "type": "floating",
+            "size": "4"
+        }
+    ]
+
+
+The resulting ``rasterMeta`` provided in the ``read`` result from Greyhound may look something like:
+
+::
+
+    "rasterMeta":
+    {
+        "xBegin": 500,
+        "xStep":  25,
+        "xNum":   4,
+        "yBegin": 3000,
+        "yStep":  50,
+        "yNum":   3
+    }
+
+Given these two parameters, we can determine that:
+ - The record size for each point is 4 bytes (``Z`` only).
+ - The bounding box for these results is: ``(xMin, yMin, xMax, yMax) = (500, 3000, 575, 3100)``.
+ - The binary data is 48 bytes long (this information also arrives in ``numBytes``).
+ - The binary buffer structure looks like:
+
++-----------------+-----------------+-----------------+-----------------+
+| ``Byte offset``: (``X``, ``Y``)                                       |
++=================+=================+=================+=================+
+| 00: (500, 3000) | 04: (525, 3000) | 08: (550, 3000) | 12: (575, 3000) |
++-----------------+-----------------+-----------------+-----------------+
+| 16: (500, 3050) | 20: (525, 3050) | 24: (550, 3050) | 28: (575, 3050) |
++-----------------+-----------------+-----------------+-----------------+
+| 32: (500, 3100) | 36: (525, 3100) | 40: (550, 3100) | 44: (575, 3100) |
++-----------------+-----------------+-----------------+-----------------+
+
+Pseudocode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The raster can be read programmatically similar to the pseudocode below, assuming that the raster contains only 4-byte floating ``Z`` values.
+
+::
+
+    // Schema size minus X and Y sizes.  In this case equal to 4.
+    int recordSize = <reduced schema size>;
+
+    // Binary data received from Greyhound.
+    const unsigned char* buffer;
+
+    // Raster meta object received from Greyhound.
+    RasterMeta rasterMeta;
+
+    // Container for points.
+    vector<Point> points;
+
+    for (int yIndex = 0; yIndex < yNum; ++y)
+    {
+        for (int xIndex = 0; xIndex < xNum; ++x)
+        {
+            int zOffset = recordSize * (yIndex * rasterMeta.xNum + xIndex);
+
+            float x = meta.xBegin + (xIndex * meta.xStep);
+            float y = meta.yBegin + (yIndex * meta.yStep);
+            float z = buffer.getDoubleFromIndex(zOffset);
+
+            points.push_back(Point(x, y, z));
+        }
+    }
 
 Taking Advantage of Indexing
 -------------------------------------------------------------------------------
