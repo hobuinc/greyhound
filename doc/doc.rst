@@ -12,22 +12,18 @@ Overview
 Greyhound is a distributed server architecture that abstracts and maintains persistent sessions for PDAL pipelines used for real-time querying of point cloud data.
 
 Using Greyhound
-===============================================================================
-
-Connecting
 -------------------------------------------------------------------------------
 
-TODO
+Greyhound operates via `WebSocket`_ connections, so usage begins by opening a WebSocket connection to Greyhound's URL and port.
 
-Issuing Commands
--------------------------------------------------------------------------------
+Command-and-response exchanges are issued via stringified `JSON`_ objects over the WebSocket connection.  Every Greyhound command has an associated response.
 
-TODO
+The first action by a client is to create a session, which activates a PDAL pipeline that is stored on the server and issues the client a session token.  This token is used for all further interaction with this session.  After creation, the client can perform various commands like fetching statistics on the point cloud, gathering other metadata, or issuing real-time indexed read queries.
 
-Disconnecting
--------------------------------------------------------------------------------
+When a session is no longer needed, it is destroyed by the client and the WebSocket connection is closed.
 
-TODO
+.. _`WebSocket`: http://en.wikipedia.org/wiki/WebSocket
+.. _`JSON`: http://json.org/
 
 API
 ===============================================================================
@@ -45,6 +41,8 @@ Command Set
 | pointsCount   | Get the number of points present in a session.              |
 +---------------+-------------------------------------------------------------+
 | schema        | Get the Greyhound schema of a session.                      |
++---------------+-------------------------------------------------------------+
+| stats         | Get the PDAL statistics for this session's pipeline.        |
 +---------------+-------------------------------------------------------------+
 | srs           | Get the spatial reference system of a session.              |
 +---------------+-------------------------------------------------------------+
@@ -133,7 +131,7 @@ Put
 +-------------------+------------+----------------------------------------------------+
 
 Notes:
- - ``pipeline``: must contain valid PDAL XML, which will be validated before storage.  If the pipeline XML is not valid, the returning ``status`` will be ``0`` and the pipeline will not be stored.
+ - ``pipeline``: must contain valid PDAL XML, which will be validated before storage.  If the pipeline XML is not valid, the returning ``status`` will be ``0`` and the pipeline will not be stored.  A pipeline must contain at least ``X``, ``Y``, and ``Z`` PDAL Dimensions to be considered valid.
  - ``pipelineId``: used in the future to instantiate a PDAL session for this pipeline.  A given pipeline XML string will always return the same ``pipelineId`` value.
 
 ----
@@ -218,11 +216,43 @@ Schema
 +-------------------+------------+--------------------------------------------------------+
 | ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
 +-------------------+------------+--------------------------------------------------------+
-| ``"schema"``      | String     | JSON stringified Greyhound schema for this session     |
+| ``"schema"``      | Object     | JSON stringified Greyhound schema for this session     |
 +-------------------+------------+--------------------------------------------------------+
 
 Notes:
  - ``schema``: see `Session Schema`_.
+
+----
+
+Stats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++-----------------------------------------------------------------------------+
+| Command                                                                     |
++---------------+------------+------------------------------------------------+
+| Key           | Type       | Value                                          |
++===============+============+================================================+
+| ``"command"`` | String     | ``"stats"``                                    |
++---------------+------------+------------------------------------------------+
+| ``"session"`` | String     | Greyhound session ID                           |
++---------------+------------+------------------------------------------------+
+
++-----------------------------------------------------------------------------------------+
+| Response                                                                                |
++-------------------+------------+--------------------------------------------------------+
+| Key               | Type       | Value                                                  |
++===================+============+========================================================+
+| ``"command"``     | String     | ``"pointsCount"``                                      |
++-------------------+------------+--------------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"stats"``       | Object     | JSON stringified PDAL statistics for this session.     |
++-------------------+------------+--------------------------------------------------------+
+
+Notes:
+ - ``stats``: the format of this object is determined by PDAL, and is dependent on the `PDAL Stages`_ in the pipeline.  Greyhound inserts a PDAL Stats Filter into each pipeline.  This is the only PDAL Stage guaranteed to exist, and its contents are accessible via ``stats.stages['filters.stats'].statistic``.  This object contains various statistics on each dimension, like minimums, maximums, and averages.
+
+.. _`PDAL Stages`: http://www.pdal.io/stages/index.html
 
 ----
 
