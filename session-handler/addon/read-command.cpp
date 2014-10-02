@@ -357,7 +357,7 @@ ReadCommand* ReadCommandFactory::create(
         args.Length() > 3 &&
         isDefined(args[0]) && args[0]->IsString() &&
         isDefined(args[1]) && isInteger(args[1]) &&
-        isDefined(args[2]) && args[2]->IsObject())
+        isDefined(args[2]) && args[2]->IsArray())
     {
         const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
         const std::size_t port(args[1]->Uint32Value());
@@ -365,32 +365,27 @@ ReadCommand* ReadCommandFactory::create(
         std::vector<DimInfo> dims;
 
         // Unwrap the schema request into native C++ types.
-        const Local<Object> schemaObj(args[2]->ToObject());
+        const Local<Array> schemaArray(Array::Cast(*args[2]));
 
-        if (schemaObj->Has(String::New("schema")))
+        for (std::size_t i(0); i < schemaArray->Length(); ++i)
         {
-            const Local<Array> dimArray(
-                    Array::Cast(*(schemaObj->Get(String::New("schema")))));
+            Local<Object> dimObj(schemaArray->Get(
+                        Integer::New(i))->ToObject());
 
-            for (std::size_t i(0); i < dimArray->Length(); ++i)
+            const std::string sizeString(*v8::String::Utf8Value(
+                    dimObj->Get(String::New("size"))->ToString()));
+
+            const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
+
+            if (size)
             {
-                Local<Object> dimObj(dimArray->Get(Integer::New(i))->ToObject());
-
-                const std::string sizeString(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("size"))->ToString()));
-
-                const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
-
-                if (size)
-                {
-                    dims.push_back(
-                        DimInfo(
-                            *v8::String::Utf8Value(
-                                dimObj->Get(String::New("name"))->ToString()),
-                            *v8::String::Utf8Value(
-                                dimObj->Get(String::New("type"))->ToString()),
-                            size));
-                }
+                dims.push_back(
+                    DimInfo(
+                        *v8::String::Utf8Value(
+                            dimObj->Get(String::New("name"))->ToString()),
+                        *v8::String::Utf8Value(
+                            dimObj->Get(String::New("type"))->ToString()),
+                        size));
             }
         }
 

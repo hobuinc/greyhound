@@ -13,46 +13,44 @@ var sampleSrs = 'PROJCS["NAD_1983_HARN_Lambert_Conformal_Conic",GEOGCS["GCS_Nort
 var bigPipelineId = '3c51e54a3f0e1b7f4ffd582d4d970162';
 
 // Request only attributes applicable for rendering the data visually.
-var rendererSchema = {
-    "schema":
-    [
-        {
-            "name": "X",
-            "type": "floating",
-            "size": "4"
-        },
-        {
-            "name": "Y",
-            "type": "floating",
-            "size": "4"
-        },
-        {
-            "name": "Z",
-            "type": "floating",
-            "size": "4"
-        },
-        {
-            "name": "Intensity",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Red",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Green",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Blue",
-            "type": "unsigned",
-            "size": "2"
-        },
-    ]
-};
+var rendererSchema =
+[
+    {
+        "name": "X",
+        "type": "floating",
+        "size": "4"
+    },
+    {
+        "name": "Y",
+        "type": "floating",
+        "size": "4"
+    },
+    {
+        "name": "Z",
+        "type": "floating",
+        "size": "4"
+    },
+    {
+        "name": "Intensity",
+        "type": "unsigned",
+        "size": "2"
+    },
+    {
+        "name": "Red",
+        "type": "unsigned",
+        "size": "2"
+    },
+    {
+        "name": "Green",
+        "type": "unsigned",
+        "size": "2"
+    },
+    {
+        "name": "Blue",
+        "type": "unsigned",
+        "size": "2"
+    },
+];
 
 
 var send = function(obj) {
