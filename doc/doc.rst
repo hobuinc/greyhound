@@ -105,6 +105,8 @@ There is only one exception to this command-and-response format, which occurs on
 Command Details
 -------------------------------------------------------------------------------
 
+----
+
 Put
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -133,6 +135,8 @@ Put
 Notes:
  - ``pipeline``: must contain valid PDAL XML, which will be validated before storage.  If the pipeline XML is not valid, the returning ``status`` will be ``0`` and the pipeline will not be stored.
  - ``pipelineId``: used in the future to instantiate a PDAL session for this pipeline.  A given pipeline XML string will always return the same ``pipelineId`` value.
+
+----
 
 Create
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,6 +167,8 @@ Notes:
  - ``pipelineId``: stored from the results of a previous ``put`` command.  If the given ``pipelineId`` does not exist within Greyhound, then the returning ``status`` will be ``0``.
  - ``session``: represents a token required for future use of this session.  All Greyhound commands except for ``put`` and ``create`` require an active Greyhound session token as a parameter.
 
+----
+
 Points Count
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -187,6 +193,8 @@ Points Count
 +-------------------+------------+----------------------------------------------------+
 | ``"count"``       | Integer    | Number of points in this session                   |
 +-------------------+------------+----------------------------------------------------+
+
+----
 
 Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -215,7 +223,9 @@ Schema
 
 Notes:
  - ``schema``: see `Session Schema`_.
-    
+
+----
+
 Spatial Reference System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -243,7 +253,9 @@ Spatial Reference System
 
 Notes:
  - ``srs``: a string formatted by PDAL representing the spatial reference system.
-    
+
+----
+
 Read (Basics)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -262,6 +274,8 @@ Read (Basics)
 Notes:
  - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.
 
+|
+
 +-----------------------------------------------------------------------------------------+
 | Response                                                                                |
 +-------------------+------------+--------------------------------------------------------+
@@ -278,6 +292,7 @@ Notes:
 | ``"numBytes"``    | Integer    | Number of bytes that will be transmitted - may be zero |
 +-------------------+------------+--------------------------------------------------------+
 
+
 Notes:
  - ``readId``: This identification string is required to cancel this ``read`` request (see `Cancel`_).
  - ``numPoints``: Number of points that will follow in a binary transmission.
@@ -287,11 +302,70 @@ After Greyhound transmits the above JSON response, if ``numBytes`` is non-zero, 
 
 If ``numBytes`` is non-zero (and ``status`` is ``1``), a client should expect to consume ``numBytes`` bytes of binary data.  After ``numBytes`` of binary data is has arrived, the ``read`` response is complete.
 
+|
+
 Important:
- - Because binary data from multiple ``read`` commands cannot be differentiated, no new ``read`` command should be issued until a previous ``read`` query completes or is successfully cancelled.  All other commands may still be issued during this time period.
+ - Because binary data from multiple ``read`` commands cannot be differentiated, no new ``read`` command should be issued over a single websocket connection until a previous ``read`` query completes or is successfully cancelled.  All other commands may still be issued during this time period.
  - There is no further response from Greyhound to indicate that a ``read`` transmission is complete, so a client must take note of ``numBytes`` and track the number of binary bytes received accordingly.
  - Binary data may arrive in multiple "chunked" transmissions.  Chunk size may vary, even within the same response sequence.  Chunks will always arrive in order and may be appended.  Chunk boundaries may not align with point or dimension boundaries, so a single point, or even a single dimension within a point, may be spread across multiple chunks.
- 
+
+----
+
+Read (Raster Basics)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++-----------------------------------------------------------------------------------------+
+| Response                                                                                |
++-------------------+------------+--------------------------------------------------------+
+| Key               | Type       | Value                                                  |
++===================+============+========================================================+
+| ``"command"``     | String     | ``"read"``                                             |
++-------------------+------------+--------------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"readId"``      | String     | Identification token for this ``read`` request         |
++-------------------+------------+--------------------------------------------------------+
+| ``"numPoints"``   | Integer    | Number of points that will be transmitted - may be zero|
++-------------------+------------+--------------------------------------------------------+
+| ``"numBytes"``    | Integer    | Number of bytes that will be transmitted - may be zero |
++-------------------+------------+--------------------------------------------------------+
+| ``"rasterMeta"``  | Object     | Raster dimensional metadata                            |
++-------------------+------------+--------------------------------------------------------+
+
+Notes:
+ - The initial response is the same as the response for non-rasterized queries, with the addition of the ``rasterMeta`` JSON object.  The binary data is formatted differently from non-rasterized ``read`` queries (see below).
+ - If a ``schema`` parameter is included in the rastered ``read`` command, then it must contain ``X``, ``Y``, and at least one other dimension.
+
+|
+
+``rasterMeta`` contains information about the dimensions of the raster:
+
++-----------------------------------------------------------------------------------------+
+| ``rasterMeta``                                                                          |
++-------------------+------------+--------------------------------------------------------+
+| Key               | Type       | Value                                                  |
++===================+============+========================================================+
+| ``"xMin"``        | Float      | Lower X bound                                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"xStep"``       | Float      | X value difference between adjacent coordinate entries |
++-------------------+------------+--------------------------------------------------------+
+| ``"xNum"``        | Integer    | Number of steps in the X direction                     |
++-------------------+------------+--------------------------------------------------------+
+| ``"yMin"``        | Float      | Lower Y bound                                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"yStep"``       | Float      | Y value difference between adjacent coordinate entries |
++-------------------+------------+--------------------------------------------------------+
+| ``"yNum"``        | Integer    | Number of steps in the Y direction                     |
++-------------------+------------+--------------------------------------------------------+
+
+The format of the binary transmission following the initial response follows the information in ``rasterMeta``.  Starting at offset ``0``, the first bytes of the binary data represent coordinate ``(xMin, yMin)``.  At offset ``0 + <reduced schema size>``, where ``reduced schema size`` is the schema size excluding ``X`` and ``Y`` values, the coordinate represented is ``(xMin + xStep, yMin)``.  After an offset of ``xNum * <reduced schema size>``, the represented ``Y`` coordinate increments by ``yStep``.  See `Raster Metadata`_ for further information.
+
+Important:
+ - Each point in the rasterized binary format does not explicitly contain ``X`` and ``Y`` dimension values.  These values are implicit from the information in ``rasterMeta``.
+ - Therefore the size of each point in the binary schema does not include the sizes of ``X`` or ``Y``.  In the ``schema`` parameter sent with the ``read`` command, the ``size`` and ``type`` of these dimensions may be omitted, and will be ignored if included.
+
+----
+
 Read - Unindexed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -317,15 +391,126 @@ Notes:
  - ``count``: If omitted or negative, reads from ``start`` through the last point.  If the sum of ``start`` and ``count`` is greater than or equal to the value returned by `Points Count`_, the ``read`` will read from ``start`` through the last point.
  - A client that simply wants to duplicate the entire buffer may issue a ``read`` with only the ``command`` and ``session`` parameters to read all points in their native dimenion formats.
 
-Read - Indexed
+----
+
+Read - Quad-Tree Indexed Points
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TODO
++----------------------------------------------------------------------------------------+
+| Command                                                                                |
++---------------------+------------+-----------------------------------------------------+
+| Key                 | Type       | Value                                               |
++=====================+============+=====================================================+
+| ``"command"``       | String     | ``"read"``                                          |
++---------------------+------------+-----------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                |
++---------------------+------------+-----------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data             |
++---------------------+------------+-----------------------------------------------------+
+| (``"bbox"``)        | Float[4]   | Bounding box to query                               |
++---------------------+------------+-----------------------------------------------------+
+| (``"depthBegin"``)  | Integer    | Minimum quad tree depth from which to include points|
++---------------------+------------+-----------------------------------------------------+
+| (``"depthEnd"``)    | Integer    | Quad-tree depth from which only points *less* than  |
+|                     |            | this level will be included                         |
++---------------------+------------+-----------------------------------------------------+
+
+Notes:
+ - See `Read (Basics)`_ for information on the Greyhound response.
+ - ``bbox``: Formatted as ``[xMin, yMin, xMax, yMax]``.  If omitted, returns points from the entire set.
+ - ``depthBegin``: If omitted, defaults to zero.
+ - ``depthEnd``: If omitted, then every tree level greater than or equal to ``depthBegin`` is included.
+ - This query requires a quad-tree index to be created prior to reading, so the first quad-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.
+ - See `Taking Advantage of Indexing`_ for information on leveraging the quad-tree index.
+
+----
+
+Read - Quad-Tree Indexed Raster
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++----------------------------------------------------------------------------------------+
+| Command                                                                                |
++---------------------+------------+-----------------------------------------------------+
+| Key                 | Type       | Value                                               |
++=====================+============+=====================================================+
+| ``"command"``       | String     | ``"read"``                                          |
++---------------------+------------+-----------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                |
++---------------------+------------+-----------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data             |
++---------------------+------------+-----------------------------------------------------+
+| ``"rasterize"``     | Integer    | Quad-tree level to rasterize                        |
++---------------------+------------+-----------------------------------------------------+
+
+Notes:
+ - See `Read (Raster Basics)`_ for information on the Greyhound response.
+ - This query requires a quad-tree index to be created prior to reading, so the first quad-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.
+
+----
+
+Read - Generic Raster
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++-------------------------------------------------------------------------------------------+
+| Command                                                                                   |
++---------------------+---------------+-----------------------------------------------------+
+| Key                 | Type          | Value                                               |
++=====================+===============+=====================================================+
+| ``"command"``       | String        | ``"read"``                                          |
++---------------------+---------------+-----------------------------------------------------+
+| ``"session"``       | String        | Greyhound session ID                                |
++---------------------+---------------+-----------------------------------------------------+
+| (``"schema"``)      | String        | JSON stringified schema for return data             |
++---------------------+---------------+-----------------------------------------------------+
+| ``"bbox"``          | Float[4]      | Bounding box to query                               |
++---------------------+---------------+-----------------------------------------------------+
+| ``"resolution"``    | Integer[2]    | Resolution of the returned raster                   |
++---------------------+---------------+-----------------------------------------------------+
+
+Notes:
+ - See `Read (Raster Basics)`_ for information on the Greyhound response.
+ - ``bbox``: Formatted as ``[xMin, yMin, xMax, yMax]``.
+ - ``resolution``: Formatted as ``[xResolution, yResolution]``.
+ - This query requires a quad-tree index to be created prior to reading, so the first quad-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.
+
+----
+
+Read - KD-Tree Indexed (Point-Radius)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++----------------------------------------------------------------------------------------+
+| Command                                                                                |
++---------------------+------------+-----------------------------------------------------+
+| Key                 | Type       | Value                                               |
++=====================+============+=====================================================+
+| ``"command"``       | String     | ``"read"``                                          |
++---------------------+------------+-----------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                |
++---------------------+------------+-----------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data             |
++---------------------+------------+-----------------------------------------------------+
+| ``"x"``             | Float      | X coordinate of center point                        |
++---------------------+------------+-----------------------------------------------------+
+| ``"y"``             | Float      | Y coordinate of center point                        |
++---------------------+------------+-----------------------------------------------------+
+| (``"z"``)           | Float      | Z coordinate of center point                        |
++---------------------+------------+-----------------------------------------------------+
+| ``"radius"``        | Float      | Query radius                                        |
++---------------------+------------+-----------------------------------------------------+
+
+Notes:
+ - See `Read (Basics)`_ for information on the Greyhound response.
+ - ``z``: If omitted, the query is 2-dimensional, otherwise the query is 3-dimensional.
+ - This query requires a KD-tree index to be created prior to reading, so the first KD-tree indexed ``read`` may take longer than usual to complete.  This may be completed in advance by Greyhound due to internal session sharing.  2-dimensional and 3-dimensional queries require different trees to be built, so a 2-dimensional ``read`` does not ensure that a 3-dimensional ``read`` will have its index pre-built.
+
+----
 
 Cancel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 TODO
+
+----
 
 Destroy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -352,7 +537,7 @@ Destroy
 
 TODO
     Descriptions
-    
+
 Working with Greyhound
 ===============================================================================
 
@@ -377,91 +562,88 @@ The transfer schema used by Greyhound is a stringified JSON array of dimension i
 An example return object from the ``schema`` call looks something like: ::
 
     "schema":
-    {
-        "dimensions":
-        [
-            {
-                "name": "X",
-                "type": "floating",
-                "size": "8"
-            },
-            {
-                "name": "Y",
-                "type": "floating",
-                "size": "8"
-            },
-            {
-                "name": "Z",
-                "type": "floating",
-                "size": "8"
-            },
-            {
-                "name": "GpsTime",
-                "type": "floating",
-                "size": "8"
-            },
-            {
-                "name": "ScanAngleRank",
-                "type": "floating",
-                "size": "4"
-            },
-            {
-                "name": "Intensity",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "PointSourceId",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Red",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Green",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "Blue",
-                "type": "unsigned",
-                "size": "2"
-            },
-            {
-                "name": "ReturnNumber",
-                "type": "unsigned",
-                "size": "1"
-            },
-            {
-                "name": "NumberOfReturns",
-                "type": "unsigned",
-                "size": "1"
-            },
-            {
-                "name": "ScanDirectionFlag",
-                "type": "unsigned",
-                "size": "1"
-            },
-            {
-                "name": "EdgeOfFlightLine",
-                "type": "unsigned",
-                "size": "1"
-            },
-            {
-                "name": "Classification",
-                "type": "unsigned",
-                "size": "1"
-            },
-            {
-                "name": "UserData",
-                "type": "unsigned",
-                "size": "1"
-            }
-        ]
-    }
+    [
+        {
+            "name": "X",
+            "type": "floating",
+            "size": "8"
+        },
+        {
+            "name": "Y",
+            "type": "floating",
+            "size": "8"
+        },
+        {
+            "name": "Z",
+            "type": "floating",
+            "size": "8"
+        },
+        {
+            "name": "GpsTime",
+            "type": "floating",
+            "size": "8"
+        },
+        {
+            "name": "ScanAngleRank",
+            "type": "floating",
+            "size": "4"
+        },
+        {
+            "name": "Intensity",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "PointSourceId",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Red",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Green",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "Blue",
+            "type": "unsigned",
+            "size": "2"
+        },
+        {
+            "name": "ReturnNumber",
+            "type": "unsigned",
+            "size": "1"
+        },
+        {
+            "name": "NumberOfReturns",
+            "type": "unsigned",
+            "size": "1"
+        },
+        {
+            "name": "ScanDirectionFlag",
+            "type": "unsigned",
+            "size": "1"
+        },
+        {
+            "name": "EdgeOfFlightLine",
+            "type": "unsigned",
+            "size": "1"
+        },
+        {
+            "name": "Classification",
+            "type": "unsigned",
+            "size": "1"
+        },
+        {
+            "name": "UserData",
+            "type": "unsigned",
+            "size": "1"
+        }
+    ]
 
 This schema represents the native PDAL dimensions and storage types inherent to the requested session.  However, not all of these dimensions may be necessary for a given ``read``, and retrieving needed dimensions in their native types may not be ideal for every situation.
 
@@ -475,7 +657,7 @@ For various reasons, a client may wish to ``read`` with a different schema than 
  - Reducing transfer bandwidth by lowering the resolution of some dimensions (e.g. ``double`` to ``float`` type in C++)
  - Needing only a subset of the dimensions from the entire available schema
  - Wanting dimensions expressed as different types than the native types
- 
+
 Therefore Greyhound provides the ability to request the results of a ``read`` in a flexible way.  By supplying a ``schema`` parameter in the ``read`` request, the resulting ``read`` will format its binary data in accordance with the requested ``schema`` instead of the default.  The default schema can be queried with the `Schema` request.
 
 Dimension names should be a subset of those returned from ``schema``.  Names that do not exist in the current session will be silently ignored by Greyhound as if they were not present in the requested ``schema``.
@@ -487,9 +669,10 @@ A visual rendering client may only with to retrieve dimensions relevant to displ
 
  - retrieve only a subset of all existing dimensions in the session
  - halve the bandwidth required to transmit the ``X``, ``Y``, and ``Z`` dimensions by requesting them as 4 bytes rather than the native 8
- 
+
 ::
 
+    "schema":
     [
         {
             "name": "X",
@@ -528,7 +711,17 @@ A visual rendering client may only with to retrieve dimensions relevant to displ
         }
     ]
 
+Raster Metadata
+-------------------------------------------------------------------------------
 
+TODO
+
+Taking Advantage of Indexing
+-------------------------------------------------------------------------------
+
+TODO
+ - Can progressively query deeper levels of the quad tree to fill in detail.
+ - Explain tree depth centering.
 
 Deploying Greyhound
 ===============================================================================
@@ -542,3 +735,4 @@ Configuring Greyhound Settings
 -------------------------------------------------------------------------------
 
 TODO
+
