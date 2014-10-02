@@ -514,7 +514,40 @@ Notes:
 Cancel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TODO
++-----------------------------------------------------------------------------+
+| Command                                                                     |
++---------------+------------+------------------------------------------------+
+| Key           | Type       | Value                                          |
++===============+============+================================================+
+| ``"command"`` | String     | ``"cancel"``                                   |
++---------------+------------+------------------------------------------------+
+| ``"session"`` | String     | Greyhound session ID                           |
++---------------+------------+------------------------------------------------+
+| ``"readId"``  | String     | Greyhound read ID                              |
++---------------+------------+------------------------------------------------+
+
++---------------------------------------------------------------------------------------------+
+| Response                                                                                    |
++-------------------+------------+------------------------------------------------------------+
+| Key               | Type       | Value                                                      |
++===================+============+============================================================+
+| ``"command"``     | String     | ``"cancel"``                                               |
++-------------------+------------+------------------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                              |
++-------------------+------------+------------------------------------------------------------+
+| ``"cancelled"``   | Boolean    |``true`` if the requested read was cancelled, else ``false``|
++-------------------+------------+------------------------------------------------------------+
+| (``"numBytes"``)  | Integer    | Updated number of bytes to expect from this ``read``       |
++-------------------+------------+------------------------------------------------------------+
+
+Notes:
+ - See `Read (Basics)`_ for information about ``read``, which includes the necessary ``readId`` required to cancel.
+ - ``status``: will be ``1`` even if ``cancelled`` is false, as long as no errors occur within Greyhound and the request is not malformed.
+ - ``cancelled``: ``true`` only if ``readId`` was valid and the ``read`` was successfully cancelled before its transmission completed.
+ - ``numBytes``: included only if ``cancelled`` is ``true``.
+
+Important:
+ - When a ``cancel`` request is received there may already be buffered data within various Greyhound components or perhaps already in network propagation back to the client.  Therefore a successful ``cancel`` request returns an updated ``numBytes`` which must be accounted for before the ``read`` can be considered complete.  Another ``read`` must not be issued over the same websocket connection before these bytes are accounted for.  In the general case, ``numBytes`` bytes will already have been received by the time the ``cancel`` response arrives.  However this is **not** guaranteed to be the case.
 
 ----
 
@@ -541,8 +574,8 @@ Destroy
 | ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
 +-------------------+------------+--------------------------------------------------------+
 
-TODO
-    Descriptions
+Notes:
+ - After ``destroy`` is issued successfully, ``session`` is no longer valid for any command.  To reactivate a session with the pipeline from this session, a client needs to call ``create`` again, which will cause a new ``session`` ID to be issued.
 
 Working with Greyhound
 ===============================================================================
@@ -652,8 +685,6 @@ An example return object from the ``schema`` call looks something like: ::
     ]
 
 This schema represents the native PDAL dimensions and storage types inherent to the requested session.  However, not all of these dimensions may be necessary for a given ``read``, and retrieving needed dimensions in their native types may not be ideal for every situation.
-
-
 
 Manipulating the Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
