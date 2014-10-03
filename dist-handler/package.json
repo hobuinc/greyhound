@@ -1,13 +1,10 @@
 {
-	"name": "dist-handler",
-	"private": true,
-	"version" : "0.0.1",
-	"dependencies": {
-		"lodash" : "*",
-		"redis": "*",
-		"hiredis": "*",
-		"seaport": "*"
-	},
-	"engine": "node 0.8.23"
+  "name": "dist-handler",
+  "private": true,
+  "version": "0.0.1",
+  "dependencies": {
+    "hiredis": "^0.1.17",
+    "redis": "^0.12.1"
+  },
+  "engine": "node 0.8.23"
 }
-

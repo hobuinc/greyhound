@@ -13,50 +13,44 @@ var
 	// npm modules
 	express = require('express'),
     methodOverride = require('method-override'),
-    bodyParser = require('body-parser'),
-	_ = require('lodash'),
-	Q = require('q');
+    bodyParser = require('body-parser');
 
 
 var go = function() {
 	// Set up Express app!
 	var app = express();
 
-	app.configure(function() {
-		// all environments
-		app.set('views', __dirname + '/views');
-		app.set('view engine', 'jade');
+    app.set('views', __dirname + '/views');
+    app.set('view engine', 'jade');
 
-		app.use(express.logger('dev'));
-		app.use(bodyParser());
-		app.use(methodOverride());
+    app.use(express.logger('dev'));
+    app.use(bodyParser.json());
+    app.use(bodyParser.urlencoded({ extended: true }));
+    app.use(methodOverride());
 
-		app.use(express.cookieParser());
-		var sessionStore = new express.session.MemoryStore();
-		app.use(express.session({secret: 'windoge', store : sessionStore}));
+    app.use(express.cookieParser());
+    var sessionStore = new express.session.MemoryStore();
+    app.use(express.session({ secret: 'windoge', store : sessionStore }));
 
-		// Set the x-powered-by header
-		app.use(function (req, res, next) {
-			res.header("X-powered-by", "Hobu, Inc.");
-			next();
-		});
+    // Set the x-powered-by header
+    app.use(function (req, res, next) {
+        res.header("X-powered-by", "Hobu, Inc.");
+        next();
+    });
 
-		app.use(require('less-middleware')(
-                { src: __dirname + '/public', debug: true }));
-		app.use(express.static(__dirname + '/public'));
+    app.use(require('less-middleware')(path.join(__dirname, 'public')));
+    app.use(express.static(__dirname + '/public'));
 
-		// development only
-		if ('development' == app.get('env')) {
-			app.use(express.errorHandler());
-		}
+    // development only
+    if ('development' == app.get('env')) {
+        app.use(express.errorHandler());
+    }
 
-		app.use(app.router);
-	});
+    app.use(app.router);
 
 	app.get('/', function(req, res) {
         console.log('Query params: ', req.query);
-        // TODO For now this will fail due to no pipeline selection.  Should
-        // be something here.
+        // This will fail due to no pipeline selection.
 		res.render('index');
 	});
 

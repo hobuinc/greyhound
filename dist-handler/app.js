@@ -6,7 +6,6 @@ process.title = 'gh_dist';
 var
 	redis = require('redis'),
     disco = require('../common').disco,
-	_ = require('lodash'),
 	redisClient = redis.createClient();
 
 redisClient.on('error', function(err) {

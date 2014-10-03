@@ -11,16 +11,15 @@ var express = require('express')
   , db = mongo.db('mongodb://localhost:21212/greyhound', { native_parser: true })
   ;
 
-app.configure(function() {
-    app.use(methodOverride());
-    app.use(bodyParser.urlencoded({ extended: true }));
-    app.use(bodyParser.json());
-    app.use(express.errorHandler({
-        dumpExceptions: true,
-        showStack: true
-    }));
-    app.use(app.router);
-});
+// Configure express server.
+app.use(methodOverride());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.errorHandler({
+    dumpExceptions: true,
+    showStack: true
+}));
+app.use(app.router);
 
 var put = function(pipeline, cb) {
     // Hash the pipeline as the database key.
