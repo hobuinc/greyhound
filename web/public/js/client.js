@@ -155,55 +155,48 @@
                             jQuery.parseJSON(urlParams['resolution']);
 
                         if (resolution.length == 2) {
-                            var x = resolution[0];
-                            var y = resolution[1];
-
-                            if (x && y) {
-                                readParams['resolution'] = { x: x, y: y };
-                            }
+                            readParams['resolution'] = resolution;
                         }
                     }
 
-                    readParams['schema'] = {
-                        "schema":
-                        [
-                            {
-                                "name": "X",
-                                "type": "floating",
-                                "size": "4"
-                            },
-                            {
-                                "name": "Y",
-                                "type": "floating",
-                                "size": "4"
-                            },
-                            {
-                                "name": "Z",
-                                "type": "floating",
-                                "size": "4"
-                            },
-                            {
-                                "name": "Intensity",
-                                "type": "unsigned",
-                                "size": "2"
-                            },
-                            {
-                                "name": "Red",
-                                "type": "unsigned",
-                                "size": "2"
-                            },
-                            {
-                                "name": "Green",
-                                "type": "unsigned",
-                                "size": "2"
-                            },
-                            {
-                                "name": "Blue",
-                                "type": "unsigned",
-                                "size": "2"
-                            },
-                        ]
-                    };
+                    readParams['schema'] =
+                    [
+                        {
+                            "name": "X",
+                            "type": "floating",
+                            "size": "4"
+                        },
+                        {
+                            "name": "Y",
+                            "type": "floating",
+                            "size": "4"
+                        },
+                        {
+                            "name": "Z",
+                            "type": "floating",
+                            "size": "4"
+                        },
+                        {
+                            "name": "Intensity",
+                            "type": "unsigned",
+                            "size": "2"
+                        },
+                        {
+                            "name": "Red",
+                            "type": "unsigned",
+                            "size": "2"
+                        },
+                        {
+                            "name": "Green",
+                            "type": "unsigned",
+                            "size": "2"
+                        },
+                        {
+                            "name": "Blue",
+                            "type": "unsigned",
+                            "size": "2"
+                        },
+                    ];
 
                     if (urlParams.hasOwnProperty('depthBegin'))
                         readParams['depthBegin'] = urlParams['depthBegin'];
@@ -234,16 +227,9 @@
 					pointsCount	= msg.numPoints;
 					dataBuffer	= new Int8Array(msg.numBytes);
 
-                    if (msg.hasOwnProperty('xNum') && msg.hasOwnProperty('yNum'))
+                    if (msg.hasOwnProperty('rasterMeta'))
                     {
-                        meta = {
-                            xBegin: msg.xBegin,
-                            xStep: msg.xStep,
-                            xNum: msg.xNum,
-                            yBegin: msg.yBegin,
-                            yStep: msg.yStep,
-                            yNum: msg.yNum
-                        };
+                        meta = msg.rasterMeta;
                     }
 
                     if (pointsCount == 0) {
