@@ -42,14 +42,27 @@ var error = function(res) {
     };
 };
 
-var parseBBox = function(rawArray) {
+var parseArray = function(rawArray, isInt) {
     var coords = [];
 
     for (var i in rawArray) {
-        coords.push(parseFloat(rawArray[i]));
+        if (isInt) coords.push(parseInt(rawArray[i]));
+        else coords.push(parseFloat(rawArray[i]));
     }
 
     return coords;
+}
+
+var validateRasterSchema = function(schema) {
+    // Schema must have X and Y dimensions, and at least one other dimension.
+    var xFound = false, yFound = false, otherFound = false;
+    for (var i = 0; i < schema.length; ++i) {
+        if      (schema[i].name == 'X') xFound = true;
+        else if (schema[i].name == 'Y') yFound = true;
+        else otherFound = true;
+    }
+
+    return xFound && yFound && otherFound;
 }
 
 app.get("/", function(req, res) {
@@ -164,7 +177,7 @@ app.post("/read/:sessionId", function(req, res) {
 
     var host = args.host;
     var port = parseInt(args.port);
-    var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : { };
+    var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : [];
 
     if (args.hasOwnProperty('resolution')) {
         args['resolution'] = JSON.parse(args.resolution);
@@ -207,12 +220,14 @@ app.post("/read/:sessionId", function(req, res) {
                         readId: readId,
                         numPoints: numPoints,
                         numBytes: numBytes,
-                        xBegin: xBegin,
-                        xStep: xStep,
-                        xNum: xNum,
-                        yBegin: yBegin,
-                        yStep: yStep,
-                        yNum: yNum,
+                        rasterMeta: {
+                            xBegin: xBegin,
+                            xStep: xStep,
+                            xNum: xNum,
+                            yBegin: yBegin,
+                            yStep: yStep,
+                            yNum: yNum
+                        },
                         message:
                             'Request queued for transmission to ' +
                             host + ':' + port,
@@ -258,19 +273,30 @@ app.post("/read/:sessionId", function(req, res) {
         }
         else if (
             args.hasOwnProperty('bbox') &&
-            args.hasOwnProperty('resolution') &&
-            args.resolution.hasOwnProperty('x') &&
-            args.resolution.hasOwnProperty('y') &&
-            parseInt(args.resolution.x) > 0 &&
-            parseInt(args.resolution.y) > 0) {
+            args.hasOwnProperty('resolution')) {
 
             console.log('    Got generic raster read request');
 
-            var bbox = parseBBox(args.bbox);
-            var resolution = [
-                parseInt(args.resolution.x),
-                parseInt(args.resolution.y)
-            ];
+            if (schema.hasOwnProperty('schema') &&
+                !validateRasterSchema(schema)) {
+
+                console.log(
+                        'Invalid schema in raster request', schema);
+
+                return res.json(
+                    400,
+                    { message: 'Bad schema - must contain X and Y' });
+            }
+
+            var bbox = parseArray(args.bbox);
+            var resolution = parseArray(args.resolution, true);
+
+            if (bbox.length != 4 || resolution.length != 2) {
+                console.log('    Bad args in generic raster request', args);
+                return res.json(
+                    400,
+                    { message: 'Invalid read command - bad params' });
+            }
 
             pdalSession.read(
                 host,
@@ -290,7 +316,7 @@ app.post("/read/:sessionId", function(req, res) {
             // Indexed read: quadtree query.
             var bbox =
                 args.hasOwnProperty('bbox') ?
-                    parseBBox(args.bbox) :
+                    parseArray(args.bbox) :
                     undefined;
 
             var depthBegin =
@@ -302,23 +328,6 @@ app.post("/read/:sessionId", function(req, res) {
                 args.hasOwnProperty('depthEnd') ?
                     parseInt(args.depthEnd) :
                     0;
-
-            if (rasterize && schema.hasOwnProperty('schema')) {
-                var xFound = false, yFound = false;
-                for (var i = 0; i < schema.schema.length; ++i) {
-                    if      (schema.schema[i].name == 'X') xFound = true;
-                    else if (schema.schema[i].name == 'Y') yFound = true;
-                }
-
-                if (!xFound || !yFound) {
-                    console.log(
-                            'Invalid schema in raster request', schema.schema);
-
-                    return res.json(
-                        400,
-                        { message: 'Bad schema - must contain X and Y' });
-                }
-            }
 
             pdalSession.read(
                     host,
@@ -333,6 +342,17 @@ app.post("/read/:sessionId", function(req, res) {
             var rasterize = parseInt(args.rasterize);
 
             console.log('    Got quad-tree single-level raster read request');
+
+            if (schema.hasOwnProperty('schema') &&
+                !validateRasterSchema(schema)) {
+
+                console.log(
+                        'Invalid schema in raster request', schema);
+
+                return res.json(
+                    400,
+                    { message: 'Bad schema - must contain X and Y' });
+            }
 
             pdalSession.read(
                     host,
