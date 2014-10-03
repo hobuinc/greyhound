@@ -902,16 +902,3 @@ Although the differences in the three images is apparent, a client could take ad
 
 So, query sizes can remain managable and responsive throughout a session even as focus moves toward sections needing higher resolution.  A well-configured client could complete an entire interactive rendering scenario while only downloading a small fraction of the available points, and without incurring a massive up-front download before interactivity can begin.
 
-Deploying Greyhound
-===============================================================================
-
-Setting up the Server
--------------------------------------------------------------------------------
-
-TODO
-
-Configuring Greyhound Settings
--------------------------------------------------------------------------------
-
-TODO
-
