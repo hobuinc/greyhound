@@ -6,9 +6,6 @@ process.title = 'gh_sh';
 var express = require("express"),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
-    Q = require('q'),
-    path = require('path'),
-    _ = require('lodash'),
     disco = require('../common').disco,
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
@@ -16,15 +13,11 @@ var express = require("express"),
     app = express();
 
 // configure express application
-app.configure(function() {
-    app.use(methodOverride());
-    app.use(bodyParser());
-    app.use(express.errorHandler({
-        dumpExceptions: true,
-        showStack: true
-    }));
-    app.use(app.router);
-});
+app.use(methodOverride());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
+app.use(app.router);
 
 var sessions    = { }; // sessionId -> pdalSession (may be many to one)
 var pipelineIds = { }; // pipelineId -> pdalSession (one to one)

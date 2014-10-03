@@ -1,17 +1,11 @@
 {
-	"name": "session-handler",
-	"private": true,
-    "gypfile": true,
-	"version": "0.0.1",
-	"dependencies": {
-		"lodash" : "*",
-		"jsonparse": "*",
-		"express": "3.x",
-        "method-override": "*",
-        "body-parser": "*",
-		"q": "*",
-		"generic-pool": "*",
-		"seaport": "*"
-	}
+  "name": "session-handler",
+  "private": true,
+  "gypfile": true,
+  "version": "0.0.1",
+  "dependencies": {
+    "body-parser": "^1.9.0",
+    "express": "^3.17.5",
+    "method-override": "^2.2.0"
+  }
 }
-
