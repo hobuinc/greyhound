@@ -3,7 +3,7 @@ Greyhound
 ===============================================================================
 
 :author: Connor Manning
-:email: connor@hobu.com
+:email: connor@hobu.co
 :date: 09/30/2014
 
 Overview
