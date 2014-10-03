@@ -898,7 +898,9 @@ Of course this data doesn't mean much without a visual comparison of the queries
 
 .. image:: animation.gif
 
-Although the differences in the three images is apparent, a client could take advantage of these low fidelity raster queries to preserve bandwidth throughout a session.  This comparison is intended to demonstrate the waiting time before any initial display to the user.  After an initial low-fidelity render, subsequent queries will have smaller bounds, as a user begins to hone in on areas of interest.
+|
 
-So, query sizes can remain managable and responsive throughout a session even as focus moves toward sections needing higher resolution.  A well-configured client could complete an entire interactive rendering scenario while only downloading a small fraction of the available points, and without incurring a massive up-front download before interactivity can begin.
+Although the rasters are not quite identical to full resolution, the bandwidth and time savings are enormous.  A client can take advantage of these low fidelity queries to provide rapid initial feedback.  After an initial overview, higher resolution data within smaller bounds can be fetched as a user hones in on smaller areas of interest.
+
+This comparison is intended to demonstrate the waiting time before any initial display to the user.  A well-configured client could complete an entire interactive rendering scenario while only downloading a small fraction of the available points, and without incurring a massive up-front download before interactivity can begin.
 
