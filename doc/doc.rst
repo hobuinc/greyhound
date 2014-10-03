@@ -837,7 +837,7 @@ Given these two parameters, we can determine that:
 Pseudocode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The raster can be read programmatically similar to the pseudocode below, assuming that the raster contains only 4-byte floating ``Z`` values.
+The raster can be read programmatically similar to the pseudocode below.  This example assumes that the raster contains only 4-byte floating ``Z`` values.
 
 ::
 
@@ -861,7 +861,7 @@ The raster can be read programmatically similar to the pseudocode below, assumin
 
             float x = meta.xBegin + (xIndex * meta.xStep);
             float y = meta.yBegin + (yIndex * meta.yStep);
-            float z = buffer.getDoubleFromIndex(zOffset);
+            float z = buffer.getDoubleFromByteOffset(zOffset);
 
             points.push_back(Point(x, y, z));
         }
@@ -870,9 +870,37 @@ The raster can be read programmatically similar to the pseudocode below, assumin
 Taking Advantage of Indexing
 -------------------------------------------------------------------------------
 
-TODO
- - Can progressively query deeper levels of the quad tree to fill in detail.
- - Explain tree depth centering.
+The quad-tree index and its associated raster queries provide a clients with powerful methods to query various sparsities of the point cloud.  This can allow a client to conserve bandwidth or allow a rendering client to be more responsive for large files by progressively filling in the point cloud as a user changes view or zooms in.
+
+Progressive Quad-Tree Fill
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When displaying points, quad-tree indexed requests will return points with as even of a distribution as possible without manipulating any points.  This is for the benefit of rendering clients:
+
+.. image:: progressiveFill.jpg
+
+Progressive Rasterization Fidelity
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The bandwidth savings by performing raster queries of low levels of a quad-tree index can be massive.  The table below compares the `Read - Quad-Tree Indexed Raster`_ query with ``rasterize = 9`` and ``rasterize = 10``, and finally an unindexed and unrastered ``read`` of all points.  The file used in this comparison consists of 7,954,265 points.
+
++--------------------+------------+----------------+----------------------------+
+| Query              | Size       | Download ratio | Download time at 50Mb/s    |
++====================+============+================+============================+
+| ``rasterize = 9``  | 3.41 MB    | 2.14%          | 0.55 seconds               |
++--------------------+------------+----------------+----------------------------+
+| ``rasterize = 10`` | 13.63 MB   | 8.57%          | 2.18 seconds               |
++--------------------+------------+----------------+----------------------------+
+| All points         | 159.09 MB  | 100%           | 25.45 seconds              |
++--------------------+------------+----------------+----------------------------+
+
+Of course this data doesn't mean much without a visual comparison of the queries:
+
+.. image:: animation.gif
+
+Although the differences in the three images is apparent, a client could take advantage of these low fidelity raster queries to preserve bandwidth throughout a session.  This comparison is intended to demonstrate the waiting time before any initial display to the user.  After an initial low-fidelity render, subsequent queries will have smaller bounds, as a user begins to hone in on areas of interest.
+
+So, query sizes can remain managable and responsive throughout a session even as focus moves toward sections needing higher resolution.  A well-configured client could complete an entire interactive rendering scenario while only downloading a small fraction of the available points, and without incurring a massive up-front download before interactivity can begin.
 
 Deploying Greyhound
 ===============================================================================
