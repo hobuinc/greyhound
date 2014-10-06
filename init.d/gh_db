@@ -1,0 +1,19 @@
+#!/bin/bash
+
+COMPONENT=gh_db
+ROOT=/var/greyhound/db-handler
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+case $1 in
+   start)
+      nohup "node" "$ROOT/app.js" 1>>"/var/log/$COMPONENT.txt" 2>&1 &
+      echo $! > "$ROOT/$COMPONENT.pid";
+      ;;
+    stop)
+      kill `cat $ROOT/$COMPONENT.pid` ;;
+    *)
+      echo "usage: /etc/init.d/gh_db {start|stop}" ;;
+esac
+exit 0
+
