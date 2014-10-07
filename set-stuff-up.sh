@@ -37,6 +37,7 @@ setup_cpp_components() {
 	# Build our pdal-session binary.
     cd /vagrant
 	make all
+    make install
 }
 
 setup_greyhound() {
@@ -45,9 +46,12 @@ setup_greyhound() {
     su -l vagrant -c "mkdir -p /home/vagrant/data"
 
     # Launch Greyhound.
-    chmod 755 /vagrant/gh
-    echo Launching Greyhound
-    su -l vagrant -c "/vagrant/gh start"
+    /etc/init.d/gh_pre start
+    /etc/init.d/gh_ws start
+    /etc/init.d/gh_db start
+    /etc/init.d/gh_dist start
+    /etc/init.d/gh_sh start
+    /etc/init.d/gh_web start
 
     # TODO Need some method to ensure that all Greyhound components are
     # launched before we can perform the PUT.  For now hack in a sleep.

@@ -60,7 +60,7 @@ var go = function() {
     });
 
 	var server = http.createServer(app),
-	port = process.env.PORT || 80;
+	port = process.env.PORT || 8080;
 
 	server.listen(port, function () {
 		console.log('Web server running on port ' + port);

@@ -1,9 +1,0 @@
-proxy: sudo /usr/sbin/haproxy -f ./frontend-proxy/haproxy.cfg -d > /dev/null
-ws-proxy: /usr/bin/hipache -c ./frontend-proxy/hipache-config.json > /dev/null
-dist: node ./dist-handler/app.js > /dev/null
-sh: node ./session-handler/app.js > /dev/null
-ws: node ./websocket-handler/app.js > /dev/null
-web: env PORT=8080 node ./web/app.js > /dev/null
-db: node ./db-handler/app.js > /dev/null
-mongo: mongod --dbpath /home/vagrant/data --port 21212 --logpath /home/vagrant/log.txt
-

@@ -1,5 +1,5 @@
-COMPONENTS = gh_db gh_dist gh_sh gh_ws
-SRC_DIRS = common db-handler dist-handler session-handler websocket-handler
+COMPONENTS = gh_db gh_dist gh_sh gh_ws gh_web
+SRC_DIRS = common db-handler dist-handler session-handler websocket-handler web
 
 all:
 	$(MAKE) -C session-handler all
@@ -34,8 +34,6 @@ install:
 	cp Procfile /var/greyhound/pre/
 	mkdir -p /var/greyhound/pre/frontend-proxy
 	cp -R frontend-proxy/* /var/greyhound/pre/frontend-proxy
-	mkdir -p /var/greyhound/pre/web
-	cp -R web/* /var/greyhound/pre/web
 
 uninstall:
 #
