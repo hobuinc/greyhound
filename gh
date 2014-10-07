@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+case $1 in
+start)
+    /etc/init.d/gh_pre start
+    /etc/init.d/gh_ws start
+    /etc/init.d/gh_db start
+    /etc/init.d/gh_dist start
+    /etc/init.d/gh_sh start
+    /etc/init.d/gh_web start
+    ;;
+stop)
+    /etc/init.d/gh_pre stop
+    /etc/init.d/gh_ws stop
+    /etc/init.d/gh_db stop
+    /etc/init.d/gh_dist stop
+    /etc/init.d/gh_sh stop
+    /etc/init.d/gh_web stop
+
+    sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1
+    redis-cli flushall
+    ;;
+*)
+    echo "Usage: $0 {start|stop}" >&2
+
+esac
+
