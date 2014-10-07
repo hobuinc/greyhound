@@ -34,7 +34,7 @@ To get more functionality than looking at the sample point clouds in your browse
 
 Once you are connected to the virtual machine, you have control over the _Greyhound_ stack with:
 
-- `./gh start [-q]`  Start all _Greyhound_ components.  The optional `-q` flag will suppress console output from within _Greyhound_, useful for getting a clean output from the unit tests.
+- `./gh start`  Start all _Greyhound_ components.
 - `./gh stop`   Stop all _Greyhound_ components.
 
 When _Greyhound_ services are running, you can try out the sample C++ client code (all commands operate on the sample pipeline if no argument is provided) or run the unit tests to verify the integrity of your Greyhound stack:
