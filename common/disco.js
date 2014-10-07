@@ -13,6 +13,7 @@
     var _ = require('lodash');
     var async = require('async');
     var EventEmitter = require('events').EventEmitter;
+    var console = require('clim')();
 
     redis.on('error', function() {
         redis = null;

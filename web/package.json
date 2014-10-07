@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "dependencies": {
     "body-parser": "^1.9.0",
+    "clim": "^1.0.0",
     "express": "^3.17.6",
     "jade": "^1.7.0",
     "less-middleware": "^1.0.4",

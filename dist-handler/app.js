@@ -6,7 +6,8 @@ process.title = 'gh_dist';
 var
 	redis = require('redis'),
     disco = require('../common').disco,
-	redisClient = redis.createClient();
+	redisClient = redis.createClient(),
+    console = require('clim')();
 
 redisClient.on('error', function(err) {
 	console.log('Redis client connection errored: ' + err);

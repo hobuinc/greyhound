@@ -13,7 +13,8 @@ var
 	// npm modules
 	express = require('express'),
     methodOverride = require('method-override'),
-    bodyParser = require('body-parser');
+    bodyParser = require('body-parser'),
+    console = require('clim')();
 
 
 var go = function() {

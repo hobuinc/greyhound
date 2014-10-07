@@ -17,6 +17,9 @@ install:
 # Set up Greyhound component source directory.
 	mkdir -p /var/greyhound/
 #
+# Set up Greyhound component logging directory.
+	mkdir -p /var/log/greyhound/
+#
 # Make source directories for each component.
 	$(foreach srcDir, $(SRC_DIRS), mkdir -p /var/greyhound/$(srcDir);)
 #
@@ -39,15 +42,12 @@ uninstall:
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
 #
-# Remove log files.
-	$(foreach comp, $(COMPONENTS), rm -f /var/log/$(comp).txt;)
-#
 # Remove sources.
 	rm -rf /var/greyhound/
 #
+# Remove log files.
+	rm -rf /var/log/greyhound/
+#
 # TODO TEMPORARY
 	rm -f /etc/init.d/gh_pre
-	rm -f /var/log/gh_pre-hipache.txt
-	rm -f /var/log/gh_pre-mongo.txt
-	rm -f /var/log/gh_pre-proxy.txt
 

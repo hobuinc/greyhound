@@ -7,6 +7,7 @@ var express = require("express"),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
     disco = require('../common').disco,
+    console = require("clim")(),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
 

@@ -7,6 +7,7 @@ var WebSocketServer = require('ws').Server
     , http = require('http')
     , express = require('express')
     , crypto = require('crypto')
+    , console = require('clim')()
 
     , web = require('./lib/web')
     , port = (process.env.PORT || 8080)

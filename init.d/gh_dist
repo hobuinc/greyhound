@@ -7,7 +7,7 @@ ROOT=/var/greyhound/dist-handler
 
 case $1 in
    start)
-      nohup "node" "$ROOT/app.js" 1>>"/var/log/$COMPONENT.txt" 2>&1 &
+      nohup "node" "$ROOT/app.js" 1>>"/var/log/greyhound/$COMPONENT.txt" 2>&1 &
       echo $! > "$ROOT/$COMPONENT.pid";
       ;;
     stop)
