@@ -2,8 +2,8 @@
 # chkconfig: 2345 96 04
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 
-COMPONENT=gh_db
-ROOT=/var/greyhound/db-handler
+COMPONENT=gh_dist
+ROOT=/var/greyhound/dist-handler
 
 case $1 in
    start)
