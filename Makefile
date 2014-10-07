@@ -31,7 +31,6 @@ install:
 # TODO TEMPORARY
 	cp init.d/gh_pre /etc/init.d/
 	mkdir -p /var/greyhound/pre
-	cp Procfile /var/greyhound/pre/
 	mkdir -p /var/greyhound/pre/frontend-proxy
 	cp -R frontend-proxy/* /var/greyhound/pre/frontend-proxy
 
