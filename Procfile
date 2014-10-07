@@ -1,9 +1,5 @@
-proxy: sudo /usr/sbin/haproxy -f ./frontend-proxy/haproxy.cfg -d
+proxy: sudo /usr/sbin/haproxy -f /var/greyhound/pre/frontend-proxy/haproxy.cfg -d
 mongo: mongod --dbpath /home/vagrant/data --port 21212 --logpath /home/vagrant/log.txt
-ws-proxy: /usr/bin/hipache -c ./frontend-proxy/hipache-config.json > /vagrant/frontend-proxy/hipache-log.txt
-
-dist: node ./dist-handler/app.js
-sh: node ./session-handler/app.js
-ws: node ./websocket-handler/app.js
-web: env PORT=8080 node ./web/app.js
+ws-proxy: /usr/bin/hipache -c /var/greyhound/pre/frontend-proxy/hipache-config.json
+web: env PORT=8080 node /var/greyhound/pre/web/app.js
 
