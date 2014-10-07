@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "dependencies": {
     "body-parser": "^1.9.0",
+    "clim": "^1.0.0",
     "express": "^3.17.5",
     "method-override": "^2.2.0",
     "mongoskin": "^1.4.4"

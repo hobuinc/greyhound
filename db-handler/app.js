@@ -9,6 +9,7 @@ var express = require('express')
   , crypto = require('crypto')
   , mongo = require('mongoskin')
   , db = mongo.db('mongodb://localhost:21212/greyhound', { native_parser: true })
+  , console = require('clim')()
   ;
 
 // Configure express server.

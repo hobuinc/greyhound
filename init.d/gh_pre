@@ -7,13 +7,13 @@ COMPONENT=gh_pre
 case $1 in
    start)
 
-      nohup /usr/sbin/haproxy -f /var/greyhound/pre/frontend-proxy/haproxy.cfg -d 1>>"/var/log/$COMPONENT-proxy.txt" 2>&1 &
+      nohup /usr/sbin/haproxy -f /var/greyhound/pre/frontend-proxy/haproxy.cfg -d 1>>"/var/log/greyhound/$COMPONENT-proxy.txt" 2>&1 &
       echo $! > "$ROOT/$COMPONENT-proxy.pid";
 
-      nohup mongod --dbpath /home/vagrant/data --port 21212 --logpath /home/vagrant/log.txt 1>>"/var/log/$COMPONENT-mongo.txt" 2>&1 &
+      nohup mongod --dbpath /home/vagrant/data --port 21212 --logpath /home/vagrant/log.txt 1>>"/var/log/greyhound/$COMPONENT-mongo.txt" 2>&1 &
       echo $! > "$ROOT/$COMPONENT-mongo.pid";
 
-      nohup /usr/bin/hipache -c /var/greyhound/pre/frontend-proxy/hipache-config.json 1>>"/var/log/$COMPONENT-hipache.txt" 2>&1 &
+      nohup /usr/bin/hipache -c /var/greyhound/pre/frontend-proxy/hipache-config.json 1>>"/var/log/greyhound/$COMPONENT-hipache.txt" 2>&1 &
       echo $! > "$ROOT/$COMPONENT-hipache.pid";
 
       ;;
