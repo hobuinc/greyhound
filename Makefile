@@ -54,6 +54,5 @@ uninstall:
 	rm -rf /var/log/greyhound/
 #
 # TODO TEMPORARY
-	/etc/init.d/gh_pre stop
 	rm -f /etc/init.d/gh_pre
 

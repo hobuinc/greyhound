@@ -9,6 +9,7 @@ var
 	fs = require('fs'),
 	http = require('http'),
 	path = require('path'),
+    disco = require('../common').disco,
 
 	// npm modules
 	express = require('express'),
@@ -63,9 +64,14 @@ var go = function() {
 	var server = http.createServer(app),
 	port = process.env.PORT || 8080;
 
-	server.listen(port, function () {
-		console.log('Web server running on port ' + port);
-	});
+    // Register ourselves with disco for status purposes.
+    disco.register('web', port, function(err, service) {
+        if (err) return console.log("Failed to resgister service:", err);
+
+        server.listen(port, function () {
+            console.log('Web server running on port ' + port);
+        });
+    });
 };
 
 process.nextTick(go)
