@@ -1,5 +1,11 @@
-COMPONENTS = gh_db gh_dist gh_sh gh_ws gh_web
-SRC_DIRS = common db-handler dist-handler session-handler websocket-handler web
+COMPONENTS = gh_fe gh_db gh_dist gh_sh gh_ws gh_web
+SRC_DIRS = frontend-proxy \
+		   db-handler \
+		   dist-handler \
+		   session-handler \
+		   websocket-handler \
+		   web \
+		   common
 
 all:
 	$(MAKE) -C session-handler all
@@ -30,17 +36,6 @@ install:
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/
-#
-# TODO
-# Link stuff like /etc/init.d/greyhound/gh_db into /bin for easy start/stop?
-# Make init.d's restart on crash:
-# 		Need to update redis in this case.
-#
-# TODO TEMPORARY
-	cp init.d/gh_pre /etc/init.d/
-	mkdir -p /var/greyhound/pre
-	mkdir -p /var/greyhound/pre/frontend-proxy
-	cp -R frontend-proxy/* /var/greyhound/pre/frontend-proxy
 
 uninstall:
 #
@@ -52,7 +47,4 @@ uninstall:
 #
 # Remove log files.
 	rm -rf /var/log/greyhound/
-#
-# TODO TEMPORARY
-	rm -f /etc/init.d/gh_pre
 

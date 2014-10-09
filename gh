@@ -2,7 +2,7 @@
 
 case $1 in
 start)
-    /etc/init.d/gh_pre start
+    /etc/init.d/gh_fe start
     /etc/init.d/gh_ws start
     /etc/init.d/gh_db start
     /etc/init.d/gh_dist start
@@ -10,7 +10,7 @@ start)
     /etc/init.d/gh_web start
     ;;
 stop)
-    /etc/init.d/gh_pre stop
+    /etc/init.d/gh_fe stop
     /etc/init.d/gh_ws stop
     /etc/init.d/gh_db stop
     /etc/init.d/gh_dist stop
@@ -18,11 +18,11 @@ stop)
     /etc/init.d/gh_web stop
 
     sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1
-    redis-cli flushall
+    echo -e "select 0\nflushdb" | redis-cli;
     ;;
 auto)
     # Remove all auto-launch services.
-    update-rc.d -f gh_pre remove
+    update-rc.d -f gh_fe remove
     update-rc.d -f gh_ws remove
     update-rc.d -f gh_db remove
     update-rc.d -f gh_dist remove
@@ -30,7 +30,7 @@ auto)
     update-rc.d -f gh_web remove
 
     # Re-add auto-launch services.
-    update-rc.d gh_pre defaults 95 05
+    update-rc.d gh_fe defaults 95 05
     update-rc.d gh_ws defaults 96 04
     update-rc.d gh_db defaults 96 04
     update-rc.d gh_dist defaults 96 04
