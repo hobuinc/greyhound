@@ -7,7 +7,7 @@ if (argv._.length != 2) {
 }
 
 var filename = argv._[0];
-process.title = argv[1] + '_forever';
+process.title = argv._[1] + '_monitor';
 
 var child = new (forever.Monitor)(filename, {
     'killTree': true

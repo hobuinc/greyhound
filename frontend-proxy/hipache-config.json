@@ -9,8 +9,6 @@
         "address6": ["::1"],
 		"debug": true
     },
-    "redisHost": "127.0.0.1",
-    "redisPort": 6379,
-    "redisDatabase": 0,
-    "redisPassword": ""
+    "driver": [ "redis://127.0.0.1:6379/0" ]
 }
+

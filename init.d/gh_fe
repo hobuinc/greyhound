@@ -1,0 +1,37 @@
+#!/bin/bash
+# chkconfig: 2345 95 05
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+
+GH_ROOT=/var/greyhound/
+LOG_ROOT=/var/log/greyhound/
+
+COMPONENT=gh_fe
+ROOT=$GH_ROOT/frontend-proxy/
+
+case $1 in
+   start)
+      nohup /usr/sbin/haproxy -f $ROOT/haproxy.cfg -d \
+          1>>"$LOG_ROOT/$COMPONENT-proxy.txt" 2>&1 &
+      echo $! > "$ROOT/$COMPONENT-proxy.pid";
+
+      nohup /usr/bin/hipache -c $ROOT/hipache-config.json \
+          1>>"$LOG_ROOT/$COMPONENT-hipache.txt" 2>&1 &
+      echo $! > "$ROOT/$COMPONENT-hipache.pid";
+
+      nohup mongod --dbpath /home/vagrant/data --port 21212 \
+          --logpath /home/vagrant/log.txt \
+          1>>"$LOG_ROOT/$COMPONENT-mongo.txt" 2>&1 &
+      echo $! > "$ROOT/$COMPONENT-mongo.pid";
+
+      ;;
+    stop)
+      kill `cat $ROOT/$COMPONENT-proxy.pid`;
+      kill `cat $ROOT/$COMPONENT-mongo.pid`;
+      kill `cat $ROOT/$COMPONENT-hipache.pid`;
+      ;;
+    *)
+      echo "usage: /etc/init.d/$COMPONENT {start|stop}"
+      ;;
+esac
+exit 0
+
