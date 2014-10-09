@@ -20,6 +20,20 @@ stop)
     sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1
     redis-cli flushall
     ;;
+auto)
+    update-rc.d -f gh_pre remove
+    update-rc.d -f gh_ws remove
+    update-rc.d -f gh_db remove
+    update-rc.d -f gh_dist remove
+    update-rc.d -f gh_sh remove
+    update-rc.d -f gh_web remove
+    update-rc.d gh_pre defaults 95 05
+    update-rc.d gh_ws defaults 96 04
+    update-rc.d gh_db defaults 96 04
+    update-rc.d gh_dist defaults 96 04
+    update-rc.d gh_sh defaults 96 04
+    update-rc.d gh_web defaults 96 04
+    ;;
 *)
     echo "Usage: $0 {start|stop}" >&2
 

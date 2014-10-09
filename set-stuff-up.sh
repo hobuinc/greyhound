@@ -38,20 +38,20 @@ setup_cpp_components() {
     cd /vagrant
 	make all
     make install
+
+    # Set up auto-launch of Greyhound components.
+    update-rc.d gh_pre defaults 95 05
+    update-rc.d gh_ws defaults 96 04
+    update-rc.d gh_db defaults 96 04
+    update-rc.d gh_dist defaults 96 04
+    update-rc.d gh_sh defaults 96 04
+    update-rc.d gh_web defaults 96 04
 }
 
 setup_greyhound() {
     # Initialize the database with sample files and launch services.
     echo Making DB dir
     su -l vagrant -c "mkdir -p /home/vagrant/data"
-
-    # Launch Greyhound.
-    /etc/init.d/gh_pre start
-    /etc/init.d/gh_ws start
-    /etc/init.d/gh_db start
-    /etc/init.d/gh_dist start
-    /etc/init.d/gh_sh start
-    /etc/init.d/gh_web start
 
     # TODO Need some method to ensure that all Greyhound components are
     # launched before we can perform the PUT.  For now hack in a sleep.

@@ -8,7 +8,9 @@ var express = require('express')
   , disco = require('../common').disco
   , crypto = require('crypto')
   , mongo = require('mongoskin')
-  , db = mongo.db('mongodb://localhost:21212/greyhound', { native_parser: true })
+  , db = mongo.db(
+          'mongodb://localhost:21212/greyhound',
+          { native_parser: true })
   , console = require('clim')()
   ;
 
@@ -53,10 +55,10 @@ var retrieve = function(pipelineId, cb) {
 }
 
 var error = function(res) {
-	return function(err) {
+    return function(err) {
         console.log("Responding with a 500 ERROR:", err);
-		res.json(500, { message: err.message || 'Unknown error' });
-	};
+        res.json(500, { message: err.message || 'Unknown error' });
+    };
 };
 
 var safe = function(res, f) {
@@ -71,7 +73,7 @@ var safe = function(res, f) {
 
 
 app.get("/", function(req, res) {
-	res.json(404, { message: 'Invalid service URL' });
+    res.json(404, { message: 'Invalid service URL' });
 });
 
 // Handle a 'put' request.
@@ -96,7 +98,11 @@ app.get("/retrieve", function(req, res) {
             else if (!foundPipeline)
                 return error(res)('Could not retrieve pipeline');
 
-            console.log("/retrieve with pipelineId:", pipelineId, "successful");
+            console.log(
+                "/retrieve with pipelineId:",
+                pipelineId,
+                "successful");
+
             return res.json({ pipeline: foundPipeline });
         });
     });
