@@ -65,48 +65,61 @@
         return e;
     };
 
-    var register = function(name, cb) {
-        var removeOnExit = true; // TODO: this should eventually be configurable
+    var setRegistration = function(name, port, cb) {
+        var id = uuid.v4();
+        var val = {
+            name: name,
+            id: id,
+            port: port
+        };
 
-        check(cb, function() {
-            // find a free port
-            freeport(function(err, port) {
-                if (err) return cb(err);
+        var keyName = 'services/' + name + '/' + id;
 
-                var id = uuid.v4();
-                var val = {
-                    name: name,
-                    id: id,
-                    port: port
-                };
+        redis.set(keyName, JSON.stringify(val), function() {
+            var aliveC = 0;
+            var ti = setInterval(function() {
+                redis.expire(keyName, 10);
+                aliveC++;
+            }, 5000);
 
-                var keyName = 'services/' + name + '/' + id;
+            val.unregister = function() {
+                console.log('Removing service:', name);
+                clearInterval(ti);
+                redis.del(keyName);
+            };
 
-                redis.set(keyName, JSON.stringify(val), function() {
-                    var aliveC = 0;
-                    var ti = setInterval(function() {
-                        redis.expire(keyName, 10);
-                        aliveC++;
-                    }, 5000);
+            redis.expire(keyName, 10);
 
-                    val.unregister = function() {
-                        console.log('Removing service:', name);
-                        clearInterval(ti);
-                        redis.del(keyName);
-                    };
-
-                    redis.expire(keyName, 10);
-
-                    ["exit", "SIGINT", "SIGTERM"].forEach(function(s) {
-                        process.on(s, function() {
-                            val.unregister();
-                            process.exit();
-                        });
-                    });
-
-                    cb(null, val);
+            ["exit", "SIGINT", "SIGTERM"].forEach(function(s) {
+                process.on(s, function() {
+                    val.unregister();
+                    process.exit();
                 });
             });
+
+            cb(null, val);
+        });
+    }
+
+    var register = function(name, port, cb) {
+        if (typeof cb === 'undefined') {
+            cb = port;
+            port = null;
+        }
+
+        var removeOnExit = true;
+
+        check(cb, function() {
+            if (!port) {
+                // find a free port
+                freeport(function(err, port) {
+                    if (err) return cb(err);
+                    else return setRegistration(name, port, cb);
+                });
+            }
+            else {
+                return setRegistration(name, port, cb);
+            }
         });
     };
 
