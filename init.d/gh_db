@@ -2,18 +2,33 @@
 # chkconfig: 2345 96 04
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 
+GH_ROOT=/var/greyhound/
+LOG_ROOT=/var/log/greyhound/
+
 COMPONENT=gh_db
-ROOT=/var/greyhound/db-handler
+ROOT=$GH_ROOT/db-handler/
 
 case $1 in
-   start)
-      nohup "node" "$ROOT/app.js" 1>>"/var/log/greyhound/$COMPONENT.txt" 2>&1 &
-      echo $! > "$ROOT/$COMPONENT.pid";
-      ;;
+    start)
+        nohup node $GH_ROOT/forever.js $ROOT/app.js $COMPONENT \
+            &> "$LOG_ROOT/$COMPONENT.txt" &
+
+        echo $! > "$ROOT/$COMPONENT.pid";
+        ;;
     stop)
-      kill `cat $ROOT/$COMPONENT.pid` ;;
+        WATCHER=`cat $ROOT/$COMPONENT.pid`;
+        CHILD=`pgrep -P $WATCHER`;
+
+        if [ -n $CHILD ] ; then
+           `kill -2 $WATCHER`   # Make sure to kill watcher first,
+           `kill -2 $CHILD`;    # or the child may respawn.
+           rm -f "$ROOT/$COMPONENT.pid";
+        else
+           echo "Could not kill processes";
+        fi
+        ;;
     *)
-      echo "usage: /etc/init.d/$COMPONENT {start|stop}" ;;
+        echo "usage: /etc/init.d/$COMPONENT {start|stop}" ;;
 esac
 exit 0
 

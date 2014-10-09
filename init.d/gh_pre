@@ -6,7 +6,6 @@ COMPONENT=gh_pre
 
 case $1 in
    start)
-
       nohup /usr/sbin/haproxy -f /var/greyhound/pre/frontend-proxy/haproxy.cfg -d 1>>"/var/log/greyhound/$COMPONENT-proxy.txt" 2>&1 &
       echo $! > "$ROOT/$COMPONENT-proxy.pid";
 

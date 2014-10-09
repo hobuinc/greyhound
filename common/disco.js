@@ -6,7 +6,6 @@
 (function(scope) {
     "use strict";
 
-
     var uuid = require('node-uuid');
     var freeport = require('freeport');
     var redis = require('redis').createClient();

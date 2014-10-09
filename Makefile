@@ -26,6 +26,11 @@ install:
 # Copy component sources.
 	$(foreach srcDir, $(SRC_DIRS), cp -R $(srcDir)/* /var/greyhound/$(srcDir);)
 #
+# Copy top-level dependencies.
+	cp forever.js /var/greyhound/
+	mkdir -p /var/greyhound/node_modules/
+	cp -R node_modules/* /var/greyhound/node_modules/
+#
 # TODO
 # Link stuff like /etc/init.d/greyhound/gh_db into /bin for easy start/stop?
 # Make init.d's restart on crash:
@@ -49,5 +54,6 @@ uninstall:
 	rm -rf /var/log/greyhound/
 #
 # TODO TEMPORARY
+	/etc/init.d/gh_pre stop
 	rm -f /etc/init.d/gh_pre
 
