@@ -16,15 +16,18 @@ case $1 in
         echo $! > "$ROOT/$COMPONENT.pid";
         ;;
     stop)
-        WATCHER=`cat $ROOT/$COMPONENT.pid`;
-        CHILD=`pgrep -P $WATCHER`;
+        if [ -e "$ROOT/$COMPONENT.pid" ]
+        then
+            WATCHER=`cat $ROOT/$COMPONENT.pid`;
+            CHILD=`pgrep -P $WATCHER`;
 
-        if [ -n $CHILD ] ; then
-           `kill -2 $WATCHER`   # Make sure to kill watcher first,
-           `kill -2 $CHILD`;    # or the child may respawn.
-           rm -f "$ROOT/$COMPONENT.pid";
-        else
-           echo "Could not kill processes";
+            if [ -n $CHILD ] ; then
+               `kill -2 $WATCHER`   # Make sure to kill watcher first,
+               `kill -2 $CHILD`;    # or the child may respawn.
+               rm -f "$ROOT/$COMPONENT.pid";
+            else
+               echo "Could not kill processes";
+            fi
         fi
         ;;
     *)
