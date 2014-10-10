@@ -18,7 +18,7 @@ var WebSocketServer = require('ws').Server
     , Affinity = require('./lib/affinity').Affinity
     , streamers = { }
 
-    , config = require('./config')
+    , config = (require('../config').ws || { })
     , softSessionShareMax = (config.softSessionShareMax || 16)
     , hardSessionShareMax = (config.hardSessionShareMax || 0)
     , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)

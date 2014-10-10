@@ -33,6 +33,7 @@ install:
 	$(foreach srcDir, $(SRC_DIRS), cp -R $(srcDir)/* /var/greyhound/$(srcDir);)
 #
 # Copy top-level dependencies.
+	cp config.js /var/greyhound/
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/
