@@ -127,7 +127,10 @@
         check(cb, function() {
             var pattern = 'services/' + name + '*';
             redis.keys(pattern, function(err, replies) {
-                if (err) return cb(err);
+                if (err)
+                    return cb(err);
+                else if (!replies.length)
+                    return cb('No ' + name + ' service found');
 
                 async.map(replies,
                           function(r, cb1) {
