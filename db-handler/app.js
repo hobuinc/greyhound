@@ -8,8 +8,26 @@ var express = require('express')
   , disco = require('../common').disco
   , console = require('clim')()
   , MongoDriver = require('./lib/mongo-driver').MongoDriver
-  , dbDriver = new MongoDriver()
+  , SQLiteDriver = require('./lib/sqlite-driver').SQLiteDriver
+
+  , config = (require('../config').db || { })
+  , dbDriver = null
   ;
+
+if (config.type) {
+    if (config.type == 'sqlite') {
+        dbDriver = new SQLiteDriver();
+    }
+    else if (config.type == 'oracle') {
+        dbDriver = new OracleDriver();
+    }
+    else {
+        dbDriver = new MongoDriver();
+    }
+}
+else {
+    dbDriver = new MongoDriver()
+}
 
 // Configure express server.
 app.use(methodOverride());
