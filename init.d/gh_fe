@@ -24,9 +24,23 @@ case $1 in
         echo $! > "$ROOT/$COMPONENT-mongo.pid";
         ;;
     stop)
-        kill `cat $ROOT/$COMPONENT-proxy.pid`;
-        kill `cat $ROOT/$COMPONENT-mongo.pid`;
-        kill `cat $ROOT/$COMPONENT-hipache.pid`;
+        if [ -e "$ROOT/$COMPONENT-proxy.pid" ]
+        then
+            kill `cat $ROOT/$COMPONENT-proxy.pid`;
+            rm "$ROOT/$COMPONENT-proxy.pid";
+        fi
+
+        if [ -e "$ROOT/$COMPONENT-mongo.pid" ]
+        then
+            kill `cat $ROOT/$COMPONENT-mongo.pid`;
+            rm "$ROOT/$COMPONENT-mongo.pid";
+        fi
+
+        if [ -e "$ROOT/$COMPONENT-hipache.pid" ]
+        then
+            kill `cat $ROOT/$COMPONENT-hipache.pid`;
+            rm "$ROOT/$COMPONENT-hipache.pid";
+        fi
         ;;
     *)
         echo "usage: /etc/init.d/$COMPONENT {start|stop}"
