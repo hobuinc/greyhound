@@ -48,28 +48,9 @@ setup_cpp_components() {
     update-rc.d gh_web defaults 96 04
 }
 
-setup_mongo() {
+setup_greyhound() {
     su -l vagrant -c "mkdir -p /home/vagrant/data/mongo"
     su -l vagrant -c "mongod --dbpath /home/vagrant/data/mongo --port 21212 --logpath /home/vagrant/log.txt"
-    # TODO Add pipelines.
-}
-
-setup_sqlite() {
-    DB_DIR=/home/vagrant/data/sqlite/
-    su -l vagrant -c "mkdir -p $DB_DIR"
-    su -l vagrant -c "sqlite3 $DB_DIR/greyhound.db \"create table pipelines (id TEXT PRIMARY KEY, pipeline TEXT);\""
-    # TODO Add pipelines.
-    # su -l vagrant -c "sqlite3 $DB_DIR/greyhound.db \"insert into  pipelines (id, pipeline) values (<hash>,<pipeline>);\""
-}
-
-setup_oracle() {
-    # TODO
-}
-
-setup_greyhound() {
-    setup_mongo
-    setup_sqlite
-    setup_oracle
 
     # Launch Greyhound components
     /vagrant/gh start
@@ -78,7 +59,7 @@ setup_greyhound() {
     # launched before we can perform the PUT.  For now hack in a sleep.
     sleep 10
 
-    # For now, add entries via Greyhound rather than pre-loading DBs.
+    # Pre-load pipelines.
     su -l vagrant -c "/vagrant/examples/cpp/put-pipeline"
     su -l vagrant -c "/vagrant/examples/cpp/put-pipeline /vagrant/examples/data/half-dome.xml"
 }

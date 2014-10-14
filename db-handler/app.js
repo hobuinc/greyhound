@@ -8,7 +8,6 @@ var express = require('express')
   , disco = require('../common').disco
   , console = require('clim')()
   , MongoDriver = require('./drivers/mongo').MongoDriver
-  , SQLiteDriver = require('./drivers/sqlite').SQLiteDriver
 
   , config = (require('../config').db || { })
   , type = (config.type || 'mongo')
@@ -17,11 +16,7 @@ var express = require('express')
   ;
 
 switch (type) {
-    case 'sqlite':
-        driver = new SQLiteDriver();
-        break;
-    case 'oracle':
-        driver = new OracleDriver();
+    case 'grid':
         break;
     case 'mongo':
     default:
