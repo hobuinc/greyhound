@@ -299,7 +299,7 @@ Read (Basics)
 | ``"session"``       | String     | Greyhound session ID                                |
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
-+---------------------|------------+-----------------------------------------------------+
++---------------------+------------+-----------------------------------------------------+
 
 Notes:
  - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.

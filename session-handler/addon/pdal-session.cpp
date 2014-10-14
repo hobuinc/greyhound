@@ -40,12 +40,13 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
         // manner in the uv_work_queue.
         if (execute)
         {
-            pdal::Options options;
-            options.add("do_sample", false);
             m_pipelineManager.addFilter(
                 "filters.stats",
-                m_pipelineManager.getStage(),
-                options);
+                m_pipelineManager.getStage());
+
+            pdal::Options options;
+            options.add("do_sample", false);
+            m_pipelineManager.getStage()->setOptions(options);
 
             m_pipelineManager.execute();
 
