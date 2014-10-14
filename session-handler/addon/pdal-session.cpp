@@ -44,8 +44,7 @@ void PdalSession::initialize(const std::string& pipeline, const bool execute)
             options.add("do_sample", false);
             m_pipelineManager.addFilter(
                 "filters.stats",
-                m_pipelineManager.getStage(),
-                options);
+                m_pipelineManager.getStage());
 
             m_pipelineManager.execute();
 
