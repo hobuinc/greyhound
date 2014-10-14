@@ -4,6 +4,17 @@ var config = { };
 config.db = {
     // Supported types are 'mongo', 'oracle', and 'sqlite'.  Default is 'mongo'.
     type: 'mongo',
+
+    // The 'options' object will be passed to the database driver's
+    // initialize function.  Necessary information will vary per driver, but
+    // all information needed to initialize/connect should be contained here.
+    options: {
+        // Database connection info.  URL follows the form:
+        //      domain:port/name
+        domain: 'mongodb://localhost',
+        port: 21212,
+        name: 'greyhound',
+    }
 };
 
 // Websocket handler configuration.

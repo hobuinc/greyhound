@@ -1,12 +1,25 @@
-var mongo = require('mongoskin'),
-    path = 'mongodb://localhost:21212/greyhound',
-    args = { native_parser: true },
-    db = mongo.db(path, args),
-    crypto = require('crypto');
-
 (function() {
     var MongoDriver = function() {
-        this.preLaunch = function(cb) {
+        var mongo = require('mongoskin'),
+            crypto = require('crypto'),
+            db = null;
+
+        this.initialize = function(options, cb) {
+            console.log("db.initialize");
+
+            if (!options.domain) {
+                return cb('options must include database path');
+            }
+
+            var path =
+                options.domain +
+                ':' +
+                (options.port || 21212) +
+                '/' +
+                (options.name || 'greyhound');
+
+            db = mongo.db(path, { native_parser: true }),
+
             db.collection('pipelines').ensureIndex(
                 [[ 'id', 1 ]],              // Ensure index by ID.
                 { unique: true },           // IDs are unique.

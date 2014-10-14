@@ -17,7 +17,7 @@ stop)
     /etc/init.d/gh_sh stop
     /etc/init.d/gh_web stop
 
-    sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1;
+    # sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1;
     echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
     ;;
 auto)

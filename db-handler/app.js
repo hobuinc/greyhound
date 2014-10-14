@@ -7,26 +7,25 @@ var express = require('express')
   , bodyParser = require('body-parser')
   , disco = require('../common').disco
   , console = require('clim')()
-  , MongoDriver = require('./lib/mongo-driver').MongoDriver
-  , SQLiteDriver = require('./lib/sqlite-driver').SQLiteDriver
+  , MongoDriver = require('./drivers/mongo').MongoDriver
+  , SQLiteDriver = require('./drivers/sqlite').SQLiteDriver
 
   , config = (require('../config').db || { })
-  , dbDriver = null
+  , type = (config.type || 'mongo')
+  , options = (config.options || { })
+  , driver = null
   ;
 
-if (config.type) {
-    if (config.type == 'sqlite') {
-        dbDriver = new SQLiteDriver();
-    }
-    else if (config.type == 'oracle') {
-        dbDriver = new OracleDriver();
-    }
-    else {
-        dbDriver = new MongoDriver();
-    }
-}
-else {
-    dbDriver = new MongoDriver()
+switch (type) {
+    case 'sqlite':
+        driver = new SQLiteDriver();
+        break;
+    case 'oracle':
+        driver = new OracleDriver();
+        break;
+    case 'mongo':
+    default:
+        driver = new MongoDriver();
 }
 
 // Configure express server.
@@ -62,7 +61,7 @@ app.get("/", function(req, res) {
 
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    dbDriver.put(req.body.pipeline, function(err, pipelineId) {
+    driver.put(req.body.pipeline, function(err, pipelineId) {
         if (err)
             return error(res)(err);
 
@@ -76,7 +75,7 @@ app.get("/retrieve", function(req, res) {
         var pipelineId = req.body.pipelineId;
         console.log("/retrieve with pipelineId:", pipelineId);
 
-        dbDriver.retrieve(pipelineId.toString(), function(err, foundPipeline) {
+        driver.retrieve(pipelineId.toString(), function(err, foundPipeline) {
             if (err)
                 return error(res)(err);
             else if (!foundPipeline)
@@ -96,9 +95,9 @@ app.get("/retrieve", function(req, res) {
 disco.register('db', function(err, service) {
     if (err) return console.log("Failed to start service:", err);
 
-    dbDriver.preLaunch(function(err) {
+    driver.initialize(options, function(err) {
         if (err) {
-            console.log('db-handler preLaunch failed:', err);
+            console.log('db-handler initialize failed:', err);
         }
         else {
             app.listen(service.port, function() {
