@@ -89,7 +89,7 @@ app.get("/retrieve", function(req, res) {
 });
 
 // Set up the database and start listening.
-disco.register('db', function(err, service) {
+disco.register('db', config.port, function(err, service) {
     if (err) return console.log("Failed to start service:", err);
 
     driver.initialize(options, function(err) {

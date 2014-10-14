@@ -6,12 +6,13 @@ process.title = 'gh_sh';
 var express = require("express"),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
+    app = express(),
+
     disco = require('../common').disco,
     console = require("clim")(),
+    config = (require('../config').sh || { }),
 
-    PdalSession = require('./build/Release/pdalBindings').PdalBindings,
-
-    app = express();
+    PdalSession = require('./build/Release/pdalBindings').PdalBindings;
 
 // configure express application
 app.use(methodOverride());
@@ -389,8 +390,7 @@ app.post("/read/:sessionId", function(req, res) {
     });
 });
 
-
-disco.register("sh", function(err, service) {
+disco.register("sh", config.port, function(err, service) {
     if (err) return console.log("Failed to start service:", err);
 
     var port = service.port;
