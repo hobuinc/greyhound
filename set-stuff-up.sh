@@ -8,13 +8,6 @@ setup_base_packages() {
 	sudo gem install foreman --no-rdoc --no-ri
 	sudo npm install -g hipache
     sudo npm install -g nodeunit
-
-    # Install png++
-    wget http://download.savannah.nongnu.org/releases/pngpp/png++-0.2.5.tar.gz
-    tar zxvf png++-0.2.5.tar.gz
-    cd png++-0.2.5
-    sudo make install PREFIX=/usr
-    cd -;
 }
 
 setup_npm_packages() {
@@ -33,22 +26,14 @@ setup_npm_packages() {
 	done
 }
 
-setup_cpp_components() {
+setup_greyhound() {
 	# Build our pdal-session binary.
     cd /vagrant
 	make all
     make install
 
     # Set up auto-launch of Greyhound components.
-    update-rc.d gh_pre defaults 95 05
-    update-rc.d gh_ws defaults 96 04
-    update-rc.d gh_db defaults 96 04
-    update-rc.d gh_dist defaults 96 04
-    update-rc.d gh_sh defaults 96 04
-    update-rc.d gh_web defaults 96 04
-}
-
-setup_greyhound() {
+    /vagrant/gh auto
     su -l vagrant -c "mkdir -p /home/vagrant/data/mongo"
     su -l vagrant -c "mongod --dbpath /home/vagrant/data/mongo --port 21212 --logpath /home/vagrant/log.txt"
 
@@ -66,6 +51,5 @@ setup_greyhound() {
 
 setup_base_packages
 setup_npm_packages
-setup_cpp_components
 setup_greyhound
 

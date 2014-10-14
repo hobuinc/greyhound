@@ -2,7 +2,7 @@ var config = { };
 
 // Database handler configuration.
 config.db = {
-    // Supported types are 'mongo' and 'grid'.
+    // Supported types are 'mongo' and 'http'.
     type: 'mongo',
 
     // The 'options' object will be passed to the database driver's
@@ -15,6 +15,15 @@ config.db = {
         port: 21212,
         name: 'greyhound',
     },
+
+    /*
+    options: {
+        // Greyhound will format an HTTP GET request to a URL of the format:
+        //      <prefix><pipeline ID><postfix>
+        prefix: '',
+        postfix: '',
+    },
+    */
 };
 
 // Websocket handler configuration.

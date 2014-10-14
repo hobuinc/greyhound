@@ -8,6 +8,7 @@ var express = require('express')
   , disco = require('../common').disco
   , console = require('clim')()
   , MongoDriver = require('./drivers/mongo').MongoDriver
+  , HttpDriver = require('./drivers/http').HttpDriver
 
   , config = (require('../config').db || { })
   , type = (config.type || 'mongo')
@@ -16,7 +17,8 @@ var express = require('express')
   ;
 
 switch (type) {
-    case 'grid':
+    case 'http':
+        driver = new HttpDriver();
         break;
     case 'mongo':
     default:
@@ -74,12 +76,12 @@ app.get("/retrieve", function(req, res) {
             if (err)
                 return error(res)(err);
             else if (!foundPipeline)
-                return error(res)('Could not retrieve pipeline');
+                return error(res)('    Could not retrieve pipeline');
 
             console.log(
-                "/retrieve with pipelineId:",
+                '    /retrieve with pipelineId:',
                 pipelineId,
-                "successful");
+                'successful');
 
             return res.json({ pipeline: foundPipeline });
         });
@@ -93,6 +95,7 @@ disco.register('db', function(err, service) {
     driver.initialize(options, function(err) {
         if (err) {
             console.log('db-handler initialize failed:', err);
+            console.log('Config was:', config);
         }
         else {
             app.listen(service.port, function() {
