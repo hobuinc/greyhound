@@ -84,7 +84,9 @@ var start = function() {
     });
 }
 
-// Register ourselves with disco for status purposes.
+// Register ourselves with disco for status purposes.  This service does not
+// listen on a port, instead watching the Redis database, so use -1 as the port
+// number to indicate that.
 disco.register('dist', -1, function(err, service) {
     if (err) return console.log("Failed to register service:", err);
 });

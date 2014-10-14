@@ -153,3 +153,4 @@
     scope.watchForService = watchForService;
     scope.get = get;
 })(module.exports);
+

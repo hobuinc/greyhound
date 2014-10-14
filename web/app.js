@@ -10,13 +10,13 @@ var
 	http = require('http'),
 	path = require('path'),
     disco = require('../common').disco,
+    config = (require('../config').web || { }),
 
 	// npm modules
 	express = require('express'),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
     console = require('clim')();
-
 
 var go = function() {
 	// Set up Express app!
@@ -62,7 +62,7 @@ var go = function() {
     });
 
 	var server = http.createServer(app),
-	port = process.env.PORT || 8080;
+	port = config.port || 8080;
 
     // Register ourselves with disco for status purposes.
     disco.register('web', port, function(err, service) {
@@ -74,5 +74,7 @@ var go = function() {
     });
 };
 
-process.nextTick(go)
+if (config.enable !== false) {
+    process.nextTick(go);
+}
 

@@ -10,7 +10,6 @@ var WebSocketServer = require('ws').Server
     , console = require('clim')()
 
     , web = require('./lib/web')
-    , port = (process.env.PORT || 8080)
     , disco = require('../common').disco
 
     , CommandHandler = require('./lib/command-handler').CommandHandler
@@ -221,7 +220,7 @@ process.nextTick(function() {
     });
 
     var server = http.createServer(app);
-    disco.register("ws", function(err, service) {
+    disco.register("ws", config.port, function(err, service) {
         if (err) return console.log("Failed to start service:", err);
 
         var port = service.port;
