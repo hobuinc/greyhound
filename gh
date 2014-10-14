@@ -21,6 +21,15 @@ stop)
     echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
     ;;
 auto)
+    # Add auto-launch services.
+    update-rc.d gh_fe defaults 95 05
+    update-rc.d gh_ws defaults 96 04
+    update-rc.d gh_db defaults 96 04
+    update-rc.d gh_dist defaults 96 04
+    update-rc.d gh_sh defaults 96 04
+    update-rc.d gh_web defaults 96 04
+    ;;
+rmauto)
     # Remove all auto-launch services.
     update-rc.d -f gh_fe remove
     update-rc.d -f gh_ws remove
@@ -28,14 +37,6 @@ auto)
     update-rc.d -f gh_dist remove
     update-rc.d -f gh_sh remove
     update-rc.d -f gh_web remove
-
-    # Re-add auto-launch services.
-    update-rc.d gh_fe defaults 95 05
-    update-rc.d gh_ws defaults 96 04
-    update-rc.d gh_db defaults 96 04
-    update-rc.d gh_dist defaults 96 04
-    update-rc.d gh_sh defaults 96 04
-    update-rc.d gh_web defaults 96 04
     ;;
 status)
     for key in `echo "KEYS services/*" | redis-cli`; do
