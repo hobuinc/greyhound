@@ -165,6 +165,7 @@ var queryPipeline = function(pipelineId, cb) {
         var params = { pipelineId: pipelineId };
 
         web.get(db, '/retrieve', params, function(err, res) {
+            console.log('    :/retrieve came back, err:', err);
             if (err)
                 return cb(err);
             if (!res.hasOwnProperty('pipeline'))
