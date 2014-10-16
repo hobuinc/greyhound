@@ -13,21 +13,19 @@ config.db = {
     // initialize function.  Necessary information will vary per driver, but
     // all information needed to initialize/connect should be contained here.
     options: {
+        // Used by mongo driver only:
         // Database connection info.  URL follows the form:
         //      domain:port/name
         domain: 'mongodb://localhost',
         port: 21212,
         name: 'greyhound',
-    },
 
-    /*
-    options: {
+        // Used by http driver only:
         // Greyhound will format an HTTP GET request to a URL of the format:
         //      <prefix><pipeline ID><postfix>
         prefix: '',
         postfix: '',
     },
-    */
 };
 
 // Session handler configuration.
@@ -40,6 +38,8 @@ config.sh = {
 // Webserver configuration.
 config.web = {
     // Specify a port on which to listen.  If omitted or null, default is 8080.
+    // IMPORTANT: This value must match the backend web port specified in
+    // frontend-proxy/haproxy.cfg.
     port: 8080,
 
     // If false, webserver will not run.

@@ -1,40 +1,36 @@
-// get-points.js
-// A websocket clients that queries points from our service
-//
+// A websocket client that queries points from Greyhound.
 
 var WebSocket = require('ws');
 
-
 var run = function() {
-	var ws = new WebSocket('ws://localhost:' + (process.env.PORT || 80) + '/');
+	var ws = new WebSocket('ws://localhost:8080/');
 
-	// helper method to send json objects
-	//
+	// Helper method to send json objects.
 	var send = function(obj) {
 		ws.send(JSON.stringify(obj));
 	}
 
 	ws.on('open', function() {
-		// as soon as the socket opens, send command to create
-		// a session
+		// As soon as the socket opens, send command to create a session.
 		send({
-			command: 'create'
+			command: 'create',
+            pipelineId: '58a6ee2c990ba94db936d56bd42aa703'
 		});
 	});
 
 	var count = 0, chunks = 0, toRead = 0;
 	var session = null;
+
 	ws.on('message', function(data, flags) {
-		// if the data is binary its most likey from one of
-		// our calls to get points, update current state
-		//
+		// Greyhound's only binary output is a 'read' command result.
 		if (flags.binary) {
+            // Update our received counts.
 			count += data.length;
 			chunks++;
+
 			if (count >= toRead) {
 				console.log('Read', count, 'bytes in', chunks, 'chunks');
-				// done reading all bytes, now destroy session
-				//
+				// Done reading all bytes - destroy the session.
 				send({
 					command: 'destroy',
 					session: session
@@ -42,11 +38,11 @@ var run = function() {
 			}
 		}
 		else {
-			// non binary, parse it in and figure what it is
+			// Data is non-binary, parse and identify it.
 			var obj = JSON.parse(data);
 			if (obj.command === 'create' && obj.status === 1) {
-				// if the create command succeeded, send a request to read everything
-				// 
+                console.log('Create returned');
+				// When 'create' comes back, send a request to read everything.
 				session = obj.session;
 				send({
 					command: 'read',
@@ -54,14 +50,13 @@ var run = function() {
 				});
 			}
 			else if(obj.command === 'read' && obj.status === 1) {
-				// Read command was successful, we should not wait for binary data to arrive
-				//
-				console.log('Total bytes to read: ' + obj.bytesCount);
+				// Initial info for the details of the ensuing binary data.
+				console.log('Total bytes to read: ' + obj.numBytes);
 				count = chunks = 0;
-				toRead = obj.bytesCount;
+				toRead = obj.numBytes;
 			}
 			else if (obj.command == 'destroy' && obj.status === 1) {
-				// session was destroyed
+				// Session was destroyed succesfully.
 				session = null;
 				console.log('Done');
 				process.exit(0);
@@ -71,3 +66,4 @@ var run = function() {
 }
 
 process.nextTick(run);
+

@@ -18,8 +18,8 @@ case $1 in
             1>>"$LOG_ROOT/$COMPONENT-hipache.txt" 2>&1 &
         echo $! > "$ROOT/$COMPONENT-hipache.pid";
 
-        nohup mongod --dbpath /home/vagrant/data --port 21212 \
-            --logpath /home/vagrant/log.txt \
+        nohup mongod --dbpath ~/data/mongo --port 21212 \
+            --logpath ~/mongoLog.txt \
             1>>"$LOG_ROOT/$COMPONENT-mongo.txt" 2>&1 &
         echo $! > "$ROOT/$COMPONENT-mongo.pid";
         ;;

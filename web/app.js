@@ -66,9 +66,9 @@ var go = function() {
 
     // Register ourselves with disco for status purposes.
     disco.register('web', port, function(err, service) {
-        if (err) return console.log("Failed to resgister service:", err);
+        if (err) return console.log("Failed to register service:", err);
 
-        server.listen(port, function () {
+        server.listen(service.port, function () {
             console.log('Web server running on port ' + port);
         });
     });
