@@ -10,6 +10,8 @@ ROOT=$GH_ROOT/frontend-proxy/
 
 case $1 in
     start)
+        echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
+
         nohup /usr/sbin/haproxy -f $ROOT/haproxy.cfg -d \
             1>>"$LOG_ROOT/$COMPONENT-proxy.txt" 2>&1 &
         echo $! > "$ROOT/$COMPONENT-proxy.pid";
