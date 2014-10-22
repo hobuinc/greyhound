@@ -17,7 +17,6 @@ stop)
     /etc/init.d/gh_sh stop
     /etc/init.d/gh_web stop
 
-    # sudo mongod --shutdown --dbpath ~/data > /dev/null 2>&1;
     echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
     ;;
 auto)
@@ -44,7 +43,7 @@ status)
     done
     ;;
 *)
-    echo "Usage: $0 {start|stop}" >&2
+    echo "Usage: $0 {start|stop|auto|rmauto|status}" >&2
 
 esac
 

@@ -1,24 +1,61 @@
 COMPONENTS = gh_fe gh_db gh_dist gh_sh gh_ws gh_web
-SRC_DIRS = frontend-proxy \
+
+# Directories that need to be copied to the installation path.
+SRC_DIRS = common \
 		   db-handler \
 		   dist-handler \
+		   frontend-proxy \
 		   session-handler \
 		   websocket-handler \
-		   web \
-		   common
+		   web
+
+# Directories where we need to run 'npm install'.
+# 'npm install' will also be run at the top level.
+NPM_DIRS = common \
+		   db-handler \
+		   dist-handler \
+		   examples/js \
+		   session-handler \
+		   test \
+		   websocket-handler \
+		   web
+
+.PHONY: required cpp npm examples test clean install uninstall
+
+required:
+	$(MAKE) npm
+	$(MAKE) cpp
 
 all:
+	$(MAKE) npm
+	$(MAKE) cpp
+	$(MAKE) examples
+
+cpp:
+	@echo Building session-handler.
 	$(MAKE) -C session-handler all
+
+npm:
+	@echo Getting NPM dependencies.
+	npm install
+	$(foreach d, $(NPM_DIRS), cd $(d); npm install; cd -;)
+
+examples:
+	@echo Building C++ examples.
 	$(MAKE) -C examples/cpp all
+
+test:
+	nodeunit test/unit.js
 
 clean:
 	$(MAKE) -C session-handler clean
 	$(MAKE) -C examples/cpp clean
 
 install:
+	@echo Installing Greyhound...
 #
 # Copy module launchers.
-	$(foreach comp, $(COMPONENTS), cp init.d/$(comp) /etc/init.d/;)
+	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
 #
 # Set up Greyhound component source directory.
 	mkdir -p /var/greyhound/
@@ -39,6 +76,7 @@ install:
 	cp -R node_modules/* /var/greyhound/node_modules/
 
 uninstall:
+	@echo Removing all traces of Greyhound...
 #
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
