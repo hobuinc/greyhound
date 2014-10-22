@@ -110,7 +110,7 @@ std::size_t PdalSession::readDim(
             throw std::runtime_error("Invalid floating size requested");
         }
     }
-    else
+    else if (dim.type == "signed" || dim.type == "unsigned")
     {
         if (dim.size == 1)
         {
@@ -136,6 +136,10 @@ std::size_t PdalSession::readDim(
         {
             throw std::runtime_error("Invalid integer size requested");
         }
+    }
+    else
+    {
+        throw std::runtime_error("Invalid dimension type requested");
     }
 
     return dim.size;
