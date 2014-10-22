@@ -59,23 +59,35 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       # provision node, from nodejs.org
       pkg_cmd << "echo Provisioning node.js version #{nodeVersion}... ; mkdir -p /tmp/nodejs && \
         wget -qO - #{nodeURL} | tar zxf - --strip-components 1 -C /tmp/nodejs && cd /tmp/nodejs && \
-        cp -r * /usr && rm -rf /tmp/nodejs ;"
+        cp -r * /usr;"
 
-      pkg_cmd << "apt-get update -qq; apt-get install -q -y python-software-properties; "
+      pkg_cmd << "apt-get update; apt-get install -q -y python-software-properties; "
 
       if ppaRepos.length > 0
           ppaRepos.each { |repo| pkg_cmd << "add-apt-repository -y " << repo << " ; " }
-          pkg_cmd << "apt-get update -qq; "
+          pkg_cmd << "apt-get update; "
       end
 
       # install packages we need
-      pkg_cmd << "apt-get install -q -y " + packageList.join(" ") << " ; "
+      pkg_cmd << "apt-get install -q -y -V " + packageList.join(" ") << " ; "
 
       # install mongoDB, instructions verbatim from http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/
-      pkg_cmd << "apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10; echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' | tee /etc/apt/sources.list.d/mongodb.list; apt-get update -qq; apt-get install -q -y mongodb-org;"
+      pkg_cmd << "echo Installing mongo; "
+      pkg_cmd << "apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10; echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' | tee /etc/apt/sources.list.d/mongodb.list; "
+      pkg_cmd << "apt-get update -qq; apt-get install -q -y mongodb-org; "
+      pkg_cmd << "killall mongod; "
+      pkg_cmd << "su -l vagrant -c \"mkdir -p ~/data/mongo\"; "
+
+      # Install packages that don't use apt-get.
+      pkg_cmd << "echo Installing other packages; "
+      pkg_cmd << "gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit; "
 
       config.vm.provision :shell, :inline => pkg_cmd
 
+      # Set up mongo, which is the default backend for standalone operation.
+      config.vm.provision :shell, :inline => "nohup mongod --dbpath /home/vagrant/data/mongo --port 21212 --logpath /var/log/mongoLog.txt 1>>/home/vagrant/mongoLogRedirect.txt 2>&1 &"
+
+      config.vm.provision :shell, :inline => "echo Running startup scripts;"
       scripts = [
           "startup.sh",
           "websocketpp.sh",
@@ -85,13 +97,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
           "p2g.sh",
           "soci.sh",
           "laszip.sh",
-          "pdal.sh"
+          "pdal.sh",
+          "standalone.sh"
       ];
       scripts.each { |script| config.vm.provision :shell, :path => "scripts/vagrant/" << script }
-
-      # Install npm packages, build C++ code, launch Greyhound, stamp down a
-      # sample pipeline ready for immediate use.
-      config.vm.provision :shell, path: "set-stuff-up.sh"
 
       # Automatically cd to /vagrant on 'vagrant ssh'.
       config.vm.provision :shell, :inline => "echo \"\n\ncd /vagrant\n\" >> /home/vagrant/.bashrc"
