@@ -27,8 +27,7 @@ required:
 	$(MAKE) cpp
 
 all:
-	$(MAKE) npm
-	$(MAKE) cpp
+	$(MAKE) required
 	$(MAKE) examples
 
 cpp:
@@ -51,10 +50,13 @@ clean:
 	$(MAKE) -C session-handler clean
 	$(MAKE) -C examples/cpp clean
 
+
+
 install:
 	@echo Installing Greyhound...
 #
 # Copy module launchers.
+	chmod -R 755 scripts/init.d/
 	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
 #
 # Set up Greyhound component source directory.
@@ -70,16 +72,26 @@ install:
 	$(foreach srcDir, $(SRC_DIRS), cp -R $(srcDir)/* /var/greyhound/$(srcDir);)
 #
 # Copy top-level dependencies.
+	cp Makefile /var/greyhound/
 	cp config.js /var/greyhound/
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/
+#
+# Copy launcher utility.
+	chmod 755 greyhound
+	cp greyhound /usr/bin/
+
+
 
 uninstall:
 	@echo Removing all traces of Greyhound...
 #
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
+#
+# Remove launcher utility.
+	rm -f /usr/bin/greyhound
 #
 # Remove sources.
 	rm -rf /var/greyhound/
