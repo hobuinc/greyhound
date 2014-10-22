@@ -1,3 +1,4 @@
+STANDALONE?=""
 COMPONENTS = gh_fe gh_db gh_dist gh_sh gh_ws gh_web
 
 # Directories that need to be copied to the installation path.
@@ -59,6 +60,12 @@ install:
 	chmod -R 755 scripts/init.d/
 	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
 #
+# Install mongo launcher if standalone mode is specified.
+ifeq ($(STANDALONE),TRUE)
+	@echo Using standalone operation.
+	cp scripts/init.d/gh_mongo /etc/init.d/
+endif
+#
 # Set up Greyhound component source directory.
 	mkdir -p /var/greyhound/
 #
@@ -89,6 +96,7 @@ uninstall:
 #
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
+	rm -f /etc/init.d/gh_mongo
 #
 # Remove launcher utility.
 	rm -f /usr/bin/greyhound

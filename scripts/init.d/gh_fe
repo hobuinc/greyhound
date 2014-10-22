@@ -10,11 +10,6 @@ ROOT=$GH_ROOT/frontend-proxy/
 
 case $1 in
     start)
-        #nohup mongod --dbpath ~/data/mongo --port 21212 \
-            #--logpath ~/mongoLog.txt \
-            #1>>"$LOG_ROOT/$COMPONENT-mongo.txt" 2>&1 &
-        #echo $! > "$ROOT/$COMPONENT-mongo.pid";
-
         nohup /usr/sbin/haproxy -f $ROOT/haproxy.cfg -d \
             1>>"$LOG_ROOT/$COMPONENT-proxy.txt" 2>&1 &
         echo $! > "$ROOT/$COMPONENT-proxy.pid";
@@ -35,12 +30,6 @@ case $1 in
             kill `cat $ROOT/$COMPONENT-hipache.pid` > /dev/null 2>&1;
             rm "$ROOT/$COMPONENT-hipache.pid";
         fi
-
-        #if [ -e "$ROOT/$COMPONENT-mongo.pid" ]
-        #then
-            #kill `cat $ROOT/$COMPONENT-mongo.pid` > /dev/null 2>&1;
-            #rm "$ROOT/$COMPONENT-mongo.pid";
-        #fi
         ;;
     *)
         echo "usage: /etc/init.d/$COMPONENT {start|stop}"

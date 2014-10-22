@@ -1,0 +1,38 @@
+#!/bin/bash
+# chkconfig: 2345 95 05
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+
+GH_ROOT=/var/greyhound/
+LOG_ROOT=/var/log/greyhound/
+
+COMPONENT=gh_mongo
+ROOT=$GH_ROOT/
+
+case $1 in
+    start)
+        mkdir -p /var/greyhound/data
+
+        nohup mongod --dbpath /var/greyhound/data/ --port 21212 \
+            --logpath "$LOG_ROOT/$COMPONENT.txt" \
+            1>>"$LOG_ROOT/$COMPONENT.txt" 2>&1 &
+        echo $! > "$ROOT/$COMPONENT.pid";
+
+        #nohup mongod --dbpath ~/data/mongo --port 21212 \
+            #--logpath ~/mongoLog.txt \
+            #1>>"$LOG_ROOT/$COMPONENT.txt" 2>&1 &
+        #echo $! > "$ROOT/$COMPONENT.pid";
+        ;;
+    stop)
+        if [ -e "$ROOT/$COMPONENT.pid" ]
+        then
+            kill `cat $ROOT/$COMPONENT.pid` > /dev/null 2>&1;
+            rm "$ROOT/$COMPONENT.pid";
+        fi
+        ;;
+    *)
+        echo "usage: /etc/init.d/$COMPONENT {start|stop}"
+        ;;
+esac
+exit 0
+
+
