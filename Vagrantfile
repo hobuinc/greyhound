@@ -84,9 +84,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
       config.vm.provision :shell, :inline => pkg_cmd
 
-      # Set up mongo, which is the default backend for standalone operation.
-      config.vm.provision :shell, :inline => "nohup mongod --dbpath /home/vagrant/data/mongo --port 21212 --logpath /var/log/mongoLog.txt 1>>/home/vagrant/mongoLogRedirect.txt 2>&1 &"
-
       config.vm.provision :shell, :inline => "echo Running startup scripts;"
       scripts = [
           "startup.sh",
