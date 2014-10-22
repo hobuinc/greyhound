@@ -8,6 +8,11 @@ start)
     /etc/init.d/gh_dist start
     /etc/init.d/gh_sh start
     /etc/init.d/gh_web start
+
+    if [ -e "/etc/init.d/gh_mongo" ]
+    then
+        /etc/init.d/gh_mongo start
+    fi
     ;;
 stop)
     /etc/init.d/gh_fe stop
@@ -16,6 +21,11 @@ stop)
     /etc/init.d/gh_dist stop
     /etc/init.d/gh_sh stop
     /etc/init.d/gh_web stop
+
+    if [ -e "/etc/init.d/gh_mongo" ]
+    then
+        /etc/init.d/gh_mongo stop
+    fi
 
     echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
     ;;
@@ -27,6 +37,11 @@ auto)
     update-rc.d gh_dist defaults 96 04
     update-rc.d gh_sh defaults 96 04
     update-rc.d gh_web defaults 96 04
+
+    if [ -e "/etc/init.d/gh_mongo" ]
+    then
+        update-rc.d gh_mongo defaults 95 05
+    fi
     ;;
 rmauto)
     # Remove all auto-launch services.
@@ -36,6 +51,11 @@ rmauto)
     update-rc.d -f gh_dist remove
     update-rc.d -f gh_sh remove
     update-rc.d -f gh_web remove
+
+    if [ -e "/etc/init.d/gh_mongo" ]
+    then
+        update-rc.d -f gh_mongo remove
+    fi
     ;;
 status)
     for key in `echo "KEYS services/*" | redis-cli`; do
