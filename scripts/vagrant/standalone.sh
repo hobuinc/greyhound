@@ -10,9 +10,9 @@ make install STANDALONE=TRUE
 
 # Set up auto-relaunch of Greyhound components, and launch them.
 echo Setting up autolaunch
-/vagrant/gh auto
+greyhound auto
 echo Starting Greyhound!
-/vagrant/gh start
+greyhound start
 
 # Give Greyhound a few seconds to start up.  We can check the status via Redis
 # manually, but for a programmatic method we will just wait a bit.
