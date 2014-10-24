@@ -152,10 +152,25 @@ The *front-end proxy* consists of HAProxy and Hipache.  The HAProxy component is
 Use-Cases
 -------------------------------------------------------------------------------
 
-TODO - discuss how specific deployers might actually configure stuff
- - Web demo, few pipelines w/ eternal or very long life
- - HTTP DB server deployment, many pipelines w/ short life
- - Multiple vs single session handlers
+Configuration may vary considerably depending on the purpose and expected use-cases of the Greyhound deployment.
+
+As an example, consider a production environment with a large pipeline database and sporadic use of a small percentage of pipelines, where a specific pipeline is only accessed briefly by a small number of users.  In this scenario, we would want a short session timeout to avoid wasting memory maintaining an idle open session.  Let's also assume we want the fastest response time possible once the sessions are executed, so we'll prefer to have a small number of concurrent users per session.  This requires multiple session handlers to be enabled.  So some sample settings for this scenario in ``config.js`` might look like:
+
+ - ``config.web.enable: false`` - Disable web server for production environment.
+ - ``config.db.type: 'http'`` - Use an external database web server API for pipeline retrieval.  ``config.db.options`` must be set accordingly.
+ - ``config.ws.softSessionShareMax: 4`` - After 4 concurrent users of a single pipeline on a session handler, put new users of the same pipeline on a different session handler.
+ - ``config.ws.hardSessionShareMax: 6`` - If the same pipeline has 4 concurrent users on *every* session handler, allow additional users to share with them until each session handler has 6 simultaneous users of the pipeline.  After that, don't allow any new sessions to be created with that pipeline.
+ - ``config.ws.sessionTimeoutMinutes: 15`` - Destroy PDAL sessions after 15 minutes of inactivity.
+
+|
+
+Another possible deployment scenario is a demonstration environment for a Greyhound client with a small and fixed number of pipelines.  An example would be a demonstration of a rendering client backed by Greyhound.  In this example we might never want to block access to a pipeline, and we might allow a large number of users to share a session.  Configuration for this scenario might look like:
+
+ - ``config.web.enable: true`` - For testing Greyhound back-end.
+ - ``config.db.type: 'mongo'`` - Use a standalone Greyhound environment with its own database.  ``config.db.options`` must be set accordingly.
+ - ``config.ws.softSessionShareMax: 64`` - Allow a high number of concurrent users of a pipeline before offloading to a new session handler.
+ - ``config.ws.hardSessionShareMax: 0`` - Place no limits on the maximum concurrent user cap.  Performance might suffer with large amounts of concurrent users.
+ - ``config.ws.sessionTimeoutMinutes: 0`` - Never internally destruct a PDAL session since this scenario has only a small number of pipelines - keep them ready in memory from their first access onward.
 
 Serving
 ===============================================================================
@@ -171,7 +186,7 @@ Session Affinity
 -------------------------------------------------------------------------------
 
 TODO - session affinity, load balancing, and shared session basics
-
+TODO - indexing and shared benefits
 
 Logging
 ===============================================================================
