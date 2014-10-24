@@ -48,6 +48,10 @@ config.web = {
 
 // Websocket handler configuration.
 config.ws = {
+    // Specify a port on which to listen.  If omitted or null, the process will
+    // select an open port.
+    port: null,
+
     // After this many concurrent users on a single session within a single
     // session handler, offload any further requests to a different session
     // handler if possible.  This will cause reinitialization on the new
@@ -67,7 +71,7 @@ config.ws = {
     // a session.
     //
     // Default: 0.
-    hardSessionShareMax: 64,
+    hardSessionShareMax: 0,
 
     // Time of inactivity per session handler, in minutes, after which to
     // destroy all traces of a session.

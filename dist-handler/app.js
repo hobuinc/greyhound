@@ -1,5 +1,4 @@
 // app.js
-// Seaport handler
 //
 process.title = 'gh_dist';
 

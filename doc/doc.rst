@@ -1,5 +1,5 @@
 ===============================================================================
-Greyhound
+Greyhound - Client Development
 ===============================================================================
 
 :author: Connor Manning
@@ -337,7 +337,7 @@ If ``numBytes`` is non-zero (and ``status`` is ``1``), a client should expect to
 Important:
  - Because binary data from multiple ``read`` commands cannot be differentiated, no new ``read`` command should be issued over a single websocket connection until a previous ``read`` query completes or is successfully cancelled.  All other commands may still be issued during this time period.
  - There is no further response from Greyhound to indicate that a ``read`` transmission is complete, so a client must take note of ``numBytes`` and track the number of binary bytes received accordingly.
- - Binary data may arrive in multiple "chunked" transmissions.  Chunk size may vary, even within the same response sequence.  Chunks will always arrive in order and may be appended.  Chunk boundaries may not align with point or dimension boundaries, so a single point, or even a single dimension within a point, may be spread across multiple chunks.
+ - Binary data may arrive in multiple "chunked" transmissions.  Chunk size may vary, even within the same response sequence.  Chunks will always arrive in order and may be appended together by a client.  Chunk boundaries may not align with point or dimension boundaries, so a single point, or even a single dimension within a point, may be spread across multiple chunks.
 
 ----
 

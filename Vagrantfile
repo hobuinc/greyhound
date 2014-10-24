@@ -46,8 +46,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       "libcunit1-dev",
       "postgresql-server-dev-9.3",
       "postgresql-9.3-postgis-2.1",
-      "libgeos++-dev",
-      "node-gyp"
+      "libgeos++-dev"
   ];
 
   nodeVersion = "0.10.29"
@@ -80,7 +79,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
       # Install packages that don't use apt-get.
       pkg_cmd << "echo Installing other packages; "
-      pkg_cmd << "gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit; "
+      pkg_cmd << "gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit node-gyp; "
 
       config.vm.provision :shell, :inline => pkg_cmd
 
