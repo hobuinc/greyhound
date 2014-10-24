@@ -103,8 +103,6 @@ There is only one exception to this command-and-response format, which occurs on
 Command Details
 -------------------------------------------------------------------------------
 
-----
-
 Put
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

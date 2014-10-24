@@ -69,7 +69,7 @@ When any Greyhound component is instantiated, that component registers its compo
 WebSocket Handler
 -------------------------------------------------------------------------------
 
-The WebSocket handler interprets incoming requests and performs appropriate forwarding to a `Database Handler`_ and `Session Handler`_, then returns responses back to the calling client.  The WebSocket handler is also responsible for load balancing back-end calls to the other components and for maintaining `Session Affinity`_ mappings from a unique session to its associated session handler.
+The WebSocket handler interprets incoming requests and performs appropriate forwarding to a `Database Handler`_ and `Session Handler`_, then returns responses back to the calling client.  The WebSocket handler is also responsible for load balancing back-end calls to the other components and for maintaining session affinity mappings from a unique session to its associated session handler.
 
 Database Handler
 -------------------------------------------------------------------------------

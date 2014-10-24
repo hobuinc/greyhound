@@ -10,7 +10,7 @@ examples/cpp/put-pipeline
 node_modules
 npm-debug.log
 .vagrant
-doc/overview.pdf
+doc/*.pdf
 web/public/css/style.css
 frontend-proxy/hipache-log.txt
 examples/data/autzen.laz
