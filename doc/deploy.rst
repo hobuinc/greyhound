@@ -214,12 +214,3 @@ Logging
 
 Greyhound logs are written to separate files for each component in ``/var/log/greyhound/``.
 
-Performance
-===============================================================================
-
-Session Affinity
--------------------------------------------------------------------------------
-
-TODO - session affinity, load balancing, and shared session basics
-TODO - indexing and shared benefits
-
