@@ -58,6 +58,8 @@ config.ws = {
     // session handler. If all other handlers are similarly loaded or no other
     // handlers exist, we can load beyond this value up to hardSessionShareMax.
     //
+    // This parameter has no effect if only one session handler exists.
+    //
     // If set to 0, all users of the same pipeline ID will share a single
     // session on a single session handler.
     //
