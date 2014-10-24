@@ -125,6 +125,50 @@ Targets:
  - ``install STANDALONE=TRUE`` - Install Greyhound including a MongoDB service for standalone Greyhound operation.
  - ``uninstall`` - Remove all traces of Greyhound installation (including log files).
 
+Greyhound Administration
+===============================================================================
+
+After Greyhound installation, the ``init.d`` services of Greyhound must be registered for auto-launch, the method for which is OS-dependent.  The Greyhound lauchers installed into ``/etc/init.d/`` contain ``chkconfig`` lines to ensure the proper launch order.  If launch order is changed during auto-launch registration, note that the `Front-end Proxy`_ and the Mongo service (if using standalone mode) should be configured to launch prior to all other Greyhound services.
+
+All Greyhound services are prefixed with ``gh_``, followed by an abbreviated service name.
+
+Service names:
+ - ``gh_fe`` - Front-end proxy.
+ - ``gh_mongo`` - MongoDB launcher, for standalone mode only.
+ - ``gh_ws`` - WebSocket handler.
+ - ``gh_db`` - Database handler.
+ - ``gh_dist`` - Distribution handler.
+ - ``gh_sh`` - Session handler.
+ - ``gh_web`` - Web server.
+
+|
+
+After auto-launch registration, services will launch on reboot.  Individual services may also be manually controlled with ``/etc/init.d/gh_<COMPONENT> {start|stop}``.  See `Commanding Greyhound`_ for more information.
+
+Commanding Greyhound
+-------------------------------------------------------------------------------
+
+A utility command called ``greyhound`` is provided with the Greyhound installation.  This command provides simple access to some common Greyhound tasks.  Commands are of the format ``greyhound <COMMAND>``
+
+Commands:
+ - ``start`` - Launch all Greyhound ``init.d`` services (requires root).
+ - ``stop`` - Stop all Greyhound ``init.d`` services (requires root).
+ - ``status`` - Display running Greyhound services and each of their listening ports.
+ - ``auto`` - An *Ubuntu-specific* command to register Greyhound services for auto-launch on boot.
+ - ``rmauto`` - An *Ubuntu-specific* command to unregister Greyhound services from auto-launching.
+
+Greyhound Processes
+-------------------------------------------------------------------------------
+
+Greyhound creates two processes for each running component - the component itself, and a monitor for that component which relaunches the component in the case of a fatal error.  The names of the component processes are the names specified in `Greyhound Administration`_ , the names of the monitors are these same names with ``_monitor`` appended.  So a session handler will appear as two processes named ``gh_sh`` and ``gh_sh_monitor``.
+
+Hipache's workers, the number of which is specified in the `Front-end Proxy Settings`_, appear as processes named ``nodejs``.
+
+Logging
+-------------------------------------------------------------------------------
+
+Greyhound logs are written to separate files for each component in ``/var/log/greyhound/``.
+
 Internal Configuration
 ===============================================================================
 
@@ -181,47 +225,4 @@ Another possible deployment scenario is a demonstration environment for a Greyho
  - ``config.ws.hardSessionShareMax: 0`` - Place no limits on the maximum concurrent user cap.  Performance might suffer with large amounts of concurrent users.
  - ``config.ws.sessionTimeoutMinutes: 0`` - Never internally destruct a PDAL session since this scenario has only a small number of pipelines - keep them ready in memory from their first access onward.
 
-Greyhound Administration
-===============================================================================
-
-After Greyhound installation, the ``init.d`` services of Greyhound must be registered for auto-launch, the method for which is OS-dependent.  The Greyhound lauchers installed into ``/etc/init.d/`` contain ``chkconfig`` lines to ensure the proper launch order.  If launch order is changed during auto-launch registration, note that the `Front-end Proxy`_ and the Mongo service (if using standalone mode) should be configured to launch prior to all other Greyhound services.
-
-All Greyhound services are prefixed with ``gh_``, followed by an abbreviated service name.
-
-Service names:
- - ``gh_fe`` - Front-end proxy.
- - ``gh_mongo`` - MongoDB launcher, for standalone mode only.
- - ``gh_ws`` - WebSocket handler.
- - ``gh_db`` - Database handler.
- - ``gh_dist`` - Distribution handler.
- - ``gh_sh`` - Session handler.
- - ``gh_web`` - Web server.
-
-|
-
-After auto-launch registration, services will launch on reboot.  Individual services may also be manually controlled with ``/etc/init.d/gh_<COMPONENT> {start|stop}``.  See `Commanding Greyhound`_ for more information.
-
-Commanding Greyhound
--------------------------------------------------------------------------------
-
-A utility command called ``greyhound`` is provided with the Greyhound installation.  This command provides simple access to some common Greyhound tasks.  Commands are of the format ``greyhound <COMMAND>``
-
-Commands:
- - ``start`` - Launch all Greyhound ``init.d`` services (requires root).
- - ``stop`` - Stop all Greyhound ``init.d`` services (requires root).
- - ``status`` - Display running Greyhound services and each of their listening ports.
- - ``auto`` - An *Ubuntu-specific* command to register Greyhound services for auto-launch on boot.
- - ``rmauto`` - An *Ubuntu-specific* command to unregister Greyhound services from auto-launching.
-
-Greyhound Processes
--------------------------------------------------------------------------------
-
-Greyhound creates two processes for each running component - the component itself, and a monitor for that component which relaunches the component in the case of a fatal error.  The names of the component processes are the names specified in `Greyhound Administration`_ , the names of the monitors are these same names with ``_monitor`` appended.  So a session handler will appear as two processes named ``gh_sh`` and ``gh_sh_monitor``.
-
-Hipache's workers, the number of which is specified in the `Front-end Proxy Settings`_, appear as processes named ``nodejs``.
-
-Logging
--------------------------------------------------------------------------------
-
-Greyhound logs are written to separate files for each component in ``/var/log/greyhound/``.
 
