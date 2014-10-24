@@ -19,8 +19,9 @@ Dependencies
 External Dependencies
 -------------------------------------------------------------------------------
 
-These dependencies must be installed separately and independently.
+These dependencies must be installed separately and independently from Greyhound.
 
+Dependencies:
  - `PDAL`_
  - `Node.js`_ 10.29 or greater
  - `Redis`_ server
@@ -39,6 +40,7 @@ Global NPM Dependencies
 
 NPM dependencies may be installed via the Node.js package manager "npm", which is included with an installation of Node.js.
 
+NPM dependencies:
  - ``hipache``
  - ``node-gyp``
  - ``nodeunit`` (unit testing module - optional)
@@ -76,6 +78,7 @@ The database handler performs the lookup from a ``pipeline ID`` to a `PDAL pipel
 
 Database drivers may be implemented for various back-end formats.  Greyhound supports an HTTP driver and a MongoDB driver (for database driver selection, see `Internal Configuration`_).
 
+Drivers:
  - HTTP driver - this driver that there is a read-only HTTP server external to Greyhound containing a mapping of ``pipeline IDs`` to pipelines.
  - Mongo driver - used for standalone operation for testing and demonstration purposes.  This driver supports requests to add a pipeline mapping to the database.
 
@@ -98,8 +101,9 @@ In a production Greyhound environment targeting dedicated clients, it is recomme
 Obtaining, Building, and Installing
 ===============================================================================
 
-Greyhound building and installation is accomplished via Makefile.  The basic steps required to install Greyhound are:
+Greyhound building and installation is accomplished via Makefile.
 
+Minimum installation steps:
  - ``git clone https://github.com/hobu/greyhound.git && cd greyhound``
  - ``make``
  - ``make install``
@@ -109,6 +113,7 @@ Greyhound building and installation is accomplished via Makefile.  The basic ste
 Makefile targets
 -------------------------------------------------------------------------------
 
+Targets:
  - ``required`` - Install NPM dependencies for each Greyhound component and build the C++ session handler.  This is the default ``make`` target.
  - ``all`` - Perform ``make required`` and then build the C++ examples.
  - ``cpp`` - Build the C++ session-handler via ``node-gyp``.
@@ -137,14 +142,16 @@ Front-end Proxy Settings
 
 The *front-end proxy* consists of HAProxy and Hipache.  The HAProxy component is the first stop for incoming requests, and determines by the connection protocol (WebSocket or HTTP) whether to route to the back-end web server or to a WebSocket handler.
 
-**HAProxy** is configured via ``/var/greyhound/frontend-proxy/haproxy.cfg``.  Key entries are:
+**HAProxy** is configured via ``/var/greyhound/frontend-proxy/haproxy.cfg``.
 
+HAProxy key configuration entries:
  - ``backend ws`` - Must match Hipache's port.
  - ``backend web`` - If the Greyhound web server is enabled, this entry must match ``config.web.port`` in ``config.js``.
  - ``frontend fe`` - The ``bind`` parameter specifies the only public-facing incoming port of Greyhound, so all incoming requests must target this port, and any firewall on the Greyhound server must leave this port open.
 
-**Hipache** is configured via ``/var/greyhound/frontend-proxy/hipache-config.json``.  Hipache receives incoming WebSocket traffic from HAProxy and routes this traffic to a `WebSocket Handler`_.  Key configuration entries are:
+**Hipache** is configured via ``/var/greyhound/frontend-proxy/hipache-config.json``.  Hipache receives incoming WebSocket traffic from HAProxy and routes this traffic to a `WebSocket Handler`_.
 
+Hipache key configuration entries:
  - ``server.port`` - Must match the ``backend ws`` port specified in HAProxy's configuration.
  - ``server.workers`` - Number of worker threads to route WebSocket requests.
  - ``driver`` - Must match Greyhound's Redis server location, port, and database selection entry.  WebSocket handler instances register themselves with this Redis store via the `Distribution Handler`_ to make themselves available to Hipache.
@@ -154,8 +161,9 @@ Use-Cases
 
 Configuration may vary considerably depending on the purpose and expected use-cases of the Greyhound deployment.
 
-As an example, consider a production environment with a large pipeline database and sporadic use of a small percentage of pipelines, where a specific pipeline is only accessed briefly by a small number of users.  In this scenario, we would want a short session timeout to avoid wasting memory maintaining an idle open session.  Let's also assume we want the fastest response time possible once the sessions are executed, so we'll prefer to have a small number of concurrent users per session.  This requires multiple session handlers to be enabled.  So some sample settings for this scenario in ``config.js`` might look like:
+As an example, consider a production environment with a large pipeline database and sporadic use of a small percentage of pipelines, where a specific pipeline is only accessed briefly by a small number of users.  In this scenario, we would want a short session timeout to avoid wasting memory maintaining an idle open session.  Let's also assume we want the fastest response time possible once the sessions are executed, so we'll prefer to have a small number of concurrent users per session.  This requires multiple session handlers to be enabled.
 
+``config.js`` sample settings:
  - ``config.web.enable: false`` - Disable web server for production environment.
  - ``config.db.type: 'http'`` - Use an external database web server API for pipeline retrieval.  ``config.db.options`` must be set accordingly.
  - ``config.ws.softSessionShareMax: 4`` - After 4 concurrent users of a single pipeline on a session handler, put new users of the same pipeline on a different session handler.
@@ -164,8 +172,9 @@ As an example, consider a production environment with a large pipeline database 
 
 |
 
-Another possible deployment scenario is a demonstration environment for a Greyhound client with a small and fixed number of pipelines.  An example would be a demonstration of a rendering client backed by Greyhound.  In this example we might never want to block access to a pipeline, and we might allow a large number of users to share a session.  Configuration for this scenario might look like:
+Another possible deployment scenario is a demonstration environment for a Greyhound client with a small and fixed number of pipelines.  An example would be a demonstration of a rendering client backed by Greyhound.  In this example we might never want to block access to a pipeline, and we might allow a large number of users to share a session.
 
+``config.js`` sample settings:
  - ``config.web.enable: true`` - For testing Greyhound back-end.
  - ``config.db.type: 'mongo'`` - Use a standalone Greyhound environment with its own database.  ``config.db.options`` must be set accordingly.
  - ``config.ws.softSessionShareMax: 64`` - Allow a high number of concurrent users of a pipeline before offloading to a new session handler.
@@ -177,8 +186,9 @@ Greyhound Administration
 
 After Greyhound installation, the ``init.d`` services of Greyhound must be registered for auto-launch, the method for which is OS-dependent.  The Greyhound lauchers installed into ``/etc/init.d/`` contain ``chkconfig`` lines to ensure the proper launch order.  If launch order is changed during auto-launch registration, note that the `Front-end Proxy`_ and the Mongo service (if using standalone mode) should be configured to launch prior to all other Greyhound services.
 
-All Greyhound services are prefixed with ``gh_``, followed by an abbreviated service name.  These names are:
+All Greyhound services are prefixed with ``gh_``, followed by an abbreviated service name.
 
+Service names:
  - ``gh_fe`` - Front-end proxy.
  - ``gh_mongo`` - MongoDB launcher, for standalone mode only.
  - ``gh_ws`` - WebSocket handler.
@@ -194,8 +204,9 @@ After auto-launch registration, services will launch on reboot.  Individual serv
 Commanding Greyhound
 -------------------------------------------------------------------------------
 
-A utility command called ``greyhound`` is provided with the Greyhound installation.  This command provides simple access to some common Greyhound tasks.  Commands are of the format ``greyhound <COMMAND>``, and supports commands of:
+A utility command called ``greyhound`` is provided with the Greyhound installation.  This command provides simple access to some common Greyhound tasks.  Commands are of the format ``greyhound <COMMAND>``
 
+Commands:
  - ``start`` - Launch all Greyhound ``init.d`` services (requires root).
  - ``stop`` - Stop all Greyhound ``init.d`` services (requires root).
  - ``status`` - Display running Greyhound services and each of their listening ports.
