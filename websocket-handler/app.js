@@ -18,6 +18,8 @@ var WebSocketServer = require('ws').Server
     , streamers = { }
 
     , config = (require('../config').ws || { })
+    , globalConfig = (require('../config').global || { })
+
     , softSessionShareMax = (config.softSessionShareMax || 16)
     , hardSessionShareMax = (config.hardSessionShareMax || 0)
     , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)
@@ -207,6 +209,10 @@ var createSession = function(pipelineId, pipeline, cb) {
             });
         });
     });
+}
+
+if (config.enable === false) {
+    process.exit(globalConfig.quitForeverExitCode || 42);
 }
 
 process.nextTick(function() {

@@ -11,6 +11,7 @@ var express = require("express"),
     disco = require('../common').disco,
     console = require("clim")(),
     config = (require('../config').sh || { }),
+    globalConfig = (require('../config').global || { }),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings;
 
@@ -390,13 +391,18 @@ app.post("/read/:sessionId", function(req, res) {
     });
 });
 
-disco.register("sh", config.port, function(err, service) {
-    if (err) return console.log("Failed to start service:", err);
+if (config.enable !== false) {
+    disco.register("sh", config.port, function(err, service) {
+        if (err) return console.log("Failed to start service:", err);
 
-    var port = service.port;
+        var port = service.port;
 
-    app.listen(port, function() {
-        console.log('Session handler listening on port: ' + port);
+        app.listen(port, function() {
+            console.log('Session handler listening on port: ' + port);
+        });
     });
-});
+}
+else {
+    process.exit(globalConfig.quitForeverExitCode || 42);
+}
 

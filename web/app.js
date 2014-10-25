@@ -11,6 +11,7 @@ var
 	path = require('path'),
     disco = require('../common').disco,
     config = (require('../config').web || { }),
+    globalConfig = (require('../config').global || { }),
 
 	// npm modules
 	express = require('express'),
@@ -19,7 +20,6 @@ var
     console = require('clim')();
 
 var go = function() {
-	// Set up Express app!
 	var app = express();
 
     app.set('views', __dirname + '/views');
@@ -76,5 +76,8 @@ var go = function() {
 
 if (config.enable !== false) {
     process.nextTick(go);
+}
+else {
+    process.exit(globalConfig.quitForeverExitCode || 42);
 }
 
