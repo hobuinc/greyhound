@@ -1,5 +1,8 @@
-var forever = require('forever-monitor');
-var argv = require('minimist')(process.argv.slice(2));
+var
+    forever = require('forever-monitor'),
+    argv = require('minimist')(process.argv.slice(2)),
+    globalConfig = (require('./config').global || { }),
+    quitForeverExitCode = (globalConfig.quitForeverExitCode || 42);
 
 if (argv._.length != 2) {
     console.error('Usage: forever SOURCE_FILE COMPONENT');
@@ -23,6 +26,11 @@ child.on('restart', function() {
 
 child.on('exit:code', function(code) {
     console.log('Forever detected script exited with code ' + code);
+
+    if (code == quitForeverExitCode) {
+        console.log('Child requesting permanent quit.  Monitor exiting.');
+        process.exit(0);
+    }
 });
 
 child.on('exit', function () {

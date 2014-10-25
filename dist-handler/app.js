@@ -6,7 +6,10 @@ var
 	redis = require('redis'),
     disco = require('../common').disco,
 	redisClient = redis.createClient(),
-    console = require('clim')();
+    console = require('clim')(),
+
+    config = (require('../config').dist || { }),
+    globalConfig = (require('../config').global || { });
 
 redisClient.on('error', function(err) {
 	console.log('Redis client connection errored: ' + err);
@@ -83,12 +86,17 @@ var start = function() {
     });
 }
 
-// Register ourselves with disco for status purposes.  This service does not
-// listen on a port, instead watching the Redis database, so use -1 as the port
-// number to indicate that.
-disco.register('dist', -1, function(err, service) {
-    if (err) return console.log("Failed to register service:", err);
-});
+if (config.enable !== false) {
+    // Register ourselves with disco for status purposes.  This service does not
+    // listen on a port, instead watching the Redis database, so use -1 as the port
+    // number to indicate that.
+    disco.register('dist', -1, function(err, service) {
+        if (err) return console.log("Failed to register service:", err);
+    });
 
-process.nextTick(start);
+    process.nextTick(start);
+}
+else {
+    process.exit(globalConfig.quitForeverExitCode || 42);
+}
 

@@ -11,6 +11,7 @@ var express = require('express')
   , HttpDriver = require('./drivers/http').HttpDriver
 
   , config = (require('../config').db || { })
+  , globalConfig = (require('../config').global || { })
   , type = (config.type || 'mongo')
   , options = (config.options || { })
   , driver = null
@@ -88,21 +89,26 @@ app.get("/retrieve", function(req, res) {
     });
 });
 
-// Set up the database and start listening.
-disco.register('db', config.port, function(err, service) {
-    if (err) return console.log("Failed to start service:", err);
+if (config.enable !== false) {
+    // Set up the database and start listening.
+    disco.register('db', config.port, function(err, service) {
+        if (err) return console.log("Failed to start service:", err);
 
-    driver.initialize(options, function(err) {
-        if (err) {
-            console.log('db-handler initialize failed:', err);
-            console.log('Config was:', config);
-        }
-        else {
-            app.listen(service.port, function() {
-                console.log(
-                    'Database handler listening on port: ' + service.port);
-            });
-        }
+        driver.initialize(options, function(err) {
+            if (err) {
+                console.log('db-handler initialize failed:', err);
+                console.log('Config was:', config);
+            }
+            else {
+                app.listen(service.port, function() {
+                    console.log(
+                        'Database handler listening on port: ' + service.port);
+                });
+            }
+        });
     });
-});
+}
+else {
+    process.exit(globalConfig.quitForeverExitCode || 42);
+}
 

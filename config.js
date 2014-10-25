@@ -26,6 +26,14 @@ config.db = {
         prefix: '',
         postfix: '',
     },
+
+    // If false, component will not run.
+    enable: true,
+};
+
+config.dist = {
+    // If false, component will not run.
+    enable: true,
 };
 
 // Session handler configuration.
@@ -33,6 +41,9 @@ config.sh = {
     // Specify a port on which to listen.  If omitted or null, the process will
     // select an open port.
     port: null,
+
+    // If false, component will not run.
+    enable: true,
 };
 
 // Webserver configuration.
@@ -42,7 +53,7 @@ config.web = {
     // frontend-proxy/haproxy.cfg.
     port: 8080,
 
-    // If false, webserver will not run.
+    // If false, component will not run.
     enable: true,
 };
 
@@ -92,6 +103,22 @@ config.ws = {
     //
     // Default: 10
     expirePeriodSeconds: 60 * 10,   // 10 minutes
+
+    // If false, component will not run.
+    enable: true,
+};
+
+config.global = {
+    // Components that wish to terminate without restarting should exit with
+    // this error code.  The typical case for this would be if the component is
+    // disabled.  Any monitor program should not restart its child process if
+    // the child returns with this exit code.
+    //
+    // Should not be greater than 255, and should not be a reserved exit code
+    // or a code with any other meaning, so avoid 1-2, 64-78, 126-165, and 255.
+    //
+    // Default if omitted or null: 42.
+    quitForeverExitCode: 42,
 };
 
 module.exports = config;
