@@ -119,6 +119,17 @@ config.global = {
     //
     // Default if omitted or null: 42.
     quitForeverExitCode: 42,
+
+    // Number of times to relaunch components if they encounter an unexpected
+    // error.
+    //
+    // To relaunch eternally, omit this parameter or set it to null.  A value
+    // of zero means that components will exit forever if an unhandled error is
+    // encountered.  A positive value specifies the number of times to relaunch
+    // the component.  A negative value is treated the same way as a zero.
+    //
+    // Default: null.
+    relaunchAttempts: null,
 };
 
 module.exports = config;
