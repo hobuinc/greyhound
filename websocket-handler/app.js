@@ -233,7 +233,7 @@ process.nextTick(function() {
         var port = service.port;
 
         server.listen(port)
-        var wss = new WebSocketServer({server: server});
+        var wss = new WebSocketServer({ server: server });
 
         console.log('Websocket server running on port: ' + port);
 
