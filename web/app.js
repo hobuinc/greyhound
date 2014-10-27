@@ -35,7 +35,7 @@ var go = function() {
     app.use(express.session({ secret: 'windoge', store : sessionStore }));
 
     // Set the x-powered-by header
-    app.use(function (req, res, next) {
+    app.use(function(req, res, next) {
         res.header("X-powered-by", "Hobu, Inc.");
         next();
     });
@@ -50,13 +50,13 @@ var go = function() {
 
     app.use(app.router);
 
-	app.get('/', function(req, res) {
+	app.get('/(greyhound)?', function(req, res) {
         console.log('Query params: ', req.query);
         // This will fail due to no pipeline selection.
 		res.render('index');
 	});
 
-    app.get('/data/:pipelineId', function(req, res) {
+    app.get('(/greyhound)?/data/:pipelineId', function(req, res) {
         console.log('Query params: ', req.query);
         res.render('data');
     });
