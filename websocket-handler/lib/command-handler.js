@@ -52,8 +52,8 @@ var
                     }
                     else {
                         return send(_.extend(
-                                res || {},
-                                { command: msg.command, status: 1 }
+                            res || { },
+                            { command: msg.command, status: 1 }
                        ));
                     }
 				});

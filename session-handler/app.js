@@ -208,7 +208,6 @@ app.post("/read/:sessionId", function(req, res) {
             yStep,
             yNum)
         {
-            console.log('FIRST BYTE:', data[0]);
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
@@ -245,7 +244,16 @@ app.post("/read/:sessionId", function(req, res) {
 
                 // Send the results to the websocket-handler.
                 var socket = net.createConnection(port, host);
-                socket.on('connect', function() { socket.end(data); });
+                socket.on('connect', function() {
+                    socket.end(data);
+                }).on('close', function() {
+                    console.log('Socket closed');
+                }).on('error', function(err) {
+                    // This is an expected occurence.  A cancel request
+                    // will cause the websocket-handler to forcefully reset
+                    // the connection.
+                    console.log('Socket error:', err);
+                });
             }
         };
 

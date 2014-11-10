@@ -375,59 +375,31 @@ process.nextTick(function() {
                 if (!session) return cb(propError('cancel', 'session'));
                 if (!readId)  return cb(propError('cancel', 'readId'));
 
+                var res = { cancelled: false };
+
                 if (streamers.hasOwnProperty(session)) {
                     var streamer = streamers[session][readId];
 
-                    console.log(
-                        'Cancelled.  Arrived:',
-                        streamer.totalArrived,
-                        'Sent:',
-                        streamer.totalSent);
+                    if (streamer) {
+                        console.log(
+                            'Cancelled.  Arrived:',
+                            streamer.totalArrived,
+                            'Sent:',
+                            streamer.totalSent);
 
-                    res['numBytes'] = streamer.totalSent;
-                    streamer.cancel();
-                    delete streamers[session][readId];
+                        res.cancelled = true;
+                        res['numBytes'] = streamer.totalSent;
 
-                    if (Object.keys(streamers[session]) == 0) {
-                        delete streamers[session];
+                        streamer.cancel();
+                        delete streamers[session][readId];
+
+                        if (Object.keys(streamers[session]) == 0) {
+                            delete streamers[session];
+                        }
                     }
                 }
 
-                return cb();
-
-                /*
-                affinity.getSh(session, function(err, sessionHandler) {
-                    if (err) return cb(err);
-
-                    var cancel = '/cancel/' + session;
-                    var params = { readId: readId };
-
-                    web.post(sessionHandler, cancel, params, function(err, res) {
-                        console.log('post came back', err);
-                        if (streamers.hasOwnProperty(session)) {
-                            var streamer = streamers[session][readId];
-
-                            if (streamer) {
-                                console.log(
-                                    'Cancelled.  Arrived:',
-                                    streamer.totalArrived,
-                                    'Sent:',
-                                    streamer.totalSent);
-
-                                    res['numBytes'] = streamer.totalSent;
-                                    streamer.cancel();
-                                    delete streamers[session][readId];
-
-                                    if (Object.keys(streamers[session]) == 0) {
-                                        delete streamers[session];
-                                    }
-                            }
-                        }
-
-                        return cb(err, res);
-                    });
-                });
-                */
+                return cb(null, res);
             });
 
             handler.on('read', function(msg, cb) {
