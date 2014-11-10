@@ -48,10 +48,13 @@ config.sh = {
 
 // Webserver configuration.
 config.web = {
-    // Specify a port on which to listen.  If omitted or null, default is 8080.
+    // Specify a port on which to listen.  If omitted or null, default is 8081.
+    // This is not a public-facing port - haproxy will route to this port for
+    // non-websocket connections.
+    //
     // IMPORTANT: This value must match the backend web port specified in
     // frontend-proxy/haproxy.cfg.
-    port: 8080,
+    port: 8081,
 
     // If false, component will not run.
     enable: true,

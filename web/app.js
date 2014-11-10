@@ -62,7 +62,7 @@ var go = function() {
     });
 
 	var server = http.createServer(app),
-	port = config.port || 8080;
+	port = config.port || 8081;
 
     // Register ourselves with disco for status purposes.
     disco.register('web', port, function(err, service) {

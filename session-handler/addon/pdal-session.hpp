@@ -2,8 +2,6 @@
 
 #include <mutex>
 
-#include <boost/asio.hpp>
-
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
 #include <pdal/PointContext.hpp>
@@ -250,25 +248,5 @@ private:
     // Disallow copy/assignment.
     PdalIndex(const PdalIndex&);
     PdalIndex& operator=(const PdalIndex&);
-};
-
-class BufferTransmitter
-{
-public:
-    BufferTransmitter(
-            const std::string& host,
-            int port,
-            const unsigned char* data,
-            std::size_t size);
-
-    void transmit(std::size_t offset = 0, std::size_t bytes = 0);
-
-private:
-    std::unique_ptr<boost::asio::ip::tcp::socket> m_socket;
-    const unsigned char* const m_data;
-    const std::size_t m_size;
-
-    BufferTransmitter(const BufferTransmitter&);
-    BufferTransmitter& operator=(const BufferTransmitter&);
 };
 

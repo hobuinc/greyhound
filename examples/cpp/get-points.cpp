@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    WebSocketClient client("ws://localhost/");
+    WebSocketClient client("ws://localhost:8080/");
     const std::string pipelineId =
         argc == 2 ?
             argv[1] :

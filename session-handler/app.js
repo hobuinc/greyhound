@@ -8,8 +8,9 @@ var express = require("express"),
     bodyParser = require('body-parser'),
     app = express(),
 
+    net = require('net'),
     disco = require('../common').disco,
-    console = require("clim")(),
+    console = require('clim')(),
     config = (require('../config').sh || { }),
     globalConfig = (require('../config').global || { }),
 
@@ -199,6 +200,7 @@ app.post("/read/:sessionId", function(req, res) {
             readId,
             numPoints,
             numBytes,
+            data,
             xBegin,
             xStep,
             xNum,
@@ -206,13 +208,14 @@ app.post("/read/:sessionId", function(req, res) {
             yStep,
             yNum)
         {
+            console.log('FIRST BYTE:', data[0]);
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
             }
             else {
                 if (xNum && yNum) {
-                    return res.json({
+                    res.json({
                         readId: readId,
                         numPoints: numPoints,
                         numBytes: numBytes,
@@ -230,7 +233,7 @@ app.post("/read/:sessionId", function(req, res) {
                     });
                 }
                 else {
-                    return res.json({
+                    res.json({
                         readId: readId,
                         numPoints: numPoints,
                         numBytes: numBytes,
@@ -239,6 +242,10 @@ app.post("/read/:sessionId", function(req, res) {
                             host + ':' + port,
                     });
                 }
+
+                // Send the results to the websocket-handler.
+                var socket = net.createConnection(port, host);
+                socket.on('connect', function() { socket.end(data); });
             }
         };
 
