@@ -1,4 +1,5 @@
 #include <node.h>
+#include <node_buffer.h>
 #include <v8.h>
 
 #include "pdal-bindings.hpp"
@@ -340,7 +341,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     const RasterMeta rasterMeta(
                             readCommandRastered->rasterMeta());
 
-                    const unsigned argc = 10;
+                    const unsigned argc = 11;
                     Local<Value> argv[argc] =
                     {
                         Local<Value>::New(Null()), // err
@@ -349,6 +350,12 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                                     readCommand->numPoints())),
                         Local<Value>::New(Integer::New(
                                     readCommand->numBytes())),
+                        // TODO This makes a copy.  Should use 4-arg version.
+                        // https://groups.google.com/forum/#!msg/nodejs/gz8YF3oLit0/dDN8RAB22RAJ
+                        Local<Value>::New(node::Buffer::New(
+                                    reinterpret_cast<const char*>(
+                                        readCommand->data()),
+                                    readCommand->numBytes())->handle_),
                         Local<Value>::New(Number::New(
                                     rasterMeta.xBegin)),
                         Local<Value>::New(Number::New(
@@ -375,13 +382,17 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             }
             else
             {
-                const unsigned argc = 4;
+                const unsigned argc = 5;
                 Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
                     Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes()))
+                    Local<Value>::New(Integer::New(readCommand->numBytes())),
+                    Local<Value>::New(node::Buffer::New(
+                                reinterpret_cast<const char*>(
+                                    readCommand->data()),
+                                readCommand->numBytes())->handle_)
                 };
 
                 // Call the provided callback to return the status of the
@@ -393,66 +404,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             // Dispose of the persistent handle so this callback may be
             // garbage collected.
             readCommand->callback().Dispose();
-
-            // Create a token for the actual data transmission portion of
-            // the read.
-            uv_work_t* sendReq(new uv_work_t);
-            sendReq->data = readCommand;
-
-            // Now stream all the buffered point data to the remote host
-            // asynchronously.
-            uv_queue_work(
-                uv_default_loop(),
-                sendReq,
-                (uv_work_cb)([](uv_work_t *sendReq)->void {
-                    ReadCommand* readCommand(
-                        reinterpret_cast<ReadCommand*>(
-                                sendReq->data));
-
-                    try
-                    {
-                        const std::size_t numBytes(readCommand->numBytes());
-                        std::size_t offset(0);
-
-                        while (offset < numBytes && !readCommand->cancel())
-                        {
-                            readCommand->transmit(
-                                offset,
-                                std::min(chunkSize, numBytes - offset));
-
-                            offset += chunkSize;
-                        }
-
-                        if (readCommand->cancel())
-                        {
-                            std::cout <<
-                                "Cancelled at (" <<
-                                offset <<
-                                " / " <<
-                                numBytes <<
-                                ") bytes" <<
-                                std::endl;
-                        }
-                    }
-                    catch (...)
-                    {
-                        std::cout <<
-                            "Caught error transmitting buffer" <<
-                            std::endl;
-                    }
-                }),
-                (uv_after_work_cb)([](uv_work_t* sendReq, int status)->void {
-                    ReadCommand* readCommand(
-                        reinterpret_cast<ReadCommand*>(sendReq->data));
-
-                    readCommand->eraseSelf();
-
-                    // Read and data transmission complete.  Clean everything
-                    // up - the bufferTransmitter may no longer be used.
-                    delete readCommand;
-                    delete sendReq;
-                })
-            );
 
             delete readReq;
         })

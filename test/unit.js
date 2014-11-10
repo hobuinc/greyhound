@@ -235,7 +235,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 
 module.exports = {
     setUp: function(cb) {
-        ws = new WebSocket('ws://localhost:' + (process.env.PORT || 80) + '/');
+        ws = new WebSocket('ws://localhost:' + (process.env.PORT || 8080) + '/');
         cb();
     },
 

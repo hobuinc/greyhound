@@ -12,7 +12,7 @@ var net = require('net'),
 		this.ws = ws;
 
 		// the tcp-ws can start recieving data from the server even before
-		// we're ok with start pushing data to our client, the request handler
+		// we're ok with start pushing data to our client, the session handler
         // server assumes that if you have been able to specify a host:port,
         // you are ready to receive data and starts pushing data.  On the
         // other hand for our ws client, we always want to provide data in

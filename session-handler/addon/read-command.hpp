@@ -10,8 +10,6 @@
 
 #include "pdal-session.hpp"
 
-class BufferTransmitter;
-
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
@@ -64,6 +62,7 @@ public:
 
     void transmit(std::size_t offset, std::size_t numBytes);
 
+    unsigned char* data()         { return m_data.data(); }
     std::string readId()    const { return m_readId; }
     std::size_t numPoints() const { return m_numPoints; }
     std::size_t numBytes()  const { return m_data.size(); }
@@ -107,7 +106,6 @@ protected:
     bool m_cancel;
 
     std::vector<unsigned char> m_data;
-    std::shared_ptr<BufferTransmitter> m_bufferTransmitter;
     std::string m_errMsg;
 
 private:

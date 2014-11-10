@@ -250,6 +250,8 @@ process.nextTick(function() {
                 var params = { pipeline: msg.pipeline };
 
                 pickSessionHandler({ }, function(err, sh) {
+                    if (err) return new Error('No session handler found');
+
                     web.get(sh, '/validate/', params, function(err, res) {
                         if (err || !res.valid) {
                             console.log('PUT - Pipeline validation failed');
@@ -366,12 +368,34 @@ process.nextTick(function() {
             });
 
             handler.on('cancel', function(msg, cb) {
+                // TODO Make cancel work.
                 console.log("websocket::handler::cancel");
                 var session = msg['session'];
                 var readId  = msg['readId'];
                 if (!session) return cb(propError('cancel', 'session'));
                 if (!readId)  return cb(propError('cancel', 'readId'));
 
+                if (streamers.hasOwnProperty(session)) {
+                    var streamer = streamers[session][readId];
+
+                    console.log(
+                        'Cancelled.  Arrived:',
+                        streamer.totalArrived,
+                        'Sent:',
+                        streamer.totalSent);
+
+                    res['numBytes'] = streamer.totalSent;
+                    streamer.cancel();
+                    delete streamers[session][readId];
+
+                    if (Object.keys(streamers[session]) == 0) {
+                        delete streamers[session];
+                    }
+                }
+
+                return cb();
+
+                /*
                 affinity.getSh(session, function(err, sessionHandler) {
                     if (err) return cb(err);
 
@@ -403,6 +427,7 @@ process.nextTick(function() {
                         return cb(err, res);
                     });
                 });
+                */
             });
 
             handler.on('read', function(msg, cb) {
@@ -466,10 +491,11 @@ process.nextTick(function() {
                                     ', bytes:',
                                     res.numBytes);
 
-                                    cb(null, res);
-                                    process.nextTick(function() {
-                                        streamer.startPushing();
-                                    });
+                                cb(null, res);
+
+                                process.nextTick(function() {
+                                    streamer.startPushing();
+                                });
                             }
                         );
                     });

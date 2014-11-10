@@ -55,7 +55,6 @@ ReadCommand::ReadCommand(
     , m_callback(callback)
     , m_cancel(false)
     , m_data()
-    , m_bufferTransmitter()
     , m_errMsg()
 { }
 
@@ -245,13 +244,6 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
     }
 }
 
-void ReadCommand::transmit(
-        const std::size_t offset,
-        const std::size_t numBytes)
-{
-    m_bufferTransmitter->transmit(offset, numBytes);
-}
-
 void ReadCommandUnindexed::run()
 {
     m_numPoints = m_pdalSession->readUnindexed(
@@ -259,9 +251,6 @@ void ReadCommandUnindexed::run()
             m_schema,
             m_start,
             m_count);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandQuadIndex::run()
@@ -271,9 +260,6 @@ void ReadCommandQuadIndex::run()
             m_schema,
             m_depthBegin,
             m_depthEnd);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandBoundedQuadIndex::run()
@@ -287,9 +273,6 @@ void ReadCommandBoundedQuadIndex::run()
             m_yMax,
             m_depthBegin,
             m_depthEnd);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandRastered::run()
@@ -298,9 +281,6 @@ void ReadCommandRastered::run()
             m_data,
             m_schema,
             m_rasterMeta);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandQuadLevel::run()
@@ -310,9 +290,6 @@ void ReadCommandQuadLevel::run()
             m_schema,
             m_level,
             m_rasterMeta);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 void ReadCommandPointRadius::run()
@@ -325,9 +302,6 @@ void ReadCommandPointRadius::run()
             m_x,
             m_y,
             m_z);
-
-    m_bufferTransmitter.reset(
-            new BufferTransmitter(m_host, m_port, m_data.data(), numBytes()));
 }
 
 ReadCommand* ReadCommandFactory::create(
