@@ -21,13 +21,12 @@ case $1 in
             WATCHER=`cat $ROOT/$COMPONENT.pid`;
             CHILD=`pgrep -P $WATCHER`;
 
-            if [ -n $CHILD ] ; then
+            if [ -n "$CHILD" ] ; then
                `kill -2 $WATCHER`   # Make sure to kill watcher first,
                `kill -2 $CHILD`;    # or the child may respawn.
-               rm -f "$ROOT/$COMPONENT.pid";
-            else
-               echo "Could not kill processes";
             fi
+
+            rm -f "$ROOT/$COMPONENT.pid";
         fi
         ;;
     *)
