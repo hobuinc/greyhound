@@ -2,6 +2,7 @@
 
 var fs = require('fs');
 var WebSocket = require('ws');
+var _ = require('lodash');
 var ws, timeoutObj;
 var timeoutMs = 15000;
 var samplePipelineId = '58a6ee2c990ba94db936d56bd42aa703';
@@ -193,7 +194,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
         if (json.hasOwnProperty(field)) {
             if (typeof expected[field] !== "function") {
                 test.ok(
-                    json[field] === expected[field],
+                    _.isEqual(json[field], expected[field]),
                     'Expected json[' + field + '] === ' + expected[field] +
                             ', got: ' + json[field]);
             }
@@ -868,6 +869,45 @@ module.exports = {
                     'command':  'srs',
                     'status':   ghSuccess,
                     'srs':      sampleSrs,
+                },
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
+                },
+            }]
+        );
+    },
+
+    // FILLS - test valid command
+    testFillsValid: function(test) {
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'fills',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'fills',
+                    'status':   ghSuccess,
+                    'fills':    [1,4,16,64,256,1004,3330,4375,1436,160,7]
                 },
             },
             {
