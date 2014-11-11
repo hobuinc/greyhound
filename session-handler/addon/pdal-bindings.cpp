@@ -70,6 +70,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getStats)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
         FunctionTemplate::New(getSrs)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("getFills"),
+        FunctionTemplate::New(getFills)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("cancel"),
         FunctionTemplate::New(cancel)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
@@ -253,6 +255,23 @@ Handle<Value> PdalBindings::getSrs(const Arguments& args)
     const std::string wkt(obj->m_pdalSession->getSrs());
 
     return scope.Close(String::New(wkt.data(), wkt.size()));
+}
+
+Handle<Value> PdalBindings::getFills(const Arguments& args)
+{
+    HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    const std::vector<std::size_t> fills(obj->m_pdalSession->getFills());
+
+    Local<Array> jsFills = Array::New(fills.size());
+
+    for (std::size_t i(0); i < fills.size(); ++i)
+    {
+        jsFills->Set(i, Integer::New(fills[i]));
+    }
+
+    return scope.Close(jsFills);
 }
 
 Handle<Value> PdalBindings::read(const Arguments& args)

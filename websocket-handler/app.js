@@ -340,6 +340,17 @@ process.nextTick(function() {
                 });
             });
 
+            handler.on('fills', function(msg, cb) {
+                console.log("websocket::handler::fills");
+                var session = msg['session'];
+                if (!session) return cb(propError('fills', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+                    web.get(sessionHandler, '/fills/' + session, cb);
+                });
+            });
+
             handler.on('destroy', function(msg, cb) {
                 console.log("websocket::handler::destroy");
                 // Note: this function does not destroy the actual PdalSession that
