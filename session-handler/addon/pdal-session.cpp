@@ -88,6 +88,13 @@ std::string PdalSession::getSrs() const
     return m_pointContext.spatialRef().getRawWKT();
 }
 
+std::vector<std::size_t> PdalSession::getFills() const
+{
+    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
+    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
+    return quadIndex.getFills();
+}
+
 std::size_t PdalSession::readDim(
         unsigned char* buffer,
         const DimInfo& dim,

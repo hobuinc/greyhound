@@ -162,6 +162,12 @@ app.get("/srs/:sessionId", function(req, res) {
     });
 });
 
+app.get("/fills/:sessionId", function(req, res) {
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        res.json({ fills: pdalSession.getFills() });
+    });
+});
+
 app.post("/cancel/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('Got CANCEL request for session', sessionId);

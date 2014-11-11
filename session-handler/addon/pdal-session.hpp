@@ -122,6 +122,8 @@ public:
     std::string getSchema() const;
     std::string getStats() const;
     std::string getSrs() const;
+    std::vector<std::size_t> getFills() const;
+
 
     // Read un-indexed data with an offset and a count.
     std::size_t readUnindexed(
