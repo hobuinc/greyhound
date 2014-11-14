@@ -72,8 +72,6 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getSrs)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getFills"),
         FunctionTemplate::New(getFills)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("cancel"),
-        FunctionTemplate::New(cancel)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
 
@@ -429,31 +427,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     );
 
     return scope.Close(Undefined());
-}
-
-Handle<Value> PdalBindings::cancel(const Arguments& args)
-{
-    HandleScope scope;
-    bool cancelled(false);
-
-    if (!args[0]->IsUndefined() && args[0]->IsString())
-    {
-        const std::string readId(*v8::String::Utf8Value(args[0]->ToString()));
-
-        PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
-        auto it(obj->m_readCommands.find(readId));
-
-        // TODO Race condition.  Mutex here with the deletes in read().
-        if (it != obj->m_readCommands.end())
-        {
-            it->second->cancel(true);
-            cancelled = true;
-            std::cout << "Cancelling..." << std::endl;
-        }
-    }
-
-    return scope.Close(Boolean::New(cancelled));
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -379,7 +379,6 @@ process.nextTick(function() {
             });
 
             handler.on('cancel', function(msg, cb) {
-                // TODO Make cancel work.
                 console.log("websocket::handler::cancel");
                 var session = msg['session'];
                 var readId  = msg['readId'];
