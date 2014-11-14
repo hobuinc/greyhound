@@ -31,11 +31,9 @@ private:
     static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
     static v8::Handle<v8::Value> getFills(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
-    static v8::Handle<v8::Value> cancel(const v8::Arguments& args);
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
-    // Make this a member to facilitate cancel() functionality.
     std::map<std::string, ReadCommand*> m_readCommands;
 
     struct CreateData
