@@ -74,6 +74,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getFills)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("serialize"),
+        FunctionTemplate::New(serialize)->GetFunction());
 
     constructor = Persistent<Function>::New(tpl->GetFunction());
     exports->Set(String::NewSymbol("PdalBindings"), constructor);
@@ -106,13 +108,17 @@ void PdalBindings::doInitialize(
     std::string errMsg("");
 
     if (args[0]->IsUndefined() || !args[0]->IsString())
-        errMsg = "'pipeline' must be a string - args[0]";
-    if (args[1]->IsUndefined() || !args[1]->IsFunction())
-        // Fatal.
+        errMsg = "'pipelineId' must be a string - args[0]";
+
+    if (args[1]->IsUndefined() || !args[1]->IsString())
+        errMsg = "'pipeline' must be a string - args[1]";
+
+    if (args[2]->IsUndefined() || !args[2]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(args[1])));
+            Persistent<Function>::New(Local<Function>::Cast(
+                    args[2])));
 
     if (errMsg.size())
     {
@@ -121,7 +127,8 @@ void PdalBindings::doInitialize(
         return;
     }
 
-    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
+    const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
+    const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -129,6 +136,7 @@ void PdalBindings::doInitialize(
     uv_work_t* req(new uv_work_t);
     req->data = new CreateData(
             obj->m_pdalSession,
+            pipelineId,
             pipeline,
             execute,
             callback);
@@ -142,6 +150,7 @@ void PdalBindings::doInitialize(
             try
             {
                 createData->pdalSession->initialize(
+                    createData->pipelineId,
                     createData->pipeline,
                     createData->execute);
             }
@@ -190,7 +199,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
 {
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-    obj->doInitialize(args);
+    obj->doInitialize(args, true);
     return scope.Close(Undefined());
 }
 
@@ -270,6 +279,16 @@ Handle<Value> PdalBindings::getFills(const Arguments& args)
     }
 
     return scope.Close(jsFills);
+}
+
+Handle<Value> PdalBindings::serialize(const Arguments& args)
+{
+    HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    obj->m_pdalSession->serialize();
+
+    return scope.Close(Undefined());
 }
 
 Handle<Value> PdalBindings::read(const Arguments& args)

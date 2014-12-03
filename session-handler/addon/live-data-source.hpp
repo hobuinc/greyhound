@@ -1,35 +1,35 @@
 #pragma once
 
-#include <mutex>
+#include <vector>
+#include <string>
 
-#include <pdal/PointContext.hpp>
+#include <pdal/PipelineManager.hpp>
 
+#include "pdal-index.hpp"
 #include "once.hpp"
-#include "live-data-source.hpp"
-#include "serial-data-source.hpp"
 
 class Schema;
+class DimInfo;
+class PdalIndex;
+class RasterMeta;
 
-class PdalSession
+class LiveDataSource
 {
 public:
-    PdalSession();
-
-    void initialize(
+    LiveDataSource(
             const std::string& pipelineId,
             const std::string& pipeline,
             bool execute);
 
-    // Queries.
+    void ensureIndex(PdalIndex::IndexType indexType);
+
     std::size_t getNumPoints() const;
     std::string getSchema() const;
     std::string getStats() const;
     std::string getSrs() const;
     std::vector<std::size_t> getFills() const;
 
-    // Serialization methods.
-    void serialize();   // Write to disk.
-    bool awaken();      // Wake from serialized quad-tree.
+    void serialize();
 
     // Read un-indexed data with an offset and a count.
     std::size_t readUnindexed(
@@ -82,19 +82,36 @@ public:
 
     const pdal::PointContext& pointContext() const
     {
-        if (m_serialDataSource) return m_serialDataSource->pointContext();
-        else if (m_liveDataSource) return m_liveDataSource->pointContext();
-        else throw std::runtime_error("Not initialized!");
+        return m_pointContext;
     }
 
 private:
-    std::string m_pipelineId;
-    std::string m_pipeline;
-    std::shared_ptr<LiveDataSource> m_liveDataSource;
-    std::shared_ptr<SerialDataSource> m_serialDataSource;
+    const std::string m_pipelineId;
 
-    // Disallow copy/assignment.
-    PdalSession(const PdalSession&);
-    PdalSession& operator=(const PdalSession&);
+    pdal::PipelineManager m_pipelineManager;
+    pdal::PointBufferPtr m_pointBuffer;
+    pdal::PointContext m_pointContext;
+
+    Once m_initOnce;
+    Once m_serializeOnce;
+
+    std::shared_ptr<PdalIndex> m_pdalIndex;
+
+    // Returns number of bytes read into buffer.
+    std::size_t readDim(
+            unsigned char* buffer,
+            const DimInfo& dimReq,
+            std::size_t index) const;
+
+    // Read points out from a list that represents indices into m_pointBuffer.
+    std::size_t readIndexList(
+            std::vector<unsigned char>& buffer,
+            const Schema& schema,
+            const std::vector<std::size_t>& indexList,
+            bool rasterize = false) const;
+
+    void writeClusters(
+            std::string filename,
+            const pdal::QuadIndex::ClusterList& clusters);
 };
 

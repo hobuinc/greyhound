@@ -6,6 +6,13 @@
 
 class ReadCommand;
 
+enum Action
+{
+    Execute,
+    Validate,
+    Awaken
+};
+
 class PdalBindings : public node::ObjectWrap
 {
 public:
@@ -31,6 +38,7 @@ private:
     static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
     static v8::Handle<v8::Value> getFills(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
+    static v8::Handle<v8::Value> serialize(const v8::Arguments& args);
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
@@ -40,10 +48,12 @@ private:
     {
         CreateData(
                 std::shared_ptr<PdalSession> pdalSession,
+                std::string pipelineId,
                 std::string pipeline,
                 bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
+            , pipelineId(pipelineId)
             , pipeline(pipeline)
             , execute(execute)
             , errMsg()
@@ -52,6 +62,7 @@ private:
 
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
+        const std::string pipelineId;
         const std::string pipeline;
         const bool execute;
 
