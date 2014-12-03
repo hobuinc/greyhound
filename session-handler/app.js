@@ -69,11 +69,15 @@ app.get("/", function(req, res) {
 // handlers for our API
 app.get("/validate", function(req, res) {
     var pdalSession = new PdalSession();
-    pdalSession.parse(req.body.pipeline, function(err) {
-        pdalSession.destroy();
-        if (err) console.log('Pipeline validation error:', err);
-        res.json({ valid: err ? false : true });
-    });
+    pdalSession.parse(
+        '',
+        req.body.pipeline,
+        function(err) {
+            pdalSession.destroy();
+            if (err) console.log('Pipeline validation error:', err);
+            res.json({ valid: err ? false : true });
+        }
+    );
 });
 
 app.post("/create", function(req, res) {
@@ -94,7 +98,7 @@ app.post("/create", function(req, res) {
     // back immediately if the initial creation is complete, or if the initial
     // creation is still in progress, then the callback will be executed when
     // that call completes.
-    pdalSession.create(pipeline, function(err) {
+    pdalSession.create(pipelineId, pipeline, function(err) {
         if (err) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
