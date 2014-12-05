@@ -10,7 +10,8 @@
                 './addon/once.cpp',
                 './addon/pdal-index.cpp',
                 './addon/live-data-source.cpp',
-                './addon/serial-data-source.cpp'
+                './addon/serial-data-source.cpp',
+                './addon/grey-tree.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
