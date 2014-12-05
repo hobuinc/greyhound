@@ -15,6 +15,7 @@
 
 #include "read-command.hpp"
 #include "live-data-source.hpp"
+#include "grey-tree.hpp"
 
 namespace
 {
@@ -140,7 +141,7 @@ void LiveDataSource::serialize()
             return;
         }
 
-        // PointContext serialization
+        // Serialize the pdal::PointContext.
         pdal::Dimension::IdList dims(m_pointContext.dims());
         std::vector<pdal::Dimension::Type::Enum> dimTypes;
 
@@ -149,41 +150,26 @@ void LiveDataSource::serialize()
             dimTypes.push_back(m_pointContext.dimType(*dim));
         }
 
-        const std::vector<std::size_t> fills(getFills());
         pdal::schema::Writer writer(dims, dimTypes);
-
-        // Store some serialization versioning info.
         pdal::Metadata metadata;
         pdal::MetadataNode metaNode = metadata.getNode();
-        metaNode.add("serialization", "greyhound");
-        metaNode.add("index", "quad");
-        metaNode.add("version", "1.0");
-        metaNode.add("numPoints", getNumPoints());
-        metaNode.add("schema", getSchema());
-        metaNode.add("stats", getStats());
-        metaNode.add("srs", getSrs());
-        metaNode.addEncoded(
-                "fills",
-                reinterpret_cast<const unsigned char*>(fills.data()),
-                reinterpret_cast<const unsigned char*>(
-                    fills.data() + fills.size()) -
-                    reinterpret_cast<const unsigned char*>(fills.data()));
         writer.setMetadata(metaNode);
 
-        std::ofstream metaFile(
-                m_pipelineId + ".grey",   // TODO Path.
-                std::ios::trunc);
-        metaFile << writer.getXML();
-        metaFile.close();
-
-        // Data storage.
         m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-        std::cout << "Clustering" << std::endl;
-        pdal::QuadIndex::ClusterList clusters(quadIndex.clusterify(9));
-        std::cout << "Writing" << std::endl;
-        writeClusters(m_pipelineId + ".cls", clusters);
-        std::cout << "Done!" << std::endl;
+
+        // Data storage.
+        GreyTree::GreyMeta meta;
+        meta.pointContextXml = writer.getXML();
+        quadIndex.getBounds(meta.xMin, meta.yMin, meta.xMax, meta.yMax);
+        meta.numPoints = getNumPoints();
+        meta.schema = getSchema();
+        meta.stats = getStats();
+        meta.srs = getSrs();
+        meta.fills = getFills();
+
+        GreyTree greyTree(quadIndex, meta);
+        greyTree.write(m_pipelineId + ".grey", 8); // TODO Path.
     });
 }
 
