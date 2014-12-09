@@ -28,12 +28,14 @@ Dependencies:
  - `HAProxy`_
  - C++11 compiler
  - `Boost`_ library 1.55 or greater
+ - `SQLite3`_ C++ library
 
 .. _`PDAL`: http://www.pdal.io/index.html
 .. _`Node.js`: http://nodejs.org/
 .. _`Redis`: http://redis.io/
 .. _`Haproxy`: http://www.haproxy.org/
 .. _`Boost`: http://www.boost.org/
+.. _`SQLite3`: https://www.sqlite.org/capi3ref.html
 
 Global NPM Dependencies
 -------------------------------------------------------------------------------

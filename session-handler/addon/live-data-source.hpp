@@ -109,9 +109,5 @@ private:
             const Schema& schema,
             const std::vector<std::size_t>& indexList,
             bool rasterize = false) const;
-
-    void writeClusters(
-            std::string filename,
-            const pdal::QuadIndex::ClusterList& clusters);
 };
 
