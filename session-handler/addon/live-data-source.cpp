@@ -159,17 +159,26 @@ void LiveDataSource::serialize()
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
         // Data storage.
-        GreyTree::GreyMeta meta;
+
+        GreyMeta meta;
         meta.pointContextXml = writer.getXML();
-        quadIndex.getBounds(meta.xMin, meta.yMin, meta.xMax, meta.yMax);
+        meta.base = 8;  // TODO make configurable.
+        quadIndex.getBounds(
+                meta.bbox.xMin,
+                meta.bbox.yMin,
+                meta.bbox.xMax,
+                meta.bbox.yMax);
         meta.numPoints = getNumPoints();
         meta.schema = getSchema();
         meta.stats = getStats();
         meta.srs = getSrs();
         meta.fills = getFills();
 
-        GreyTree greyTree(quadIndex, meta);
-        greyTree.write(m_pipelineId + ".grey", 8); // TODO Path.
+        GreyWriter greyWriter(quadIndex, meta);
+        greyWriter.write(m_pipelineId + ".grey"); // TODO Path.
+
+        // TODO Remove - temporary testing.
+        GreyReader greyReader(m_pipelineId);
     });
 }
 
@@ -442,98 +451,5 @@ std::size_t LiveDataSource::readIndexList(
     }
 
     return pointsToRead;
-}
-
-void LiveDataSource::writeClusters(
-        const std::string filename,
-        const pdal::QuadIndex::ClusterList& clusters)
-{
-    sqlite3* db;
-    char* errMsgPtr;
-
-    // Open database.
-    if (sqlite3_open_v2(
-                filename.c_str(),
-                &db,
-                SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                0) != SQLITE_OK)
-    {
-        throw std::runtime_error("Could not open serial database");
-    }
-
-    // Create table.
-    if (sqlite3_exec(db, sqlCreateTable.c_str(), 0, 0, &errMsgPtr) != SQLITE_OK)
-    {
-        std::string errMsg(errMsgPtr);
-        sqlite3_free(errMsgPtr);
-        throw std::runtime_error("Could not create table: " + errMsg);
-    }
-
-    // Prepare statement for insert.
-    sqlite3_stmt* stmt(0);
-    sqlite3_prepare_v2(db, sqlPrep.c_str(), sqlPrep.size() + 1, &stmt, 0);
-
-    if (!stmt)
-    {
-        throw std::runtime_error("Could not prepare INSERT stmt");
-    }
-
-    // Begin accumulating insert transaction.
-    if (sqlite3_exec(db, "BEGIN TRANSACTION", 0, 0, &errMsgPtr))
-    {
-        std::string errMsg(errMsgPtr);
-        sqlite3_free(errMsgPtr);
-        throw std::runtime_error("Could not begin transaction: " + errMsg);
-    }
-
-    // Accumulate inserts.
-    int id(0);
-    for (auto cluster : clusters)
-    {
-        if (sqlite3_bind_int   (stmt, 1, id++) ||
-            sqlite3_bind_double(stmt, 2, cluster->bounds().minx) ||
-            sqlite3_bind_double(stmt, 3, cluster->bounds().miny) ||
-            sqlite3_bind_double(stmt, 4, cluster->bounds().maxx) ||
-            sqlite3_bind_double(stmt, 5, cluster->bounds().maxy) ||
-            sqlite3_bind_int64 (stmt, 6, cluster->depthBegin()) ||
-            sqlite3_bind_int64 (stmt, 7, cluster->depthEnd()) ||
-            sqlite3_bind_blob(
-                    stmt,
-                    8,
-                    cluster->data().data(),
-                    cluster->data().size(),
-                    SQLITE_STATIC))
-        {
-            throw std::runtime_error("Error binding values");
-        }
-
-        sqlite3_step(stmt);
-        sqlite3_clear_bindings(stmt);
-        sqlite3_reset(stmt);
-    }
-
-    if (sqlite3_exec(db, "END TRANSACTION", 0, 0, &errMsgPtr))
-    {
-        // TODO Wrap this repeated logic.
-        std::string errMsg(errMsgPtr);
-        sqlite3_free(errMsgPtr);
-        throw std::runtime_error("Could not end transaction: " + errMsg);
-    }
-
-    // Finalize the bulk insert.
-    sqlite3_finalize(stmt);
-
-    // Perform indexing.
-    for (auto indexCmd : sqlCreateIndex)
-    {
-        if (sqlite3_exec(db, indexCmd.c_str(), 0, 0, &errMsgPtr))
-        {
-            std::string errMsg(errMsgPtr);
-            sqlite3_free(errMsgPtr);
-            throw std::runtime_error("Could not create index: " + errMsg);
-        }
-    }
-
-    sqlite3_close_v2(db);
 }
 
