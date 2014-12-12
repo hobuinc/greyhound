@@ -2,6 +2,10 @@
 //
 process.title = 'gh_ws';
 
+process.on('uncaughtException', function(err) {
+    console.log('Caught at top level: ' + err);
+});
+
 var WebSocketServer = require('ws').Server
     , _ = require('lodash')
     , http = require('http')

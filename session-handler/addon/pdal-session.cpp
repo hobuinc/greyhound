@@ -115,11 +115,11 @@ bool PdalSession::awaken()
 {
     bool awoken(false);
 
-    if (!m_serialDataSource && SerialDataSource::exists(m_pipelineId))
+    if (!m_serialDataSource && GreyReader::exists(m_pipelineId))
     {
         try
         {
-            m_serialDataSource.reset(new SerialDataSource(m_pipelineId));
+            m_serialDataSource.reset(new GreyReader(m_pipelineId));
         }
         catch (...)
         {
@@ -163,6 +163,8 @@ std::size_t PdalSession::read(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
+    // TODO
+    /*
     if (m_serialDataSource)
     {
         return m_serialDataSource->read(
@@ -175,7 +177,8 @@ std::size_t PdalSession::read(
                 depthBegin,
                 depthEnd);
     }
-    else if (m_liveDataSource)
+    else */
+    if (m_liveDataSource)
     {
         return m_liveDataSource->read(
                 buffer,
@@ -219,11 +222,14 @@ std::size_t PdalSession::read(
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
+    // TODO
+    /*
     if (m_serialDataSource)
     {
         return m_serialDataSource->read(buffer, schema, rasterize, rasterMeta);
     }
-    else if (m_liveDataSource)
+    else */
+    if (m_liveDataSource)
     {
         return m_liveDataSource->read(buffer, schema, rasterize, rasterMeta);
     }

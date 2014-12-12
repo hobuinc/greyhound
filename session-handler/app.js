@@ -2,6 +2,9 @@
 // Main entry point for pdal session delegation
 //
 process.title = 'gh_sh';
+process.on('uncaughtException', function(err) {
+    console.log('Caught at top level: ' + err);
+});
 
 var express = require("express"),
     methodOverride = require('method-override'),

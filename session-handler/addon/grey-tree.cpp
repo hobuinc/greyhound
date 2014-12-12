@@ -24,8 +24,8 @@ namespace
     const std::string sqlCreateTableMeta(
             "CREATE TABLE meta("
                 "id             INT PRIMARY KEY,"
-                "base           INT,"
                 "version        TEXT,"
+                "base           INT,"
                 "pointContext   TEXT,"
                 "xMin           REAL,"
                 "yMin           REAL,"
@@ -348,6 +348,15 @@ GreyReader::~GreyReader()
     }
 }
 
+bool GreyReader::exists(const std::string pipelineId)
+{
+    bool exists(false);
+    std::ifstream stream(pipelineId + ".grey");
+    if (stream) exists = true;
+    stream.close();
+    return exists;
+}
+
 void GreyReader::readMeta()
 {
     sqlite3_stmt* stmt(0);
@@ -406,40 +415,53 @@ void GreyReader::readMeta()
     sqlite3_finalize(stmt);
 }
 
-void GreyReader::read(
+std::size_t GreyReader::read(
         std::vector<uint8_t>& buffer,
         const Schema& schema,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::vector<uint64_t> completeResults;
-    std::vector<uint64_t> partialResults;
+    std::map<uint64_t, NodeInfo> results;
 
+    std::cout << "finding" << std::endl;
     m_idIndex->find(
-            completeResults,
-            partialResults,
+            results,
             depthBegin,
             depthEnd);
 
+    std::cout << "missingBuild" << std::endl;
     std::ostringstream missingIds;
     m_cacheMutex.lock();
     try
     {
-        for (auto i : completeResults)
+        for (auto result : results)
         {
-            if (!m_cache.count(i))
-            {
-                if (missingIds.str().size()) missingIds << ",";
-                missingIds << i;
-            }
-        }
+            const uint64_t id(result.first);
 
-        for (auto i : partialResults)
-        {
-            if (!m_cache.count(i))
+            auto cacheEntry(m_cache.find(id));
+            if (cacheEntry != m_cache.end())
             {
+                std::shared_ptr<GreyCluster> cluster(cacheEntry->second);
+                std::cout << "checking..." << std::endl;
+                if (!cluster->m_pointBuffer) std::cout << "uh oh" << std::endl;
+                std::cout << "checked!" << std::endl;
+
+                // We already have this ID/cluster cached.  Point to it in our
+                // results list, and index it if necessary.
+                result.second.cluster = cluster;
+
+                if (!result.second.complete)
+                {
+                    std::cout << "Indexing existing entry" << std::endl;
+                    cluster->index();
+                }
+            }
+            else
+            {
+                // We don't have anything for this ID yet.  Query it from
+                // the serialized data file.
                 if (missingIds.str().size()) missingIds << ",";
-                missingIds << i;
+                missingIds << id;
             }
         }
     }
@@ -451,11 +473,14 @@ void GreyReader::read(
 
     m_cacheMutex.unlock();
 
+    std::cout << "M: " << missingIds.str() << std::endl;
+
     const std::string sqlDataQuery(
             "SELECT id, data FROM clusters WHERE id IN (" +
             missingIds.str() +
             ")");
 
+    std::cout << "prep" << std::endl;
     sqlite3_stmt* stmtData(0);
     sqlite3_prepare_v2(
             m_db,
@@ -469,8 +494,7 @@ void GreyReader::read(
         throw std::runtime_error("Could not prepare SELECT stmt - data");
     }
 
-    std::map<uint64_t, std::shared_ptr<GreyCluster>> tempCache;
-
+    std::cout << "step" << std::endl;
     while (sqlite3_step(stmtData) == SQLITE_ROW)
     {
         const int id(sqlite3_column_int64(stmtData, 0));
@@ -493,44 +517,36 @@ void GreyReader::read(
                     0,
                     data.size() / m_pointContext.pointSize()));
 
-        std::shared_ptr<GreyCluster> cluster(
-                new GreyCluster(pointBuffer));
-
-        // Don't insert into m_cache, we'll do the pointBuffer building and the
-        // quad-tree indexing (if necessary) in advance, so we will only have
-        // to lock the real cache to insert this premade data.
-        tempCache.insert(std::make_pair(id, cluster));
-    }
-
-    sqlite3_finalize(stmtData);
-
-    for (auto i : completeResults)
-    {
-        auto cluster(tempCache.find(i));
-        if (cluster != tempCache.end())
+        auto it(results.find(id));
+        if (it != results.end())
         {
-            // TODO Perform quad-tree indexing.
-            /*
-            std::shared_ptr<pdal::QuadIndex> quadTree(
-                    new pdal::QuadIndex(*pointBuffer.get(), depthBegin));
-
-            quadTree->build(
-                    sqlite3_column_double(stmtData, 3),
-                    sqlite3_column_double(stmtData, 4),
-                    sqlite3_column_double(stmtData, 5),
-                    sqlite3_column_double(stmtData, 6));
-
-            m_quadCache.insert(std::make_pair(id, quadTree));
-            */
+            // Perform indexing if necessary.
+            it->second.cluster->populate(pointBuffer, !it->second.complete);
         }
     }
+    if (!m_cache[3]->m_pointBuffer) std::cout << "uh oh2" << std::endl;
 
+    sqlite3_finalize(stmtData);
+    std::size_t points(0);
+
+    std::cout << "results" << std::endl;
     m_cacheMutex.lock();
     try
     {
-        for (auto it : tempCache)
+        for (auto it : results)
         {
-            m_cache.insert(it.first, it.second);
+            std::cout << "insert" << std::endl;
+            // Update our actual cache with new entries from the results,
+            // old entries will be unchanged by this call.
+            const std::shared_ptr<GreyCluster> cluster(it.second.cluster);
+            if (cluster)
+            {
+                auto ret = m_cache.insert(std::make_pair(it.first, cluster));
+                if (ret.second) std::cout << "INSERTED!" << std::endl;
+
+                std::cout << "read" << std::endl;
+                points += cluster->read(buffer, schema);
+            }
         }
     }
     catch (...)
@@ -540,15 +556,7 @@ void GreyReader::read(
     }
     m_cacheMutex.unlock();
 
-    for (auto id : completeResults)
-    {
-        // TODO Dumb-grab these whole clusters and append to buffer.
-    }
-
-    for (auto id : partialResults)
-    {
-        // TODO Perform quad-index query on these clusters and append to buffer.
-    }
+    return points;
 }
 
 IdTree::IdTree(
@@ -577,29 +585,58 @@ IdTree::IdTree(
 }
 
 void IdTree::find(
-        std::vector<uint64_t>& results,
+        std::map<uint64_t, NodeInfo>& results,
         const std::size_t queryLevelBegin,
         const std::size_t queryLevelEnd,
-        const std::size_t currentLevel) const
+        const std::size_t currentLevel,
+        const BBox        currentBBox) const
 {
     if (currentLevel >= queryLevelBegin && currentLevel < queryLevelEnd)
     {
-        results.push_back(id);
+        results.insert(
+                std::make_pair(
+                    id,
+                    NodeInfo(currentBBox, currentLevel, true)));
     }
 
     std::size_t nextLevel(currentLevel + 1);
     if (nextLevel < queryLevelEnd)
     {
-        if (nw) nw->find(results, queryLevelBegin, queryLevelEnd, nextLevel);
-        if (ne) ne->find(results, queryLevelBegin, queryLevelEnd, nextLevel);
-        if (sw) sw->find(results, queryLevelBegin, queryLevelEnd, nextLevel);
-        if (se) se->find(results, queryLevelBegin, queryLevelEnd, nextLevel);
+        if (nw)
+            nw->find(
+                    results,
+                    queryLevelBegin,
+                    queryLevelEnd,
+                    nextLevel,
+                    currentBBox.getNw());
+
+        if (ne)
+            ne->find(
+                    results,
+                    queryLevelBegin,
+                    queryLevelEnd,
+                    nextLevel,
+                    currentBBox.getNe());
+
+        if (sw)
+            sw->find(
+                    results,
+                    queryLevelBegin,
+                    queryLevelEnd,
+                    nextLevel,
+                    currentBBox.getSw());
+        if (se)
+            se->find(
+                    results,
+                    queryLevelBegin,
+                    queryLevelEnd,
+                    nextLevel,
+                    currentBBox.getSe());
     }
 }
 
 void IdTree::find(
-        std::vector<uint64_t>& completeResults,
-        std::vector<uint64_t>& partialResults,
+        std::map<uint64_t, NodeInfo>& results,
         const std::size_t   queryLevelBegin,
         const std::size_t   queryLevelEnd,
         const BBox&         queryBBox,
@@ -610,14 +647,13 @@ void IdTree::find(
     {
         if (currentLevel >= queryLevelBegin && currentLevel < queryLevelEnd)
         {
-            if (queryBBox.contains(currentBBox))
-            {
-                completeResults.push_back(id);
-            }
-            else
-            {
-                partialResults.push_back(id);
-            }
+            results.insert(
+                    std::make_pair(
+                        id,
+                        NodeInfo(
+                            currentBBox,
+                            currentLevel,
+                            queryBBox.contains(currentBBox))));
         }
 
         std::size_t nextLevel(currentLevel + 1);
@@ -626,8 +662,7 @@ void IdTree::find(
         {
             if (nw)
                 nw->find(
-                        completeResults,
-                        partialResults,
+                        results,
                         queryLevelBegin,
                         queryLevelEnd,
                         queryBBox,
@@ -636,8 +671,7 @@ void IdTree::find(
 
             if (ne)
                 ne->find(
-                        completeResults,
-                        partialResults,
+                        results,
                         queryLevelBegin,
                         queryLevelEnd,
                         queryBBox,
@@ -646,8 +680,7 @@ void IdTree::find(
 
             if (sw)
                 sw->find(
-                        completeResults,
-                        partialResults,
+                        results,
                         queryLevelBegin,
                         queryLevelEnd,
                         queryBBox,
@@ -656,8 +689,7 @@ void IdTree::find(
 
             if (se)
                 se->find(
-                        completeResults,
-                        partialResults,
+                        results,
                         queryLevelBegin,
                         queryLevelEnd,
                         queryBBox,
@@ -667,25 +699,17 @@ void IdTree::find(
     }
 }
 
-std::size_t IdTree::info(
-        const uint64_t id,
-        std::size_t offset,
-        BBox&       resultBBox,
-        std::size_t currentLevel,
-        BBox        currentBBox)
-{
-    // TODO
-}
-
 IdIndex::IdIndex(const GreyMeta& meta)
     : m_base(meta.base)
-    , m_idTree(baseId, meta.base, meta.fills.size() + 1)
     , m_bbox(meta.bbox)
+    , nw((baseId << 2) | nwFlag, meta.base, meta.fills.size() + 1)
+    , ne((baseId << 2) | neFlag, meta.base, meta.fills.size() + 1)
+    , sw((baseId << 2) | swFlag, meta.base, meta.fills.size() + 1)
+    , se((baseId << 2) | seFlag, meta.base, meta.fills.size() + 1)
 { }
 
 void IdIndex::find(
-        std::vector<uint64_t>& completeResults,
-        std::vector<uint64_t>& partialResults,
+        std::map<uint64_t, NodeInfo>& results,
         std::size_t depthBegin,
         std::size_t depthEnd) const
 {
@@ -693,18 +717,43 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        partialResults.push_back(baseId);
+        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, m_base, false)));
     }
 
-    if (depthEnd > m_base)
+    if (depthEnd >= m_base)
     {
-        m_idTree.find(completeResults, depthBegin, depthEnd, m_base);
+        nw.find(
+                results,
+                depthBegin,
+                depthEnd,
+                m_base,
+                m_bbox.getNw());
+
+        ne.find(
+                results,
+                depthBegin,
+                depthEnd,
+                m_base,
+                m_bbox.getNe());
+
+        sw.find(
+                results,
+                depthBegin,
+                depthEnd,
+                m_base,
+                m_bbox.getSw());
+
+        se.find(
+                results,
+                depthBegin,
+                depthEnd,
+                m_base,
+                m_bbox.getSe());
     }
 }
 
 void IdIndex::find(
-        std::vector<uint64_t>& completeResults,
-        std::vector<uint64_t>& partialResults,
+        std::map<uint64_t, NodeInfo>& results,
         std::size_t depthBegin,
         std::size_t depthEnd,
         BBox queryBBox) const
@@ -713,24 +762,172 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        partialResults.push_back(baseId);
+        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, m_base, false)));
     }
 
-    if (depthEnd > m_base)
+    if (depthEnd >= m_base)
     {
-        m_idTree.find(
-                completeResults,
-                partialResults,
+        nw.find(
+                results,
                 depthBegin,
                 depthEnd,
                 queryBBox,
                 m_base,
-                m_bbox);
+                m_bbox.getNw());
+
+        ne.find(
+                results,
+                depthBegin,
+                depthEnd,
+                queryBBox,
+                m_base,
+                m_bbox.getNe());
+
+        sw.find(
+                results,
+                depthBegin,
+                depthEnd,
+                queryBBox,
+                m_base,
+                m_bbox.getSw());
+
+        se.find(
+                results,
+                depthBegin,
+                depthEnd,
+                queryBBox,
+                m_base,
+                m_bbox.getSe());
     }
 }
 
-GreyCluster::GreyCluster(std::shared_ptr<pdal::PointBuffer> pointBuffer)
-    : m_pointBuffer(pointBuffer)
+GreyCluster::GreyCluster(std::size_t depth, const BBox& bbox)
+    : m_pointBuffer(0)
     , m_quadTree(0)
+    , m_depth(depth)
+    , m_bbox(bbox)
 { }
+
+void GreyCluster::populate(
+        std::shared_ptr<pdal::PointBuffer> pointBuffer,
+        bool doIndex)
+{
+    m_pointBuffer = pointBuffer;
+
+    if (doIndex)
+    {
+        index();
+    }
+}
+
+void GreyCluster::index()
+{
+    if (!m_quadTree) std::cout << "indexing NOW" << std::endl;
+    else std::cout << "already indexed - not repeating" << std::endl;
+
+    if (!m_pointBuffer) std::cout << "NO PB in INDEX" << std::endl;
+    else std::cout << "PB looks ok in INDEX..." << std::endl;
+
+    if (!m_quadTree)
+    {
+        m_quadTree.reset(
+                new pdal::QuadIndex(*m_pointBuffer.get(), m_depth));
+
+        m_quadTree->build(m_bbox.xMin, m_bbox.yMin, m_bbox.xMax, m_bbox.yMax);
+    }
+}
+
+std::size_t GreyCluster::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema) const
+{
+    std::cout << "in read" << std::endl;
+    const std::size_t initialOffset(buffer.size());
+
+    std::cout << "numPoints" << std::endl;
+    if (!m_pointBuffer) std::cout << "NO POINTBUFFER!" << std::endl;
+    const std::size_t numPoints(m_pointBuffer->size());
+    buffer.resize(buffer.size() + numPoints * schema.stride());
+
+    uint8_t* pos = buffer.data() + initialOffset;
+
+    std::cout << "dims" << std::endl;
+    for (std::size_t i(0); i < m_pointBuffer->size(); ++i)
+    {
+        for (const auto& dim : schema.dims)
+        {
+            pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+        }
+    }
+
+    std::cout << "done" << std::endl;
+    return numPoints;
+}
+
+std::size_t GreyCluster::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        const BBox& bbox) const
+{
+    // TODO
+    return 0;
+}
+
+std::size_t GreyCluster::readDim(
+        unsigned char* buffer,
+        const DimInfo& dim,
+        const pdal::PointBuffer& pointBuffer,
+        const std::size_t index) const
+{
+    if (dim.type == "floating")
+    {
+        if (dim.size == 4)
+        {
+            float val(pointBuffer.getFieldAs<float>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 8)
+        {
+            double val(pointBuffer.getFieldAs<double>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else
+        {
+            throw std::runtime_error("Invalid floating size requested");
+        }
+    }
+    else if (dim.type == "signed" || dim.type == "unsigned")
+    {
+        if (dim.size == 1)
+        {
+            uint8_t val(pointBuffer.getFieldAs<uint8_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 2)
+        {
+            uint16_t val(pointBuffer.getFieldAs<uint16_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 4)
+        {
+            uint32_t val(pointBuffer.getFieldAs<uint32_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 8)
+        {
+            uint64_t val(pointBuffer.getFieldAs<uint64_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else
+        {
+            throw std::runtime_error("Invalid integer size requested");
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Invalid dimension type requested");
+    }
+
+    return dim.size;
+}
 

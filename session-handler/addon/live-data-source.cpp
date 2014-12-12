@@ -136,7 +136,7 @@ std::vector<std::size_t> LiveDataSource::getFills() const
 void LiveDataSource::serialize()
 {
     m_serializeOnce.ensure([this]() {
-        if (SerialDataSource::exists(m_pipelineId))
+        if (GreyReader::exists(m_pipelineId))
         {
             return;
         }

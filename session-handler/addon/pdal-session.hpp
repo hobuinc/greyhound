@@ -6,7 +6,7 @@
 
 #include "once.hpp"
 #include "live-data-source.hpp"
-#include "serial-data-source.hpp"
+#include "grey-tree.hpp"
 
 class Schema;
 
@@ -91,7 +91,7 @@ private:
     std::string m_pipelineId;
     std::string m_pipeline;
     std::shared_ptr<LiveDataSource> m_liveDataSource;
-    std::shared_ptr<SerialDataSource> m_serialDataSource;
+    std::shared_ptr<GreyReader> m_serialDataSource;
 
     // Disallow copy/assignment.
     PdalSession(const PdalSession&);
