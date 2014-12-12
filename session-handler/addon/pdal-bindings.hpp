@@ -1,10 +1,37 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
+#include <map>
 
-#include "pdal-session.hpp"
+#include <node.h>
 
+class PdalSession;
 class ReadCommand;
+
+template<typename K, typename V> class LockedMap
+{
+public:
+    LockedMap<K, V>() : m_lock(), m_data() { }
+
+    void insert(std::pair<K, V> entry)
+    {
+        m_lock.lock();
+        m_data.insert(entry);
+        m_lock.unlock();
+    }
+
+    void erase(const K& k)
+    {
+        m_lock.lock();
+        m_data.erase(k);
+        m_lock.unlock();
+    }
+
+private:
+    std::mutex m_lock;
+    std::map<K, V> m_data;
+};
 
 class PdalBindings : public node::ObjectWrap
 {
@@ -34,7 +61,7 @@ private:
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
-    std::map<std::string, ReadCommand*> m_readCommands;
+    LockedMap<std::string, ReadCommand*> m_readCommands;
 
     struct CreateData
     {

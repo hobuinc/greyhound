@@ -297,7 +297,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    obj->m_readCommands[readId] = readCommand;
+    obj->m_readCommands.insert(std::make_pair(readId, readCommand));
 
     // Store our read command where our worker functions can access it.
     uv_work_t* readReq(new uv_work_t);
