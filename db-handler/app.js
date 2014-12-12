@@ -1,6 +1,10 @@
 // Main entry point for the pipeline database
 process.title = 'gh_db';
 
+process.on('uncaughtException', function(err) {
+    console.log('Caught at top level: ' + err);
+});
+
 var express = require('express')
   , app = express()
   , methodOverride = require('method-override')
