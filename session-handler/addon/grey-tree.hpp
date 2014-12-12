@@ -77,6 +77,51 @@ private:
             std::size_t level) const;
 };
 
+class GreyCluster
+{
+public:
+    GreyCluster(std::size_t depth, const BBox& bbox);
+
+    void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
+    void index();
+
+    std::size_t depth() const { return m_depth; }
+    BBox bbox() const { return m_bbox; }
+
+    std::size_t read(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema) const;
+
+    std::size_t read(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema,
+            const BBox& bbox) const;
+
+    // TODO UNCOMMENT
+//private:
+    std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
+    std::shared_ptr<pdal::QuadIndex> m_quadTree;
+    const std::size_t m_depth;
+    const BBox m_bbox;
+
+    std::size_t readDim(
+            unsigned char* buffer,
+            const DimInfo& dim,
+            const pdal::PointBuffer& pointBuffer,
+            const std::size_t index) const;
+};
+
+struct NodeInfo
+{
+    NodeInfo(const BBox& bbox, std::size_t depth, bool complete)
+        : complete(complete)
+        , cluster(new GreyCluster(depth, bbox))
+    { }
+
+    const bool complete;
+    std::shared_ptr<GreyCluster> cluster;
+};
+
 class IdTree
 {
 public:
@@ -86,26 +131,19 @@ public:
             std::size_t endLevel);
 
     void find(
-            std::vector<uint64_t>& results,
+            std::map<uint64_t, NodeInfo>& results,
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
-            std::size_t currentLevel) const;
+            std::size_t currentLevel,
+            BBox        currentBBox) const;
 
     void find(
-            std::vector<uint64_t>& completeResults,
-            std::vector<uint64_t>& partialResults,
+            std::map<uint64_t, NodeInfo>& results,
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
             const BBox& queryBBox,
             std::size_t currentLevel,
             BBox        currentBBox) const;
-
-    std::size_t info(
-            uint64_t id,
-            std::size_t offset,
-            BBox&       resultBBox,
-            std::size_t currentLevel,
-            BBox        currentBBox);
 
 private:
     const uint64_t id;
@@ -121,36 +159,24 @@ public:
     IdIndex(const GreyMeta& meta);
 
     void find(
-            std::vector<uint64_t>& completeResults,
-            std::vector<uint64_t>& partialResults,
+            std::map<uint64_t, NodeInfo>& results,
             std::size_t depthLevelBegin,
             std::size_t depthLevelEnd) const;
 
     void find(
-            std::vector<uint64_t>& completeResults,
-            std::vector<uint64_t>& partialResults,
+            std::map<uint64_t, NodeInfo>& results,
             std::size_t depthLevelBegin,
             std::size_t depthLevelEnd,
             BBox queryBBox) const;
 
 private:
     const std::size_t m_base;
-    const IdTree m_idTree;
     const BBox m_bbox;
-};
 
-class GreyCluster
-{
-public:
-    GreyCluster(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::size_t depthBegin);
-
-    bool indexed() const { return m_quadTree.get() != 0; }
-
-private:
-    std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
-    std::shared_ptr<pdal::QuadIndex> m_quadTree;
+    const IdTree nw;
+    const IdTree ne;
+    const IdTree sw;
+    const IdTree se;
 };
 
 class GreyReader
@@ -159,17 +185,21 @@ public:
     GreyReader(std::string pipelineId);
     ~GreyReader();
 
+    static bool exists(const std::string pipelineId);
+
     std::size_t getNumPoints() const            { return m_meta.numPoints;  }
     std::string getSchema() const               { return m_meta.schema;     }
     std::string getStats() const                { return m_meta.stats;      }
     std::string getSrs() const                  { return m_meta.srs;        }
     std::vector<std::size_t> getFills() const   { return m_meta.fills;      }
 
-    void read(
+    std::size_t read(
             std::vector<uint8_t>& buffer,
             const Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd);
+
+    const pdal::PointContext& pointContext() const { return m_pointContext; }
 
 private:
     sqlite3* m_db;

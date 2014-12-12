@@ -8,8 +8,6 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
 
-#include "pdal-session.hpp"
-
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
@@ -80,6 +78,8 @@ struct Schema
         return stride;
     }
 };
+
+class PdalSession;
 
 class ReadCommand
 {
