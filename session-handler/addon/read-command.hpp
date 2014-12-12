@@ -9,6 +9,7 @@
 #include <pdal/PointContext.hpp>
 
 #include "pdal-session.hpp"
+#include "pdal-bindings.hpp"
 
 void errorCallback(
         v8::Persistent<v8::Function> callback,
@@ -72,7 +73,7 @@ public:
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -95,7 +96,7 @@ public:
 
 protected:
     const std::shared_ptr<PdalSession> m_pdalSession;
-    std::map<std::string, ReadCommand*>& m_readCommands;
+    LockedMap<std::string, ReadCommand*>& m_readCommands;
     const std::string m_readId;
     const std::string m_host;
     const std::size_t m_port;
@@ -117,7 +118,7 @@ class ReadCommandUnindexed : public ReadCommand
 public:
     ReadCommandUnindexed(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -138,7 +139,7 @@ class ReadCommandPointRadius : public ReadCommand
 public:
     ReadCommandPointRadius(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -165,7 +166,7 @@ class ReadCommandQuadIndex : public ReadCommand
 public:
     ReadCommandQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -186,7 +187,7 @@ class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
 public:
     ReadCommandBoundedQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -213,7 +214,7 @@ class ReadCommandRastered : public ReadCommand
 public:
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -222,7 +223,7 @@ public:
 
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -243,7 +244,7 @@ class ReadCommandQuadLevel : public ReadCommandRastered
 public:
     ReadCommandQuadLevel(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -262,7 +263,7 @@ class ReadCommandFactory
 public:
     static ReadCommand* create(
             std::shared_ptr<PdalSession> pdalSession,
-            std::map<std::string, ReadCommand*>& readCommands,
+            LockedMap<std::string, ReadCommand*>& readCommands,
             std::string readId,
             const v8::Arguments& args);
 };
