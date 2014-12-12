@@ -8,19 +8,15 @@ export NUMTHREADS
 
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
-cmake   -G "Unix Makefiles" \
+git checkout 91c9d88101ebfc39463de9412d3589700d71518e
+cmake   -G "Unix Makefiles" . \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DWITH_GDAL=ON \
         -DWITH_ICONV=ON \
         -DWITH_GEOTIFF=ON \
         -DWITH_LASZIP=ON \
         -DWITH_LIBXML2=ON \
         -DWITH_PYTHON=ON \
-        -DWITH_SQLITE=ON \
-        -DWITH_P2G=ON \
-        -DWITH_HEXER=ON \
-        -DWITH_NITRO=OFF \
         -DWITH_TESTS=OFF
 
 make -j $NUMTHREADS
