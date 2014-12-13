@@ -52,8 +52,8 @@ config.web = {
     // This is not a public-facing port - haproxy will route to this port for
     // non-websocket connections.
     //
-    // IMPORTANT: This value must match the backend web port specified in
-    // frontend-proxy/haproxy.cfg.
+    // IMPORTANT: If a frontend proxy is used, this value must match the
+    // backend web port specified in frontend-proxy/haproxy.cfg.
     port: 8081,
 
     // If false, component will not run.
