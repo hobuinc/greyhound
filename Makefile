@@ -1,5 +1,5 @@
 STANDALONE?=""
-PROXY?="TRUE"
+PROXY?=TRUE
 COMPONENTS = gh_db gh_dist gh_sh gh_ws gh_web
 
 # Directories that need to be copied to the installation path.
