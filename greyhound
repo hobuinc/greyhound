@@ -2,7 +2,10 @@
 
 case $1 in
 start)
-    /etc/init.d/gh_fe start
+    if [ -e "/etc/init.d/gh_fe" ]
+    then
+        /etc/init.d/gh_fe start
+    fi
     /etc/init.d/gh_ws start
     /etc/init.d/gh_db start
     /etc/init.d/gh_dist start
@@ -15,6 +18,10 @@ start)
     fi
     ;;
 stop)
+    if [ -e "/etc/init.d/gh_fe" ]
+    then
+        /etc/init.d/gh_fe stop
+    fi
     /etc/init.d/gh_fe stop
     /etc/init.d/gh_ws stop
     /etc/init.d/gh_db stop
@@ -31,7 +38,10 @@ stop)
     ;;
 auto)
     # Add auto-launch services.
-    update-rc.d gh_fe defaults 95 05
+    if [ -e "/etc/init.d/gh_fe" ]
+    then
+        update-rc.d gh_fe defaults 95 05
+    fi
     update-rc.d gh_ws defaults 96 04
     update-rc.d gh_db defaults 96 04
     update-rc.d gh_dist defaults 96 04
@@ -45,7 +55,10 @@ auto)
     ;;
 rmauto)
     # Remove all auto-launch services.
-    update-rc.d -f gh_fe remove
+    if [ -e "/etc/init.d/gh_fe" ]
+    then
+        update-rc.d -f gh_fe remove
+    fi
     update-rc.d -f gh_ws remove
     update-rc.d -f gh_db remove
     update-rc.d -f gh_dist remove
