@@ -1,5 +1,6 @@
 STANDALONE?=""
-COMPONENTS = gh_fe gh_db gh_dist gh_sh gh_ws gh_web
+PROXY?="TRUE"
+COMPONENTS = gh_db gh_dist gh_sh gh_ws gh_web
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = common \
@@ -65,6 +66,10 @@ ifeq ($(STANDALONE),TRUE)
 	@echo Using standalone operation.
 	cp scripts/init.d/gh_mongo /etc/init.d/
 endif
+ifeq ($(PROXY),TRUE)
+	@echo Using frontend proxy
+	cp scripts/init.d/gh_fe /etc/init.d/
+endif
 #
 # Set up Greyhound component source directory.
 	mkdir -p /var/greyhound/
@@ -97,6 +102,7 @@ uninstall:
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
 	rm -f /etc/init.d/gh_mongo
+	rm -f /etc/init.d/gh_fe
 #
 # Remove launcher utility.
 	rm -f /usr/bin/greyhound
