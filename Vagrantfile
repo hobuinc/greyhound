@@ -83,6 +83,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
       config.vm.provision :shell, :inline => pkg_cmd
 
+      config.vm.provision :shell, :inline => "npm update npm -g; echo npm -v; npm cache clean;"
+
       config.vm.provision :shell, :inline => "echo Running startup scripts;"
       scripts = [
           "startup.sh",
