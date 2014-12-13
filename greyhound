@@ -22,7 +22,6 @@ stop)
     then
         /etc/init.d/gh_fe stop
     fi
-    /etc/init.d/gh_fe stop
     /etc/init.d/gh_ws stop
     /etc/init.d/gh_db stop
     /etc/init.d/gh_dist stop
