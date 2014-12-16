@@ -15,9 +15,12 @@ void PdalSession::initialize(
     m_pipeline = pipeline;
 
     // Try to awaken from serialized source.  If unsuccessful, initialize a
-    // live source.
-    if (!awaken() && !m_liveDataSource)
+    // live source.  For pipeline validation only, this will be called with an
+    // empty pipelineId since it does not exist yet.  In this case, always
+    // perform live initialization.
+    if (!pipelineId.size() || (!awaken() && !m_liveDataSource))
     {
+        std::cout << "Creating LIVE source of " << pipelineId << std::endl;
         m_liveDataSource.reset(
                 new LiveDataSource(pipelineId, pipeline, execute));
     }
@@ -129,8 +132,17 @@ bool PdalSession::awaken()
 
         if (m_serialDataSource)
         {
+            std::cout << "Created serial source " << m_pipelineId << std::endl;
             awoken = true;
         }
+        else
+        {
+            std::cout << "FAILED serial source " << m_pipelineId << std::endl;
+        }
+    }
+    else if (m_serialDataSource)
+    {
+        awoken = true;
     }
 
     return awoken;
