@@ -285,10 +285,10 @@ void GreyWriter::build(
 
     if (++level <= m_meta.fills.size())
     {
-        build(results, nwBounds, level, neId);
+        build(results, nwBounds, level, nwId);
         build(results, neBounds, level, neId);
-        build(results, swBounds, level, neId);
-        build(results, seBounds, level, neId);
+        build(results, swBounds, level, swId);
+        build(results, seBounds, level, seId);
     }
 }
 
@@ -423,18 +423,17 @@ std::size_t GreyReader::read(
 {
     std::map<uint64_t, NodeInfo> results;
 
-    std::cout << "finding" << std::endl;
     m_idIndex->find(
             results,
             depthBegin,
             depthEnd);
 
-    std::cout << "missingBuild" << std::endl;
+    std::size_t missingNo(0);
     std::ostringstream missingIds;
     m_cacheMutex.lock();
     try
     {
-        for (auto result : results)
+        for (auto& result : results)
         {
             const uint64_t id(result.first);
 
@@ -442,9 +441,6 @@ std::size_t GreyReader::read(
             if (cacheEntry != m_cache.end())
             {
                 std::shared_ptr<GreyCluster> cluster(cacheEntry->second);
-                std::cout << "checking..." << std::endl;
-                if (!cluster->m_pointBuffer) std::cout << "uh oh" << std::endl;
-                std::cout << "checked!" << std::endl;
 
                 // We already have this ID/cluster cached.  Point to it in our
                 // results list, and index it if necessary.
@@ -452,7 +448,6 @@ std::size_t GreyReader::read(
 
                 if (!result.second.complete)
                 {
-                    std::cout << "Indexing existing entry" << std::endl;
                     cluster->index();
                 }
             }
@@ -462,6 +457,7 @@ std::size_t GreyReader::read(
                 // the serialized data file.
                 if (missingIds.str().size()) missingIds << ",";
                 missingIds << id;
+                ++missingNo;
             }
         }
     }
@@ -473,78 +469,76 @@ std::size_t GreyReader::read(
 
     m_cacheMutex.unlock();
 
-    std::cout << "M: " << missingIds.str() << std::endl;
+    std::cout << "Selecting " << missingNo << " IDs." << std::endl;
 
-    const std::string sqlDataQuery(
-            "SELECT id, data FROM clusters WHERE id IN (" +
-            missingIds.str() +
-            ")");
-
-    std::cout << "prep" << std::endl;
-    sqlite3_stmt* stmtData(0);
-    sqlite3_prepare_v2(
-            m_db,
-            sqlDataQuery.c_str(),
-            sqlDataQuery.size() + 1,
-            &stmtData,
-            0);
-
-    if (!stmtData)
+    // If there are any IDs required for this query that we don't already have
+    // in our cache, query them now.
+    if (missingIds.str().size())
     {
-        throw std::runtime_error("Could not prepare SELECT stmt - data");
-    }
+        const std::string sqlDataQuery(
+                "SELECT id, data FROM clusters WHERE id IN (" +
+                missingIds.str() +
+                ")");
 
-    std::cout << "step" << std::endl;
-    while (sqlite3_step(stmtData) == SQLITE_ROW)
-    {
-        const int id(sqlite3_column_int64(stmtData, 0));
+        sqlite3_stmt* stmtData(0);
+        sqlite3_prepare_v2(
+                m_db,
+                sqlDataQuery.c_str(),
+                sqlDataQuery.size() + 1,
+                &stmtData,
+                0);
 
-        const char* rawData(
-                reinterpret_cast<const char*>(
-                    sqlite3_column_blob(stmtData, 1)));
-        const std::size_t rawBytes(sqlite3_column_bytes(stmtData, 1));
-
-        std::vector<char> data(rawBytes);
-        std::memcpy(data.data(), rawData, rawBytes);
-
-        // Construct a pdal::PointBuffer from our binary data.
-        pdal::Charbuf charbuf(data);
-        std::istream stream(&charbuf);
-        std::shared_ptr<pdal::PointBuffer> pointBuffer(
-                new pdal::PointBuffer(
-                    stream,
-                    m_pointContext,
-                    0,
-                    data.size() / m_pointContext.pointSize()));
-
-        auto it(results.find(id));
-        if (it != results.end())
+        if (!stmtData)
         {
-            // Perform indexing if necessary.
-            it->second.cluster->populate(pointBuffer, !it->second.complete);
+            throw std::runtime_error("Could not prepare SELECT stmt - data");
         }
-    }
-    if (!m_cache[3]->m_pointBuffer) std::cout << "uh oh2" << std::endl;
 
-    sqlite3_finalize(stmtData);
+        while (sqlite3_step(stmtData) == SQLITE_ROW)
+        {
+            const int id(sqlite3_column_int64(stmtData, 0));
+
+            const char* rawData(
+                    reinterpret_cast<const char*>(
+                        sqlite3_column_blob(stmtData, 1)));
+            const std::size_t rawBytes(sqlite3_column_bytes(stmtData, 1));
+
+            std::vector<char> data(rawBytes);
+            std::memcpy(data.data(), rawData, rawBytes);
+
+            // Construct a pdal::PointBuffer from our binary data.
+            pdal::Charbuf charbuf(data);
+            std::istream stream(&charbuf);
+            std::shared_ptr<pdal::PointBuffer> pointBuffer(
+                    new pdal::PointBuffer(
+                        stream,
+                        m_pointContext,
+                        0,
+                        data.size() / m_pointContext.pointSize()));
+
+            auto it(results.find(id));
+            if (it != results.end())
+            {
+                // Perform indexing if necessary.
+                it->second.cluster->populate(pointBuffer, !it->second.complete);
+            }
+        }
+
+        sqlite3_finalize(stmtData);
+    }
+
     std::size_t points(0);
 
-    std::cout << "results" << std::endl;
     m_cacheMutex.lock();
     try
     {
-        for (auto it : results)
+        for (auto& it : results)
         {
-            std::cout << "insert" << std::endl;
             // Update our actual cache with new entries from the results,
             // old entries will be unchanged by this call.
             const std::shared_ptr<GreyCluster> cluster(it.second.cluster);
             if (cluster)
             {
-                auto ret = m_cache.insert(std::make_pair(it.first, cluster));
-                if (ret.second) std::cout << "INSERTED!" << std::endl;
-
-                std::cout << "read" << std::endl;
+                m_cache.insert(std::make_pair(it.first, cluster));
                 points += cluster->read(buffer, schema);
             }
         }
@@ -563,7 +557,7 @@ IdTree::IdTree(
         uint64_t id,
         std::size_t currentLevel,
         std::size_t endLevel)
-    : id(id)
+    : m_id(id)
     , nw()
     , ne()
     , sw()
@@ -595,7 +589,7 @@ void IdTree::find(
     {
         results.insert(
                 std::make_pair(
-                    id,
+                    m_id,
                     NodeInfo(currentBBox, currentLevel, true)));
     }
 
@@ -649,7 +643,7 @@ void IdTree::find(
         {
             results.insert(
                     std::make_pair(
-                        id,
+                        m_id,
                         NodeInfo(
                             currentBBox,
                             currentLevel,
@@ -822,12 +816,6 @@ void GreyCluster::populate(
 
 void GreyCluster::index()
 {
-    if (!m_quadTree) std::cout << "indexing NOW" << std::endl;
-    else std::cout << "already indexed - not repeating" << std::endl;
-
-    if (!m_pointBuffer) std::cout << "NO PB in INDEX" << std::endl;
-    else std::cout << "PB looks ok in INDEX..." << std::endl;
-
     if (!m_quadTree)
     {
         m_quadTree.reset(
@@ -841,17 +829,13 @@ std::size_t GreyCluster::read(
         std::vector<uint8_t>& buffer,
         const Schema& schema) const
 {
-    std::cout << "in read" << std::endl;
     const std::size_t initialOffset(buffer.size());
 
-    std::cout << "numPoints" << std::endl;
-    if (!m_pointBuffer) std::cout << "NO POINTBUFFER!" << std::endl;
     const std::size_t numPoints(m_pointBuffer->size());
     buffer.resize(buffer.size() + numPoints * schema.stride());
 
     uint8_t* pos = buffer.data() + initialOffset;
 
-    std::cout << "dims" << std::endl;
     for (std::size_t i(0); i < m_pointBuffer->size(); ++i)
     {
         for (const auto& dim : schema.dims)
@@ -860,7 +844,6 @@ std::size_t GreyCluster::read(
         }
     }
 
-    std::cout << "done" << std::endl;
     return numPoints;
 }
 

@@ -146,7 +146,7 @@ public:
             BBox        currentBBox) const;
 
 private:
-    const uint64_t id;
+    const uint64_t m_id;
     std::unique_ptr<IdTree> nw;
     std::unique_ptr<IdTree> ne;
     std::unique_ptr<IdTree> sw;
