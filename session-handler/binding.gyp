@@ -10,7 +10,9 @@
                 './addon/once.cpp',
                 './addon/pdal-index.cpp',
                 './addon/live-data-source.cpp',
-                './addon/grey-tree.cpp'
+                './addon/grey-writer.cpp',
+                './addon/grey-reader.cpp',
+                './addon/grey-common.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
