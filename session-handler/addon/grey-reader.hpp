@@ -11,7 +11,7 @@
 class GreyCluster
 {
 public:
-    GreyCluster(std::size_t depth, const BBox& bbox);
+    GreyCluster(std::size_t depth, const BBox& bbox, bool isBase);
 
     void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
     void index();
@@ -19,15 +19,16 @@ public:
     std::size_t depth() const { return m_depth; }
     BBox bbox() const { return m_bbox; }
 
-    // Read entire dataset.
+    // Read the indexed dataset within the specified depths.  If this cluster
+    // is not the base cluster, then this cluster represents a single depth
+    // level, in which case the entire buffer is read.
     std::size_t read(
             std::vector<uint8_t>& buffer,
-            const Schema& schema) const;
+            const Schema& schema,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
 
-    // Read the indexed dataset within the specified bounds and depths.  Note
-    // that for the base cluster, the depths represent actual quad-tree depths.
-    // For clusters other than the base, always use [0, 0] because these
-    // clusters represent a single quad-tree level.
+    // Read the indexed dataset within the specified bounds and depths.
     std::size_t read(
             std::vector<uint8_t>& buffer,
             const Schema& schema,
@@ -35,33 +36,40 @@ public:
             std::size_t depthBegin = 0,
             std::size_t depthEnd = 0) const;
 
-    // Read indexed dataset.  Note that aside from the cluster with an ID of
-    // baseId, all clusters represent a single level of the aggregated tree.
-    // This function is ONLY useful for the base cluster.
-    std::size_t readBase(
+    // Read the indexed dataset into a rasterized output.
+    std::size_t read(
             std::vector<uint8_t>& buffer,
             const Schema& schema,
-            std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t stride,
+            std::size_t rasterize,
+            const RasterMeta& rasterMeta) const;
 
 private:
     std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
     std::shared_ptr<pdal::QuadIndex> m_quadTree;
     const std::size_t m_depth;
     const BBox m_bbox;
+    const bool m_isBase;
+
+    void readRasteredPoint(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema,
+            std::size_t stride,
+            const RasterMeta& rasterMeta,
+            std::size_t index) const;
 
     std::size_t readDim(
             unsigned char* buffer,
             const DimInfo& dim,
             const pdal::PointBuffer& pointBuffer,
-            const std::size_t index) const;
+            std::size_t index) const;
 };
 
 struct NodeInfo
 {
-    NodeInfo(const BBox& bbox, std::size_t depth, bool complete)
+    NodeInfo(const BBox& bbox, std::size_t depth, bool isBase, bool complete)
         : complete(complete)
-        , cluster(new GreyCluster(depth, bbox))
+        , cluster(new GreyCluster(depth, bbox, isBase))
     { }
 
     const bool complete;
@@ -157,6 +165,12 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    std::size_t read(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema,
+            std::size_t rasterize,
+            RasterMeta& rasterMeta);
+
     const pdal::PointContext& pointContext() const { return m_pointContext; }
 
 private:
@@ -176,6 +190,8 @@ private:
     //          1a - Quad-index these nodes if it's necessary for this query.
     //      2 - Return a comma-separated string of the node IDs that are not
     //              yet present in the cache so they may be queried.
+    //
+    // This function reads from the cache, so it locks the cache mutex.
     std::string processNodeInfo(NodeInfoMap& nodeInfoMap);
 
     // Query cluster data from the database for node IDs listed in the comma-
@@ -187,6 +203,9 @@ private:
     void queryClusters(
             NodeInfoMap& nodeInfoMap,
             const std::string& missingIds) const;
+
+    // Write node info to the cache safely (with mutex lock).
+    void addToCache(const NodeInfoMap& nodeInfoMap);
 
     // Not implemented.
     GreyReader(const GreyReader&);

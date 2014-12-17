@@ -1,21 +1,74 @@
-#include <cmath>
-
 #include <pdal/PointBuffer.hpp>
 #include <pdal/XMLSchema.hpp>
 #include <pdal/QuadIndex.hpp>
+#include <pdal/Dimension.hpp>
 #include <pdal/Charbuf.hpp>
+#include <pdal/Utils.hpp>
 
 #include "grey-reader.hpp"
 
 namespace
 {
+    const std::size_t invalidIndex(std::numeric_limits<std::size_t>::max());
     const std::string sqlQueryMeta(
             "SELECT "
                 "version, base, pointContext, xMin, yMin, xMax, yMax, "
                 "numPoints, schema, stats, srs, fills "
             "FROM meta");
-}
 
+    // Returns the number of points in the raster.
+    std::size_t initRaster(
+            std::size_t rasterize,
+            RasterMeta& rasterMeta,
+            const BBox& bbox)
+    {
+        const std::size_t exp(std::pow(2, rasterize));
+        const double xWidth(bbox.xMax - bbox.xMin);
+        const double yWidth(bbox.yMax - bbox.yMin);
+
+        rasterMeta.xStep =  xWidth / exp;
+        rasterMeta.yStep =  yWidth / exp;
+        rasterMeta.xBegin = bbox.xMin + (rasterMeta.xStep / 2);
+        rasterMeta.yBegin = bbox.yMin + (rasterMeta.yStep / 2);
+        rasterMeta.xEnd =   bbox.xMax + (rasterMeta.xStep / 2);
+        rasterMeta.yEnd =   bbox.yMax + (rasterMeta.yStep / 2);
+
+        return exp * exp;
+    }
+
+    std::size_t getRasterIndex(
+            const double x,
+            const double y,
+            const RasterMeta& rasterMeta)
+    {
+        if (
+                x >= rasterMeta.xBegin &&
+                y >= rasterMeta.yBegin &&
+                x < rasterMeta.xEnd - rasterMeta.xStep &&
+                y < rasterMeta.yEnd - rasterMeta.yStep)
+        {
+            const std::size_t xOffset(pdal::Utils::sround(
+                    (x - rasterMeta.xBegin) / rasterMeta.xStep));
+            const std::size_t yOffset(pdal::Utils::sround(
+                    (y - rasterMeta.yBegin) / rasterMeta.yStep));
+
+            return pdal::Utils::sround(
+                    yOffset * (rasterMeta.xEnd - rasterMeta.xBegin) /
+                        rasterMeta.xStep + xOffset);
+        }
+        else
+        {
+            return invalidIndex;
+        }
+    }
+
+    bool rasterOmit(pdal::Dimension::Id::Enum id)
+    {
+        // These Dimensions are not explicitly placed in the output buffer
+        // for rasterized requests.
+        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
+    }
+}
 
 GreyReader::GreyReader(const std::string pipelineId)
     : m_db(0)
@@ -49,7 +102,6 @@ GreyReader::GreyReader(const std::string pipelineId)
     {
         m_pointContext.registerOrAssignDim(dim->m_name, dim->m_type);
     }
-
 }
 
 GreyReader::~GreyReader()
@@ -134,58 +186,25 @@ std::size_t GreyReader::read(
         std::size_t depthEnd)
 {
     NodeInfoMap results;
-
-    m_idIndex->find(
-            results,
-            depthBegin,
-            depthEnd);
+    m_idIndex->find(results, depthBegin, depthEnd);
 
     const std::string missingIds(processNodeInfo(results));
     queryClusters(results, missingIds);
 
     std::size_t points(0);
 
-    m_cacheMutex.lock();
-    try
+    for (auto& entry : results)
     {
-        // If the base cluster is within the query range, we need to treat it
-        // a bit differently from the others.  Other clusters each represent
-        // only a single depth level, while the base cluster contains levels
-        // from [0, base).
-        auto baseIt(results.find(baseId));
-        if (baseIt != results.end())
+        // Update our actual cache with new entries from the results,
+        // old entries will be unchanged by this call.  Then read the data.
+        const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+        if (cluster)
         {
-            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
-            if (base)
-            {
-                m_cache.insert(std::make_pair(baseIt->first, base));
-                points += base->readBase(buffer, schema, depthBegin, depthEnd);
-                results.erase(baseIt);
-            }
+            points += cluster->read(buffer, schema, depthBegin, depthEnd);
         }
+    }
 
-        for (auto& entry : results)
-        {
-            // Update our actual cache with new entries from the results,
-            // old entries will be unchanged by this call.  Then read the data.
-            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
-            if (cluster)
-            {
-                // This query only gets full levels of the tree, and we have
-                // already dealt with the base cluster.  Therefore, every
-                // remaining cluster falls within the query range, so we don't
-                // need to index them.
-                m_cache.insert(std::make_pair(entry.first, cluster));
-                points += cluster->read(buffer, schema);
-            }
-        }
-    }
-    catch (...)
-    {
-        m_cacheMutex.unlock();
-        throw std::runtime_error("Error occurred during cache insertion.");
-    }
-    m_cacheMutex.unlock();
+    addToCache(results);
 
     return points;
 }
@@ -203,63 +222,68 @@ std::size_t GreyReader::read(
     const BBox bbox(xMin, yMin, xMax, yMax);
 
     NodeInfoMap results;
-
-    m_idIndex->find(
-            results,
-            depthBegin,
-            depthEnd,
-            bbox);
+    m_idIndex->find(results, depthBegin, depthEnd, bbox);
 
     const std::string missingIds(processNodeInfo(results));
     queryClusters(results, missingIds);
 
     std::size_t points(0);
 
-    m_cacheMutex.lock();
-    try
+    for (auto& entry : results)
     {
-        // If the base cluster is within the query range, we need to treat it
-        // a bit differently from the others.  Other clusters each represent
-        // only a single depth level, while the base cluster contains levels
-        // from [0, base).
-        auto baseIt(results.find(baseId));
-        if (baseIt != results.end())
+        // Update our actual cache with new entries from the results,
+        // old entries will be unchanged by this call.  Then read the data.
+        const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+        if (cluster)
         {
-            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
-            if (base)
-            {
-                m_cache.insert(std::make_pair(baseIt->first, base));
-                points += base->read(
-                        buffer,
-                        schema,
-                        bbox,
-                        depthBegin,
-                        depthEnd);
-                results.erase(baseIt);
-            }
+            points += cluster->read(
+                    buffer,
+                    schema,
+                    bbox,
+                    depthBegin,
+                    depthEnd);
         }
+    }
 
-        for (auto& entry : results)
+    addToCache(results);
+
+    return points;
+}
+
+std::size_t GreyReader::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        std::size_t rasterize,
+        RasterMeta& rasterMeta)
+{
+    NodeInfoMap results;
+    m_idIndex->find(results, rasterize, rasterize + 1);
+
+    const std::string missingIds(processNodeInfo(results));
+    queryClusters(results, missingIds);
+
+    const std::size_t points(initRaster(rasterize, rasterMeta, m_meta.bbox));
+    std::size_t stride(schema.stride() + 1);
+    for (auto dim : schema.dims)
+    {
+        if (rasterOmit(dim.id))
         {
-            // Update our actual cache with new entries from the results,
-            // old entries will be unchanged by this call.  Then read the data.
-            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
-            if (cluster)
-            {
-                // Query each cluster for its full depth within the bbox range
-                // since each cluster represents a single level of the
-                // aggregated quad-tree.
-                m_cache.insert(std::make_pair(entry.first, cluster));
-                points += cluster->read(buffer, schema, bbox);
-            }
+            stride -= dim.size;
         }
     }
-    catch (...)
+
+    buffer.resize(points * stride, 0);
+
+    for (auto& entry : results)
     {
-        m_cacheMutex.unlock();
-        throw std::runtime_error("Error occurred during cache insertion.");
+        const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+        if (cluster)
+        {
+            cluster->read(buffer, schema, stride, rasterize, rasterMeta);
+        }
     }
-    m_cacheMutex.unlock();
+
+    addToCache(results);
 
     return points;
 }
@@ -366,6 +390,28 @@ void GreyReader::queryClusters(
     }
 }
 
+void GreyReader::addToCache(const NodeInfoMap& nodeInfoMap)
+{
+    m_cacheMutex.lock();
+    try
+    {
+        for (auto& entry : nodeInfoMap)
+        {
+            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+            if (cluster)
+            {
+                m_cache.insert(std::make_pair(entry.first, cluster));
+            }
+        }
+    }
+    catch (...)
+    {
+        m_cacheMutex.unlock();
+        throw std::runtime_error("Error occurred during cache insertion.");
+    }
+    m_cacheMutex.unlock();
+}
+
 IdTree::IdTree(
         uint64_t id,
         std::size_t currentLevel,
@@ -392,7 +438,7 @@ IdTree::IdTree(
 }
 
 void IdTree::find(
-        std::map<uint64_t, NodeInfo>& results,
+        NodeInfoMap& results,
         const std::size_t queryLevelBegin,
         const std::size_t queryLevelEnd,
         const std::size_t currentLevel,
@@ -403,7 +449,7 @@ void IdTree::find(
         results.insert(
                 std::make_pair(
                     m_id,
-                    NodeInfo(currentBBox, currentLevel, true)));
+                    NodeInfo(currentBBox, currentLevel, m_id == baseId, true)));
     }
 
     std::size_t nextLevel(currentLevel + 1);
@@ -443,7 +489,7 @@ void IdTree::find(
 }
 
 void IdTree::find(
-        std::map<uint64_t, NodeInfo>& results,
+        NodeInfoMap& results,
         const std::size_t   queryLevelBegin,
         const std::size_t   queryLevelEnd,
         const BBox&         queryBBox,
@@ -460,6 +506,7 @@ void IdTree::find(
                         NodeInfo(
                             currentBBox,
                             currentLevel,
+                            m_id == baseId,
                             queryBBox.contains(currentBBox))));
         }
 
@@ -516,7 +563,7 @@ IdIndex::IdIndex(const GreyMeta& meta)
 { }
 
 void IdIndex::find(
-        std::map<uint64_t, NodeInfo>& results,
+        NodeInfoMap& results,
         std::size_t depthBegin,
         std::size_t depthEnd) const
 {
@@ -524,7 +571,8 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, 0, false)));
+        results.insert(
+                std::make_pair(baseId, NodeInfo(m_bbox, 0, true, false)));
     }
 
     if (depthEnd >= m_base)
@@ -560,7 +608,7 @@ void IdIndex::find(
 }
 
 void IdIndex::find(
-        std::map<uint64_t, NodeInfo>& results,
+        NodeInfoMap& results,
         std::size_t depthBegin,
         std::size_t depthEnd,
         BBox queryBBox) const
@@ -569,7 +617,8 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, 0, false)));
+        results.insert(
+                std::make_pair(baseId, NodeInfo(m_bbox, 0, true, false)));
     }
 
     if (depthEnd >= m_base)
@@ -608,11 +657,12 @@ void IdIndex::find(
     }
 }
 
-GreyCluster::GreyCluster(std::size_t depth, const BBox& bbox)
+GreyCluster::GreyCluster(std::size_t depth, const BBox& bbox, bool isBase)
     : m_pointBuffer(0)
     , m_quadTree(0)
     , m_depth(depth)
     , m_bbox(bbox)
+    , m_isBase(isBase)
 { }
 
 void GreyCluster::populate(
@@ -640,50 +690,49 @@ void GreyCluster::index()
 
 std::size_t GreyCluster::read(
         std::vector<uint8_t>& buffer,
-        const Schema& schema) const
-{
-    const std::size_t initialOffset(buffer.size());
-
-    const std::size_t numPoints(m_pointBuffer->size());
-    buffer.resize(buffer.size() + numPoints * schema.stride());
-
-    uint8_t* pos = buffer.data() + initialOffset;
-
-    for (std::size_t i(0); i < m_pointBuffer->size(); ++i)
-    {
-        for (const auto& dim : schema.dims)
-        {
-            pos += readDim(pos, dim, *m_pointBuffer.get(), i);
-        }
-    }
-
-    return numPoints;
-}
-
-std::size_t GreyCluster::readBase(
-        std::vector<uint8_t>& buffer,
         const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
     std::size_t numPoints(0);
+    const std::size_t initialOffset(buffer.size());
 
-    if (m_quadTree)
+    if (!m_isBase)
     {
-        const std::size_t initialOffset(buffer.size());
-        const std::vector<std::size_t> indexList(
-                m_quadTree->getPoints(depthBegin, depthEnd));
-
-        numPoints = indexList.size();
+        // If this is not the base cluster, then this query reads all points
+        // from this cluster without caring about indexing.
+        numPoints = m_pointBuffer->size();
         buffer.resize(buffer.size() + numPoints * schema.stride());
 
         uint8_t* pos = buffer.data() + initialOffset;
 
-        for (const std::size_t i : indexList)
+        for (std::size_t i(0); i < m_pointBuffer->size(); ++i)
         {
             for (const auto& dim : schema.dims)
             {
                 pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+            }
+        }
+    }
+    else
+    {
+        // For the base cluster, query for the specified depth levels.
+        if (m_quadTree)
+        {
+            const std::vector<std::size_t> indexList(
+                    m_quadTree->getPoints(depthBegin, depthEnd));
+
+            numPoints = indexList.size();
+            buffer.resize(buffer.size() + numPoints * schema.stride());
+
+            uint8_t* pos = buffer.data() + initialOffset;
+
+            for (const std::size_t i : indexList)
+            {
+                for (const auto& dim : schema.dims)
+                {
+                    pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+                }
             }
         }
     }
@@ -695,10 +744,18 @@ std::size_t GreyCluster::read(
         std::vector<uint8_t>& buffer,
         const Schema& schema,
         const BBox& bbox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd) const
+        std::size_t depthBegin,
+        std::size_t depthEnd) const
 {
     std::size_t numPoints(0);
+
+    if (!m_isBase)
+    {
+        // If this is not the base cluster, then this cluster represents a
+        // single depth level, so query the whole tree for this BBox.
+        depthBegin = 0;
+        depthEnd   = 0;
+    }
 
     if (m_quadTree)
     {
@@ -727,6 +784,74 @@ std::size_t GreyCluster::read(
     }
 
     return numPoints;
+}
+
+std::size_t GreyCluster::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        const std::size_t stride,
+        std::size_t rasterize,
+        const RasterMeta& rasterMeta) const
+{
+    std::size_t numPoints(0);
+
+    if (!m_isBase)
+    {
+        // If this is not the base cluster, then this query reads all points
+        // from this cluster without caring about indexing.
+        numPoints = m_pointBuffer->size();
+
+        for (std::size_t i(0); i < numPoints; ++i)
+        {
+            readRasteredPoint(buffer, schema, stride, rasterMeta, i);
+        }
+    }
+    else
+    {
+        // For the base cluster, query for the specified depth level.
+        if (m_quadTree)
+        {
+            const std::vector<std::size_t> indexList(
+                    m_quadTree->getPoints(rasterize, rasterize + 1));
+
+            numPoints = indexList.size();
+
+            for (const std::size_t i : indexList)
+            {
+                readRasteredPoint(buffer, schema, stride, rasterMeta, i);
+            }
+        }
+    }
+
+    return numPoints;
+}
+
+void GreyCluster::readRasteredPoint(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        const std::size_t stride,
+        const RasterMeta& rasterMeta,
+        const std::size_t i) const
+{
+    const std::size_t rasterIndex(getRasterIndex(
+                m_pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i),
+                m_pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i),
+                rasterMeta));
+
+    if (rasterIndex != invalidIndex)
+    {
+        uint8_t* pos(buffer.data() + rasterIndex * stride);
+        std::fill(pos, pos + 1, 1);
+        ++pos;
+
+        for (const auto& dim : schema.dims)
+        {
+            if (!rasterOmit(dim.id))
+            {
+                pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+            }
+        }
+    }
 }
 
 std::size_t GreyCluster::readDim(

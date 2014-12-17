@@ -164,7 +164,7 @@ void LiveDataSource::serialize()
 
         GreyMeta meta;
         meta.pointContextXml = writer.getXML();
-        meta.base = 8;  // TODO make configurable.
+        meta.base = 8;
         quadIndex.getBounds(
                 meta.bbox.xMin,
                 meta.bbox.yMin,
@@ -178,9 +178,6 @@ void LiveDataSource::serialize()
 
         GreyWriter greyWriter(quadIndex, meta);
         greyWriter.write(m_pipelineId + ".grey"); // TODO Path.
-
-        // TODO Remove - temporary testing.
-        GreyReader greyReader(m_pipelineId);
     });
 }
 
