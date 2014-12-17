@@ -20,7 +20,9 @@ void PdalSession::initialize(
     // perform live initialization.
     if (!pipelineId.size() || (!awaken() && !m_liveDataSource))
     {
-        std::cout << "Creating LIVE source of " << pipelineId << std::endl;
+        if (pipelineId.size())
+            std::cout << "Creating LIVE source of " << pipelineId << std::endl;
+
         m_liveDataSource.reset(
                 new LiveDataSource(pipelineId, pipeline, execute));
     }
@@ -232,14 +234,11 @@ std::size_t PdalSession::read(
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
-    // TODO
-    /*
     if (m_serialDataSource)
     {
         return m_serialDataSource->read(buffer, schema, rasterize, rasterMeta);
     }
-    else */
-    if (m_liveDataSource)
+    else if (m_liveDataSource)
     {
         return m_liveDataSource->read(buffer, schema, rasterize, rasterMeta);
     }
