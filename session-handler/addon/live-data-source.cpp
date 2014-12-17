@@ -15,7 +15,9 @@
 
 #include "read-command.hpp"
 #include "live-data-source.hpp"
-#include "grey-tree.hpp"
+#include "grey-common.hpp"
+#include "grey-reader.hpp"
+#include "grey-writer.hpp"
 
 namespace
 {
@@ -231,7 +233,6 @@ std::size_t LiveDataSource::read(
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-    serialize(); // TODO
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
             xMin,
@@ -252,7 +253,6 @@ std::size_t LiveDataSource::read(
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-    serialize(); // TODO
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
             depthBegin,
@@ -269,7 +269,6 @@ std::size_t LiveDataSource::read(
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-    serialize(); // TODO
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
             rasterize,

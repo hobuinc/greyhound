@@ -5,77 +5,8 @@
 
 #include <sqlite3.h>
 
-#include <pdal/QuadIndex.hpp>
-#include <pdal/Bounds.hpp>
-
+#include "grey-common.hpp"
 #include "read-command.hpp"
-
-struct BBox
-{
-    BBox();
-    BBox(const BBox& other);
-    BBox(double xMin, double yMin, double xMax, double yMax);
-    BBox(pdal::BOX3D bbox);
-
-    double xMin;
-    double yMin;
-    double xMax;
-    double yMax;
-
-    double xMid() const { return xMin + (xMax - xMin) / 2.0; }
-    double yMid() const { return yMin + (yMax - yMin) / 2.0; }
-
-    bool overlaps(const BBox& other) const;
-    bool contains(const BBox& other) const;
-
-    double width() const  { return xMax - xMin; }
-    double height() const { return yMax - yMin; }
-
-    BBox getNw() const { return BBox(xMin, yMid(), xMid(), yMax); }
-    BBox getNe() const { return BBox(xMid(), yMid(), xMax, yMax); }
-    BBox getSw() const { return BBox(xMin, yMin, xMid(), yMid()); }
-    BBox getSe() const { return BBox(xMid(), yMin, xMax, yMid()); }
-};
-
-struct GreyMeta
-{
-    std::string version;
-    std::size_t base;
-    std::string pointContextXml;
-    BBox bbox;
-    std::size_t numPoints;
-    std::string schema;
-    std::string stats;
-    std::string srs;
-    std::vector<std::size_t> fills;
-};
-
-class GreyWriter
-{
-public:
-    GreyWriter(const pdal::QuadIndex& quadIndex, GreyMeta meta);
-
-    void write(std::string filename) const;
-
-private:
-    const GreyMeta m_meta;
-    const pdal::QuadIndex& m_quadIndex;
-
-    void writeMeta(sqlite3* db) const;
-    void writeData(
-            sqlite3* db,
-            const std::map<uint64_t, std::vector<std::size_t>>& clusters) const;
-
-    void build(
-            std::map<uint64_t, std::vector<std::size_t>>& results,
-            const BBox& bbox,
-            std::size_t level,
-            uint64_t id) const;
-
-    std::vector<std::size_t> getPoints(
-            const BBox& bbox,
-            std::size_t level) const;
-};
 
 class GreyCluster
 {
@@ -97,8 +28,13 @@ public:
             const Schema& schema,
             const BBox& bbox) const;
 
-    // TODO UNCOMMENT
-//private:
+    std::size_t readBase(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
+
+private:
     std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
     std::shared_ptr<pdal::QuadIndex> m_quadTree;
     const std::size_t m_depth;

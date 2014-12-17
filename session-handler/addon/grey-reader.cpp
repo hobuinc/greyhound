@@ -1,67 +1,11 @@
 #include <cmath>
 
 #include <pdal/PointBuffer.hpp>
-#include <pdal/Charbuf.hpp>
 #include <pdal/XMLSchema.hpp>
+#include <pdal/QuadIndex.hpp>
+#include <pdal/Charbuf.hpp>
 
-#include "grey-tree.hpp"
-
-namespace
-{
-    const std::string greyVersion("1.0");
-
-    const uint64_t nwFlag(0);
-    const uint64_t neFlag(1);
-    const uint64_t swFlag(2);
-    const uint64_t seFlag(3);
-
-    // Must be non-zero to distinguish between various levels of NW-only paths.
-    const uint64_t baseId(3);
-}
-
-namespace
-{
-    const std::string sqlCreateTableMeta(
-            "CREATE TABLE meta("
-                "id             INT PRIMARY KEY,"
-                "version        TEXT,"
-                "base           INT,"
-                "pointContext   TEXT,"
-                "xMin           REAL,"
-                "yMin           REAL,"
-                "xMax           REAL,"
-                "yMax           REAL,"
-                "numPoints      INT,"
-                "schema         TEXT,"
-                "stats          TEXT,"
-                "srs            TEXT,"
-                "fills          BLOB)");
-
-    const std::string sqlPrepMeta(
-            "INSERT INTO meta VALUES "
-                "(@id, @version, @base, @pointContext,"
-                " @xMin, @yMin, @xMax, @yMax, @numPoints, @schema,"
-                " @stats, @srs, @fills)");
-
-    const std::string sqlCreateTableClusters(
-            "CREATE TABLE clusters("
-                "id         INT PRIMARY KEY,"
-                "data       BLOB)");
-
-    const std::string sqlPrepData(
-            "INSERT INTO clusters VALUES (@id, @data)");
-
-    void sqlExec(sqlite3* db, std::string sql)
-    {
-        char* errMsgPtr;
-        if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsgPtr) != SQLITE_OK)
-        {
-            std::string errMsg(errMsgPtr);
-            sqlite3_free(errMsgPtr);
-            throw std::runtime_error("Could not execute SQL: " + errMsg);
-        }
-    }
-}
+#include "grey-reader.hpp"
 
 namespace
 {
@@ -72,238 +16,6 @@ namespace
             "FROM meta");
 }
 
-BBox::BBox()
-    : xMin(0)
-    , yMin(0)
-    , xMax(0)
-    , yMax(0)
-{ }
-
-BBox::BBox(const BBox& other)
-    : xMin(other.xMin)
-    , yMin(other.yMin)
-    , xMax(other.xMax)
-    , yMax(other.yMax)
-{ }
-
-BBox::BBox(double xMin, double yMin, double xMax, double yMax)
-    : xMin(xMin)
-    , yMin(yMin)
-    , xMax(xMax)
-    , yMax(yMax)
-{ }
-
-BBox::BBox(pdal::BOX3D bbox)
-    : xMin(bbox.minx)
-    , yMin(bbox.miny)
-    , xMax(bbox.maxx)
-    , yMax(bbox.maxy)
-{ }
-
-
-bool BBox::overlaps(const BBox& other) const
-{
-    return
-        std::abs(xMid() - other.xMid()) < width()  / 2 + other.width()  / 2 &&
-        std::abs(yMid() - other.yMid()) < height() / 2 + other.height() / 2;
-}
-
-bool BBox::contains(const BBox& other) const
-{
-    return
-        xMin <= other.xMin && xMax >= other.xMax &&
-        yMin <= other.yMin && yMax >= other.yMax;
-}
-
-GreyWriter::GreyWriter(const pdal::QuadIndex& quadIndex, const GreyMeta meta)
-    : m_meta(meta)
-    , m_quadIndex(quadIndex)
-{ }
-
-void GreyWriter::write(std::string filename) const
-{
-    // Get clustered data.
-    std::map<uint64_t, std::vector<std::size_t>> clusters;
-    clusters[baseId] = m_quadIndex.getPoints(m_meta.base);
-    build(clusters, m_meta.bbox, m_meta.base, baseId);
-
-    // Open database.
-    sqlite3* db;
-    if (sqlite3_open_v2(
-                filename.c_str(),
-                &db,
-                SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
-                0) != SQLITE_OK)
-    {
-        throw std::runtime_error("Could not open serial database");
-    }
-
-    // Write clusters.
-    sqlExec(db, sqlCreateTableClusters);
-    writeData(db, clusters);
-
-    // Write metadata.
-    sqlExec(db, sqlCreateTableMeta);
-    writeMeta(db);
-
-    // Close DB handle.
-    sqlite3_close_v2(db);
-}
-
-void GreyWriter::writeMeta(sqlite3* db) const
-{
-    sqlite3_stmt* stmt(0);
-    sqlite3_prepare_v2(
-            db,
-            sqlPrepMeta.c_str(),
-            sqlPrepMeta.size() + 1,
-            &stmt,
-            0);
-
-    if (!stmt)
-    {
-        throw std::runtime_error("Could not prepare meta INSERT stmt");
-    }
-
-    // Begin accumulating 'insert' transaction.
-    sqlExec(db, "BEGIN TRANSACTION");
-
-    const std::vector<std::size_t>& fills(m_meta.fills);
-    const char* pcPtr(m_meta.pointContextXml.c_str());
-
-    if (sqlite3_bind_int  (stmt, 1, 0) ||
-        sqlite3_bind_text (stmt, 2, greyVersion.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_int64(stmt, 3, m_meta.base) ||
-        sqlite3_bind_text (stmt, 4, pcPtr, -1, SQLITE_STATIC) ||
-        sqlite3_bind_double(stmt, 5, m_meta.bbox.xMin) ||
-        sqlite3_bind_double(stmt, 6, m_meta.bbox.yMin) ||
-        sqlite3_bind_double(stmt, 7, m_meta.bbox.xMax) ||
-        sqlite3_bind_double(stmt, 8, m_meta.bbox.yMax) ||
-        sqlite3_bind_int64 (stmt, 9, m_meta.numPoints) ||
-        sqlite3_bind_text(stmt, 10, m_meta.schema.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_text(stmt, 11, m_meta.stats.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_text(stmt, 12, m_meta.srs.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_blob(stmt, 13,
-            fills.data(),
-            // Need number of bytes here.
-            reinterpret_cast<const char*>(fills.data() + fills.size()) -
-                reinterpret_cast<const char*>(fills.data()),
-            SQLITE_STATIC))
-    {
-        throw std::runtime_error("Error binding meta values");
-    }
-
-    sqlite3_step(stmt);
-    sqlite3_clear_bindings(stmt);
-    sqlite3_reset(stmt);
-
-    // Done inserting.
-    sqlExec(db, "END TRANSACTION");
-    sqlite3_finalize(stmt);
-}
-
-void GreyWriter::writeData(
-        sqlite3* db,
-        const std::map<uint64_t, std::vector<std::size_t>>& clusters) const
-{
-    // Prepare statement for insert.
-    sqlite3_stmt* stmt(0);
-    sqlite3_prepare_v2(
-            db,
-            sqlPrepData.c_str(),
-            sqlPrepData.size() + 1,
-            &stmt,
-            0);
-
-    if (!stmt)
-    {
-        throw std::runtime_error("Could not prepare data INSERT stmt");
-    }
-
-    // Begin accumulating 'insert' transaction.
-    sqlExec(db, "BEGIN TRANSACTION");
-
-    const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
-    const std::size_t pointSize(pointBuffer.pointSize());
-
-    // Accumulate inserts.
-    for (auto entry : clusters)
-    {
-        const uint64_t clusterId(entry.first);
-        const std::vector<std::size_t>& indices(entry.second);
-
-        std::vector<uint8_t> data(entry.second.size() * pointSize);
-        uint8_t* pos(data.data());
-
-        // Read the entries at these indices into our buffer of real point data.
-        for (const auto index : indices)
-        {
-            for (const auto& dimId : pointBuffer.dims())
-            {
-                pointBuffer.getRawField(dimId, index, pos);
-                pos += pointBuffer.dimSize(dimId);
-            }
-        }
-
-        if (sqlite3_bind_int(stmt, 1, clusterId) ||
-            sqlite3_bind_blob(stmt, 2, data.data(), data.size(), SQLITE_STATIC))
-        {
-            throw std::runtime_error("Error binding data values");
-        }
-
-        sqlite3_step(stmt);
-        sqlite3_clear_bindings(stmt);
-        sqlite3_reset(stmt);
-    }
-
-    // Done inserting.
-    sqlExec(db, "END TRANSACTION");
-    sqlite3_finalize(stmt);
-}
-
-void GreyWriter::build(
-        std::map<uint64_t, std::vector<std::size_t>>& results,
-        const BBox& bbox,
-        std::size_t level,
-        uint64_t id) const
-{
-    const BBox nwBounds(bbox.getNw());
-    const BBox neBounds(bbox.getNe());
-    const BBox swBounds(bbox.getSw());
-    const BBox seBounds(bbox.getSe());
-
-    id <<= 2;
-    const uint64_t nwId(id | nwFlag);
-    const uint64_t neId(id | neFlag);
-    const uint64_t swId(id | swFlag);
-    const uint64_t seId(id | seFlag);
-
-    results[nwId] = getPoints(nwBounds, level);
-    results[neId] = getPoints(neBounds, level);
-    results[swId] = getPoints(swBounds, level);
-    results[seId] = getPoints(seBounds, level);
-
-    if (++level <= m_meta.fills.size())
-    {
-        build(results, nwBounds, level, nwId);
-        build(results, neBounds, level, neId);
-        build(results, swBounds, level, swId);
-        build(results, seBounds, level, seId);
-    }
-}
-
-std::vector<std::size_t> GreyWriter::getPoints(
-        const BBox& bbox,
-        std::size_t level) const
-{
-    return m_quadIndex.getPoints(
-            bbox.xMin,
-            bbox.yMin,
-            bbox.xMax,
-            bbox.yMax,
-            level,
-            level + 1);
-}
 
 GreyReader::GreyReader(const std::string pipelineId)
     : m_db(0)
@@ -518,7 +230,6 @@ std::size_t GreyReader::read(
             auto it(results.find(id));
             if (it != results.end())
             {
-                // Perform indexing if necessary.
                 it->second.cluster->populate(pointBuffer, !it->second.complete);
             }
         }
@@ -531,14 +242,30 @@ std::size_t GreyReader::read(
     m_cacheMutex.lock();
     try
     {
-        for (auto& it : results)
+        // If the base cluster is within the query range, we need to treat it
+        // a bit differently from the others.  Other clusters each represent
+        // only a single depth level, while the base cluster contains levels
+        // from [0, base).
+        auto baseIt(results.find(baseId));
+        if (baseIt != results.end())
+        {
+            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
+            if (base)
+            {
+                m_cache.insert(std::make_pair(baseIt->first, base));
+                points += base->readBase(buffer, schema, depthBegin, depthEnd);
+                results.erase(baseIt);
+            }
+        }
+
+        for (auto& entry : results)
         {
             // Update our actual cache with new entries from the results,
-            // old entries will be unchanged by this call.
-            const std::shared_ptr<GreyCluster> cluster(it.second.cluster);
+            // old entries will be unchanged by this call.  Then read the data.
+            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
             if (cluster)
             {
-                m_cache.insert(std::make_pair(it.first, cluster));
+                m_cache.insert(std::make_pair(entry.first, cluster));
                 points += cluster->read(buffer, schema);
             }
         }
@@ -711,7 +438,7 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, m_base, false)));
+        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, 0, false)));
     }
 
     if (depthEnd >= m_base)
@@ -756,7 +483,7 @@ void IdIndex::find(
 
     if (depthBegin < m_base)
     {
-        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, m_base, false)));
+        results.insert(std::make_pair(baseId, NodeInfo(m_bbox, 0, false)));
     }
 
     if (depthEnd >= m_base)
@@ -854,6 +581,37 @@ std::size_t GreyCluster::read(
 {
     // TODO
     return 0;
+}
+
+std::size_t GreyCluster::readBase(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
+{
+    std::size_t numPoints(0);
+
+    if (m_quadTree)
+    {
+        const std::size_t initialOffset(buffer.size());
+        const std::vector<std::size_t> indexList(
+                m_quadTree->getPoints(depthBegin, depthEnd));
+
+        numPoints = indexList.size();
+        buffer.resize(buffer.size() + numPoints * schema.stride());
+
+        uint8_t* pos = buffer.data() + initialOffset;
+
+        for (const std::size_t i : indexList)
+        {
+            for (const auto& dim : schema.dims)
+            {
+                pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+            }
+        }
+    }
+
+    return numPoints;
 }
 
 std::size_t GreyCluster::readDim(
