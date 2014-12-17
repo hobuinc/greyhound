@@ -19,15 +19,25 @@ public:
     std::size_t depth() const { return m_depth; }
     BBox bbox() const { return m_bbox; }
 
+    // Read entire dataset.
     std::size_t read(
             std::vector<uint8_t>& buffer,
             const Schema& schema) const;
 
+    // Read the indexed dataset within the specified bounds and depths.  Note
+    // that for the base cluster, the depths represent actual quad-tree depths.
+    // For clusters other than the base, always use [0, 0] because these
+    // clusters represent a single quad-tree level.
     std::size_t read(
             std::vector<uint8_t>& buffer,
             const Schema& schema,
-            const BBox& bbox) const;
+            const BBox& bbox,
+            std::size_t depthBegin = 0,
+            std::size_t depthEnd = 0) const;
 
+    // Read indexed dataset.  Note that aside from the cluster with an ID of
+    // baseId, all clusters represent a single level of the aggregated tree.
+    // This function is ONLY useful for the base cluster.
     std::size_t readBase(
             std::vector<uint8_t>& buffer,
             const Schema& schema,
@@ -58,6 +68,8 @@ struct NodeInfo
     std::shared_ptr<GreyCluster> cluster;
 };
 
+typedef std::map<uint64_t, NodeInfo> NodeInfoMap;
+
 class IdTree
 {
 public:
@@ -67,14 +79,14 @@ public:
             std::size_t endLevel);
 
     void find(
-            std::map<uint64_t, NodeInfo>& results,
+            NodeInfoMap& results,
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
             std::size_t currentLevel,
             BBox        currentBBox) const;
 
     void find(
-            std::map<uint64_t, NodeInfo>& results,
+            NodeInfoMap& results,
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
             const BBox& queryBBox,
@@ -95,12 +107,12 @@ public:
     IdIndex(const GreyMeta& meta);
 
     void find(
-            std::map<uint64_t, NodeInfo>& results,
+            NodeInfoMap& results,
             std::size_t depthLevelBegin,
             std::size_t depthLevelEnd) const;
 
     void find(
-            std::map<uint64_t, NodeInfo>& results,
+            NodeInfoMap& results,
             std::size_t depthLevelBegin,
             std::size_t depthLevelEnd,
             BBox queryBBox) const;
@@ -135,6 +147,16 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    std::size_t read(
+            std::vector<uint8_t>& buffer,
+            const Schema& schema,
+            double xMin,
+            double yMin,
+            double xMax,
+            double yMax,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+
     const pdal::PointContext& pointContext() const { return m_pointContext; }
 
 private:
@@ -148,6 +170,23 @@ private:
     std::map<uint64_t, std::shared_ptr<GreyCluster>> m_cache;
 
     void readMeta();
+
+    // Processes a collection of node info.
+    //      1 - Identify which nodes are already live in the cache.
+    //          1a - Quad-index these nodes if it's necessary for this query.
+    //      2 - Return a comma-separated string of the node IDs that are not
+    //              yet present in the cache so they may be queried.
+    std::string processNodeInfo(NodeInfoMap& nodeInfoMap);
+
+    // Query cluster data from the database for node IDs listed in the comma-
+    // separated missingIds parameter and store them in the nodeInfoMap
+    // reference.  Quad-index clusters if necessary.
+    //
+    // Does NOT modify the live cache so we do not need mutex protection during
+    // querying, aggregation, and indexing.
+    void queryClusters(
+            NodeInfoMap& nodeInfoMap,
+            const std::string& missingIds) const;
 
     // Not implemented.
     GreyReader(const GreyReader&);

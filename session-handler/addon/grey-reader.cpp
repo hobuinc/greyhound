@@ -133,21 +133,146 @@ std::size_t GreyReader::read(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::map<uint64_t, NodeInfo> results;
+    NodeInfoMap results;
 
     m_idIndex->find(
             results,
             depthBegin,
             depthEnd);
 
-    std::size_t missingNo(0);
+    const std::string missingIds(processNodeInfo(results));
+    queryClusters(results, missingIds);
+
+    std::size_t points(0);
+
+    m_cacheMutex.lock();
+    try
+    {
+        // If the base cluster is within the query range, we need to treat it
+        // a bit differently from the others.  Other clusters each represent
+        // only a single depth level, while the base cluster contains levels
+        // from [0, base).
+        auto baseIt(results.find(baseId));
+        if (baseIt != results.end())
+        {
+            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
+            if (base)
+            {
+                m_cache.insert(std::make_pair(baseIt->first, base));
+                points += base->readBase(buffer, schema, depthBegin, depthEnd);
+                results.erase(baseIt);
+            }
+        }
+
+        for (auto& entry : results)
+        {
+            // Update our actual cache with new entries from the results,
+            // old entries will be unchanged by this call.  Then read the data.
+            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+            if (cluster)
+            {
+                // This query only gets full levels of the tree, and we have
+                // already dealt with the base cluster.  Therefore, every
+                // remaining cluster falls within the query range, so we don't
+                // need to index them.
+                m_cache.insert(std::make_pair(entry.first, cluster));
+                points += cluster->read(buffer, schema);
+            }
+        }
+    }
+    catch (...)
+    {
+        m_cacheMutex.unlock();
+        throw std::runtime_error("Error occurred during cache insertion.");
+    }
+    m_cacheMutex.unlock();
+
+    return points;
+}
+
+std::size_t GreyReader::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        double xMin,
+        double yMin,
+        double xMax,
+        double yMax,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    const BBox bbox(xMin, yMin, xMax, yMax);
+
+    NodeInfoMap results;
+
+    m_idIndex->find(
+            results,
+            depthBegin,
+            depthEnd,
+            bbox);
+
+    const std::string missingIds(processNodeInfo(results));
+    queryClusters(results, missingIds);
+
+    std::size_t points(0);
+
+    m_cacheMutex.lock();
+    try
+    {
+        // If the base cluster is within the query range, we need to treat it
+        // a bit differently from the others.  Other clusters each represent
+        // only a single depth level, while the base cluster contains levels
+        // from [0, base).
+        auto baseIt(results.find(baseId));
+        if (baseIt != results.end())
+        {
+            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
+            if (base)
+            {
+                m_cache.insert(std::make_pair(baseIt->first, base));
+                points += base->read(
+                        buffer,
+                        schema,
+                        bbox,
+                        depthBegin,
+                        depthEnd);
+                results.erase(baseIt);
+            }
+        }
+
+        for (auto& entry : results)
+        {
+            // Update our actual cache with new entries from the results,
+            // old entries will be unchanged by this call.  Then read the data.
+            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
+            if (cluster)
+            {
+                // Query each cluster for its full depth within the bbox range
+                // since each cluster represents a single level of the
+                // aggregated quad-tree.
+                m_cache.insert(std::make_pair(entry.first, cluster));
+                points += cluster->read(buffer, schema, bbox);
+            }
+        }
+    }
+    catch (...)
+    {
+        m_cacheMutex.unlock();
+        throw std::runtime_error("Error occurred during cache insertion.");
+    }
+    m_cacheMutex.unlock();
+
+    return points;
+}
+
+std::string GreyReader::processNodeInfo(NodeInfoMap& nodeInfoMap)
+{
     std::ostringstream missingIds;
     m_cacheMutex.lock();
     try
     {
-        for (auto& result : results)
+        for (auto& node : nodeInfoMap)
         {
-            const uint64_t id(result.first);
+            const uint64_t id(node.first);
 
             auto cacheEntry(m_cache.find(id));
             if (cacheEntry != m_cache.end())
@@ -155,10 +280,10 @@ std::size_t GreyReader::read(
                 std::shared_ptr<GreyCluster> cluster(cacheEntry->second);
 
                 // We already have this ID/cluster cached.  Point to it in our
-                // results list, and index it if necessary.
-                result.second.cluster = cluster;
+                // info map, and index it if necessary.
+                node.second.cluster = cluster;
 
-                if (!result.second.complete)
+                if (!node.second.complete)
                 {
                     cluster->index();
                 }
@@ -169,7 +294,6 @@ std::size_t GreyReader::read(
                 // the serialized data file.
                 if (missingIds.str().size()) missingIds << ",";
                 missingIds << id;
-                ++missingNo;
             }
         }
     }
@@ -180,16 +304,20 @@ std::size_t GreyReader::read(
     }
 
     m_cacheMutex.unlock();
+    return missingIds.str();
+}
 
-    std::cout << "Selecting " << missingNo << " IDs." << std::endl;
-
+void GreyReader::queryClusters(
+        NodeInfoMap& nodeInfoMap,
+        const std::string& missingIds) const
+{
     // If there are any IDs required for this query that we don't already have
     // in our cache, query them now.
-    if (missingIds.str().size())
+    if (missingIds.size())
     {
         const std::string sqlDataQuery(
                 "SELECT id, data FROM clusters WHERE id IN (" +
-                missingIds.str() +
+                missingIds +
                 ")");
 
         sqlite3_stmt* stmtData(0);
@@ -227,8 +355,8 @@ std::size_t GreyReader::read(
                         0,
                         data.size() / m_pointContext.pointSize()));
 
-            auto it(results.find(id));
-            if (it != results.end())
+            auto it(nodeInfoMap.find(id));
+            if (it != nodeInfoMap.end())
             {
                 it->second.cluster->populate(pointBuffer, !it->second.complete);
             }
@@ -236,48 +364,6 @@ std::size_t GreyReader::read(
 
         sqlite3_finalize(stmtData);
     }
-
-    std::size_t points(0);
-
-    m_cacheMutex.lock();
-    try
-    {
-        // If the base cluster is within the query range, we need to treat it
-        // a bit differently from the others.  Other clusters each represent
-        // only a single depth level, while the base cluster contains levels
-        // from [0, base).
-        auto baseIt(results.find(baseId));
-        if (baseIt != results.end())
-        {
-            const std::shared_ptr<GreyCluster> base(baseIt->second.cluster);
-            if (base)
-            {
-                m_cache.insert(std::make_pair(baseIt->first, base));
-                points += base->readBase(buffer, schema, depthBegin, depthEnd);
-                results.erase(baseIt);
-            }
-        }
-
-        for (auto& entry : results)
-        {
-            // Update our actual cache with new entries from the results,
-            // old entries will be unchanged by this call.  Then read the data.
-            const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
-            if (cluster)
-            {
-                m_cache.insert(std::make_pair(entry.first, cluster));
-                points += cluster->read(buffer, schema);
-            }
-        }
-    }
-    catch (...)
-    {
-        m_cacheMutex.unlock();
-        throw std::runtime_error("Error occurred during cache insertion.");
-    }
-    m_cacheMutex.unlock();
-
-    return points;
 }
 
 IdTree::IdTree(
@@ -574,15 +660,6 @@ std::size_t GreyCluster::read(
     return numPoints;
 }
 
-std::size_t GreyCluster::read(
-        std::vector<uint8_t>& buffer,
-        const Schema& schema,
-        const BBox& bbox) const
-{
-    // TODO
-    return 0;
-}
-
 std::size_t GreyCluster::readBase(
         std::vector<uint8_t>& buffer,
         const Schema& schema,
@@ -596,6 +673,44 @@ std::size_t GreyCluster::readBase(
         const std::size_t initialOffset(buffer.size());
         const std::vector<std::size_t> indexList(
                 m_quadTree->getPoints(depthBegin, depthEnd));
+
+        numPoints = indexList.size();
+        buffer.resize(buffer.size() + numPoints * schema.stride());
+
+        uint8_t* pos = buffer.data() + initialOffset;
+
+        for (const std::size_t i : indexList)
+        {
+            for (const auto& dim : schema.dims)
+            {
+                pos += readDim(pos, dim, *m_pointBuffer.get(), i);
+            }
+        }
+    }
+
+    return numPoints;
+}
+
+std::size_t GreyCluster::read(
+        std::vector<uint8_t>& buffer,
+        const Schema& schema,
+        const BBox& bbox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
+{
+    std::size_t numPoints(0);
+
+    if (m_quadTree)
+    {
+        const std::size_t initialOffset(buffer.size());
+        const std::vector<std::size_t> indexList(
+                m_quadTree->getPoints(
+                    bbox.xMin,
+                    bbox.yMin,
+                    bbox.xMax,
+                    bbox.yMax,
+                    depthBegin,
+                    depthEnd));
 
         numPoints = indexList.size();
         buffer.resize(buffer.size() + numPoints * schema.stride());
