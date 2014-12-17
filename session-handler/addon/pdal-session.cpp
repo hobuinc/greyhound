@@ -175,8 +175,6 @@ std::size_t PdalSession::read(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    // TODO
-    /*
     if (m_serialDataSource)
     {
         return m_serialDataSource->read(
@@ -189,7 +187,7 @@ std::size_t PdalSession::read(
                 depthBegin,
                 depthEnd);
     }
-    else */
+    else
     if (m_liveDataSource)
     {
         return m_liveDataSource->read(
@@ -256,6 +254,7 @@ std::size_t PdalSession::read(
         const Schema& schema,
         const RasterMeta& rasterMeta)
 {
+    // Custom-res raster queries are only supported by a live data source.
     if (!m_liveDataSource)
     {
         m_liveDataSource.reset(
