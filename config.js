@@ -42,6 +42,32 @@ config.sh = {
     // select an open port.
     port: null,
 
+    // Specify whether Greyhound can serialized indexed pipelines to disk for
+    // shorter creation times and less RAM usage.
+    serialAllowed: true,
+
+    // If serialAllowed is true, these paths will be used for serialization.
+    // Rules:
+    //      For reading:
+    //        - Search these paths, in order, for a serialized Greyhound file.
+    //        - If '/var/greyhound/serial' does not exist in this list, search
+    //          there if no matches were found in this list.
+    //
+    //      For writing:
+    //        - If this list is populated, try to use the first entry as the
+    //          writing location.  If this list is empty or the first location
+    //          could not be validated or created, try to use
+    //          '/var/greyhound/serial'.  If neither of these locations works,
+    //          serialization will be disabled completely.
+    //        - Although Greyhound will only write to the first entry or the
+    //          default, Greyhound will check all listed directories for the
+    //          presence of a pipeline that is requested to be serialized.
+    //          The pipeline will not be written again if it exists in any
+    //          of the listed directories.
+    serialPaths: [
+        // 'var/greyhound/serial',
+    ],
+
     // If false, component will not run.
     enable: true,
 };

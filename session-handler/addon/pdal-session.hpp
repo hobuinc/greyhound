@@ -18,6 +18,7 @@ public:
     void initialize(
             const std::string& pipelineId,
             const std::string& pipeline,
+            const std::vector<std::string>& serialPaths,
             bool execute);
 
     // Queries.
@@ -27,9 +28,11 @@ public:
     std::string getSrs() const;
     std::vector<std::size_t> getFills() const;
 
-    // Serialization methods.
-    void serialize();   // Write to disk.
-    bool awaken();      // Wake from serialized quad-tree.
+    // Write to disk.
+    void serialize(const std::vector<std::string>& serialPaths);
+
+    // Wake from serialized quad-tree.
+    bool awaken(const std::vector<std::string>& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::size_t readUnindexed(
@@ -92,6 +95,9 @@ private:
     std::string m_pipeline;
     std::shared_ptr<LiveDataSource> m_liveDataSource;
     std::shared_ptr<GreyReader> m_serialDataSource;
+
+    Once m_initOnce;
+    std::mutex m_awakenMutex;
 
     // Disallow copy/assignment.
     PdalSession(const PdalSession&);
