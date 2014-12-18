@@ -1,5 +1,4 @@
 // A websocket client that queries points from Greyhound.
-
 var WebSocket = require('ws');
 
 var run = function() {

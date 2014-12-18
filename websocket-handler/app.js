@@ -355,6 +355,17 @@ process.nextTick(function() {
                 });
             });
 
+            handler.on('serialize', function(msg, cb) {
+                console.log("websocket::handler::serialize");
+                var session = msg['session'];
+                if (!session) return cb(propError('serialize', 'session'));
+
+                affinity.getSh(session, function(err, sessionHandler) {
+                    if (err) return cb(err);
+                    web.get(sessionHandler, '/serialize/' + session, cb);
+                });
+            });
+
             handler.on('destroy', function(msg, cb) {
                 console.log("websocket::handler::destroy");
                 // Note: this function does not destroy the actual PdalSession that

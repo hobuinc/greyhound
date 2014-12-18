@@ -16,8 +16,54 @@ var express = require("express"),
     console = require('clim')(),
     config = (require('../config').sh || { }),
     globalConfig = (require('../config').global || { }),
+    mkdirp = require('mkdirp'),
 
-    PdalSession = require('./build/Release/pdalBindings').PdalBindings;
+    PdalSession = require('./build/Release/pdalBindings').PdalBindings,
+
+    // serialPaths[0] is to be used for writing new serialized entries.
+    // serialPaths[0..n] are to be searched when looking for serialized entries.
+    serialPaths = (function() {
+        if (!config.serialAllowed) return undefined;
+
+        var paths = [];
+        var defaultSerialPath = '/var/greyhound/serial/';
+
+        var tryCreate = function(dir) {
+            try {
+                mkdirp.sync(dir);
+                serialPath = dir;
+                return true;
+            }
+            catch (err) {
+                console.error('Could not create serial path', dir);
+                return false;
+            }
+        };
+
+        if (config.serialPaths &&
+            config.serialPaths.length &&
+            typeof serialPaths[0] === 'string') {
+
+            if (tryCreate(serialPaths[0])) {
+                paths = serialPaths;
+                paths.push(defaultSerialPath);
+            }
+        }
+
+        if (!paths || !paths.length) {
+            if (tryCreate(defaultSerialPath)) {
+                paths.push(defaultSerialPath);
+            }
+        }
+
+        if (!paths.length) {
+            console.error('Serialization disabled');
+        }
+
+        return paths.length ? paths : undefined;
+    })();
+
+console.log('Serial paths:', serialPaths);
 
 // configure express application
 app.use(methodOverride());
@@ -75,6 +121,7 @@ app.get("/validate", function(req, res) {
     pdalSession.parse(
         '',
         req.body.pipeline,
+        serialPaths,
         function(err) {
             pdalSession.destroy();
             if (err) console.log('Pipeline validation error:', err);
@@ -101,7 +148,7 @@ app.post("/create", function(req, res) {
     // back immediately if the initial creation is complete, or if the initial
     // creation is still in progress, then the callback will be executed when
     // that call completes.
-    pdalSession.create(pipelineId, pipeline, function(err) {
+    pdalSession.create(pipelineId, pipeline, serialPaths, function(err) {
         if (err) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
@@ -172,6 +219,21 @@ app.get("/srs/:sessionId", function(req, res) {
 app.get("/fills/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         res.json({ fills: pdalSession.getFills() });
+    });
+});
+
+app.get("/serialize/:sessionId", function(req, res) {
+    if (!config.serialAllowed || !serialPaths) {
+        return res.json(400, {
+            message: 'Serialization disabled'
+        });
+    }
+
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        pdalSession.serialize(serialPaths, function(err) {
+            if (err) console.log('ERROR during serialization');
+        });
+        res.json({ message: 'Serialization task launched' });
     });
 });
 

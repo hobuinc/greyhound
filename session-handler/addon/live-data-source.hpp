@@ -29,7 +29,7 @@ public:
     std::string getSrs() const;
     std::vector<std::size_t> getFills() const;
 
-    void serialize();
+    void serialize(const std::vector<std::string>& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::size_t readUnindexed(
@@ -92,7 +92,6 @@ private:
     pdal::PointBufferPtr m_pointBuffer;
     pdal::PointContext m_pointContext;
 
-    Once m_initOnce;
     Once m_serializeOnce;
 
     std::shared_ptr<PdalIndex> m_pdalIndex;

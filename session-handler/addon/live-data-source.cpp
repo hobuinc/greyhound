@@ -62,42 +62,36 @@ LiveDataSource::LiveDataSource(
     , m_pipelineManager()
     , m_pointBuffer()
     , m_pointContext()
-    , m_initOnce()
     , m_pdalIndex(new PdalIndex())
 {
-    m_initOnce.ensure([this, &pipeline, execute]() {
-        std::istringstream ssPipeline(pipeline);
-        pdal::PipelineReader pipelineReader(m_pipelineManager);
-        pipelineReader.readPipeline(ssPipeline);
+    std::istringstream ssPipeline(pipeline);
+    pdal::PipelineReader pipelineReader(m_pipelineManager);
+    pipelineReader.readPipeline(ssPipeline);
 
-        // This segment could take a substantial amount of time.  The
-        // PdalBindings wrapper ensures that it will run in a non-blocking
-        // manner in the uv_work_queue.
-        if (execute)
+    if (execute)
+    {
+        m_pipelineManager.addFilter(
+            "filters.stats",
+            m_pipelineManager.getStage());
+
+        pdal::Options options;
+        options.add("do_sample", false);
+        m_pipelineManager.getStage()->setOptions(options);
+
+        m_pipelineManager.execute();
+
+        m_pointContext = m_pipelineManager.context();
+        const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
+        m_pointBuffer = *pbSet.begin();
+
+        if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
+            !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
+            !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
         {
-            m_pipelineManager.addFilter(
-                "filters.stats",
-                m_pipelineManager.getStage());
-
-            pdal::Options options;
-            options.add("do_sample", false);
-            m_pipelineManager.getStage()->setOptions(options);
-
-            m_pipelineManager.execute();
-
-            m_pointContext = m_pipelineManager.context();
-            const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-            m_pointBuffer = *pbSet.begin();
-
-            if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
-                !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
-                !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
-            {
-                throw std::runtime_error(
-                    "Pipeline output should contain X, Y, and Z dimensions");
-            }
+            throw std::runtime_error(
+                "Pipeline output should contain X, Y, and Z dimensions");
         }
-    });
+    }
 }
 
 void LiveDataSource::ensureIndex(PdalIndex::IndexType indexType)
@@ -135,10 +129,12 @@ std::vector<std::size_t> LiveDataSource::getFills() const
     return quadIndex.getFills();
 }
 
-void LiveDataSource::serialize()
+void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
 {
-    m_serializeOnce.ensure([this]() {
-        if (GreyReader::exists(m_pipelineId))
+    m_serializeOnce.ensure([this, serialPaths]() {
+        std::cout << "Serializing live source " << m_pipelineId << std::endl;
+        if (GreyReader::exists(m_pipelineId, serialPaths) ||
+            !serialPaths.size())
         {
             return;
         }
@@ -161,7 +157,6 @@ void LiveDataSource::serialize()
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
         // Data storage.
-
         GreyMeta meta;
         meta.pointContextXml = writer.getXML();
         meta.base = 8;
@@ -177,7 +172,10 @@ void LiveDataSource::serialize()
         meta.fills = getFills();
 
         GreyWriter greyWriter(quadIndex, meta);
-        greyWriter.write(m_pipelineId + ".grey"); // TODO Path.
+        const std::string filename(
+                serialPaths.at(0) + "/" + m_pipelineId + ".grey");
+        std::cout << "Writing to disk at " << filename << std::endl;
+        greyWriter.write(filename);
     });
 }
 

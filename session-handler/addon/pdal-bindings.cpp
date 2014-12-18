@@ -34,6 +34,31 @@ namespace
 
         return id;
     }
+
+    std::vector<std::string> parsePathList(
+            const v8::Local<v8::Value>& rawArg)
+    {
+        std::vector<std::string> paths;
+
+        if (!rawArg->IsUndefined() && rawArg->IsArray())
+        {
+            Local<Array> rawArray(Array::Cast(*rawArg));
+
+            for (std::size_t i(0); i < rawArray->Length(); ++i)
+            {
+                const v8::Local<v8::Value>& rawValue(
+                    rawArray->Get(Integer::New(i)));
+
+                if (rawValue->IsString())
+                {
+                    paths.push_back(std::string(
+                            *v8::String::Utf8Value(rawValue->ToString())));
+                }
+            }
+        }
+
+        return paths;
+    }
 }
 
 Persistent<Function> PdalBindings::constructor;
@@ -113,12 +138,12 @@ void PdalBindings::doInitialize(
     if (args[1]->IsUndefined() || !args[1]->IsString())
         errMsg = "'pipeline' must be a string - args[1]";
 
-    if (args[2]->IsUndefined() || !args[2]->IsFunction())
+    if (args[3]->IsUndefined() || !args[3]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(
-                    args[2])));
+                    args[3])));
 
     if (errMsg.size())
     {
@@ -129,6 +154,7 @@ void PdalBindings::doInitialize(
 
     const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
     const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
+    const std::vector<std::string> serialPaths(parsePathList(args[2]));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -138,6 +164,7 @@ void PdalBindings::doInitialize(
             obj->m_pdalSession,
             pipelineId,
             pipeline,
+            serialPaths,
             execute,
             callback);
 
@@ -152,6 +179,7 @@ void PdalBindings::doInitialize(
                 createData->pdalSession->initialize(
                     createData->pipelineId,
                     createData->pipeline,
+                    createData->serialPaths,
                     createData->execute);
             }
             catch (const std::runtime_error& e)
@@ -190,7 +218,8 @@ void PdalBindings::doInitialize(
 
             delete createData;
             delete req;
-        }));
+        })
+    );
 
     scope.Close(Undefined());
 }
@@ -284,9 +313,83 @@ Handle<Value> PdalBindings::getFills(const Arguments& args)
 Handle<Value> PdalBindings::serialize(const Arguments& args)
 {
     HandleScope scope;
+
+    std::string errMsg("");
+
+    if (args[1]->IsUndefined() || !args[1]->IsFunction())
+        throw std::runtime_error("Invalid callback supplied to 'serialize'");
+
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(
+                    args[1])));
+
+    if (errMsg.size())
+    {
+        std::cout << "Erroring SERIALIZE" << std::endl;
+        errorCallback(callback, errMsg);
+        return scope.Close(Undefined());
+    }
+
+    const std::vector<std::string> paths(parsePathList(args[0]));
+
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
-    obj->m_pdalSession->serialize();
+    // Store everything we'll need to perform initialization.
+    uv_work_t* req(new uv_work_t);
+    req->data = new SerializeData(obj->m_pdalSession, paths, callback);
+
+    std::cout << "Starting serialization task" << std::endl;
+
+    uv_queue_work(
+        uv_default_loop(),
+        req,
+        (uv_work_cb)([](uv_work_t *req)->void {
+            SerializeData* serializeData(
+                reinterpret_cast<SerializeData*>(req->data));
+
+            try
+            {
+                serializeData->pdalSession->serialize(serializeData->paths);
+            }
+            catch (const std::runtime_error& e)
+            {
+                serializeData->errMsg = e.what();
+            }
+            catch (const std::bad_alloc& ba)
+            {
+                serializeData->errMsg = "Memory allocation failed in SERIALIZE";
+            }
+            catch (...)
+            {
+                serializeData->errMsg = "Unknown error";
+            }
+        }),
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+            HandleScope scope;
+
+            SerializeData* serializeData(
+                reinterpret_cast<SerializeData*>(req->data));
+
+            // Output args.
+            const unsigned argc = 1;
+            Local<Value> argv[argc] =
+                {
+                    Local<Value>::New(String::New(
+                            serializeData->errMsg.data(),
+                            serializeData->errMsg.size()))
+                };
+
+            serializeData->callback->Call(
+                Context::GetCurrent()->Global(), argc, argv);
+
+            // Dispose of the persistent handle so the callback may be
+            // garbage collected.
+            serializeData->callback.Dispose();
+
+            delete serializeData;
+            delete req;
+        })
+    );
 
     return scope.Close(Undefined());
 }

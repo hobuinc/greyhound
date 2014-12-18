@@ -70,17 +70,33 @@ namespace
     }
 }
 
-GreyReader::GreyReader(const std::string pipelineId)
+GreyReader::GreyReader(
+        const std::string pipelineId,
+        const std::vector<std::string>& serialPaths)
     : m_db(0)
     , m_meta()
     , m_idIndex()
     , m_pointContext()
 {
-    if (sqlite3_open_v2(
-                (pipelineId + ".grey").c_str(),
-                &m_db,
-                SQLITE_OPEN_READONLY,
-                0) != SQLITE_OK)
+    bool opened(false);
+    for (const auto& path : serialPaths)
+    {
+        if (sqlite3_open_v2(
+                    (path + "/" + pipelineId + ".grey").c_str(),
+                    &m_db,
+                    SQLITE_OPEN_READONLY,
+                    0) == SQLITE_OK)
+        {
+            opened = true;
+            break;
+        }
+        else
+        {
+            if (m_db) sqlite3_close_v2(m_db);
+        }
+    }
+
+    if (!opened)
     {
         throw std::runtime_error("Could not open serial DB " + pipelineId);
     }
@@ -112,12 +128,20 @@ GreyReader::~GreyReader()
     }
 }
 
-bool GreyReader::exists(const std::string pipelineId)
+bool GreyReader::exists(
+        const std::string pipelineId,
+        const std::vector<std::string>& serialPaths)
 {
     bool exists(false);
-    std::ifstream stream(pipelineId + ".grey");
-    if (stream) exists = true;
-    stream.close();
+
+    for (const auto& path : serialPaths)
+    {
+        std::ifstream stream(path + "/" + pipelineId + ".grey");
+        if (stream) exists = true;
+        stream.close();
+        if (exists) break;
+    }
+
     return exists;
 }
 

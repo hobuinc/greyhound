@@ -50,11 +50,13 @@ private:
                 std::shared_ptr<PdalSession> pdalSession,
                 std::string pipelineId,
                 std::string pipeline,
+                std::vector<std::string> serialPaths,
                 bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
             , pipelineId(pipelineId)
             , pipeline(pipeline)
+            , serialPaths(serialPaths)
             , execute(execute)
             , errMsg()
             , callback(callback)
@@ -64,7 +66,29 @@ private:
         const std::shared_ptr<PdalSession> pdalSession;
         const std::string pipelineId;
         const std::string pipeline;
+        const std::vector<std::string> serialPaths;
         const bool execute;
+
+        // Outputs
+        std::string errMsg;
+
+        v8::Persistent<v8::Function> callback;
+    };
+
+    struct SerializeData
+    {
+        SerializeData(
+                std::shared_ptr<PdalSession> pdalSession,
+                std::vector<std::string> paths,
+                v8::Persistent<v8::Function> callback)
+            : pdalSession(pdalSession)
+            , paths(paths)
+            , callback(callback)
+        { }
+
+        // Inputs
+        const std::shared_ptr<PdalSession> pdalSession;
+        const std::vector<std::string> paths;
 
         // Outputs
         std::string errMsg;
