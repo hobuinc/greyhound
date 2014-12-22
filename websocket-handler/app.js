@@ -26,11 +26,30 @@ var WebSocketServer = require('ws').Server
 
     , softSessionShareMax = (config.softSessionShareMax || 16)
     , hardSessionShareMax = (config.hardSessionShareMax || 0)
-    , sessionTimeoutMinutes = (config.sessionTimeoutMinutes || 60)
-    , expirePeriodSeconds = (config.expirePeriodSeconds || 10);
-    ;
+    , pipelineTimeoutMinutes =
+        (function() {
+            if (config.hasOwnProperty('pipelineTimeoutMinutes') &&
+                config.pipelineTimeoutMinutes >= 0) {
 
-var affinity = new Affinity(expirePeriodSeconds, sessionTimeoutMinutes);
+                // May be zero to never expire pipelines.
+                return config.pipelineTimeoutMinutes;
+            }
+            else {
+                return 30;
+            }
+        })()
+    , sessionTimeoutMinutes  =
+        (function() {
+            // Always non-zero.
+            if (config.sessionTimeoutMinutes > 0)
+                return config.sessionTimeoutMinutes;
+            else
+                return 5;
+        })()
+    , affinity = new Affinity(
+            pipelineTimeoutMinutes * 60,
+            sessionTimeoutMinutes * 60)
+    ;
 
 var createSessionId = function() {
     return crypto.randomBytes(20).toString('hex');
@@ -219,7 +238,17 @@ if (config.enable === false) {
     process.exit(globalConfig.quitForeverExitCode || 42);
 }
 
+var sessionWatch = function() {
+    var watcher = disco.watchForService('sh', 500);
+
+    watcher.on('unregister', function(service) {
+        affinity.purgeSh(service);
+    });
+}
+
 process.nextTick(function() {
+    sessionWatch();
+
     var app = express();
     app.use(function(req, res, next) {
         res.header('X-Powered-By', 'Hobu, Inc.');

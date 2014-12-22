@@ -13,7 +13,7 @@ var run = function() {
 		// As soon as the socket opens, send command to create a session.
 		send({
 			command: 'create',
-            pipelineId: '58a6ee2c990ba94db936d56bd42aa703'
+            pipelineId: '5adcf597e3376f98471bf37816e9af2c'
 		});
 	});
 
