@@ -25,8 +25,9 @@
         cbPass();
     }
 
-    var watchForService = function(name) {
+    var watchForService = function(name, interval) {
         var current = {};
+        interval = interval || 1000;
         var e = new EventEmitter();
 
         setInterval(function() {
@@ -54,13 +55,14 @@
 
                 // notify
                 _.forEach(leftIds, function(i) {
+                    console.log('UNREGISTER', leftIds);
                     e.emit("unregister", current[i]);
                 });
 
                 // update our local state
                 current = thisServices;
             });
-        }, 1000);
+        }, interval);
 
         return e;
     };
@@ -78,9 +80,9 @@
         redis.set(keyName, JSON.stringify(val), function() {
             var aliveC = 0;
             var ti = setInterval(function() {
-                redis.expire(keyName, 10);
+                redis.expire(keyName, 2);
                 aliveC++;
-            }, 5000);
+            }, 500);
 
             val.unregister = function() {
                 console.log('Removing service:', name);
@@ -88,7 +90,7 @@
                 redis.del(keyName);
             };
 
-            redis.expire(keyName, 10);
+            redis.expire(keyName, 2);
 
             ["exit", "SIGINT", "SIGTERM"].forEach(function(s) {
                 process.on(s, function() {

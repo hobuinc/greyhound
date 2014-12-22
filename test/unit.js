@@ -4,7 +4,7 @@ var fs = require('fs');
 var WebSocket = require('ws');
 var _ = require('lodash');
 var ws, timeoutObj;
-var timeoutMs = 15000;
+var timeoutMs = 20000;
 var samplePipelineId = '5adcf597e3376f98471bf37816e9af2c';
 var samplePoints = 10653;
 var sampleBytes = 213060;
