@@ -42,6 +42,7 @@ private:
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
+    std::mutex m_readCommandsMutex;
     std::map<std::string, ReadCommand*> m_readCommands;
 
     struct CreateData

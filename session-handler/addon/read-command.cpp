@@ -39,6 +39,7 @@ void errorCallback(
 
 ReadCommand::ReadCommand(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         const std::string readId,
         const std::string host,
@@ -46,6 +47,7 @@ ReadCommand::ReadCommand(
         const Schema schema,
         v8::Persistent<v8::Function> callback)
     : m_pdalSession(pdalSession)
+    , m_readCommandsMutex(readCommandsMutex)
     , m_readCommands(readCommands)
     , m_readId(readId)
     , m_host(host)
@@ -60,6 +62,7 @@ ReadCommand::ReadCommand(
 
 ReadCommandUnindexed::ReadCommandUnindexed(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         std::string readId,
         std::string host,
@@ -70,6 +73,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         v8::Persistent<v8::Function> callback)
     : ReadCommand(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -82,6 +86,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
 
 ReadCommandPointRadius::ReadCommandPointRadius(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         std::string readId,
         std::string host,
@@ -95,6 +100,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
         v8::Persistent<v8::Function> callback)
     : ReadCommand(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -110,6 +116,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         std::string readId,
         std::string host,
@@ -120,6 +127,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         v8::Persistent<v8::Function> callback)
     : ReadCommand(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -132,6 +140,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
 
 ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         std::string readId,
         std::string host,
@@ -146,6 +155,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         v8::Persistent<v8::Function> callback)
     : ReadCommandQuadIndex(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -162,6 +172,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
 
 ReadCommandRastered::ReadCommandRastered(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         const std::string readId,
         const std::string host,
@@ -170,6 +181,7 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> callback)
     : ReadCommand(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -181,6 +193,7 @@ ReadCommandRastered::ReadCommandRastered(
 
 ReadCommandRastered::ReadCommandRastered(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         const std::string readId,
         const std::string host,
@@ -190,6 +203,7 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> callback)
     : ReadCommand(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -201,6 +215,7 @@ ReadCommandRastered::ReadCommandRastered(
 
 ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         std::string readId,
         std::string host,
@@ -210,6 +225,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         v8::Persistent<v8::Function> callback)
     : ReadCommandRastered(
             pdalSession,
+            readCommandsMutex,
             readCommands,
             readId,
             host,
@@ -306,6 +322,7 @@ void ReadCommandPointRadius::run()
 
 ReadCommand* ReadCommandFactory::create(
         std::shared_ptr<PdalSession> pdalSession,
+        std::mutex& readCommandsMutex,
         std::map<std::string, ReadCommand*>& readCommands,
         const std::string readId,
         const Arguments& args)
@@ -382,6 +399,7 @@ ReadCommand* ReadCommandFactory::create(
             {
                 readCommand = new ReadCommandUnindexed(
                         pdalSession,
+                        readCommandsMutex,
                         readCommands,
                         readId,
                         host,
@@ -413,6 +431,7 @@ ReadCommand* ReadCommandFactory::create(
 
             readCommand = new ReadCommandPointRadius(
                     pdalSession,
+                    readCommandsMutex,
                     readCommands,
                     readId,
                     host,
@@ -462,6 +481,7 @@ ReadCommand* ReadCommandFactory::create(
                     {
                         readCommand = new ReadCommandBoundedQuadIndex(
                                 pdalSession,
+                                readCommandsMutex,
                                 readCommands,
                                 readId,
                                 host,
@@ -490,6 +510,7 @@ ReadCommand* ReadCommandFactory::create(
 
                 readCommand = new ReadCommandQuadIndex(
                         pdalSession,
+                        readCommandsMutex,
                         readCommands,
                         readId,
                         host,
@@ -552,6 +573,7 @@ ReadCommand* ReadCommandFactory::create(
 
                     readCommand = new ReadCommandRastered(
                             pdalSession,
+                            readCommandsMutex,
                             readCommands,
                             readId,
                             host,
@@ -578,6 +600,7 @@ ReadCommand* ReadCommandFactory::create(
 
             readCommand = new ReadCommandQuadLevel(
                     pdalSession,
+                    readCommandsMutex,
                     readCommands,
                     readId,
                     host,

@@ -65,6 +65,7 @@ Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession(new PdalSession())
+    , m_readCommandsMutex()
     , m_readCommands()
 { }
 
@@ -410,6 +411,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     ReadCommand* readCommand(
         ReadCommandFactory::create(
             obj->m_pdalSession,
+            obj->m_readCommandsMutex,
             obj->m_readCommands,
             readId,
             args));
@@ -419,7 +421,17 @@ Handle<Value> PdalBindings::read(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    obj->m_readCommands[readId] = readCommand;
+    obj->m_readCommandsMutex.lock();
+    try
+    {
+        obj->m_readCommands[readId] = readCommand;
+    }
+    catch (...)
+    {
+        obj->m_readCommandsMutex.unlock();
+        throw std::runtime_error("Could not lock readCommands");
+    }
+    obj->m_readCommandsMutex.unlock();
 
     // Store our read command where our worker functions can access it.
     uv_work_t* readReq(new uv_work_t);
@@ -454,8 +466,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
             if (readCommand->errMsg().size())
             {
-                // Propagate the error back to the remote host.  This call
-                // will dispose of the callback.
                 errorCallback(
                     readCommand->callback(),
                     readCommand->errMsg());
@@ -489,8 +499,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                                     readCommand->numPoints())),
                         Local<Value>::New(Integer::New(
                                     readCommand->numBytes())),
-                        // TODO This makes a copy.  Should use 4-arg version.
-                        // https://groups.google.com/forum/#!msg/nodejs/gz8YF3oLit0/dDN8RAB22RAJ
                         Local<Value>::New(node::Buffer::New(
                                     reinterpret_cast<const char*>(
                                         readCommand->data()),

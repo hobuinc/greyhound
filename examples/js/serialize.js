@@ -3,7 +3,7 @@ var WebSocket = require('ws'),
     argv = require('minimist')(process.argv.slice(2)),
     pipelineId = argv._ && argv._.length == 1 ?
         argv._[0] :
-        '58a6ee2c990ba94db936d56bd42aa703'
+        '5adcf597e3376f98471bf37816e9af2c'
     ;
 
 var run = function() {
