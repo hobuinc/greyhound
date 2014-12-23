@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <vector>
+#include <mutex>
 
 #include <v8.h>
 
@@ -102,6 +103,7 @@ public:
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -120,11 +122,22 @@ public:
     // finished executing, we need to erase ourselves from this map.
     void eraseSelf()
     {
-        m_readCommands.erase(m_readId);
+        m_readCommandsMutex.lock();
+        try
+        {
+            std::cout << "Erasing readId " << m_readId << std::endl;
+            m_readCommands.erase(m_readId);
+        }
+        catch (...)
+        {
+            m_readCommandsMutex.unlock();
+        }
+        m_readCommandsMutex.unlock();
     }
 
 protected:
     const std::shared_ptr<PdalSession> m_pdalSession;
+    std::mutex& m_readCommandsMutex;
     std::map<std::string, ReadCommand*>& m_readCommands;
     const std::string m_readId;
     const std::string m_host;
@@ -147,6 +160,7 @@ class ReadCommandUnindexed : public ReadCommand
 public:
     ReadCommandUnindexed(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -168,6 +182,7 @@ class ReadCommandPointRadius : public ReadCommand
 public:
     ReadCommandPointRadius(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -195,6 +210,7 @@ class ReadCommandQuadIndex : public ReadCommand
 public:
     ReadCommandQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -216,6 +232,7 @@ class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
 public:
     ReadCommandBoundedQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -243,6 +260,7 @@ class ReadCommandRastered : public ReadCommand
 public:
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -252,6 +270,7 @@ public:
 
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -273,6 +292,7 @@ class ReadCommandQuadLevel : public ReadCommandRastered
 public:
     ReadCommandQuadLevel(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             std::string host,
@@ -292,6 +312,7 @@ class ReadCommandFactory
 public:
     static ReadCommand* create(
             std::shared_ptr<PdalSession> pdalSession,
+            std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
             std::string readId,
             const v8::Arguments& args);
