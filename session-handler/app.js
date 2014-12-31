@@ -275,7 +275,6 @@ app.post("/read/:sessionId", function(req, res) {
             readId,
             numPoints,
             numBytes,
-            data,
             xBegin,
             xStep,
             xNum,
@@ -316,21 +315,26 @@ app.post("/read/:sessionId", function(req, res) {
                             host + ':' + port,
                     });
                 }
-
-                // Send the results to the websocket-handler.
-                var socket = net.createConnection(port, host);
-                socket.on('connect', function() {
-                    socket.end(data);
-                }).on('close', function() {
-                    console.log('Socket closed');
-                }).on('error', function(err) {
-                    // This is an expected occurence.  A cancel request
-                    // will cause the websocket-handler to forcefully reset
-                    // the connection.
-                    console.log('Socket error:', err);
-                });
             }
         };
+
+        // Send the results to the websocket-handler.
+        var socket = net.createConnection(port, host);
+        socket.on('close', function() {
+            console.log('Socket closed');
+        }).on('error', function(err) {
+            // This is an expected occurence.  A cancel request
+            // will cause the websocket-handler to forcefully reset
+            // the connection.
+            console.log('Socket force-closed:', err);
+        });
+
+        var dataHandler = function(err, data, done) {
+            if (err) socket.end();
+
+            socket.write(data);
+            if (done) socket.end();
+        }
 
         if (
             args.hasOwnProperty('start') ||
@@ -355,7 +359,8 @@ app.post("/read/:sessionId", function(req, res) {
                     schema,
                     start,
                     count,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (
             args.hasOwnProperty('bbox') &&
@@ -390,7 +395,8 @@ app.post("/read/:sessionId", function(req, res) {
                 schema,
                 bbox,
                 resolution,
-                readHandler);
+                readHandler,
+                dataHandler);
         }
         else if (
             args.hasOwnProperty('bbox') ||
@@ -422,7 +428,8 @@ app.post("/read/:sessionId", function(req, res) {
                     bbox,
                     depthBegin,
                     depthEnd,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (args.hasOwnProperty('rasterize')) {
             var rasterize = parseInt(args.rasterize);
@@ -445,7 +452,8 @@ app.post("/read/:sessionId", function(req, res) {
                     port,
                     schema,
                     rasterize,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (
             args.hasOwnProperty('radius') &&
@@ -470,7 +478,8 @@ app.post("/read/:sessionId", function(req, res) {
                     x,
                     y,
                     z,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else {
             console.log('Got bad read request', args);

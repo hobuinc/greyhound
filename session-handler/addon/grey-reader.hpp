@@ -8,6 +8,60 @@
 #include "grey-common.hpp"
 #include "read-command.hpp"
 
+class GreyCluster;
+
+struct NodeInfo
+{
+    NodeInfo(const BBox& bbox, std::size_t depth, bool isBase, bool complete);
+
+    const bool complete;
+    std::shared_ptr<GreyCluster> cluster;
+};
+
+typedef std::map<uint64_t, NodeInfo> NodeInfoMap;
+
+struct QueryIndex
+{
+    QueryIndex();
+    QueryIndex(uint64_t id, std::size_t index) : id(id), index(index) { }
+    uint64_t id;
+    std::size_t index;
+};
+
+class GreyQuery
+{
+public:
+    GreyQuery(
+            const NodeInfoMap& nodeInfoMap,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+    GreyQuery(
+            const NodeInfoMap& nodeInfoMap,
+            const BBox& bbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+    GreyQuery(
+            const NodeInfoMap& nodeInfoMap,
+            std::size_t rasterize,
+            const RasterMeta& rasterMeta,
+            std::size_t points);
+
+    std::size_t numPoints() const { return m_queryIndexList.size(); }
+
+    QueryIndex queryIndex(std::size_t index) const
+    {
+        return m_queryIndexList.at(index);
+    }
+
+    std::shared_ptr<pdal::PointBuffer> pointBuffer(uint64_t id);
+
+private:
+    std::map<uint64_t, std::shared_ptr<GreyCluster>> m_clusters;
+    std::vector<QueryIndex> m_queryIndexList;
+};
+
+typedef std::vector<QueryIndex> QueryIndexList;
+
 class GreyCluster
 {
 public:
@@ -15,6 +69,7 @@ public:
 
     void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
     void index();
+    bool indexed() const { return m_quadTree.get() != 0; }
 
     std::size_t depth() const { return m_depth; }
     BBox bbox() const { return m_bbox; }
@@ -22,27 +77,28 @@ public:
     // Read the indexed dataset within the specified depths.  If this cluster
     // is not the base cluster, then this cluster represents a single depth
     // level, in which case the entire buffer is read.
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
+    void getIndexList(
+            QueryIndexList& queryIndexList,
+            uint64_t id,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
     // Read the indexed dataset within the specified bounds and depths.
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
+    void getIndexList(
+            QueryIndexList& queryIndexList,
+            uint64_t id,
             const BBox& bbox,
             std::size_t depthBegin = 0,
             std::size_t depthEnd = 0) const;
 
     // Read the indexed dataset into a rasterized output.
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
-            std::size_t stride,
+    void getIndexList(
+            QueryIndexList& queryIndexList,
+            uint64_t id,
             std::size_t rasterize,
             const RasterMeta& rasterMeta) const;
+
+    std::shared_ptr<pdal::PointBuffer> pointBuffer() { return m_pointBuffer; }
 
 private:
     std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
@@ -50,33 +106,7 @@ private:
     const std::size_t m_depth;
     const BBox m_bbox;
     const bool m_isBase;
-
-    void readRasteredPoint(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
-            std::size_t stride,
-            const RasterMeta& rasterMeta,
-            std::size_t index) const;
-
-    std::size_t readDim(
-            unsigned char* buffer,
-            const DimInfo& dim,
-            const pdal::PointBuffer& pointBuffer,
-            std::size_t index) const;
 };
-
-struct NodeInfo
-{
-    NodeInfo(const BBox& bbox, std::size_t depth, bool isBase, bool complete)
-        : complete(complete)
-        , cluster(new GreyCluster(depth, bbox, isBase))
-    { }
-
-    const bool complete;
-    std::shared_ptr<GreyCluster> cluster;
-};
-
-typedef std::map<uint64_t, NodeInfo> NodeInfoMap;
 
 class IdTree
 {
@@ -154,15 +184,9 @@ public:
     std::string getSrs() const                  { return m_meta.srs;        }
     std::vector<std::size_t> getFills() const   { return m_meta.fills;      }
 
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
+    GreyQuery prep(std::size_t depthBegin, std::size_t depthEnd);
 
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
+    GreyQuery prep(
             double xMin,
             double yMin,
             double xMax,
@@ -170,11 +194,7 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::size_t read(
-            std::vector<uint8_t>& buffer,
-            const Schema& schema,
-            std::size_t rasterize,
-            RasterMeta& rasterMeta);
+    GreyQuery prep(std::size_t rasterize, RasterMeta& rasterMeta);
 
     const pdal::PointContext& pointContext() const { return m_pointContext; }
 

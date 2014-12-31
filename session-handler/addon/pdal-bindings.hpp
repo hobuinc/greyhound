@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "pdal-session.hpp"
+#include "buffer-pool.hpp"
 
 class ReadCommand;
 
@@ -44,6 +45,8 @@ private:
 
     std::mutex m_readCommandsMutex;
     std::map<std::string, ReadCommand*> m_readCommands;
+
+    ItcBufferPool& m_itcBufferPool;
 
     struct CreateData
     {
