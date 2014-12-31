@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include <v8.h>
+#include <node.h>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
@@ -12,6 +13,10 @@
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
+
+class PrepData;
+class ItcBufferPool;
+class ItcBuffer;
 
 struct RasterMeta
 {
@@ -85,34 +90,49 @@ class PdalSession;
 class ReadCommand
 {
 public:
-    virtual void run() = 0;
-    virtual bool rasterize() const { return false; }
+    void run();
 
+    virtual void read(std::size_t maxNumBytes);
+
+    virtual bool rasterize() const { return false; }
+    virtual std::size_t numBytes() const
+    {
+        return numPoints() * m_schema.stride();
+    }
+
+    bool done() const;
     void cancel(bool cancel) { m_cancel = cancel; }
     void errMsg(std::string errMsg) { m_errMsg = errMsg; }
+    std::shared_ptr<ItcBuffer> getBuffer() { return m_itcBuffer; }
+    ItcBufferPool& getBufferPool() { return m_itcBufferPool; }
+    void acquire();
 
-    void transmit(std::size_t offset, std::size_t numBytes);
-
-    unsigned char* data()         { return m_data.data(); }
+    std::size_t numPoints() const;
     std::string readId()    const { return m_readId; }
-    std::size_t numPoints() const { return m_numPoints; }
-    std::size_t numBytes()  const { return m_data.size(); }
-    std::string errMsg()    const { return m_errMsg;    }
-    bool        cancel()    const { return m_cancel;    }
-    v8::Persistent<v8::Function> callback() const { return m_callback; }
+    std::string errMsg()    const { return m_errMsg; }
+    bool        cancel()    const { return m_cancel; }
+    v8::Persistent<v8::Function> prepCallback() const { return m_prepCallback; }
+    v8::Persistent<v8::Function> dataCallback() const { return m_dataCallback; }
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
-            v8::Persistent<v8::Function> callback);
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
     virtual ~ReadCommand()
-    { }
+    {
+        if (m_async)
+        {
+            uv_close((uv_handle_t*)m_async, NULL);
+        }
+    }
 
     // PdalBindings::m_readCommands maintains a map of currently executing
     // READ commands.  These entries need to be removed once their execution
@@ -135,20 +155,30 @@ public:
         m_readCommandsMutex.unlock();
     }
 
+    uv_async_t* async() { return m_async; }
+
 protected:
-    const std::shared_ptr<PdalSession> m_pdalSession;
+    virtual void prep() = 0;
+
+    std::shared_ptr<PdalSession> m_pdalSession;
     std::mutex& m_readCommandsMutex;
     std::map<std::string, ReadCommand*>& m_readCommands;
+
+    ItcBufferPool& m_itcBufferPool;
+    std::shared_ptr<ItcBuffer> m_itcBuffer;
+    uv_async_t* m_async;
+
     const std::string m_readId;
     const std::string m_host;
     const std::size_t m_port;
     const Schema m_schema;
-    std::size_t m_numPoints;
+    std::size_t m_numSent;
+    std::shared_ptr<PrepData> m_prepData;
 
-    v8::Persistent<v8::Function> m_callback;
+    v8::Persistent<v8::Function> m_prepCallback;
+    v8::Persistent<v8::Function> m_dataCallback;
     bool m_cancel;
 
-    std::vector<unsigned char> m_data;
     std::string m_errMsg;
 
 private:
@@ -162,17 +192,19 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             std::size_t start,
             std::size_t count,
-            v8::Persistent<v8::Function> callback);
-
-    virtual void run();
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
 private:
+    virtual void prep();
+
     const std::size_t m_start;
     const std::size_t m_count;
 };
@@ -184,6 +216,7 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -193,11 +226,12 @@ public:
             double x,
             double y,
             double z,
-            v8::Persistent<v8::Function> callback);
-
-    virtual void run();
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
 private:
+    virtual void prep();
+
     const bool m_is3d;
     const double m_radius;
     const double m_x;
@@ -212,17 +246,19 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> callback);
-
-    virtual void run();
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
 protected:
+    virtual void prep();
+
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 };
@@ -234,6 +270,7 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
@@ -244,11 +281,12 @@ public:
             double yMax,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> callback);
-
-    virtual void run();
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
 private:
+    virtual void prep();
+
     const double m_xMin;
     const double m_yMin;
     const double m_xMax;
@@ -262,28 +300,36 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
-            v8::Persistent<v8::Function> callback);
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             RasterMeta rasterMeta,
-            v8::Persistent<v8::Function> callback);
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
-    virtual void run();
+    virtual void read(std::size_t maxNumBytes);
+    virtual std::size_t numBytes() const;
+
     virtual bool rasterize() const { return true; }
     RasterMeta rasterMeta() const { return m_rasterMeta; }
 
 protected:
+    virtual void prep();
+
     RasterMeta m_rasterMeta;
 };
 
@@ -294,16 +340,18 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
             std::size_t port,
             Schema schema,
             std::size_t level,
-            v8::Persistent<v8::Function> callback);
-
-    virtual void run();
+            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> dataCallback);
 
 private:
+    virtual void prep();
+
     const std::size_t m_level;
 };
 
@@ -314,6 +362,7 @@ public:
             std::shared_ptr<PdalSession> pdalSession,
             std::mutex& readCommandsMutex,
             std::map<std::string, ReadCommand*>& readCommands,
+            ItcBufferPool& itcBufferPool,
             std::string readId,
             const v8::Arguments& args);
 };

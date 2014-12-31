@@ -179,46 +179,17 @@ void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
     });
 }
 
-std::size_t LiveDataSource::readUnindexed(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
+std::size_t LiveDataSource::prepUnindexed(
         const std::size_t start,
         const std::size_t count)
 {
-    if (start >= getNumPoints())
-        throw std::runtime_error("Invalid starting offset in 'read'");
-
     // If zero points specified, read all points after 'start'.
-    const std::size_t pointsToRead(
-            count > 0 ?
-                std::min<std::size_t>(count, getNumPoints() - start) :
-                getNumPoints() - start);
-
-    try
-    {
-        buffer.resize(pointsToRead * schema.stride());
-
-        unsigned char* pos(buffer.data());
-
-        for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
-        {
-            for (const auto& dim : schema.dims)
-            {
-                pos += readDim(pos, dim, i);
-            }
-        }
-    }
-    catch (...)
-    {
-        throw std::runtime_error("Failed to read points from PDAL");
-    }
-
-    return pointsToRead;
+    return count > 0 ?
+            std::min<std::size_t>(count, getNumPoints() - start) :
+            getNumPoints() - start;
 }
 
-std::size_t LiveDataSource::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
+std::vector<std::size_t> LiveDataSource::prep(
         const double xMin,
         const double yMin,
         const double xMax,
@@ -237,12 +208,10 @@ std::size_t LiveDataSource::read(
             depthBegin,
             depthEnd));
 
-    return readIndexList(buffer, schema, results);
+    return results;
 }
 
-std::size_t LiveDataSource::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
+std::vector<std::size_t> LiveDataSource::prep(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -253,12 +222,10 @@ std::size_t LiveDataSource::read(
             depthBegin,
             depthEnd));
 
-    return readIndexList(buffer, schema, results);
+    return results;
 }
 
-std::size_t LiveDataSource::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
+std::vector<std::size_t> LiveDataSource::prep(
         const std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
@@ -274,13 +241,10 @@ std::size_t LiveDataSource::read(
             rasterMeta.yEnd,
             rasterMeta.yStep));
 
-    return readIndexList(buffer, schema, results, true);
+    return results;
 }
 
-std::size_t LiveDataSource::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const RasterMeta& rasterMeta)
+std::vector<std::size_t> LiveDataSource::prep(const RasterMeta& rasterMeta)
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
@@ -293,12 +257,10 @@ std::size_t LiveDataSource::read(
             rasterMeta.yEnd,
             rasterMeta.yStep));
 
-    return readIndexList(buffer, schema, results, true);
+    return results;
 }
 
-std::size_t LiveDataSource::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
+std::vector<std::size_t> LiveDataSource::prep(
         const bool is3d,
         const double radius,
         const double x,
@@ -316,134 +278,6 @@ std::size_t LiveDataSource::read(
     const std::vector<std::size_t> results(
             kdIndex.radius(x, y, z, radius * radius));
 
-    return readIndexList(buffer, schema, results);
-}
-
-std::size_t LiveDataSource::readDim(
-        unsigned char* buffer,
-        const DimInfo& dim,
-        const std::size_t index) const
-{
-    if (dim.type == "floating")
-    {
-        if (dim.size == 4)
-        {
-            float val(m_pointBuffer->getFieldAs<float>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            double val(m_pointBuffer->getFieldAs<double>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid floating size requested");
-        }
-    }
-    else if (dim.type == "signed" || dim.type == "unsigned")
-    {
-        if (dim.size == 1)
-        {
-            uint8_t val(m_pointBuffer->getFieldAs<uint8_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 2)
-        {
-            uint16_t val(m_pointBuffer->getFieldAs<uint16_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 4)
-        {
-            uint32_t val(m_pointBuffer->getFieldAs<uint32_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            uint64_t val(m_pointBuffer->getFieldAs<uint64_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid integer size requested");
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Invalid dimension type requested");
-    }
-
-    return dim.size;
-}
-
-std::size_t LiveDataSource::readIndexList(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const std::vector<std::size_t>& indexList,
-        const bool rasterize) const
-{
-    const std::size_t pointsToRead(indexList.size());
-
-    // Rasterization
-    std::size_t stride(schema.stride());
-
-    if (rasterize)
-    {
-        // Clientward rasterization schemas always contain a byte to specify
-        // whether a point at this location in the raster exists.
-        ++stride;
-
-        for (auto dim : schema.dims)
-        {
-            if (rasterOmit(dim.id))
-            {
-                stride -= dim.size;
-            }
-        }
-    }
-
-    try
-    {
-        buffer.resize(pointsToRead * stride, 0);
-
-        unsigned char* pos(buffer.data());
-
-        for (std::size_t i : indexList)
-        {
-            if (i != std::numeric_limits<std::size_t>::max())
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a valid point.
-                    std::fill(pos, pos + 1, 1);
-                    ++pos;
-                }
-
-                for (const auto& dim : schema.dims)
-                {
-                    if (!rasterize || !rasterOmit(dim.id))
-                    {
-                        pos += readDim(pos, dim, i);
-                    }
-                }
-            }
-            else
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a hole.
-                    std::fill(pos, pos + 1, 0);
-                }
-
-                pos += stride;
-            }
-        }
-    }
-    catch (...)
-    {
-        throw std::runtime_error("Failed to read points from PDAL");
-    }
-
-    return pointsToRead;
+    return results;
 }
 

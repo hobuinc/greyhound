@@ -12,7 +12,8 @@
                 './addon/live-data-source.cpp',
                 './addon/grey-writer.cpp',
                 './addon/grey-reader.cpp',
-                './addon/grey-common.cpp'
+                './addon/grey-common.cpp',
+                './addon/buffer-pool.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
