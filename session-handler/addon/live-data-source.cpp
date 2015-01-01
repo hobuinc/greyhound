@@ -99,15 +99,14 @@ std::size_t LiveDataSource::getNumPoints() const
 
 std::string LiveDataSource::getSchema() const
 {
-    std::ostringstream oss;
-    boost::property_tree::ptree tree(pdal::utils::toPTree(m_pointContext));
-    boost::property_tree::write_json(oss, tree);
-    return oss.str();
+    pdal::MetadataNode pointContextNode(
+            pdal::utils::toMetadata(m_pointContext));
+    return pdal::utils::toJSON(pointContextNode);
 }
 
 std::string LiveDataSource::getStats() const
 {
-    return m_pipelineManager.getMetadata().toJSON();
+    return pdal::utils::toJSON(m_pipelineManager.getMetadata());
 }
 
 std::string LiveDataSource::getSrs() const
@@ -132,26 +131,17 @@ void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
             return;
         }
 
-        // Serialize the pdal::PointContext.
-        pdal::Dimension::IdList dims(m_pointContext.dims());
-        std::vector<pdal::Dimension::Type::Enum> dimTypes;
-
-        for (auto dim(dims.begin()); dim != dims.end(); ++dim)
-        {
-            dimTypes.push_back(m_pointContext.dimType(*dim));
-        }
-
-        pdal::schema::Writer writer(dims, dimTypes);
+        const pdal::DimTypeList dimTypeList(m_pointContext.dimTypes());
         pdal::Metadata metadata;
         pdal::MetadataNode metaNode = metadata.getNode();
-        writer.setMetadata(metaNode);
+        pdal::XMLSchema writer(dimTypeList, metaNode);
 
         m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
         // Data storage.
         GreyMeta meta;
-        meta.pointContextXml = writer.getXML();
+        meta.pointContextXml = writer.xml();
         meta.base = 8;
         quadIndex.getBounds(
                 meta.bbox.xMin,
