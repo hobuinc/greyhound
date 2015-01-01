@@ -5,6 +5,8 @@
 
 #include <sqlite3.h>
 
+#include <pdal/QuadIndex.hpp>
+
 #include "grey-common.hpp"
 #include "read-command.hpp"
 
@@ -184,9 +186,9 @@ public:
     std::string getSrs() const                  { return m_meta.srs;        }
     std::vector<std::size_t> getFills() const   { return m_meta.fills;      }
 
-    GreyQuery prep(std::size_t depthBegin, std::size_t depthEnd);
+    GreyQuery query(std::size_t depthBegin, std::size_t depthEnd);
 
-    GreyQuery prep(
+    GreyQuery query(
             double xMin,
             double yMin,
             double xMax,
@@ -194,7 +196,7 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    GreyQuery prep(std::size_t rasterize, RasterMeta& rasterMeta);
+    GreyQuery query(std::size_t rasterize, RasterMeta& rasterMeta);
 
     const pdal::PointContext& pointContext() const { return m_pointContext; }
 

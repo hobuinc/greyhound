@@ -13,7 +13,8 @@
                 './addon/grey-writer.cpp',
                 './addon/grey-reader.cpp',
                 './addon/grey-common.cpp',
-                './addon/buffer-pool.cpp'
+                './addon/buffer-pool.cpp',
+                './addon/read-query.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],

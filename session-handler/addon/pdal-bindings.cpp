@@ -472,7 +472,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             {
                 std::cout << "Got error callback from run()" << std::endl;
                 errorCallback(
-                    readCommand->prepCallback(),
+                    readCommand->queryCallback(),
                     readCommand->errMsg());
 
                 // Clean up since we won't be calling the async send code.
@@ -516,13 +516,13 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                                     rasterMeta.yNum()))
                     };
 
-                    readCommand->prepCallback()->Call(
+                    readCommand->queryCallback()->Call(
                         Context::GetCurrent()->Global(), argc, argv);
                 }
                 else
                 {
                     errorCallback(
-                        readCommand->prepCallback(),
+                        readCommand->queryCallback(),
                         "Invalid ReadCommand");
                 }
             }
@@ -539,11 +539,11 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
                 // Call the provided callback to return the status of the
                 // data about to be streamed to the remote host.
-                readCommand->prepCallback()->Call(
+                readCommand->queryCallback()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
             }
 
-            readCommand->prepCallback().Dispose();
+            readCommand->queryCallback().Dispose();
 
             uv_work_t* dataReq(new uv_work_t);
             dataReq->data = readCommand;
