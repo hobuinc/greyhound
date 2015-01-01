@@ -43,9 +43,6 @@ private:
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
-    std::mutex m_readCommandsMutex;
-    std::map<std::string, ReadCommand*> m_readCommands;
-
     ItcBufferPool& m_itcBufferPool;
 
     struct CreateData
@@ -65,6 +62,11 @@ private:
             , errMsg()
             , callback(callback)
         { }
+
+        ~CreateData()
+        {
+            callback.Dispose();
+        }
 
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
@@ -89,6 +91,11 @@ private:
             , paths(paths)
             , callback(callback)
         { }
+
+        ~SerializeData()
+        {
+            callback.Dispose();
+        }
 
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
