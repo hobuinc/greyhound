@@ -3,6 +3,7 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/Charbuf.hpp>
 #include <pdal/Utils.hpp>
+#include <pdal/PDALUtils.hpp>
 
 #include "grey-reader.hpp"
 
@@ -101,18 +102,18 @@ GreyReader::GreyReader(
 
     m_idIndex.reset(new IdIndex(m_meta));
 
-    pdal::schema::Reader reader(m_meta.pointContextXml);
+    pdal::XMLSchema reader(m_meta.pointContextXml);
     pdal::MetadataNode metaNode = reader.getMetadata();
 
     m_pointContext.registerDim(pdal::Dimension::Id::X);
     m_pointContext.registerDim(pdal::Dimension::Id::Y);
     m_pointContext.registerDim(pdal::Dimension::Id::Z);
 
-    const pdal::schema::DimInfoList dims(reader.schema().dimInfoList());
+    const pdal::XMLDimList dims(reader.xmlDims());
 
     for (auto dim(dims.begin()); dim != dims.end(); ++dim)
     {
-        m_pointContext.registerOrAssignDim(dim->m_name, dim->m_type);
+        m_pointContext.registerOrAssignDim(dim->m_name, dim->m_dimType.m_type);
     }
 }
 
@@ -411,6 +412,12 @@ void GreyReader::queryClusters(
             // Construct a pdal::PointBuffer from our binary data.
             pdal::Charbuf charbuf(data);
             std::istream stream(&charbuf);
+
+            if (!m_pointContext.pointSize())
+            {
+                throw std::runtime_error("Invalid serial PointContext");
+            }
+
             std::shared_ptr<pdal::PointBuffer> pointBuffer(
                     new pdal::PointBuffer(
                         stream,
