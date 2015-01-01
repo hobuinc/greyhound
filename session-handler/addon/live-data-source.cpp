@@ -45,13 +45,6 @@ namespace
         "CREATE INDEX depthBegin ON clusters (depthBegin)",
         "CREATE INDEX depthEnd ON clusters (depthEnd)"
     });
-
-    bool rasterOmit(pdal::Dimension::Id::Enum id)
-    {
-        // These Dimensions are not explicitly placed in the output buffer
-        // for rasterized requests.
-        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
-    }
 }
 
 LiveDataSource::LiveDataSource(
@@ -179,7 +172,7 @@ void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
     });
 }
 
-std::size_t LiveDataSource::prepUnindexed(
+std::size_t LiveDataSource::queryUnindexed(
         const std::size_t start,
         const std::size_t count)
 {
@@ -189,7 +182,7 @@ std::size_t LiveDataSource::prepUnindexed(
             getNumPoints() - start;
 }
 
-std::vector<std::size_t> LiveDataSource::prep(
+std::vector<std::size_t> LiveDataSource::query(
         const double xMin,
         const double yMin,
         const double xMax,
@@ -211,7 +204,7 @@ std::vector<std::size_t> LiveDataSource::prep(
     return results;
 }
 
-std::vector<std::size_t> LiveDataSource::prep(
+std::vector<std::size_t> LiveDataSource::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -225,7 +218,7 @@ std::vector<std::size_t> LiveDataSource::prep(
     return results;
 }
 
-std::vector<std::size_t> LiveDataSource::prep(
+std::vector<std::size_t> LiveDataSource::query(
         const std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
@@ -244,7 +237,7 @@ std::vector<std::size_t> LiveDataSource::prep(
     return results;
 }
 
-std::vector<std::size_t> LiveDataSource::prep(const RasterMeta& rasterMeta)
+std::vector<std::size_t> LiveDataSource::query(const RasterMeta& rasterMeta)
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
@@ -260,7 +253,7 @@ std::vector<std::size_t> LiveDataSource::prep(const RasterMeta& rasterMeta)
     return results;
 }
 
-std::vector<std::size_t> LiveDataSource::prep(
+std::vector<std::size_t> LiveDataSource::query(
         const bool is3d,
         const double radius,
         const double x,

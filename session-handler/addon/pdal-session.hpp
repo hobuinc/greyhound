@@ -9,92 +9,7 @@
 #include "live-data-source.hpp"
 #include "grey-reader.hpp"
 
-class Schema;
-
-class PrepData
-{
-public:
-    virtual std::size_t numPoints() const = 0;
-    virtual bool done() const = 0;
-    virtual bool serial() const { return false; }
-
-    virtual void read(
-            std::shared_ptr<ItcBuffer> buffer,
-            std::size_t maxNumBytes,
-            const Schema& schema,
-            bool rasterize = false) = 0;
-};
-
-class UnindexedPrepData : public PrepData
-{
-public:
-    UnindexedPrepData(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::size_t start,
-            std::size_t count);
-
-    virtual std::size_t numPoints() const { return m_end - m_begin; }
-    virtual bool done() const { return m_index == m_end; }
-    virtual void read(
-            std::shared_ptr<ItcBuffer> buffer,
-            std::size_t maxNumBytes,
-            const Schema& schema,
-            bool rasterize = false);
-
-private:
-    const std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
-
-    const std::size_t m_begin;
-    const std::size_t m_end;
-
-    std::size_t m_index;
-};
-
-class LivePrepData : public PrepData
-{
-public:
-    LivePrepData(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::vector<std::size_t> indexList);
-
-    const std::vector<std::size_t>& indexList() { return m_indexList; }
-    virtual bool done() const { return m_index == m_indexList.size(); }
-    virtual void read(
-            std::shared_ptr<ItcBuffer> buffer,
-            std::size_t maxNumBytes,
-            const Schema& schema,
-            bool rasterize = false);
-
-    virtual std::size_t numPoints() const { return m_indexList.size(); }
-
-private:
-    const std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
-
-    const std::vector<std::size_t> m_indexList;
-
-    std::size_t m_index;
-};
-
-class SerialPrepData : public PrepData
-{
-public:
-    SerialPrepData(GreyQuery query);
-
-    virtual std::size_t numPoints() const { return m_query.numPoints(); }
-    virtual bool done() const { return m_index == numPoints(); }
-    virtual void read(
-            std::shared_ptr<ItcBuffer> buffer,
-            std::size_t maxNumBytes,
-            const Schema& schema,
-            bool rasterize = false);
-
-    virtual bool serial() const { return true; }
-
-private:
-    GreyQuery m_query;
-
-    std::size_t m_index;
-};
+class QueryData;
 
 class PdalSession
 {
@@ -122,13 +37,13 @@ public:
     bool awaken(const std::vector<std::string>& serialPaths);
 
     // Read un-indexed data with an offset and a count.
-    std::shared_ptr<PrepData> prepUnindexed(
+    std::shared_ptr<QueryData> queryUnindexed(
             std::size_t start,
             std::size_t count);
 
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
-    std::shared_ptr<PrepData> prep(
+    std::shared_ptr<QueryData> query(
             double xMin,
             double yMin,
             double xMax,
@@ -137,20 +52,20 @@ public:
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with min/max tree depths to search.
-    std::shared_ptr<PrepData> prep(
+    std::shared_ptr<QueryData> query(
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with depth level for rasterization.
-    std::shared_ptr<PrepData> prep(
+    std::shared_ptr<QueryData> query(
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     // Read a bounded set of points into a raster of pre-determined resolution.
-    std::shared_ptr<PrepData> prep(const RasterMeta& rasterMeta);
+    std::shared_ptr<QueryData> query(const RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
-    std::shared_ptr<PrepData> prep(
+    std::shared_ptr<QueryData> query(
             bool is3d,
             double radius,
             double x,
@@ -161,7 +76,7 @@ public:
             std::shared_ptr<ItcBuffer> itcBuffer,
             std::size_t maxNumBytes,
             const Schema& schema,
-            std::shared_ptr<PrepData> prepData);
+            std::shared_ptr<QueryData> queryData);
 
     const pdal::PointContext& pointContext() const
     {

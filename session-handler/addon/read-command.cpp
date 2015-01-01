@@ -1,6 +1,7 @@
 #include "read-command.hpp"
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
+#include "read-query.hpp"
 
 using namespace v8;
 
@@ -14,13 +15,6 @@ namespace
     bool isDefined(const Local<Value>& value)
     {
         return !value->IsUndefined();
-    }
-
-    bool rasterOmit(pdal::Dimension::Id::Enum id)
-    {
-        // These Dimensions are not explicitly placed in the output buffer
-        // for rasterized requests.
-        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
     }
 }
 
@@ -54,7 +48,7 @@ ReadCommand::ReadCommand(
         const std::string host,
         const std::size_t port,
         const Schema schema,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : m_pdalSession(pdalSession)
     , m_readCommandsMutex(readCommandsMutex)
@@ -67,7 +61,7 @@ ReadCommand::ReadCommand(
     , m_port(port)
     , m_schema(schemaOrDefault(schema))
     , m_numSent(0)
-    , m_prepCallback(prepCallback)
+    , m_queryCallback(queryCallback)
     , m_dataCallback(dataCallback)
     , m_cancel(false)
     , m_errMsg()
@@ -75,12 +69,12 @@ ReadCommand::ReadCommand(
 
 bool ReadCommand::done() const
 {
-    return m_prepData->done();
+    return m_queryData->done();
 }
 
 void ReadCommand::run()
 {
-    prep();
+    query();
 }
 
 void ReadCommand::acquire()
@@ -90,32 +84,22 @@ void ReadCommand::acquire()
 
 void ReadCommand::read(std::size_t maxNumBytes)
 {
-    m_prepData->read(m_itcBuffer, maxNumBytes, m_schema);
+    m_queryData->read(m_itcBuffer, maxNumBytes, m_schema);
 }
 
 void ReadCommandRastered::read(std::size_t maxNumBytes)
 {
-    m_prepData->read(m_itcBuffer, maxNumBytes, m_schema, true);
+    m_queryData->read(m_itcBuffer, maxNumBytes, m_schema, true);
 }
 
 std::size_t ReadCommand::numPoints() const
 {
-    return m_prepData->numPoints();
+    return m_queryData->numPoints();
 }
 
 std::size_t ReadCommandRastered::numBytes() const
 {
-    std::size_t stride(m_schema.stride());
-    ++stride;
-
-    for (auto dim : m_schema.dims)
-    {
-        if (rasterOmit(dim.id))
-        {
-            stride -= dim.size;
-        }
-    }
-    return numPoints() * stride;
+    return numPoints() * m_schema.stride(true);
 }
 
 ReadCommandUnindexed::ReadCommandUnindexed(
@@ -129,7 +113,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         Schema schema,
         std::size_t start,
         std::size_t count,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
@@ -140,7 +124,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_start(start)
     , m_count(count)
@@ -160,7 +144,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
         double x,
         double y,
         double z,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
@@ -171,7 +155,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_is3d(is3d)
     , m_radius(radius)
@@ -191,7 +175,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         Schema schema,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
@@ -202,7 +186,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
@@ -223,7 +207,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         double yMax,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandQuadIndex(
             pdalSession,
@@ -236,7 +220,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
             schema,
             depthBegin,
             depthEnd,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_xMin(xMin)
     , m_yMin(yMin)
@@ -253,7 +237,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string host,
         const std::size_t port,
         const Schema schema,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
@@ -264,7 +248,7 @@ ReadCommandRastered::ReadCommandRastered(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_rasterMeta()
 { }
@@ -279,7 +263,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::size_t port,
         const Schema schema,
         const RasterMeta rasterMeta,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
@@ -290,7 +274,7 @@ ReadCommandRastered::ReadCommandRastered(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_rasterMeta(rasterMeta)
 { }
@@ -305,7 +289,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::size_t port,
         Schema schema,
         std::size_t level,
-        v8::Persistent<v8::Function> prepCallback,
+        v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandRastered(
             pdalSession,
@@ -316,7 +300,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
             host,
             port,
             schema,
-            prepCallback,
+            queryCallback,
             dataCallback)
     , m_level(level)
 { }
@@ -345,21 +329,19 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
     }
 }
 
-void ReadCommandUnindexed::prep()
+void ReadCommandUnindexed::query()
 {
-    std::cout << "Prep unindexed" << std::endl;
-    m_prepData = m_pdalSession->prepUnindexed(m_start, m_count);
-    std::cout << "Prep unindexed DONE" << std::endl;
+    m_queryData = m_pdalSession->queryUnindexed(m_start, m_count);
 }
 
-void ReadCommandQuadIndex::prep()
+void ReadCommandQuadIndex::query()
 {
-    m_prepData = m_pdalSession->prep(m_depthBegin, m_depthEnd);
+    m_queryData = m_pdalSession->query(m_depthBegin, m_depthEnd);
 }
 
-void ReadCommandBoundedQuadIndex::prep()
+void ReadCommandBoundedQuadIndex::query()
 {
-    m_prepData = m_pdalSession->prep(
+    m_queryData = m_pdalSession->query(
             m_xMin,
             m_yMin,
             m_xMax,
@@ -368,19 +350,19 @@ void ReadCommandBoundedQuadIndex::prep()
             m_depthEnd);
 }
 
-void ReadCommandRastered::prep()
+void ReadCommandRastered::query()
 {
-    m_prepData = m_pdalSession->prep(m_rasterMeta);
+    m_queryData = m_pdalSession->query(m_rasterMeta);
 }
 
-void ReadCommandQuadLevel::prep()
+void ReadCommandQuadLevel::query()
 {
-    m_prepData = m_pdalSession->prep(m_level, m_rasterMeta);
+    m_queryData = m_pdalSession->query(m_level, m_rasterMeta);
 }
 
-void ReadCommandPointRadius::prep()
+void ReadCommandPointRadius::query()
 {
-    m_prepData = m_pdalSession->prep(m_is3d, m_radius, m_x, m_y, m_z);
+    m_queryData = m_pdalSession->query(m_is3d, m_radius, m_x, m_y, m_z);
 }
 
 ReadCommand* ReadCommandFactory::create(
@@ -407,7 +389,7 @@ ReadCommand* ReadCommandFactory::create(
         throw std::runtime_error("Invalid callback supplied to 'read'");
     }
 
-    Persistent<Function> prepCallback(
+    Persistent<Function> queryCallback(
         Persistent<Function>::New(
             Local<Function>::Cast(args[numArgs - 2])));
 
@@ -480,12 +462,12 @@ ReadCommand* ReadCommandFactory::create(
                         schema,
                         start,
                         count,
-                        prepCallback,
+                        queryCallback,
                         dataCallback);
             }
             else
             {
-                errorCallback(prepCallback, "Invalid 'start' in 'read' request");
+                errorCallback(queryCallback, "Invalid 'start' in 'read' request");
             }
         }
         // KD-indexed read - point/radius supplied.
@@ -517,7 +499,7 @@ ReadCommand* ReadCommandFactory::create(
                     x,
                     y,
                     z,
-                    prepCallback,
+                    queryCallback,
                     dataCallback);
         }
         // Quad index query, bounded and unbounded.
@@ -570,17 +552,17 @@ ReadCommand* ReadCommandFactory::create(
                                 yMax,
                                 depthBegin,
                                 depthEnd,
-                                prepCallback,
+                                queryCallback,
                                 dataCallback);
                     }
                     else
                     {
-                        errorCallback(prepCallback, "Invalid coords in query");
+                        errorCallback(queryCallback, "Invalid coords in query");
                     }
                 }
                 else
                 {
-                    errorCallback(prepCallback, "Invalid coord types in query");
+                    errorCallback(queryCallback, "Invalid coord types in query");
                 }
             }
             else
@@ -597,7 +579,7 @@ ReadCommand* ReadCommandFactory::create(
                         schema,
                         depthBegin,
                         depthEnd,
-                        prepCallback,
+                        queryCallback,
                         dataCallback);
             }
 
@@ -661,17 +643,17 @@ ReadCommand* ReadCommandFactory::create(
                             port,
                             schema,
                             customRasterMeta,
-                            prepCallback,
+                            queryCallback,
                             dataCallback);
                 }
                 else
                 {
-                    errorCallback(prepCallback, "Invalid coords in query");
+                    errorCallback(queryCallback, "Invalid coords in query");
                 }
             }
             else
             {
-                errorCallback(prepCallback, "Invalid coord types in query");
+                errorCallback(queryCallback, "Invalid coord types in query");
             }
         }
         else if (
@@ -690,18 +672,18 @@ ReadCommand* ReadCommandFactory::create(
                     port,
                     schema,
                     level,
-                    prepCallback,
+                    queryCallback,
                     dataCallback);
         }
         else
         {
-            errorCallback(prepCallback, "Could not identify 'read' from args");
+            errorCallback(queryCallback, "Could not identify 'read' from args");
         }
     }
     else
     {
         errorCallback(
-                prepCallback,
+                queryCallback,
                 "Host, port, and callback must be supplied");
     }
 

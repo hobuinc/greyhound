@@ -14,7 +14,7 @@ void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
 
-class PrepData;
+class QueryData;
 class ItcBufferPool;
 class ItcBuffer;
 
@@ -72,17 +72,40 @@ struct Schema
     explicit Schema(std::vector<DimInfo> dims) : dims(dims) { }
     const std::vector<DimInfo> dims;
 
-    std::size_t stride() const
+    std::size_t stride(bool rasterize = false) const
     {
         std::size_t stride(0);
 
         for (const auto& dim : dims)
         {
-            stride += dim.size;
+            if (!rasterize || !Schema::rasterOmit(dim.id))
+            {
+                stride += dim.size;
+            }
+        }
+
+        if (rasterize)
+        {
+            // Clientward rasterization schemas always contain a byte to specify
+            // whether a point at this location in the raster exists.
+            ++stride;
         }
 
         return stride;
     }
+
+    bool use(const DimInfo& dim, bool rasterize) const
+    {
+        return !rasterize || !Schema::rasterOmit(dim.id);
+    }
+
+    static bool rasterOmit(pdal::Dimension::Id::Enum id)
+    {
+        // These Dimensions are not explicitly placed in the output buffer
+        // for rasterized requests.
+        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
+    }
+
 };
 
 class PdalSession;
@@ -111,7 +134,7 @@ public:
     std::string readId()    const { return m_readId; }
     std::string errMsg()    const { return m_errMsg; }
     bool        cancel()    const { return m_cancel; }
-    v8::Persistent<v8::Function> prepCallback() const { return m_prepCallback; }
+    v8::Persistent<v8::Function> queryCallback() const { return m_queryCallback; }
     v8::Persistent<v8::Function> dataCallback() const { return m_dataCallback; }
 
     ReadCommand(
@@ -123,7 +146,7 @@ public:
             std::string host,
             std::size_t port,
             Schema schema,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
     virtual ~ReadCommand()
@@ -158,7 +181,7 @@ public:
     uv_async_t* async() { return m_async; }
 
 protected:
-    virtual void prep() = 0;
+    virtual void query() = 0;
 
     std::shared_ptr<PdalSession> m_pdalSession;
     std::mutex& m_readCommandsMutex;
@@ -173,9 +196,9 @@ protected:
     const std::size_t m_port;
     const Schema m_schema;
     std::size_t m_numSent;
-    std::shared_ptr<PrepData> m_prepData;
+    std::shared_ptr<QueryData> m_queryData;
 
-    v8::Persistent<v8::Function> m_prepCallback;
+    v8::Persistent<v8::Function> m_queryCallback;
     v8::Persistent<v8::Function> m_dataCallback;
     bool m_cancel;
 
@@ -199,11 +222,11 @@ public:
             Schema schema,
             std::size_t start,
             std::size_t count,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
 private:
-    virtual void prep();
+    virtual void query();
 
     const std::size_t m_start;
     const std::size_t m_count;
@@ -226,11 +249,11 @@ public:
             double x,
             double y,
             double z,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
 private:
-    virtual void prep();
+    virtual void query();
 
     const bool m_is3d;
     const double m_radius;
@@ -253,11 +276,11 @@ public:
             Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
 protected:
-    virtual void prep();
+    virtual void query();
 
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
@@ -281,11 +304,11 @@ public:
             double yMax,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
 private:
-    virtual void prep();
+    virtual void query();
 
     const double m_xMin;
     const double m_yMin;
@@ -305,7 +328,7 @@ public:
             std::string host,
             std::size_t port,
             Schema schema,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
     ReadCommandRastered(
@@ -318,7 +341,7 @@ public:
             std::size_t port,
             Schema schema,
             RasterMeta rasterMeta,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
     virtual void read(std::size_t maxNumBytes);
@@ -328,7 +351,7 @@ public:
     RasterMeta rasterMeta() const { return m_rasterMeta; }
 
 protected:
-    virtual void prep();
+    virtual void query();
 
     RasterMeta m_rasterMeta;
 };
@@ -346,11 +369,11 @@ public:
             std::size_t port,
             Schema schema,
             std::size_t level,
-            v8::Persistent<v8::Function> prepCallback,
+            v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
 private:
-    virtual void prep();
+    virtual void query();
 
     const std::size_t m_level;
 };

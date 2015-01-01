@@ -1,6 +1,5 @@
 #include <pdal/PointBuffer.hpp>
 #include <pdal/XMLSchema.hpp>
-#include <pdal/QuadIndex.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/Charbuf.hpp>
 #include <pdal/Utils.hpp>
@@ -55,13 +54,6 @@ namespace
             return yOffset * rasterMeta.xNum() + xOffset;
         else
             return invalidIndex;
-    }
-
-    bool rasterOmit(pdal::Dimension::Id::Enum id)
-    {
-        // These Dimensions are not explicitly placed in the output buffer
-        // for rasterized requests.
-        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
     }
 }
 
@@ -285,7 +277,7 @@ std::shared_ptr<pdal::PointBuffer> GreyQuery::pointBuffer(uint64_t id)
     return result;
 }
 
-GreyQuery GreyReader::prep(
+GreyQuery GreyReader::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -299,7 +291,7 @@ GreyQuery GreyReader::prep(
     return GreyQuery(nodeInfoMap, depthBegin, depthEnd);
 }
 
-GreyQuery GreyReader::prep(
+GreyQuery GreyReader::query(
         double xMin,
         double yMin,
         double xMax,
@@ -319,7 +311,7 @@ GreyQuery GreyReader::prep(
     return GreyQuery(nodeInfoMap, bbox, depthBegin, depthEnd);
 }
 
-GreyQuery GreyReader::prep(
+GreyQuery GreyReader::query(
         const std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
