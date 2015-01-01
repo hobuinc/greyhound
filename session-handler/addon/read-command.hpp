@@ -123,17 +123,16 @@ public:
         return numPoints() * m_schema.stride();
     }
 
-    bool done() const;
     void cancel(bool cancel) { m_cancel = cancel; }
-    void errMsg(std::string errMsg) { m_errMsg = errMsg; }
+    std::string& errMsg() { return m_errMsg; }
     std::shared_ptr<ItcBuffer> getBuffer() { return m_itcBuffer; }
     ItcBufferPool& getBufferPool() { return m_itcBufferPool; }
+
+    bool done() const;
     void acquire();
 
     std::size_t numPoints() const;
     std::string readId()    const { return m_readId; }
-    std::string  errMsg()   const { return m_errMsg; }
-    std::string& errMsg()         { return m_errMsg; }
     bool        cancel()    const { return m_cancel; }
     v8::Persistent<v8::Function> queryCallback() const { return m_queryCallback; }
     v8::Persistent<v8::Function> dataCallback() const { return m_dataCallback; }
