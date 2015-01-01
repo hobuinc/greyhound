@@ -61,14 +61,32 @@ namespace
 
         return paths;
     }
+
+    void safe(std::string& err, std::function<void()> f)
+    {
+        try
+        {
+            f();
+        }
+        catch (const std::runtime_error& e)
+        {
+            err = e.what();
+        }
+        catch (const std::bad_alloc& ba)
+        {
+            err = "Caught bad alloc";
+        }
+        catch (...)
+        {
+            err = "Unknown error";
+        }
+    }
 }
 
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession(new PdalSession())
-    , m_readCommandsMutex()
-    , m_readCommands()
     , m_itcBufferPool(itcBufferPool)
 { }
 
@@ -178,26 +196,13 @@ void PdalBindings::doInitialize(
         (uv_work_cb)([](uv_work_t *req)->void {
             CreateData* createData(static_cast<CreateData*>(req->data));
 
-            try
-            {
+            safe(createData->errMsg, [createData]()->void {
                 createData->pdalSession->initialize(
                     createData->pipelineId,
                     createData->pipeline,
                     createData->serialPaths,
                     createData->execute);
-            }
-            catch (const std::runtime_error& e)
-            {
-                createData->errMsg = e.what();
-            }
-            catch (const std::bad_alloc& ba)
-            {
-                createData->errMsg = "Memory allocation failed in CREATE";
-            }
-            catch (...)
-            {
-                createData->errMsg = "Unknown error";
-            }
+            });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void {
             HandleScope scope;
@@ -215,10 +220,6 @@ void PdalBindings::doInitialize(
 
             createData->callback->Call(
                 Context::GetCurrent()->Global(), argc, argv);
-
-            // Dispose of the persistent handle so the callback may be
-            // garbage collected.
-            createData->callback.Dispose();
 
             delete createData;
             delete req;
@@ -351,22 +352,9 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
             SerializeData* serializeData(
                 reinterpret_cast<SerializeData*>(req->data));
 
-            try
-            {
+            safe(serializeData->errMsg, [serializeData]()->void {
                 serializeData->pdalSession->serialize(serializeData->paths);
-            }
-            catch (const std::runtime_error& e)
-            {
-                serializeData->errMsg = e.what();
-            }
-            catch (const std::bad_alloc& ba)
-            {
-                serializeData->errMsg = "Memory allocation failed in SERIALIZE";
-            }
-            catch (...)
-            {
-                serializeData->errMsg = "Unknown error";
-            }
+            });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void {
             HandleScope scope;
@@ -385,10 +373,6 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
 
             serializeData->callback->Call(
                 Context::GetCurrent()->Global(), argc, argv);
-
-            // Dispose of the persistent handle so the callback may be
-            // garbage collected.
-            serializeData->callback.Dispose();
 
             delete serializeData;
             delete req;
@@ -414,8 +398,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     ReadCommand* readCommand(
         ReadCommandFactory::create(
             obj->m_pdalSession,
-            obj->m_readCommandsMutex,
-            obj->m_readCommands,
             obj->m_itcBufferPool,
             readId,
             args));
@@ -424,18 +406,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     {
         return scope.Close(Undefined());
     }
-
-    obj->m_readCommandsMutex.lock();
-    try
-    {
-        obj->m_readCommands[readId] = readCommand;
-    }
-    catch (...)
-    {
-        obj->m_readCommandsMutex.unlock();
-        throw std::runtime_error("Could not lock readCommands");
-    }
-    obj->m_readCommandsMutex.unlock();
 
     // Store our read command where our worker functions can access it.
     uv_work_t* readReq(new uv_work_t);
@@ -449,20 +419,12 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             ReadCommand* readCommand(
                 static_cast<ReadCommand*>(readReq->data));
 
-            try
-            {
-                // Ensure that any required index trees are built and acquire
-                // the data buffer for later.
+            safe(readCommand->errMsg(), [readCommand]()->void {
+                // Run the query.  This will ensure indexing if needed, and
+                // will obtain everything needed to start streaming binary
+                // data to the client.
                 readCommand->run();
-            }
-            catch (const std::runtime_error& e)
-            {
-                readCommand->errMsg(e.what());
-            }
-            catch (...)
-            {
-                readCommand->errMsg("Unknown error");
-            }
+            });
         }),
         (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
             ReadCommand* readCommand(
@@ -475,8 +437,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     readCommand->queryCallback(),
                     readCommand->errMsg());
 
-                // Clean up since we won't be calling the async send code.
-                //readCommand->eraseSelf();
                 delete readCommand;
                 return;
             }
@@ -543,8 +503,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     Context::GetCurrent()->Global(), argc, argv);
             }
 
-            readCommand->queryCallback().Dispose();
-
             uv_work_t* dataReq(new uv_work_t);
             dataReq->data = readCommand;
 
@@ -583,8 +541,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
 
-                    try
-                    {
+                    safe(readCommand->errMsg(), [readCommand]()->void {
                         readCommand->acquire();
 
                         do
@@ -603,22 +560,11 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
                         readCommand->getBufferPool().release(
                             readCommand->getBuffer());
-                    }
-                    catch (const std::runtime_error& e)
-                    {
-                        readCommand->errMsg(e.what());
-                    }
-                    catch (...)
-                    {
-                        readCommand->errMsg("Unknown error");
-                    }
+                    });
                 }),
                 (uv_after_work_cb)([](uv_work_t* dataReq, int status)->void {
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
-
-                    readCommand->dataCallback().Dispose();
-                    readCommand->eraseSelf();
 
                     delete dataReq;
                     delete readCommand;

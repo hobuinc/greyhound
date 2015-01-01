@@ -41,8 +41,6 @@ void errorCallback(
 
 ReadCommand::ReadCommand(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -51,8 +49,6 @@ ReadCommand::ReadCommand(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : m_pdalSession(pdalSession)
-    , m_readCommandsMutex(readCommandsMutex)
-    , m_readCommands(readCommands)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
     , m_async(new uv_async_t)
@@ -104,8 +100,6 @@ std::size_t ReadCommandRastered::numBytes() const
 
 ReadCommandUnindexed::ReadCommandUnindexed(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -117,8 +111,6 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -132,8 +124,6 @@ ReadCommandUnindexed::ReadCommandUnindexed(
 
 ReadCommandPointRadius::ReadCommandPointRadius(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -148,8 +138,6 @@ ReadCommandPointRadius::ReadCommandPointRadius(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -166,8 +154,6 @@ ReadCommandPointRadius::ReadCommandPointRadius(
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -179,8 +165,6 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -194,8 +178,6 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
 
 ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -211,8 +193,6 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandQuadIndex(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -230,8 +210,6 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
 
 ReadCommandRastered::ReadCommandRastered(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -241,8 +219,6 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -255,8 +231,6 @@ ReadCommandRastered::ReadCommandRastered(
 
 ReadCommandRastered::ReadCommandRastered(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -267,8 +241,6 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -281,8 +253,6 @@ ReadCommandRastered::ReadCommandRastered(
 
 ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -293,8 +263,6 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandRastered(
             pdalSession,
-            readCommandsMutex,
-            readCommands,
             itcBufferPool,
             readId,
             host,
@@ -367,8 +335,6 @@ void ReadCommandPointRadius::query()
 
 ReadCommand* ReadCommandFactory::create(
         std::shared_ptr<PdalSession> pdalSession,
-        std::mutex& readCommandsMutex,
-        std::map<std::string, ReadCommand*>& readCommands,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const Arguments& args)
@@ -453,8 +419,6 @@ ReadCommand* ReadCommandFactory::create(
             {
                 readCommand = new ReadCommandUnindexed(
                         pdalSession,
-                        readCommandsMutex,
-                        readCommands,
                         itcBufferPool,
                         readId,
                         host,
@@ -487,8 +451,6 @@ ReadCommand* ReadCommandFactory::create(
 
             readCommand = new ReadCommandPointRadius(
                     pdalSession,
-                    readCommandsMutex,
-                    readCommands,
                     itcBufferPool,
                     readId,
                     host,
@@ -539,8 +501,6 @@ ReadCommand* ReadCommandFactory::create(
                     {
                         readCommand = new ReadCommandBoundedQuadIndex(
                                 pdalSession,
-                                readCommandsMutex,
-                                readCommands,
                                 itcBufferPool,
                                 readId,
                                 host,
@@ -570,8 +530,6 @@ ReadCommand* ReadCommandFactory::create(
 
                 readCommand = new ReadCommandQuadIndex(
                         pdalSession,
-                        readCommandsMutex,
-                        readCommands,
                         itcBufferPool,
                         readId,
                         host,
@@ -635,8 +593,6 @@ ReadCommand* ReadCommandFactory::create(
 
                     readCommand = new ReadCommandRastered(
                             pdalSession,
-                            readCommandsMutex,
-                            readCommands,
                             itcBufferPool,
                             readId,
                             host,
@@ -664,8 +620,6 @@ ReadCommand* ReadCommandFactory::create(
 
             readCommand = new ReadCommandQuadLevel(
                     pdalSession,
-                    readCommandsMutex,
-                    readCommands,
                     itcBufferPool,
                     readId,
                     host,

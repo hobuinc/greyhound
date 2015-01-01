@@ -132,15 +132,14 @@ public:
 
     std::size_t numPoints() const;
     std::string readId()    const { return m_readId; }
-    std::string errMsg()    const { return m_errMsg; }
+    std::string  errMsg()   const { return m_errMsg; }
+    std::string& errMsg()         { return m_errMsg; }
     bool        cancel()    const { return m_cancel; }
     v8::Persistent<v8::Function> queryCallback() const { return m_queryCallback; }
     v8::Persistent<v8::Function> dataCallback() const { return m_dataCallback; }
 
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -151,31 +150,13 @@ public:
 
     virtual ~ReadCommand()
     {
+        m_queryCallback.Dispose();
+        m_dataCallback.Dispose();
+
         if (m_async)
         {
             uv_close((uv_handle_t*)m_async, NULL);
         }
-    }
-
-    // PdalBindings::m_readCommands maintains a map of currently executing
-    // READ commands.  These entries need to be removed once their execution
-    // is complete.  However, the only objects that may be accessed from
-    // the uv_work_queue background threading functions are those which are
-    // wrapped within this ReadCommand* class.  So when this ReadCommand is
-    // finished executing, we need to erase ourselves from this map.
-    void eraseSelf()
-    {
-        m_readCommandsMutex.lock();
-        try
-        {
-            std::cout << "Erasing readId " << m_readId << std::endl;
-            m_readCommands.erase(m_readId);
-        }
-        catch (...)
-        {
-            m_readCommandsMutex.unlock();
-        }
-        m_readCommandsMutex.unlock();
     }
 
     uv_async_t* async() { return m_async; }
@@ -184,8 +165,6 @@ protected:
     virtual void query() = 0;
 
     std::shared_ptr<PdalSession> m_pdalSession;
-    std::mutex& m_readCommandsMutex;
-    std::map<std::string, ReadCommand*>& m_readCommands;
 
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
@@ -213,8 +192,6 @@ class ReadCommandUnindexed : public ReadCommand
 public:
     ReadCommandUnindexed(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -237,8 +214,6 @@ class ReadCommandPointRadius : public ReadCommand
 public:
     ReadCommandPointRadius(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -267,8 +242,6 @@ class ReadCommandQuadIndex : public ReadCommand
 public:
     ReadCommandQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -291,8 +264,6 @@ class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
 public:
     ReadCommandBoundedQuadIndex(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -321,8 +292,6 @@ class ReadCommandRastered : public ReadCommand
 public:
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -333,8 +302,6 @@ public:
 
     ReadCommandRastered(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -361,8 +328,6 @@ class ReadCommandQuadLevel : public ReadCommandRastered
 public:
     ReadCommandQuadLevel(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -383,8 +348,6 @@ class ReadCommandFactory
 public:
     static ReadCommand* create(
             std::shared_ptr<PdalSession> pdalSession,
-            std::mutex& readCommandsMutex,
-            std::map<std::string, ReadCommand*>& readCommands,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             const v8::Arguments& args);
