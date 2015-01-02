@@ -1,142 +1,49 @@
 #pragma once
 
 #include <mutex>
+#include <vector>
 
-#include <pdal/KDIndex.hpp>
-#include <pdal/QuadIndex.hpp>
 #include <pdal/PointContext.hpp>
-#include <pdal/PipelineManager.hpp>
 
-class DimInfo;
-class Schema;
-class PdalIndex;
+#include "once.hpp"
+#include "live-data-source.hpp"
+#include "grey-reader.hpp"
 
-// The Once class allows concurrent users of a shared session to avoid
-// duplicating work, while hiding the shared aspect of the session from callers.
-class Once
-{
-public:
-    Once() : m_done(false), m_err(false), m_mutex() { }
-
-    bool done() const { return m_done; }
-    bool err() const { return m_err; }
-
-    // This function ensures that the function parameter is executed only one
-    // time, even with multithreaded callers.  It also ensures that subsequent
-    // callers will block until the work is completed if they call while the
-    // work is in progress.
-    //
-    // After execution is complete, no additional blocking or work will be
-    // performed.
-    void ensure(std::function<void()> function)
-    {
-        if (!done())
-        {
-            lock();
-
-            if (err())
-            {
-                unlock(true);
-                throw std::runtime_error(
-                        "Could not ensure function - previous error");
-            }
-
-            if (!done())
-            {
-                try
-                {
-                    function();
-                }
-                catch(std::runtime_error& e)
-                {
-                    unlock(true);
-                    throw e;
-                }
-                catch(...)
-                {
-                    unlock(true);
-                    throw std::runtime_error(
-                            "Could not ensure function - unknown error");
-                }
-            }
-
-            unlock();
-        }
-    }
-
-private:
-    void lock()     { m_mutex.lock(); }
-
-    void unlock(bool err = false)
-    {
-        m_done = !err;
-        m_err = err;
-
-        m_mutex.unlock();
-    }
-
-    bool m_done;
-    bool m_err;
-    std::mutex m_mutex;
-};
-
-struct RasterMeta
-{
-    RasterMeta() : xBegin(), xEnd(), xStep(), yBegin(), yEnd(), yStep() { }
-
-    RasterMeta(
-            double xBegin,
-            double xEnd,
-            double xStep,
-            double yBegin,
-            double yEnd,
-            double yStep)
-        : xBegin(xBegin)
-        , xEnd(xEnd)
-        , xStep(xStep)
-        , yBegin(yBegin)
-        , yEnd(yEnd)
-        , yStep(yStep)
-    { }
-
-    double xBegin;
-    double xEnd;
-    double xStep;
-    double yBegin;
-    double yEnd;
-    double yStep;
-
-    std::size_t xNum() const { return std::round((xEnd - xBegin) / xStep); }
-    std::size_t yNum() const { return std::round((yEnd - yBegin) / yStep); }
-};
+class QueryData;
 
 class PdalSession
 {
 public:
     PdalSession();
+    ~PdalSession() { }
 
-    void initialize(const std::string& pipeline, bool execute = true);
-    void indexData(bool build3d = false);
+    void initialize(
+            const std::string& pipelineId,
+            const std::string& pipeline,
+            const std::vector<std::string>& serialPaths,
+            bool execute);
 
+    // Queries.
     std::size_t getNumPoints() const;
     std::string getSchema() const;
     std::string getStats() const;
     std::string getSrs() const;
     std::vector<std::size_t> getFills() const;
 
+    // Write to disk.
+    void serialize(const std::vector<std::string>& serialPaths);
+
+    // Wake from serialized quad-tree.
+    bool awaken(const std::vector<std::string>& serialPaths);
 
     // Read un-indexed data with an offset and a count.
-    std::size_t readUnindexed(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
+    std::shared_ptr<QueryData> queryUnindexed(
             std::size_t start,
-            std::size_t count) const;
+            std::size_t count);
 
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
+    std::shared_ptr<QueryData> query(
             double xMin,
             double yMin,
             double xMax,
@@ -145,110 +52,50 @@ public:
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with min/max tree depths to search.
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
+    std::shared_ptr<QueryData> query(
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with depth level for rasterization.
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
+    std::shared_ptr<QueryData> query(
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     // Read a bounded set of points into a raster of pre-determined resolution.
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
-            const RasterMeta& rasterMeta);
+    std::shared_ptr<QueryData> query(const RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
-    std::size_t read(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
+    std::shared_ptr<QueryData> query(
             bool is3d,
             double radius,
             double x,
             double y,
             double z);
 
-    const pdal::PointBuffer& pointBuffer() const
-    {
-        return *m_pointBuffer.get();
-    }
+    void read(
+            std::shared_ptr<ItcBuffer> itcBuffer,
+            std::size_t maxNumBytes,
+            const Schema& schema,
+            std::shared_ptr<QueryData> queryData);
 
     const pdal::PointContext& pointContext() const
     {
-        return m_pointContext;
+        if (m_serialDataSource) return m_serialDataSource->pointContext();
+        else if (m_liveDataSource) return m_liveDataSource->pointContext();
+        else throw std::runtime_error("Not initialized!");
     }
 
 private:
-    pdal::PipelineManager m_pipelineManager;
-    pdal::PointBufferPtr m_pointBuffer;
-    pdal::PointContext m_pointContext;
+    std::string m_pipelineId;
+    std::string m_pipeline;
+    std::shared_ptr<LiveDataSource> m_liveDataSource;
+    std::shared_ptr<GreyReader> m_serialDataSource;
 
     Once m_initOnce;
-
-    std::unique_ptr<PdalIndex> m_pdalIndex;
-
-    // Read points out from a list that represents indices into m_pointBuffer.
-    std::size_t readIndexList(
-            std::vector<unsigned char>& buffer,
-            const Schema& schema,
-            const std::vector<std::size_t>& indexList,
-            bool rasterize = false) const;
-
-    // Returns number of bytes read into buffer.
-    std::size_t readDim(
-            unsigned char* buffer,
-            const DimInfo& dimReq,
-            std::size_t index) const;
+    std::mutex m_awakenMutex;
 
     // Disallow copy/assignment.
     PdalSession(const PdalSession&);
     PdalSession& operator=(const PdalSession&);
-};
-
-class PdalIndex
-{
-public:
-    PdalIndex()
-        : m_kdIndex2d()
-        , m_kdIndex3d()
-        , m_quadIndex()
-        , m_kd2dOnce()
-        , m_kd3dOnce()
-        , m_quadOnce()
-    { }
-
-    enum IndexType
-    {
-        KdIndex2d,
-        KdIndex3d,
-        QuadIndex
-    };
-
-    void ensureIndex(
-            IndexType indexType,
-            const pdal::PointBufferPtr pointBufferPtr);
-
-    const pdal::KDIndex& kdIndex2d()    { return *m_kdIndex2d.get(); }
-    const pdal::KDIndex& kdIndex3d()    { return *m_kdIndex3d.get(); }
-    const pdal::QuadIndex& quadIndex()  { return *m_quadIndex.get(); }
-
-private:
-    std::unique_ptr<pdal::KDIndex> m_kdIndex2d;
-    std::unique_ptr<pdal::KDIndex> m_kdIndex3d;
-    std::unique_ptr<pdal::QuadIndex> m_quadIndex;
-
-    Once m_kd2dOnce;
-    Once m_kd3dOnce;
-    Once m_quadOnce;
-
-    // Disallow copy/assignment.
-    PdalIndex(const PdalIndex&);
-    PdalIndex& operator=(const PdalIndex&);
 };
 

@@ -1,396 +1,329 @@
-#include <thread>
+#include <iostream>
 
-#include <boost/property_tree/json_parser.hpp>
-
-#include <pdal/PipelineReader.hpp>
-#include <pdal/PDALUtils.hpp>
-#include <pdal/Dimension.hpp>
-#include <pdal/Options.hpp>
-#include <pdal/Metadata.hpp>
+#include <pdal/PointBuffer.hpp>
 
 #include "pdal-session.hpp"
-#include "read-command.hpp"
-
-namespace
-{
-    bool rasterOmit(pdal::Dimension::Id::Enum id)
-    {
-        // These Dimensions are not explicitly placed in the output buffer
-        // for rasterized requests.
-        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
-    }
-}
+#include "buffer-pool.hpp"
+#include "read-query.hpp"
 
 PdalSession::PdalSession()
-    : m_pipelineManager()
-    , m_pointBuffer()
+    : m_pipelineId()
+    , m_pipeline()
+    , m_liveDataSource()
+    , m_serialDataSource()
     , m_initOnce()
-    , m_pdalIndex(new PdalIndex())
+    , m_awakenMutex()
 { }
 
-void PdalSession::initialize(const std::string& pipeline, const bool execute)
+void PdalSession::initialize(
+        const std::string& pipelineId,
+        const std::string& pipeline,
+        const std::vector<std::string>& serialPaths,
+        const bool execute)
 {
-    m_initOnce.ensure([this, &pipeline, execute]() {
-        std::istringstream ssPipeline(pipeline);
-        pdal::PipelineReader pipelineReader(m_pipelineManager);
-        pipelineReader.readPipeline(ssPipeline);
+    m_initOnce.ensure([this, &pipelineId, &pipeline, &serialPaths, execute]() {
+        m_pipelineId = pipelineId;
+        m_pipeline = pipeline;
 
-        // This segment could take a substantial amount of time.  The
-        // PdalBindings wrapper ensures that it will run in a non-blocking
-        // manner in the uv_work_queue.
-        if (execute)
+        // Try to awaken from serialized source.  If unsuccessful, initialize a
+        // live source.  For pipeline validation only, this will be called with
+        // an empty pipelineId since it does not exist yet.  In this case,
+        // always perform live initialization.
+        if (!pipelineId.size() || (!awaken(serialPaths) && !m_liveDataSource))
         {
-            m_pipelineManager.addFilter(
-                "filters.stats",
-                m_pipelineManager.getStage());
+            m_liveDataSource.reset(
+                    new LiveDataSource(pipelineId, pipeline, execute));
 
-            pdal::Options options;
-            options.add("do_sample", false);
-            m_pipelineManager.getStage()->setOptions(options);
-
-            m_pipelineManager.execute();
-
-            m_pointContext = m_pipelineManager.context();
-            const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-            m_pointBuffer = *pbSet.begin();
-
-            if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
-                !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
-                !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
-            {
-                throw std::runtime_error(
-                    "Pipeline output should contain X, Y and Z dimensions");
-            }
+            if (pipelineId.size())
+                std::cout << "Created live source " << pipelineId << std::endl;
         }
     });
 }
 
 std::size_t PdalSession::getNumPoints() const
 {
-    return m_pointBuffer->size();
+    if (m_serialDataSource)     return m_serialDataSource->getNumPoints();
+    else if (m_liveDataSource)  return m_liveDataSource->getNumPoints();
+    else throw std::runtime_error("Not initialized!");
 }
 
 std::string PdalSession::getSchema() const
 {
-    std::ostringstream oss;
-    boost::property_tree::ptree tree(pdal::utils::toPTree(m_pointContext));
-    boost::property_tree::write_json(oss, tree);
-    return oss.str();
+    if (m_serialDataSource)     return m_serialDataSource->getSchema();
+    else if (m_liveDataSource)  return m_liveDataSource->getSchema();
+    else throw std::runtime_error("Not initialized!");
 }
 
 std::string PdalSession::getStats() const
 {
-    return m_pipelineManager.getMetadata().toJSON();
+    if (m_serialDataSource)     return m_serialDataSource->getStats();
+    else if (m_liveDataSource)  return m_liveDataSource->getStats();
+    else throw std::runtime_error("Not initialized!");
 }
 
 std::string PdalSession::getSrs() const
 {
-    return m_pointContext.spatialRef().getRawWKT();
+    if (m_serialDataSource)     return m_serialDataSource->getSrs();
+    else if (m_liveDataSource)  return m_liveDataSource->getSrs();
+    else throw std::runtime_error("Not initialized!");
 }
 
 std::vector<std::size_t> PdalSession::getFills() const
 {
-    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
-    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-    return quadIndex.getFills();
+    if (m_serialDataSource)     return m_serialDataSource->getFills();
+    else if (m_liveDataSource)  return m_liveDataSource->getFills();
+    else throw std::runtime_error("Not initialized!");
 }
 
-std::size_t PdalSession::readDim(
-        unsigned char* buffer,
-        const DimInfo& dim,
-        const std::size_t index) const
+void PdalSession::serialize(const std::vector<std::string>& serialPaths)
 {
-    if (dim.type == "floating")
+    if (m_liveDataSource && !m_serialDataSource)
     {
-        if (dim.size == 4)
-        {
-            float val(m_pointBuffer->getFieldAs<float>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            double val(m_pointBuffer->getFieldAs<double>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid floating size requested");
-        }
-    }
-    else if (dim.type == "signed" || dim.type == "unsigned")
-    {
-        if (dim.size == 1)
-        {
-            uint8_t val(m_pointBuffer->getFieldAs<uint8_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 2)
-        {
-            uint16_t val(m_pointBuffer->getFieldAs<uint16_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 4)
-        {
-            uint32_t val(m_pointBuffer->getFieldAs<uint32_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            uint64_t val(m_pointBuffer->getFieldAs<uint64_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid integer size requested");
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Invalid dimension type requested");
-    }
+        m_liveDataSource->serialize(serialPaths);
+        std::cout << "Serialized - awakening " << m_pipelineId << std::endl;
+        awaken(serialPaths);
 
-    return dim.size;
+        // TODO Safely clear the quadIndex from the live data source.  All its
+        // pending READs must complete first - new ones (except for the custom
+        // raster) will already be routed to the serial data source.
+    }
 }
 
-std::size_t PdalSession::readUnindexed(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const std::size_t start,
-        const std::size_t count) const
+bool PdalSession::awaken(const std::vector<std::string>& serialPaths)
 {
-    if (start >= getNumPoints())
-        throw std::runtime_error("Invalid starting offset in 'read'");
+    bool awoken(false);
 
-    // If zero points specified, read all points after 'start'.
-    const std::size_t pointsToRead(
-            count > 0 ?
-                std::min<std::size_t>(count, getNumPoints() - start) :
-                getNumPoints() - start);
-
+    m_awakenMutex.lock();
     try
     {
-        buffer.resize(pointsToRead * schema.stride());
-
-        unsigned char* pos(buffer.data());
-
-        for (boost::uint32_t i(start); i < start + pointsToRead; ++i)
+        if (!m_serialDataSource &&
+            GreyReader::exists(m_pipelineId, serialPaths))
         {
-            for (const auto& dim : schema.dims)
+            m_serialDataSource.reset(new GreyReader(m_pipelineId, serialPaths));
+
+            if (m_serialDataSource)
             {
-                pos += readDim(pos, dim, i);
-            }
-        }
-    }
-    catch (...)
-    {
-        throw std::runtime_error("Failed to read points from PDAL");
-    }
-
-    return pointsToRead;
-}
-
-std::size_t PdalSession::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const double xMin,
-        const double yMin,
-        const double xMax,
-        const double yMax,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
-{
-    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
-    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-
-    const std::vector<std::size_t> results(quadIndex.getPoints(
-            xMin,
-            yMin,
-            xMax,
-            yMax,
-            depthBegin,
-            depthEnd));
-
-    return readIndexList(buffer, schema, results);
-}
-
-std::size_t PdalSession::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
-    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-
-    const std::vector<std::size_t> results(quadIndex.getPoints(
-            depthBegin,
-            depthEnd));
-
-    return readIndexList(buffer, schema, results);
-}
-
-std::size_t PdalSession::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const std::size_t rasterize,
-        RasterMeta& rasterMeta)
-{
-    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
-    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-
-    const std::vector<std::size_t> results(quadIndex.getPoints(
-            rasterize,
-            rasterMeta.xBegin,
-            rasterMeta.xEnd,
-            rasterMeta.xStep,
-            rasterMeta.yBegin,
-            rasterMeta.yEnd,
-            rasterMeta.yStep));
-
-    return readIndexList(buffer, schema, results, true);
-}
-
-std::size_t PdalSession::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const RasterMeta& rasterMeta)
-{
-    m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
-    const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
-
-    const std::vector<std::size_t> results(quadIndex.getPoints(
-            rasterMeta.xBegin,
-            rasterMeta.xEnd,
-            rasterMeta.xStep,
-            rasterMeta.yBegin,
-            rasterMeta.yEnd,
-            rasterMeta.yStep));
-
-    return readIndexList(buffer, schema, results, true);
-}
-
-std::size_t PdalSession::read(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const bool is3d,
-        const double radius,
-        const double x,
-        const double y,
-        const double z)
-{
-    m_pdalIndex->ensureIndex(
-            is3d ? PdalIndex::KdIndex3d : PdalIndex::KdIndex2d,
-            m_pointBuffer);
-
-    const pdal::KDIndex& kdIndex(
-            is3d ? m_pdalIndex->kdIndex3d() : m_pdalIndex->kdIndex2d());
-
-    // KDIndex::radius() takes r^2.
-    const std::vector<std::size_t> results(
-            kdIndex.radius(x, y, z, radius * radius));
-
-    return readIndexList(buffer, schema, results);
-}
-
-std::size_t PdalSession::readIndexList(
-        std::vector<unsigned char>& buffer,
-        const Schema& schema,
-        const std::vector<std::size_t>& indexList,
-        const bool rasterize) const
-{
-    const std::size_t pointsToRead(indexList.size());
-
-    // Rasterization
-    std::size_t stride(schema.stride());
-
-    if (rasterize)
-    {
-        // Clientward rasterization schemas always contain a byte to specify
-        // whether a point at this location in the raster exists.
-        ++stride;
-
-        for (auto dim : schema.dims)
-        {
-            if (rasterOmit(dim.id))
-            {
-                stride -= dim.size;
-            }
-        }
-    }
-
-    try
-    {
-        buffer.resize(pointsToRead * stride, 0);
-
-        unsigned char* pos(buffer.data());
-
-        for (std::size_t i : indexList)
-        {
-            if (i != std::numeric_limits<std::size_t>::max())
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a valid point.
-                    std::fill(pos, pos + 1, 1);
-                    ++pos;
-                }
-
-                for (const auto& dim : schema.dims)
-                {
-                    if (!rasterize || !rasterOmit(dim.id))
-                    {
-                        pos += readDim(pos, dim, i);
-                    }
-                }
+                std::cout << "Created serial source ";
+                awoken = true;
             }
             else
             {
-                if (rasterize)
-                {
-                    // Mark this point as a hole.
-                    std::fill(pos, pos + 1, 0);
-                }
-
-                pos += stride;
+                std::cout << "Failed serial source ";
             }
+
+            std::cout << m_pipelineId << std::endl;
         }
+        else if (m_serialDataSource)
+        {
+            awoken = true;
+        }
+
     }
     catch (...)
     {
-        throw std::runtime_error("Failed to read points from PDAL");
+        std::cout << "Caught exception in awaken" << std::endl;
+        m_serialDataSource.reset();
+        m_awakenMutex.unlock();
     }
+    m_awakenMutex.unlock();
 
-    return pointsToRead;
+    return awoken;
 }
 
-void PdalIndex::ensureIndex(
-        const IndexType indexType,
-        const pdal::PointBufferPtr pointBufferPtr)
+std::shared_ptr<QueryData> PdalSession::queryUnindexed(
+        std::size_t start,
+        std::size_t count)
 {
-    const pdal::PointBuffer& pointBuffer(*pointBufferPtr.get());
-
-    switch (indexType)
+    std::cout << "Unindexed read - query" << std::endl;
+    // Unindexed read queries are only supported by a live data source.
+    if (!m_liveDataSource)
     {
-        case KdIndex2d:
-            m_kd2dOnce.ensure([this, &pointBuffer]() {
-                m_kdIndex2d.reset(new pdal::KDIndex(pointBuffer));
-                m_kdIndex2d->build(false);
-            });
-            break;
-        case KdIndex3d:
-            m_kd3dOnce.ensure([this, &pointBuffer]() {
-                m_kdIndex3d.reset(new pdal::KDIndex(pointBuffer));
-                m_kdIndex3d->build(true);
-            });
-            break;
-        case QuadIndex:
-            m_quadOnce.ensure([this, &pointBuffer]() {
-                m_quadIndex.reset(new pdal::QuadIndex(pointBuffer));
-                m_quadIndex->build();
-            });
-            break;
-        default:
-            throw std::runtime_error("Invalid PDAL index type");
+        std::cout << "Resetting live data source" << std::endl;
+        m_liveDataSource.reset(
+                new LiveDataSource(m_pipelineId, m_pipeline, true));
     }
+
+    return std::shared_ptr<QueryData>(new UnindexedQueryData(
+                m_liveDataSource->pointBuffer(),
+                start,
+                count));
+}
+
+std::shared_ptr<QueryData> PdalSession::query(
+        double xMin,
+        double yMin,
+        double xMax,
+        double yMax,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    std::ostringstream logParams;
+    logParams <<
+            "\tPipeline ID: " << m_pipelineId << "\n" <<
+            "\tBBox: [" << xMin << "," << yMin << "," <<
+                           xMax << "," << yMax << "]\n" <<
+            "\tDepth range: " << depthBegin << "-" << depthEnd;
+
+    if (m_serialDataSource)
+    {
+        std::cout <<
+            "Reading from serial source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new SerialQueryData(m_serialDataSource->query(
+                    xMin,
+                    yMin,
+                    xMax,
+                    yMax,
+                    depthBegin,
+                    depthEnd)));
+    }
+    else if (m_liveDataSource)
+    {
+        std::cout <<
+            "Reading from live source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new LiveQueryData(
+                    m_liveDataSource->pointBuffer(),
+                    m_liveDataSource->query(
+                        xMin,
+                        yMin,
+                        xMax,
+                        yMax,
+                        depthBegin,
+                        depthEnd)));
+    }
+    else
+    {
+        throw std::runtime_error("Not initialized!");
+    }
+}
+
+std::shared_ptr<QueryData> PdalSession::query(
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    std::ostringstream logParams;
+    logParams <<
+            "\tPipeline ID: " << m_pipelineId << "\n" <<
+            "\tDepth range: " << depthBegin << "-" << depthEnd;
+
+    if (m_serialDataSource)
+    {
+        std::cout <<
+            "Reading from serial source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new SerialQueryData(m_serialDataSource->query(
+                    depthBegin,
+                    depthEnd)));
+    }
+    else if (m_liveDataSource)
+    {
+        std::cout <<
+            "Reading from live source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new LiveQueryData(
+                    m_liveDataSource->pointBuffer(),
+                    m_liveDataSource->query(
+                        depthBegin,
+                        depthEnd)));
+    }
+    else
+    {
+        throw std::runtime_error("Not initialized!");
+    }
+}
+
+std::shared_ptr<QueryData> PdalSession::query(
+        std::size_t rasterize,
+        RasterMeta& rasterMeta)
+{
+    std::ostringstream logParams;
+    logParams <<
+            "\tPipeline ID: " << m_pipelineId << "\n" <<
+            "\tRasterize: " << rasterize << "\n";
+
+    if (m_serialDataSource)
+    {
+        std::cout <<
+            "Reading from serial source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new SerialQueryData(m_serialDataSource->query(
+                    rasterize,
+                    rasterMeta)));
+    }
+    else if (m_liveDataSource)
+    {
+        std::cout <<
+            "Reading from live source\n" <<
+            logParams.str() <<
+            std::endl;
+
+        return std::shared_ptr<QueryData>(
+                new LiveQueryData(
+                    m_liveDataSource->pointBuffer(),
+                    m_liveDataSource->query(
+                        rasterize,
+                        rasterMeta)));
+    }
+    else
+    {
+        throw std::runtime_error("not initialized!");
+    }
+}
+
+std::shared_ptr<QueryData> PdalSession::query(const RasterMeta& rasterMeta)
+{
+    // Custom-res raster queries are only supported by a live data source.
+    if (!m_liveDataSource)
+    {
+        m_liveDataSource.reset(
+                new LiveDataSource(m_pipelineId, m_pipeline, true));
+    }
+
+    if (!m_liveDataSource)
+        throw std::runtime_error("not initialized!");
+
+    return std::shared_ptr<QueryData>(
+            new LiveQueryData(
+                m_liveDataSource->pointBuffer(),
+                m_liveDataSource->query(rasterMeta)));
+}
+
+std::shared_ptr<QueryData> PdalSession::query(
+        bool is3d,
+        double radius,
+        double x,
+        double y,
+        double z)
+{
+    // KD-indexed read queries are only supported by a live data source.
+    if (!m_liveDataSource)
+    {
+        m_liveDataSource.reset(
+                new LiveDataSource(m_pipelineId, m_pipeline, true));
+    }
+
+    if (!m_liveDataSource)
+        throw std::runtime_error("not initialized!");
+
+    return std::shared_ptr<QueryData>(
+            new LiveQueryData(
+                m_liveDataSource->pointBuffer(),
+                m_liveDataSource->query(is3d, radius, x, y, z)));
 }
 

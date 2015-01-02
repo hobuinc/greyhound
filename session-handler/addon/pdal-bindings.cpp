@@ -1,6 +1,4 @@
-#include <node.h>
 #include <node_buffer.h>
-#include <v8.h>
 
 #include "pdal-bindings.hpp"
 #include "read-command.hpp"
@@ -9,7 +7,11 @@ using namespace v8;
 
 namespace
 {
-    const std::size_t chunkSize = 65536;
+    // TODO Configure.
+    const std::size_t numBuffers = 1024;
+    const std::size_t maxReadLength = 65536;
+    static ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
+
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
 
@@ -34,13 +36,58 @@ namespace
 
         return id;
     }
+
+    std::vector<std::string> parsePathList(
+            const v8::Local<v8::Value>& rawArg)
+    {
+        std::vector<std::string> paths;
+
+        if (!rawArg->IsUndefined() && rawArg->IsArray())
+        {
+            Local<Array> rawArray(Array::Cast(*rawArg));
+
+            for (std::size_t i(0); i < rawArray->Length(); ++i)
+            {
+                const v8::Local<v8::Value>& rawValue(
+                    rawArray->Get(Integer::New(i)));
+
+                if (rawValue->IsString())
+                {
+                    paths.push_back(std::string(
+                            *v8::String::Utf8Value(rawValue->ToString())));
+                }
+            }
+        }
+
+        return paths;
+    }
+
+    void safe(std::string& err, std::function<void()> f)
+    {
+        try
+        {
+            f();
+        }
+        catch (const std::runtime_error& e)
+        {
+            err = e.what();
+        }
+        catch (const std::bad_alloc& ba)
+        {
+            err = "Caught bad alloc";
+        }
+        catch (...)
+        {
+            err = "Unknown error";
+        }
+    }
 }
 
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession(new PdalSession())
-    , m_readCommands()
+    , m_itcBufferPool(itcBufferPool)
 { }
 
 PdalBindings::~PdalBindings()
@@ -74,6 +121,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getFills)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("serialize"),
+        FunctionTemplate::New(serialize)->GetFunction());
 
     constructor = Persistent<Function>::New(tpl->GetFunction());
     exports->Set(String::NewSymbol("PdalBindings"), constructor);
@@ -106,13 +155,17 @@ void PdalBindings::doInitialize(
     std::string errMsg("");
 
     if (args[0]->IsUndefined() || !args[0]->IsString())
-        errMsg = "'pipeline' must be a string - args[0]";
-    if (args[1]->IsUndefined() || !args[1]->IsFunction())
-        // Fatal.
+        errMsg = "'pipelineId' must be a string - args[0]";
+
+    if (args[1]->IsUndefined() || !args[1]->IsString())
+        errMsg = "'pipeline' must be a string - args[1]";
+
+    if (args[3]->IsUndefined() || !args[3]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(args[1])));
+            Persistent<Function>::New(Local<Function>::Cast(
+                    args[3])));
 
     if (errMsg.size())
     {
@@ -121,7 +174,9 @@ void PdalBindings::doInitialize(
         return;
     }
 
-    const std::string pipeline(*v8::String::Utf8Value(args[0]->ToString()));
+    const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
+    const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
+    const std::vector<std::string> serialPaths(parsePathList(args[2]));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -129,7 +184,9 @@ void PdalBindings::doInitialize(
     uv_work_t* req(new uv_work_t);
     req->data = new CreateData(
             obj->m_pdalSession,
+            pipelineId,
             pipeline,
+            serialPaths,
             execute,
             callback);
 
@@ -137,31 +194,20 @@ void PdalBindings::doInitialize(
         uv_default_loop(),
         req,
         (uv_work_cb)([](uv_work_t *req)->void {
-            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
+            CreateData* createData(static_cast<CreateData*>(req->data));
 
-            try
-            {
+            safe(createData->errMsg, [createData]()->void {
                 createData->pdalSession->initialize(
+                    createData->pipelineId,
                     createData->pipeline,
+                    createData->serialPaths,
                     createData->execute);
-            }
-            catch (const std::runtime_error& e)
-            {
-                createData->errMsg = e.what();
-            }
-            catch (const std::bad_alloc& ba)
-            {
-                createData->errMsg = "Memory allocation failed in CREATE";
-            }
-            catch (...)
-            {
-                createData->errMsg = "Unknown error";
-            }
+            });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void {
             HandleScope scope;
 
-            CreateData* createData(reinterpret_cast<CreateData*>(req->data));
+            CreateData* createData(static_cast<CreateData*>(req->data));
 
             // Output args.
             const unsigned argc = 1;
@@ -175,13 +221,10 @@ void PdalBindings::doInitialize(
             createData->callback->Call(
                 Context::GetCurrent()->Global(), argc, argv);
 
-            // Dispose of the persistent handle so the callback may be
-            // garbage collected.
-            createData->callback.Dispose();
-
             delete createData;
             delete req;
-        }));
+        })
+    );
 
     scope.Close(Undefined());
 }
@@ -190,7 +233,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
 {
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-    obj->doInitialize(args);
+    obj->doInitialize(args, true);
     return scope.Close(Undefined());
 }
 
@@ -272,6 +315,73 @@ Handle<Value> PdalBindings::getFills(const Arguments& args)
     return scope.Close(jsFills);
 }
 
+Handle<Value> PdalBindings::serialize(const Arguments& args)
+{
+    HandleScope scope;
+
+    std::string errMsg("");
+
+    if (args[1]->IsUndefined() || !args[1]->IsFunction())
+        throw std::runtime_error("Invalid callback supplied to 'serialize'");
+
+    Persistent<Function> callback(
+            Persistent<Function>::New(Local<Function>::Cast(
+                    args[1])));
+
+    if (errMsg.size())
+    {
+        std::cout << "Erroring SERIALIZE" << std::endl;
+        errorCallback(callback, errMsg);
+        return scope.Close(Undefined());
+    }
+
+    const std::vector<std::string> paths(parsePathList(args[0]));
+
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    // Store everything we'll need to perform initialization.
+    uv_work_t* req(new uv_work_t);
+    req->data = new SerializeData(obj->m_pdalSession, paths, callback);
+
+    std::cout << "Starting serialization task" << std::endl;
+
+    uv_queue_work(
+        uv_default_loop(),
+        req,
+        (uv_work_cb)([](uv_work_t *req)->void {
+            SerializeData* serializeData(
+                reinterpret_cast<SerializeData*>(req->data));
+
+            safe(serializeData->errMsg, [serializeData]()->void {
+                serializeData->pdalSession->serialize(serializeData->paths);
+            });
+        }),
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+            HandleScope scope;
+
+            SerializeData* serializeData(
+                reinterpret_cast<SerializeData*>(req->data));
+
+            // Output args.
+            const unsigned argc = 1;
+            Local<Value> argv[argc] =
+                {
+                    Local<Value>::New(String::New(
+                            serializeData->errMsg.data(),
+                            serializeData->errMsg.size()))
+                };
+
+            serializeData->callback->Call(
+                Context::GetCurrent()->Global(), argc, argv);
+
+            delete serializeData;
+            delete req;
+        })
+    );
+
+    return scope.Close(Undefined());
+}
+
 Handle<Value> PdalBindings::read(const Arguments& args)
 {
     HandleScope scope;
@@ -288,7 +398,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     ReadCommand* readCommand(
         ReadCommandFactory::create(
             obj->m_pdalSession,
-            obj->m_readCommands,
+            obj->m_itcBufferPool,
             readId,
             args));
 
@@ -296,8 +406,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     {
         return scope.Close(Undefined());
     }
-
-    obj->m_readCommands.insert(std::make_pair(readId, readCommand));
 
     // Store our read command where our worker functions can access it.
     uv_work_t* readReq(new uv_work_t);
@@ -307,58 +415,45 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     uv_queue_work(
         uv_default_loop(),
         readReq,
-        (uv_work_cb)([](uv_work_t *readReq)->void {
+        (uv_work_cb)([](uv_work_t* readReq)->void {
             ReadCommand* readCommand(
-                reinterpret_cast<ReadCommand*>(readReq->data));
+                static_cast<ReadCommand*>(readReq->data));
 
-            // Buffer the point data from PDAL.  If any exceptions occur,
-            // catch/store them so they can be passed to the callback.
-            try
-            {
+            safe(readCommand->errMsg(), [readCommand]()->void {
+                // Run the query.  This will ensure indexing if needed, and
+                // will obtain everything needed to start streaming binary
+                // data to the client.
                 readCommand->run();
-            }
-            catch (const std::runtime_error& e)
-            {
-                readCommand->errMsg(e.what());
-            }
-            catch (...)
-            {
-                readCommand->errMsg("Unknown error");
-            }
+            });
         }),
         (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
             ReadCommand* readCommand(
-                reinterpret_cast<ReadCommand*>(readReq->data));
+                static_cast<ReadCommand*>(readReq->data));
 
             if (readCommand->errMsg().size())
             {
-                // Propagate the error back to the remote host.  This call
-                // will dispose of the callback.
+                std::cout << "Got error callback from run()" << std::endl;
                 errorCallback(
-                    readCommand->callback(),
+                    readCommand->queryCallback(),
                     readCommand->errMsg());
 
-                // Clean up since we won't be calling the async send code.
-                readCommand->eraseSelf();
                 delete readCommand;
                 return;
             }
-
-            HandleScope scope;
 
             const std::string id(readCommand->readId());
 
             if (readCommand->rasterize())
             {
                 ReadCommandRastered* readCommandRastered(
-                        reinterpret_cast<ReadCommandRastered*>(readCommand));
+                        static_cast<ReadCommandRastered*>(readCommand));
 
                 if (readCommandRastered)
                 {
                     const RasterMeta rasterMeta(
                             readCommandRastered->rasterMeta());
 
-                    const unsigned argc = 11;
+                    const unsigned argc = 10;
                     Local<Value> argv[argc] =
                     {
                         Local<Value>::New(Null()), // err
@@ -367,12 +462,6 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                                     readCommand->numPoints())),
                         Local<Value>::New(Integer::New(
                                     readCommand->numBytes())),
-                        // TODO This makes a copy.  Should use 4-arg version.
-                        // https://groups.google.com/forum/#!msg/nodejs/gz8YF3oLit0/dDN8RAB22RAJ
-                        Local<Value>::New(node::Buffer::New(
-                                    reinterpret_cast<const char*>(
-                                        readCommand->data()),
-                                    readCommand->numBytes())->handle_),
                         Local<Value>::New(Number::New(
                                     rasterMeta.xBegin)),
                         Local<Value>::New(Number::New(
@@ -387,40 +476,100 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                                     rasterMeta.yNum()))
                     };
 
-                    readCommand->callback()->Call(
+                    readCommand->queryCallback()->Call(
                         Context::GetCurrent()->Global(), argc, argv);
                 }
                 else
                 {
                     errorCallback(
-                        readCommand->callback(),
+                        readCommand->queryCallback(),
                         "Invalid ReadCommand");
                 }
             }
             else
             {
-                const unsigned argc = 5;
+                const unsigned argc = 4;
                 Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
                     Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes())),
-                    Local<Value>::New(node::Buffer::New(
-                                reinterpret_cast<const char*>(
-                                    readCommand->data()),
-                                readCommand->numBytes())->handle_)
+                    Local<Value>::New(Integer::New(readCommand->numBytes()))
                 };
 
                 // Call the provided callback to return the status of the
                 // data about to be streamed to the remote host.
-                readCommand->callback()->Call(
+                readCommand->queryCallback()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
             }
 
-            // Dispose of the persistent handle so this callback may be
-            // garbage collected.
-            readCommand->callback().Dispose();
+            uv_work_t* dataReq(new uv_work_t);
+            dataReq->data = readCommand;
+
+            uv_async_init(
+                uv_default_loop(),
+                readCommand->async(),
+                ([](uv_async_t* async, int status)->void {
+                    HandleScope scope;
+
+                    ReadCommand* readCommand(
+                        static_cast<ReadCommand*>(async->data));
+
+                    const unsigned argc = 3;
+                    Local<Value>argv[argc] =
+                    {
+                        Local<Value>::New(Null()), // err
+                        Local<Value>::New(node::Buffer::New(
+                                reinterpret_cast<const char*>(
+                                    readCommand->getBuffer()->data()),
+                                readCommand->getBuffer()->size())->handle_),
+                        Local<Value>::New(Number::New(readCommand->done()))
+                    };
+
+                    readCommand->dataCallback()->Call(
+                        Context::GetCurrent()->Global(), argc, argv);
+
+                    readCommand->getBuffer()->flush();
+                    scope.Close(Undefined());
+                })
+            );
+
+            uv_queue_work(
+                uv_default_loop(),
+                dataReq,
+                (uv_work_cb)([](uv_work_t* dataReq)->void {
+                    ReadCommand* readCommand(
+                        static_cast<ReadCommand*>(dataReq->data));
+
+                    safe(readCommand->errMsg(), [readCommand]()->void {
+                        readCommand->acquire();
+
+                        do
+                        {
+                            readCommand->getBuffer()->grab();
+                            readCommand->read(maxReadLength);
+
+                            // A bit strange, but we need to send this via the
+                            // same async token use in the uv_async_init()
+                            // call, so it must be a member of ReadCommand
+                            // since that object is the only thing we can
+                            // access in this background work queue.
+                            readCommand->async()->data = readCommand;
+                            uv_async_send(readCommand->async());
+                        } while (!readCommand->done());
+
+                        readCommand->getBufferPool().release(
+                            readCommand->getBuffer());
+                    });
+                }),
+                (uv_after_work_cb)([](uv_work_t* dataReq, int status)->void {
+                    ReadCommand* readCommand(
+                        static_cast<ReadCommand*>(dataReq->data));
+
+                    delete dataReq;
+                    delete readCommand;
+                })
+            );
 
             delete readReq;
         })
