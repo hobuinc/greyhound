@@ -33,15 +33,15 @@ This will start the virtual machine and launch _Greyhound_.  The first time you 
 
 _Greyhound_ allows clients to make use of pipelines that have been previously stored within the _Greyhound_ database as their pointcloud source.  These pipelines must be placed into the database before they may be used, and then selected with the ID that _Greyhound_ assigns.  The database is pre-initialized with a sample pipeline during the `vagrant up` procedure.  To have pointcloud data immediately rendered in a browser once the process finishes, you can navigate to:
 
-- [http://localhost:8080/data/58a6ee2c990ba94db936d56bd42aa703](http://localhost:8080/data/58a6ee2c990ba94db936d56bd42aa703)
+- [http://localhost:8080/data/58a6ee2c990ba94db936d56bd42aa703](http://localhost:8080/data/5adcf597e3376f98471bf37816e9af2c)
 
 
 _Greyhound_ also supports some spatially indexed queries via URL query parameters (these links operate on a large pipeline):
 
 - [Point-radius query](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?radius=400&geo={%22type%22:%22Point%22,%22coordinates%22:[276488.2105233709,4179808.998997613,2029.596267072244]})
-- [BBox and quadtree search depth query](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?geo={%22bbox%22:[276400,4179000,277100,4179700]}&depthEnd=10)
-- [Quad-tree single-level raster](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?rasterize=9)
-- [Custom resolution bounded raster](http://localhost:8080/data/3c51e54a3f0e1b7f4ffd582d4d970162?geo={%22bbox%22:[276400,4179000,277100,4179700]}&resolution=[256,256])
+- [BBox and quadtree search depth query](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?geo={%22bbox%22:[276400,4179000,277100,4179700]}&depthEnd=10)
+- [Quad-tree single-level raster](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?rasterize=9)
+- [Custom resolution bounded raster](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?geo={%22bbox%22:[276400,4179000,277100,4179700]}&resolution=[256,256])
 
 ## Going further
 To get more functionality than looking at the sample point clouds in your browser, you'll need to SSH into your Vagrant machine with:

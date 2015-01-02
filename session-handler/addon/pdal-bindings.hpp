@@ -4,33 +4,17 @@
 #include <mutex>
 #include <map>
 
-#include <node.h>
+#include "pdal-session.hpp"
+#include "buffer-pool.hpp"
 
 class PdalSession;
 class ReadCommand;
 
-template<typename K, typename V> class LockedMap
+enum Action
 {
-public:
-    LockedMap<K, V>() : m_lock(), m_data() { }
-
-    void insert(std::pair<K, V> entry)
-    {
-        m_lock.lock();
-        m_data.insert(entry);
-        m_lock.unlock();
-    }
-
-    void erase(const K& k)
-    {
-        m_lock.lock();
-        m_data.erase(k);
-        m_lock.unlock();
-    }
-
-private:
-    std::mutex m_lock;
-    std::map<K, V> m_data;
+    Execute,
+    Validate,
+    Awaken
 };
 
 class PdalBindings : public node::ObjectWrap
@@ -58,29 +42,67 @@ private:
     static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
     static v8::Handle<v8::Value> getFills(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
+    static v8::Handle<v8::Value> serialize(const v8::Arguments& args);
 
     std::shared_ptr<PdalSession> m_pdalSession;
 
-    LockedMap<std::string, ReadCommand*> m_readCommands;
+    ItcBufferPool& m_itcBufferPool;
 
     struct CreateData
     {
         CreateData(
                 std::shared_ptr<PdalSession> pdalSession,
+                std::string pipelineId,
                 std::string pipeline,
+                std::vector<std::string> serialPaths,
                 bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
+            , pipelineId(pipelineId)
             , pipeline(pipeline)
+            , serialPaths(serialPaths)
             , execute(execute)
             , errMsg()
             , callback(callback)
         { }
 
+        ~CreateData()
+        {
+            callback.Dispose();
+        }
+
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
+        const std::string pipelineId;
         const std::string pipeline;
+        const std::vector<std::string> serialPaths;
         const bool execute;
+
+        // Outputs
+        std::string errMsg;
+
+        v8::Persistent<v8::Function> callback;
+    };
+
+    struct SerializeData
+    {
+        SerializeData(
+                std::shared_ptr<PdalSession> pdalSession,
+                std::vector<std::string> paths,
+                v8::Persistent<v8::Function> callback)
+            : pdalSession(pdalSession)
+            , paths(paths)
+            , callback(callback)
+        { }
+
+        ~SerializeData()
+        {
+            callback.Dispose();
+        }
+
+        // Inputs
+        const std::shared_ptr<PdalSession> pdalSession;
+        const std::vector<std::string> paths;
 
         // Outputs
         std::string errMsg;

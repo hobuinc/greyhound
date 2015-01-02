@@ -2,6 +2,9 @@
 // Main entry point for pdal session delegation
 //
 process.title = 'gh_sh';
+process.on('uncaughtException', function(err) {
+    console.log('Caught at top level: ' + err);
+});
 
 process.on('uncaughtException', function(err) {
     console.log('Caught at top level: ' + err);
@@ -17,8 +20,54 @@ var express = require("express"),
     console = require('clim')(),
     config = (require('../config').sh || { }),
     globalConfig = (require('../config').global || { }),
+    mkdirp = require('mkdirp'),
 
-    PdalSession = require('./build/Release/pdalBindings').PdalBindings;
+    PdalSession = require('./build/Release/pdalBindings').PdalBindings,
+
+    // serialPaths[0] is to be used for writing new serialized entries.
+    // serialPaths[0..n] are to be searched when looking for serialized entries.
+    serialPaths = (function() {
+        if (!config.serialAllowed) return undefined;
+
+        var paths = [];
+        var defaultSerialPath = '/var/greyhound/serial/';
+
+        var tryCreate = function(dir) {
+            try {
+                mkdirp.sync(dir);
+                serialPath = dir;
+                return true;
+            }
+            catch (err) {
+                console.error('Could not create serial path', dir);
+                return false;
+            }
+        };
+
+        if (config.serialPaths &&
+            config.serialPaths.length &&
+            typeof serialPaths[0] === 'string') {
+
+            if (tryCreate(serialPaths[0])) {
+                paths = serialPaths;
+                paths.push(defaultSerialPath);
+            }
+        }
+
+        if (!paths || !paths.length) {
+            if (tryCreate(defaultSerialPath)) {
+                paths.push(defaultSerialPath);
+            }
+        }
+
+        if (!paths.length) {
+            console.error('Serialization disabled');
+        }
+
+        return paths.length ? paths : undefined;
+    })();
+
+console.log('Serial paths:', serialPaths);
 
 // configure express application
 app.use(methodOverride());
@@ -73,11 +122,16 @@ app.get("/", function(req, res) {
 // handlers for our API
 app.get("/validate", function(req, res) {
     var pdalSession = new PdalSession();
-    pdalSession.parse(req.body.pipeline, function(err) {
-        pdalSession.destroy();
-        if (err) console.log('Pipeline validation error:', err);
-        res.json({ valid: err ? false : true });
-    });
+    pdalSession.parse(
+        '',
+        req.body.pipeline,
+        serialPaths,
+        function(err) {
+            pdalSession.destroy();
+            if (err) console.log('Pipeline validation error:', err);
+            res.json({ valid: err ? false : true });
+        }
+    );
 });
 
 app.post("/create", function(req, res) {
@@ -98,7 +152,7 @@ app.post("/create", function(req, res) {
     // back immediately if the initial creation is complete, or if the initial
     // creation is still in progress, then the callback will be executed when
     // that call completes.
-    pdalSession.create(pipeline, function(err) {
+    pdalSession.create(pipelineId, pipeline, serialPaths, function(err) {
         if (err) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
@@ -172,6 +226,21 @@ app.get("/fills/:sessionId", function(req, res) {
     });
 });
 
+app.get("/serialize/:sessionId", function(req, res) {
+    if (!config.serialAllowed || !serialPaths) {
+        return res.json(400, {
+            message: 'Serialization disabled'
+        });
+    }
+
+    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+        pdalSession.serialize(serialPaths, function(err) {
+            if (err) console.log('ERROR during serialization');
+        });
+        res.json({ message: 'Serialization task launched' });
+    });
+});
+
 app.post("/cancel/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('Got CANCEL request for session', sessionId);
@@ -210,7 +279,6 @@ app.post("/read/:sessionId", function(req, res) {
             readId,
             numPoints,
             numBytes,
-            data,
             xBegin,
             xStep,
             xNum,
@@ -251,21 +319,26 @@ app.post("/read/:sessionId", function(req, res) {
                             host + ':' + port,
                     });
                 }
-
-                // Send the results to the websocket-handler.
-                var socket = net.createConnection(port, host);
-                socket.on('connect', function() {
-                    socket.end(data);
-                }).on('close', function() {
-                    console.log('Socket closed');
-                }).on('error', function(err) {
-                    // This is an expected occurence.  A cancel request
-                    // will cause the websocket-handler to forcefully reset
-                    // the connection.
-                    console.log('Socket error:', err);
-                });
             }
         };
+
+        // Send the results to the websocket-handler.
+        var socket = net.createConnection(port, host);
+        socket.on('close', function() {
+            console.log('Socket closed');
+        }).on('error', function(err) {
+            // This is an expected occurence.  A cancel request
+            // will cause the websocket-handler to forcefully reset
+            // the connection.
+            console.log('Socket force-closed:', err);
+        });
+
+        var dataHandler = function(err, data, done) {
+            if (err) socket.end();
+
+            socket.write(data);
+            if (done) socket.end();
+        }
 
         if (
             args.hasOwnProperty('start') ||
@@ -290,7 +363,8 @@ app.post("/read/:sessionId", function(req, res) {
                     schema,
                     start,
                     count,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (
             args.hasOwnProperty('bbox') &&
@@ -325,7 +399,8 @@ app.post("/read/:sessionId", function(req, res) {
                 schema,
                 bbox,
                 resolution,
-                readHandler);
+                readHandler,
+                dataHandler);
         }
         else if (
             args.hasOwnProperty('bbox') ||
@@ -357,7 +432,8 @@ app.post("/read/:sessionId", function(req, res) {
                     bbox,
                     depthBegin,
                     depthEnd,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (args.hasOwnProperty('rasterize')) {
             var rasterize = parseInt(args.rasterize);
@@ -380,7 +456,8 @@ app.post("/read/:sessionId", function(req, res) {
                     port,
                     schema,
                     rasterize,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else if (
             args.hasOwnProperty('radius') &&
@@ -405,7 +482,8 @@ app.post("/read/:sessionId", function(req, res) {
                     x,
                     y,
                     z,
-                    readHandler);
+                    readHandler,
+                    dataHandler);
         }
         else {
             console.log('Got bad read request', args);

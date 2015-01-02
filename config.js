@@ -42,6 +42,32 @@ config.sh = {
     // select an open port.
     port: null,
 
+    // Specify whether Greyhound can serialized indexed pipelines to disk for
+    // shorter creation times and less RAM usage.
+    serialAllowed: true,
+
+    // If serialAllowed is true, these paths will be used for serialization.
+    // Rules:
+    //      For reading:
+    //        - Search these paths, in order, for a serialized Greyhound file.
+    //        - If '/var/greyhound/serial' does not exist in this list, search
+    //          there if no matches were found in this list.
+    //
+    //      For writing:
+    //        - If this list is populated, try to use the first entry as the
+    //          writing location.  If this list is empty or the first location
+    //          could not be validated or created, try to use
+    //          '/var/greyhound/serial'.  If neither of these locations works,
+    //          serialization will be disabled completely.
+    //        - Although Greyhound will only write to the first entry or the
+    //          default, Greyhound will check all listed directories for the
+    //          presence of a pipeline that is requested to be serialized.
+    //          The pipeline will not be written again if it exists in any
+    //          of the listed directories.
+    serialPaths: [
+        // '/var/greyhound/serial',
+    ],
+
     // If false, component will not run.
     enable: true,
 };
@@ -89,23 +115,29 @@ config.ws = {
     // Default: 0.
     hardSessionShareMax: 0,
 
-    // Time of inactivity per session handler, in minutes, after which to
-    // destroy all traces of a session.
+    // Time of inactivity for a single client session to remain active before
+    // being deleted.  After this time has expired, but before
+    // pipelineTimeoutMinutes has elapsed, a client can recreate a session
+    // simply and quickly.
     //
-    // If set to 0, sessions never expire and will never need reinitialization.
-    // Only recommended if a small and well-known number of pipelines exist.
+    // Expiration checks are amortized, so this configuration entry represents
+    // the minimum time before expiration occurs.
     //
-    // Default: 60.
-    sessionTimeoutMinutes: 60 * 48, // 2 days
+    // Default: 5.
+    sessionTimeoutMinutes: 5,
 
-    // Period, in seconds, to check for expired sessions and destroy them if
-    // necessary.
+    // Time of inactivity per session handler, in minutes, after which to
+    // destroy all traces of a PDAL pipeline.
     //
-    // If set to 0, never check for expired sessions.  If sessionTimeoutMinutes
-    // is non-zero, expirePeriodSeconds should also be non-zero.
+    // If set to 0, initialized pipelines never expire and will never need
+    // reinitialization. Only recommended if a small and well-known number of
+    // pipelines exist.
     //
-    // Default: 10
-    expirePeriodSeconds: 60 * 10,   // 10 minutes
+    // Expiration checks are amortized, so this configuration entry represents
+    // the minimum time before expiration occurs.
+    //
+    // Default: 30.
+    pipelineTimeoutMinutes: 30,
 
     // If false, component will not run.
     enable: true,
