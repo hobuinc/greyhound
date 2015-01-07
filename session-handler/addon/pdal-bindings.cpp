@@ -160,12 +160,15 @@ void PdalBindings::doInitialize(
     if (args[1]->IsUndefined() || !args[1]->IsString())
         errMsg = "'pipeline' must be a string - args[1]";
 
-    if (args[3]->IsUndefined() || !args[3]->IsFunction())
+    if (args[2]->IsUndefined() || !args[2]->IsBoolean())
+        errMsg = "'serialCompress' must be boolean - args[2]";
+
+    if (args[4]->IsUndefined() || !args[4]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(
-                    args[3])));
+                    args[4])));
 
     if (errMsg.size())
     {
@@ -176,7 +179,8 @@ void PdalBindings::doInitialize(
 
     const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
     const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
-    const std::vector<std::string> serialPaths(parsePathList(args[2]));
+    const bool serialCompress   (args[2]->BooleanValue());
+    const std::vector<std::string> serialPaths(parsePathList(args[3]));
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -186,6 +190,7 @@ void PdalBindings::doInitialize(
             obj->m_pdalSession,
             pipelineId,
             pipeline,
+            serialCompress,
             serialPaths,
             execute,
             callback);
@@ -200,6 +205,7 @@ void PdalBindings::doInitialize(
                 createData->pdalSession->initialize(
                     createData->pipelineId,
                     createData->pipeline,
+                    createData->serialCompress,
                     createData->serialPaths,
                     createData->execute);
             });

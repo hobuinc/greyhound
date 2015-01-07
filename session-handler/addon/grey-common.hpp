@@ -49,6 +49,7 @@ struct GreyMeta
     BBox bbox;
     std::size_t numPoints;
     std::string schema;
+    bool compressed;
     std::string stats;
     std::string srs;
     std::vector<std::size_t> fills;

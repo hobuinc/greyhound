@@ -20,6 +20,7 @@ public:
     void initialize(
             const std::string& pipelineId,
             const std::string& pipeline,
+            bool serialCompress,
             const std::vector<std::string>& serialPaths,
             bool execute);
 
@@ -88,6 +89,7 @@ public:
 private:
     std::string m_pipelineId;
     std::string m_pipeline;
+    bool m_serialCompress;
     std::shared_ptr<LiveDataSource> m_liveDataSource;
     std::shared_ptr<GreyReader> m_serialDataSource;
 

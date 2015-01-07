@@ -29,6 +29,7 @@ Dependencies:
  - C++11 compiler
  - `Boost`_ library 1.55 or greater
  - `SQLite3`_ C++ library
+ - `LazPerf`_ compression library
 
 .. _`PDAL`: http://www.pdal.io/index.html
 .. _`Node.js`: http://nodejs.org/
@@ -36,6 +37,7 @@ Dependencies:
 .. _`Haproxy`: http://www.haproxy.org/
 .. _`Boost`: http://www.boost.org/
 .. _`SQLite3`: https://www.sqlite.org/capi3ref.html
+.. _`LazPerf`: https://github.com/verma/laz-perf
 
 Global NPM Dependencies
 -------------------------------------------------------------------------------

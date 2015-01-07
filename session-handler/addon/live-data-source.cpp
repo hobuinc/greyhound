@@ -121,9 +121,11 @@ std::vector<std::size_t> LiveDataSource::getFills() const
     return quadIndex.getFills();
 }
 
-void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
+void LiveDataSource::serialize(
+        const bool compress,
+        const std::vector<std::string>& serialPaths)
 {
-    m_serializeOnce.ensure([this, serialPaths]() {
+    m_serializeOnce.ensure([this, compress, serialPaths]() {
         std::cout << "Serializing live source " << m_pipelineId << std::endl;
         if (GreyReader::exists(m_pipelineId, serialPaths) ||
             !serialPaths.size())
@@ -150,6 +152,7 @@ void LiveDataSource::serialize(const std::vector<std::string>& serialPaths)
                 meta.bbox.yMax);
         meta.numPoints = getNumPoints();
         meta.schema = getSchema();
+        meta.compressed = compress;
         meta.stats = getStats();
         meta.srs = getSrs();
         meta.fills = getFills();

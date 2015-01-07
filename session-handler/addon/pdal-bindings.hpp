@@ -54,12 +54,14 @@ private:
                 std::shared_ptr<PdalSession> pdalSession,
                 std::string pipelineId,
                 std::string pipeline,
+                bool serialCompress,
                 std::vector<std::string> serialPaths,
                 bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
             , pipelineId(pipelineId)
             , pipeline(pipeline)
+            , serialCompress(serialCompress)
             , serialPaths(serialPaths)
             , execute(execute)
             , errMsg()
@@ -75,6 +77,7 @@ private:
         const std::shared_ptr<PdalSession> pdalSession;
         const std::string pipelineId;
         const std::string pipeline;
+        const bool serialCompress;
         const std::vector<std::string> serialPaths;
         const bool execute;
 

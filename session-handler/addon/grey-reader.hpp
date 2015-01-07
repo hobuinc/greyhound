@@ -70,6 +70,7 @@ public:
     GreyCluster(std::size_t depth, const BBox& bbox, bool isBase);
 
     void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
+    bool populated() const { return m_pointBuffer.get() != 0; }
     void index();
     bool indexed() const { return m_quadTree.get() != 0; }
 
