@@ -1,19 +1,19 @@
 #include <stdexcept>
 #include <cstring>
 
-#include "compression.hpp"
+#include "compression-stream.hpp"
 
-GreyhoundStream::GreyhoundStream()
+CompressionStream::CompressionStream()
     : m_data()
     , m_index(0)
 { }
 
-GreyhoundStream::GreyhoundStream(const std::vector<uint8_t>& data)
+CompressionStream::CompressionStream(const std::vector<uint8_t>& data)
     : m_data(data)
     , m_index(0)
 { }
 
-void GreyhoundStream::putBytes(const uint8_t* bytes, const std::size_t length)
+void CompressionStream::putBytes(const uint8_t* bytes, const std::size_t length)
 {
     for (std::size_t i(0); i < length; ++i)
     {
@@ -21,17 +21,17 @@ void GreyhoundStream::putBytes(const uint8_t* bytes, const std::size_t length)
     }
 }
 
-void GreyhoundStream::putByte(const uint8_t byte)
+void CompressionStream::putByte(const uint8_t byte)
 {
     m_data.push_back(byte);
 }
 
-uint8_t GreyhoundStream::getByte()
+uint8_t CompressionStream::getByte()
 {
     return m_data.at(m_index++);
 }
 
-void GreyhoundStream::getBytes(uint8_t* bytes, std::size_t length)
+void CompressionStream::getBytes(uint8_t* bytes, std::size_t length)
 {
     if (m_index + length > m_data.size())
     {
@@ -42,7 +42,7 @@ void GreyhoundStream::getBytes(uint8_t* bytes, std::size_t length)
     m_index += length;
 }
 
-const std::vector<uint8_t>& GreyhoundStream::data()
+const std::vector<uint8_t>& CompressionStream::data()
 {
     return m_data;
 }

@@ -3,11 +3,11 @@
 #include <cstdint>
 #include <vector>
 
-class GreyhoundStream
+class CompressionStream
 {
 public:
-    GreyhoundStream();
-    GreyhoundStream(const std::vector<uint8_t>& data);
+    CompressionStream();
+    CompressionStream(const std::vector<uint8_t>& data);
 
     void putBytes(const uint8_t* bytes, std::size_t length);
     void putByte(uint8_t byte);

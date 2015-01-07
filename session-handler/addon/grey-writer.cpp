@@ -3,7 +3,7 @@
 #include <pdal/Compression.hpp>
 
 #include "grey-writer.hpp"
-#include "compression.hpp"
+#include "compression-stream.hpp"
 
 namespace
 {
@@ -186,20 +186,20 @@ void GreyWriter::writeData(
             }
         }
 
-        GreyhoundStream greyhoundStream;
+        CompressionStream compressionStream;
 
         if (m_meta.compressed)
         {
             // Perform compression for this cluster.
-            pdal::LazPerfCompressor<GreyhoundStream> compressor(
-                    greyhoundStream,
+            pdal::LazPerfCompressor<CompressionStream> compressor(
+                    compressionStream,
                     pointBuffer.dimTypes());
 
             compressor.compress(
                     reinterpret_cast<char*>(data.data()), data.size());
             compressor.done();
 
-            data = greyhoundStream.data();
+            data = compressionStream.data();
         }
 
         if (sqlite3_bind_int  (stmt, 1, clusterId) ||
