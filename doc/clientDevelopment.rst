@@ -38,6 +38,8 @@ Command Set
 +---------------+-------------------------------------------------------------+
 | create        | Create a PDAL session using a previously stored pipeline.   |
 +---------------+-------------------------------------------------------------+
+| serialize     | Request serialization of an indexed PDAL session.           |
++---------------+-------------------------------------------------------------+
 | pointsCount   | Get the number of points present in a session.              |
 +---------------+-------------------------------------------------------------+
 | schema        | Get the Greyhound schema of a session.                      |
@@ -164,6 +166,36 @@ Create
 Notes:
  - ``pipelineId``: stored from the results of a previous ``put`` command.  If the given ``pipelineId`` does not exist within Greyhound, then the returning ``status`` will be ``0``.
  - ``session``: represents a token required for future use of this session.  All Greyhound commands except for ``put`` and ``create`` require an active Greyhound session token as a parameter.
+
+----
+
+Serialize
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++-----------------------------------------------------------------------------+
+| Command                                                                     |
++---------------+------------+------------------------------------------------+
+| Key           | Type       | Value                                          |
++===============+============+================================================+
+| ``"command"`` | String     | ``"serialize"``                                |
++---------------+------------+------------------------------------------------+
+| ``"session"`` | String     | Greyhound session ID                           |
++---------------+------------+------------------------------------------------+
+
++-------------------------------------------------------------------------------------+
+| Response                                                                            |
++-------------------+------------+----------------------------------------------------+
+| Key               | Type       | Value                                              |
++===================+============+====================================================+
+| ``"command"``     | String     | ``"serialize"``                                    |
++-------------------+------------+----------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                      |
++-------------------+------------+----------------------------------------------------+
+
+Notes:
+ - This command batches a background task to serialize the pipeline for instantaneous reinitialization at a later time.
+ - The ``status`` in the response indicates whether the task was successfully batched for processing, not necessarily that the serialization is complete - for which there is no further indication.  The session may still be used as usual after this command.
+ - The serialized file may be written in a compressed format depending on Greyhound's configuration settings.
 
 ----
 
