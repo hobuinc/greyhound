@@ -5,7 +5,7 @@
             'target_name': 'pdalBindings',
             'sources': [
                 './addon/buffer-pool.cpp',
-                './addon/compression.cpp',
+                './addon/compression-stream.cpp',
                 './addon/grey-common.cpp',
                 './addon/grey-reader.cpp',
                 './addon/grey-writer.cpp',

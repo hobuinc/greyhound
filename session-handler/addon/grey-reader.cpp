@@ -6,7 +6,7 @@
 #include <pdal/PDALUtils.hpp>
 #include <pdal/Compression.hpp>
 
-#include "compression.hpp"
+#include "compression-stream.hpp"
 #include "grey-reader.hpp"
 
 namespace
@@ -427,11 +427,11 @@ void GreyReader::queryClusters(
 
             if (m_meta.compressed)
             {
-                GreyhoundStream greyhoundStream(tableData);
+                CompressionStream compressionStream(tableData);
                 std::vector<uint8_t> uncompressedData(uncompressedSize);
 
-                pdal::LazPerfDecompressor<GreyhoundStream> decompressor(
-                        greyhoundStream,
+                pdal::LazPerfDecompressor<CompressionStream> decompressor(
+                        compressionStream,
                         m_pointContext.dimTypes());
 
                 decompressor.decompress(
