@@ -29,7 +29,7 @@ public:
     std::string getSrs() const;
     std::vector<std::size_t> getFills() const;
 
-    void serialize(const std::vector<std::string>& serialPaths);
+    void serialize(bool compress, const std::vector<std::string>& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::size_t queryUnindexed(std::size_t start, std::size_t count);

@@ -9,6 +9,7 @@
 PdalSession::PdalSession()
     : m_pipelineId()
     , m_pipeline()
+    , m_serialCompress()
     , m_liveDataSource()
     , m_serialDataSource()
     , m_initOnce()
@@ -18,12 +19,21 @@ PdalSession::PdalSession()
 void PdalSession::initialize(
         const std::string& pipelineId,
         const std::string& pipeline,
+        const bool serialCompress,
         const std::vector<std::string>& serialPaths,
         const bool execute)
 {
-    m_initOnce.ensure([this, &pipelineId, &pipeline, &serialPaths, execute]() {
+    m_initOnce.ensure([
+            this,
+            &pipelineId,
+            &pipeline,
+            serialCompress,
+            &serialPaths,
+            execute]()
+    {
         m_pipelineId = pipelineId;
         m_pipeline = pipeline;
+        m_serialCompress = serialCompress;
 
         // Try to awaken from serialized source.  If unsuccessful, initialize a
         // live source.  For pipeline validation only, this will be called with
@@ -79,7 +89,7 @@ void PdalSession::serialize(const std::vector<std::string>& serialPaths)
 {
     if (m_liveDataSource && !m_serialDataSource)
     {
-        m_liveDataSource->serialize(serialPaths);
+        m_liveDataSource->serialize(m_serialCompress, serialPaths);
         std::cout << "Serialized - awakening " << m_pipelineId << std::endl;
         awaken(serialPaths);
 

@@ -4,7 +4,9 @@
 #include <pdal/Charbuf.hpp>
 #include <pdal/Utils.hpp>
 #include <pdal/PDALUtils.hpp>
+#include <pdal/Compression.hpp>
 
+#include "compression.hpp"
 #include "grey-reader.hpp"
 
 namespace
@@ -13,7 +15,7 @@ namespace
     const std::string sqlQueryMeta(
             "SELECT "
                 "version, base, pointContext, xMin, yMin, xMax, yMax, "
-                "numPoints, schema, stats, srs, fills "
+                "numPoints, schema, compressed, stats, srs, fills "
             "FROM meta");
 
     // Returns the number of points in the raster.
@@ -180,15 +182,16 @@ void GreyReader::readMeta()
         m_meta.numPoints = sqlite3_column_int64 (stmt, 7);
         m_meta.schema =
             reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+        m_meta.compressed = sqlite3_column_int(stmt, 9);
         m_meta.stats =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
-        m_meta.srs =
             reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
+        m_meta.srs =
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
 
         const char* rawFills(
                 reinterpret_cast<const char*>(
-                    sqlite3_column_blob(stmt, 11)));
-        const std::size_t rawBytes(sqlite3_column_bytes(stmt, 11));
+                    sqlite3_column_blob(stmt, 12)));
+        const std::size_t rawBytes(sqlite3_column_bytes(stmt, 12));
 
         m_meta.fills.resize(
                 reinterpret_cast<const std::size_t*>(rawFills + rawBytes) -
@@ -215,12 +218,15 @@ GreyQuery::GreyQuery(
     for (const auto& node : nodeInfoMap)
     {
         const uint64_t& id(node.first);
-        m_clusters[id] = node.second.cluster;
-        node.second.cluster->getIndexList(
-                m_queryIndexList,
-                id,
-                depthBegin,
-                depthEnd);
+        if (node.second.cluster->populated())
+        {
+            m_clusters[id] = node.second.cluster;
+            node.second.cluster->getIndexList(
+                    m_queryIndexList,
+                    id,
+                    depthBegin,
+                    depthEnd);
+        }
     }
 }
 
@@ -235,13 +241,16 @@ GreyQuery::GreyQuery(
     for (const auto& node : nodeInfoMap)
     {
         const uint64_t& id(node.first);
-        m_clusters[id] = node.second.cluster;
-        node.second.cluster->getIndexList(
-                m_queryIndexList,
-                id,
-                bbox,
-                depthBegin,
-                depthEnd);
+        if (node.second.cluster->populated())
+        {
+            m_clusters[id] = node.second.cluster;
+            node.second.cluster->getIndexList(
+                    m_queryIndexList,
+                    id,
+                    bbox,
+                    depthBegin,
+                    depthEnd);
+        }
     }
 }
 
@@ -256,12 +265,15 @@ GreyQuery::GreyQuery(
     for (const auto& node : nodeInfoMap)
     {
         const uint64_t& id(node.first);
-        m_clusters[id] = node.second.cluster;
-        node.second.cluster->getIndexList(
-                m_queryIndexList,
-                id,
-                rasterize,
-                rasterMeta);
+        if (node.second.cluster->populated())
+        {
+            m_clusters[id] = node.second.cluster;
+            node.second.cluster->getIndexList(
+                    m_queryIndexList,
+                    id,
+                    rasterize,
+                    rasterMeta);
+        }
     }
 }
 
@@ -380,7 +392,7 @@ void GreyReader::queryClusters(
     if (missingIds.size())
     {
         const std::string sqlDataQuery(
-                "SELECT id, data FROM clusters WHERE id IN (" +
+                "SELECT id, fullSize, data FROM clusters WHERE id IN (" +
                 missingIds +
                 ")");
 
@@ -400,17 +412,39 @@ void GreyReader::queryClusters(
         while (sqlite3_step(stmtData) == SQLITE_ROW)
         {
             const int id(sqlite3_column_int64(stmtData, 0));
+            const std::size_t uncompressedSize(
+                    sqlite3_column_int(stmtData, 1));
 
-            const char* rawData(
-                    reinterpret_cast<const char*>(
-                        sqlite3_column_blob(stmtData, 1)));
-            const std::size_t rawBytes(sqlite3_column_bytes(stmtData, 1));
+            const uint8_t* rawData(
+                    reinterpret_cast<const uint8_t*>(
+                        sqlite3_column_blob(stmtData, 2)));
+            const std::size_t rawNumBytes(sqlite3_column_bytes(stmtData, 2));
 
-            std::vector<char> data(rawBytes);
-            std::memcpy(data.data(), rawData, rawBytes);
+            // Data from the table may be compressed.
+            std::vector<uint8_t> tableData(rawNumBytes);
+            std::memcpy(tableData.data(), rawData, rawNumBytes);
+            std::vector<uint8_t>& data(tableData);
+
+            if (m_meta.compressed)
+            {
+                GreyhoundStream greyhoundStream(tableData);
+                std::vector<uint8_t> uncompressedData(uncompressedSize);
+
+                pdal::LazPerfDecompressor<GreyhoundStream> decompressor(
+                        greyhoundStream,
+                        m_pointContext.dimTypes());
+
+                decompressor.decompress(
+                        reinterpret_cast<char*>(uncompressedData.data()),
+                        uncompressedSize);
+
+                data = uncompressedData;
+            }
 
             // Construct a pdal::PointBuffer from our binary data.
-            pdal::Charbuf charbuf(data);
+            pdal::Charbuf charbuf(
+                    reinterpret_cast<char*>(data.data()),
+                    data.size());
             std::istream stream(&charbuf);
 
             if (!m_pointContext.pointSize())
@@ -446,7 +480,7 @@ void GreyReader::addToCache(const NodeInfoMap& nodeInfoMap)
         for (auto& entry : nodeInfoMap)
         {
             const std::shared_ptr<GreyCluster> cluster(entry.second.cluster);
-            if (cluster)
+            if (cluster->populated())
             {
                 m_cache.insert(std::make_pair(entry.first, cluster));
             }

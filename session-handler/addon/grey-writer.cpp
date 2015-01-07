@@ -1,7 +1,9 @@
 #include <pdal/PointBuffer.hpp>
 #include <pdal/QuadIndex.hpp>
+#include <pdal/Compression.hpp>
 
 #include "grey-writer.hpp"
+#include "compression.hpp"
 
 namespace
 {
@@ -17,6 +19,7 @@ namespace
                 "yMax           REAL,"
                 "numPoints      INT,"
                 "schema         TEXT,"
+                "compressed     INT,"
                 "stats          TEXT,"
                 "srs            TEXT,"
                 "fills          BLOB)");
@@ -25,15 +28,16 @@ namespace
             "INSERT INTO meta VALUES "
                 "(@id, @version, @base, @pointContext,"
                 " @xMin, @yMin, @xMax, @yMax, @numPoints, @schema,"
-                " @stats, @srs, @fills)");
+                " @compressed, @stats, @srs, @fills)");
 
     const std::string sqlCreateTableClusters(
             "CREATE TABLE clusters("
                 "id         INT PRIMARY KEY,"
+                "fullSize   INT,"
                 "data       BLOB)");
 
     const std::string sqlPrepData(
-            "INSERT INTO clusters VALUES (@id, @data)");
+            "INSERT INTO clusters VALUES (@id, @fullSize, @data)");
 
     void sqlExec(sqlite3* db, std::string sql)
     {
@@ -47,7 +51,9 @@ namespace
     }
 }
 
-GreyWriter::GreyWriter(const pdal::QuadIndex& quadIndex, const GreyMeta meta)
+GreyWriter::GreyWriter(
+        const pdal::QuadIndex& quadIndex,
+        const GreyMeta meta)
     : m_meta(meta)
     , m_quadIndex(quadIndex)
 { }
@@ -113,9 +119,10 @@ void GreyWriter::writeMeta(sqlite3* db) const
         sqlite3_bind_double(stmt, 8, m_meta.bbox.yMax) ||
         sqlite3_bind_int64 (stmt, 9, m_meta.numPoints) ||
         sqlite3_bind_text(stmt, 10, m_meta.schema.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_text(stmt, 11, m_meta.stats.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_text(stmt, 12, m_meta.srs.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_blob(stmt, 13,
+        sqlite3_bind_int (stmt, 11, m_meta.compressed) ||
+        sqlite3_bind_text(stmt, 12, m_meta.stats.c_str(), -1, SQLITE_STATIC) ||
+        sqlite3_bind_text(stmt, 13, m_meta.srs.c_str(), -1, SQLITE_STATIC) ||
+        sqlite3_bind_blob(stmt, 14,
             fills.data(),
             // Need number of bytes here.
             reinterpret_cast<const char*>(fills.data() + fills.size()) -
@@ -162,13 +169,15 @@ void GreyWriter::writeData(
     for (auto entry : clusters)
     {
         const uint64_t clusterId(entry.first);
-        const std::vector<std::size_t>& indices(entry.second);
+        const std::vector<std::size_t>& indexList(entry.second);
+        const std::size_t uncompressedSize(indexList.size() * pointSize);
 
-        std::vector<uint8_t> data(entry.second.size() * pointSize);
+        std::vector<uint8_t> data(uncompressedSize);
         uint8_t* pos(data.data());
 
-        // Read the entries at these indices into our buffer of real point data.
-        for (const auto index : indices)
+        // Read the entries at these indices into our buffer of real point
+        // data.
+        for (const auto index : indexList)
         {
             for (const auto& dimId : pointBuffer.dims())
             {
@@ -177,8 +186,30 @@ void GreyWriter::writeData(
             }
         }
 
-        if (sqlite3_bind_int(stmt, 1, clusterId) ||
-            sqlite3_bind_blob(stmt, 2, data.data(), data.size(), SQLITE_STATIC))
+        GreyhoundStream greyhoundStream;
+
+        if (m_meta.compressed)
+        {
+            // Perform compression for this cluster.
+            pdal::LazPerfCompressor<GreyhoundStream> compressor(
+                    greyhoundStream,
+                    pointBuffer.dimTypes());
+
+            compressor.compress(
+                    reinterpret_cast<char*>(data.data()), data.size());
+            compressor.done();
+
+            data = greyhoundStream.data();
+        }
+
+        if (sqlite3_bind_int  (stmt, 1, clusterId) ||
+            sqlite3_bind_int64(stmt, 2, uncompressedSize) ||
+            sqlite3_bind_blob(
+                stmt,
+                3,
+                data.data(),
+                data.size(),
+                SQLITE_STATIC))
         {
             throw std::runtime_error("Error binding data values");
         }
@@ -210,10 +241,15 @@ void GreyWriter::build(
     const uint64_t swId(id | swFlag);
     const uint64_t seId(id | seFlag);
 
-    results[nwId] = getPoints(nwBounds, level);
-    results[neId] = getPoints(neBounds, level);
-    results[swId] = getPoints(swBounds, level);
-    results[seId] = getPoints(seBounds, level);
+    const std::vector<std::size_t> nwPoints(getPoints(nwBounds, level));
+    const std::vector<std::size_t> nePoints(getPoints(neBounds, level));
+    const std::vector<std::size_t> swPoints(getPoints(swBounds, level));
+    const std::vector<std::size_t> sePoints(getPoints(seBounds, level));
+
+    if (nwPoints.size()) results[nwId] = nwPoints;
+    if (nePoints.size()) results[neId] = nePoints;
+    if (swPoints.size()) results[swId] = swPoints;
+    if (sePoints.size()) results[seId] = sePoints;
 
     if (++level <= m_meta.fills.size())
     {

@@ -24,6 +24,9 @@ var express = require("express"),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
 
+    serialCompress =
+        (config.serialCompress == undefined) ? true : !!config.serialCompress,
+
     // serialPaths[0] is to be used for writing new serialized entries.
     // serialPaths[0..n] are to be searched when looking for serialized entries.
     serialPaths = (function() {
@@ -125,6 +128,7 @@ app.get("/validate", function(req, res) {
     pdalSession.parse(
         '',
         req.body.pipeline,
+        serialCompress,
         serialPaths,
         function(err) {
             pdalSession.destroy();
@@ -152,7 +156,13 @@ app.post("/create", function(req, res) {
     // back immediately if the initial creation is complete, or if the initial
     // creation is still in progress, then the callback will be executed when
     // that call completes.
-    pdalSession.create(pipelineId, pipeline, serialPaths, function(err) {
+    pdalSession.create(
+        pipelineId,
+        pipeline,
+        serialCompress,
+        serialPaths,
+        function(err)
+    {
         if (err) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
@@ -235,7 +245,7 @@ app.get("/serialize/:sessionId", function(req, res) {
 
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         pdalSession.serialize(serialPaths, function(err) {
-            if (err) console.log('ERROR during serialization');
+            if (err) console.log('ERROR during serialization:', err);
         });
         res.json({ message: 'Serialization task launched' });
     });

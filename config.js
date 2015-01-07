@@ -68,6 +68,13 @@ config.sh = {
         // '/var/greyhound/serial',
     ],
 
+    // If true or omitted, serialized pipelines will be written with LazPerf
+    // compression.  If false, serialization will be uncompressed.  Previously
+    // compressed/serialized pipelines will be able to be decompressed by
+    // Greyhound regardless of this value, which only governs how data is
+    // written.
+    serialCompress: true,
+
     // If false, component will not run.
     enable: true,
 };
