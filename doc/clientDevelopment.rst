@@ -196,6 +196,7 @@ Notes:
  - This command batches a background task to serialize the pipeline for instantaneous reinitialization at a later time.
  - The ``status`` in the response indicates whether the task was successfully batched for processing, not necessarily that the serialization is complete - for which there is no further indication.  The session may still be used as usual after this command.
  - The serialized file may be written in a compressed format depending on Greyhound's configuration settings.
+ - If the PDAL session has not yet been quad-indexed, this command will create the quad-index.  The response will not come back until this indexing has completed successfully.
 
 ----
 
