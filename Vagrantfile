@@ -97,6 +97,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
           "p2g.sh",
           "soci.sh",
           "laszip.sh",
+          "lazperf.sh",
           "pdal.sh",
           "standalone.sh"
       ];
