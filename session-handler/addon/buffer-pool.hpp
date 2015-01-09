@@ -4,6 +4,7 @@
 #include <mutex>
 #include <vector>
 #include <memory>
+#include <cstring>
 #include <condition_variable>
 
 class ItcBufferPool;
@@ -28,9 +29,15 @@ public:
     // and another thread may grab() and reuse this buffer.
     void flush();
 
+    // Append vector onto this buffer.  If current size plus the size of the
+    // incoming bytes is greater than the max capacity, std::runtime_error is
+    // thrown.
+    std::size_t push(const uint8_t* data, std::size_t size);
+
     std::size_t size() const;
     void resize(std::size_t);
 
+    const std::vector<uint8_t>& vecRef() const { return m_buffer; }
     uint8_t* data();
 
 private:

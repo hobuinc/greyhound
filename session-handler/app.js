@@ -263,6 +263,7 @@ app.post("/read/:sessionId", function(req, res) {
 
     var host = args.host;
     var port = parseInt(args.port);
+    var compress = args.compress ? JSON.parse(args.compress) : false;
     var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : [];
 
     if (args.hasOwnProperty('resolution')) {
@@ -353,8 +354,8 @@ app.post("/read/:sessionId", function(req, res) {
         if (
             args.hasOwnProperty('start') ||
             args.hasOwnProperty('count') ||
-            Object.keys(args).length == 4 ||
-            (args.hasOwnProperty('schema') && Object.keys(args).length == 5)) {
+            Object.keys(args).length == 5 ||
+            (args.hasOwnProperty('schema') && Object.keys(args).length == 6)) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
@@ -370,6 +371,7 @@ app.post("/read/:sessionId", function(req, res) {
             pdalSession.read(
                     host,
                     port,
+                    compress,
                     schema,
                     start,
                     count,
@@ -406,6 +408,7 @@ app.post("/read/:sessionId", function(req, res) {
             pdalSession.read(
                 host,
                 port,
+                compress,
                 schema,
                 bbox,
                 resolution,
@@ -438,6 +441,7 @@ app.post("/read/:sessionId", function(req, res) {
             pdalSession.read(
                     host,
                     port,
+                    compress,
                     schema,
                     bbox,
                     depthBegin,
@@ -464,6 +468,7 @@ app.post("/read/:sessionId", function(req, res) {
             pdalSession.read(
                     host,
                     port,
+                    compress,
                     schema,
                     rasterize,
                     readHandler,
@@ -486,6 +491,7 @@ app.post("/read/:sessionId", function(req, res) {
             pdalSession.read(
                     host,
                     port,
+                    compress,
                     schema,
                     is3d,
                     radius,

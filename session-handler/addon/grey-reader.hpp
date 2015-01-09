@@ -55,7 +55,9 @@ public:
         return m_queryIndexList.at(index);
     }
 
-    std::shared_ptr<pdal::PointBuffer> pointBuffer(uint64_t id);
+    pdal::DimTypeList dimTypes() const;
+
+    std::shared_ptr<pdal::PointBuffer> pointBuffer(uint64_t id) const;
 
 private:
     std::map<uint64_t, std::shared_ptr<GreyCluster>> m_clusters;

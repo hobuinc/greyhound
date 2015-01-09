@@ -15,7 +15,7 @@ public:
     uint8_t getByte();
     void getBytes(uint8_t* bytes, std::size_t length);
 
-    const std::vector<uint8_t>& data();
+    const std::vector<uint8_t>& data() const;
 
 private:
     std::vector<uint8_t> m_data;

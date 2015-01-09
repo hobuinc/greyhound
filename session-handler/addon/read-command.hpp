@@ -143,6 +143,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
@@ -172,6 +173,7 @@ protected:
     const std::string m_readId;
     const std::string m_host;
     const std::size_t m_port;
+    const bool m_compress;
     const Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<QueryData> m_queryData;
@@ -195,6 +197,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             std::size_t start,
             std::size_t count,
@@ -217,6 +220,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             bool is3d,
             double radius,
@@ -245,6 +249,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
@@ -267,6 +272,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             double xMin,
             double yMin,
@@ -295,6 +301,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
@@ -305,6 +312,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             RasterMeta rasterMeta,
             v8::Persistent<v8::Function> queryCallback,
@@ -331,6 +339,7 @@ public:
             std::string readId,
             std::string host,
             std::size_t port,
+            bool compress,
             Schema schema,
             std::size_t level,
             v8::Persistent<v8::Function> queryCallback,
