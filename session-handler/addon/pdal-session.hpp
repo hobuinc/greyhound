@@ -39,12 +39,16 @@ public:
 
     // Read un-indexed data with an offset and a count.
     std::shared_ptr<QueryData> queryUnindexed(
+            const Schema& schema,
+            bool compress,
             std::size_t start,
             std::size_t count);
 
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
     std::shared_ptr<QueryData> query(
+            const Schema& schema,
+            bool compress,
             double xMin,
             double yMin,
             double xMax,
@@ -54,19 +58,28 @@ public:
 
     // Read quad-tree indexed data with min/max tree depths to search.
     std::shared_ptr<QueryData> query(
+            const Schema& schema,
+            bool compress,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with depth level for rasterization.
     std::shared_ptr<QueryData> query(
+            const Schema& schema,
+            bool compress,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     // Read a bounded set of points into a raster of pre-determined resolution.
-    std::shared_ptr<QueryData> query(const RasterMeta& rasterMeta);
+    std::shared_ptr<QueryData> query(
+            const Schema& schema,
+            bool compress,
+            const RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
     std::shared_ptr<QueryData> query(
+            const Schema& schema,
+            bool compress,
             bool is3d,
             double radius,
             double x,

@@ -45,6 +45,7 @@ ReadCommand::ReadCommand(
         const std::string readId,
         const std::string host,
         const std::size_t port,
+        const bool compress,
         const Schema schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -55,6 +56,7 @@ ReadCommand::ReadCommand(
     , m_readId(readId)
     , m_host(host)
     , m_port(port)
+    , m_compress(compress)
     , m_schema(schemaOrDefault(schema))
     , m_numSent(0)
     , m_queryCallback(queryCallback)
@@ -80,12 +82,12 @@ void ReadCommand::acquire()
 
 void ReadCommand::read(std::size_t maxNumBytes)
 {
-    m_queryData->read(m_itcBuffer, maxNumBytes, m_schema);
+    m_queryData->read(m_itcBuffer, maxNumBytes);
 }
 
 void ReadCommandRastered::read(std::size_t maxNumBytes)
 {
-    m_queryData->read(m_itcBuffer, maxNumBytes, m_schema, true);
+    m_queryData->read(m_itcBuffer, maxNumBytes, true);
 }
 
 std::size_t ReadCommand::numPoints() const
@@ -104,6 +106,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string readId,
         std::string host,
         std::size_t port,
+        bool compress,
         Schema schema,
         std::size_t start,
         std::size_t count,
@@ -115,6 +118,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -128,6 +132,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
         std::string readId,
         std::string host,
         std::size_t port,
+        bool compress,
         Schema schema,
         bool is3d,
         double radius,
@@ -142,6 +147,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -158,6 +164,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::string readId,
         std::string host,
         std::size_t port,
+        bool compress,
         Schema schema,
         std::size_t depthBegin,
         std::size_t depthEnd,
@@ -169,6 +176,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -182,6 +190,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::string readId,
         std::string host,
         std::size_t port,
+        bool compress,
         Schema schema,
         double xMin,
         double yMin,
@@ -197,6 +206,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
             readId,
             host,
             port,
+            compress,
             schema,
             depthBegin,
             depthEnd,
@@ -214,6 +224,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string readId,
         const std::string host,
         const std::size_t port,
+        bool compress,
         const Schema schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -223,6 +234,7 @@ ReadCommandRastered::ReadCommandRastered(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -235,6 +247,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string readId,
         const std::string host,
         const std::size_t port,
+        bool compress,
         const Schema schema,
         const RasterMeta rasterMeta,
         v8::Persistent<v8::Function> queryCallback,
@@ -245,6 +258,7 @@ ReadCommandRastered::ReadCommandRastered(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -257,6 +271,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::string readId,
         std::string host,
         std::size_t port,
+        bool compress,
         Schema schema,
         std::size_t level,
         v8::Persistent<v8::Function> queryCallback,
@@ -267,6 +282,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
             readId,
             host,
             port,
+            compress,
             schema,
             queryCallback,
             dataCallback)
@@ -299,17 +315,27 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
 
 void ReadCommandUnindexed::query()
 {
-    m_queryData = m_pdalSession->queryUnindexed(m_start, m_count);
+    m_queryData = m_pdalSession->queryUnindexed(
+            m_schema,
+            m_compress,
+            m_start,
+            m_count);
 }
 
 void ReadCommandQuadIndex::query()
 {
-    m_queryData = m_pdalSession->query(m_depthBegin, m_depthEnd);
+    m_queryData = m_pdalSession->query(
+            m_schema,
+            m_compress,
+            m_depthBegin,
+            m_depthEnd);
 }
 
 void ReadCommandBoundedQuadIndex::query()
 {
     m_queryData = m_pdalSession->query(
+            m_schema,
+            m_compress,
             m_xMin,
             m_yMin,
             m_xMax,
@@ -320,17 +346,31 @@ void ReadCommandBoundedQuadIndex::query()
 
 void ReadCommandRastered::query()
 {
-    m_queryData = m_pdalSession->query(m_rasterMeta);
+    m_queryData = m_pdalSession->query(
+            m_schema,
+            m_compress,
+            m_rasterMeta);
 }
 
 void ReadCommandQuadLevel::query()
 {
-    m_queryData = m_pdalSession->query(m_level, m_rasterMeta);
+    m_queryData = m_pdalSession->query(
+            m_schema,
+            m_compress,
+            m_level,
+            m_rasterMeta);
 }
 
 void ReadCommandPointRadius::query()
 {
-    m_queryData = m_pdalSession->query(m_is3d, m_radius, m_x, m_y, m_z);
+    m_queryData = m_pdalSession->query(
+            m_schema,
+            m_compress,
+            m_is3d,
+            m_radius,
+            m_x,
+            m_y,
+            m_z);
 }
 
 ReadCommand* ReadCommandFactory::create(
@@ -344,12 +384,11 @@ ReadCommand* ReadCommandFactory::create(
     const std::size_t numArgs(args.Length());
 
     if (
-        numArgs < 4 ||
+        numArgs < 5 ||
         !args[numArgs - 2]->IsFunction() ||
         !args[numArgs - 1]->IsFunction())
     {
         // If no callback is supplied there's nothing we can do here.
-        //scope.Close(Undefined());
         throw std::runtime_error("Invalid callback supplied to 'read'");
     }
 
@@ -361,20 +400,22 @@ ReadCommand* ReadCommandFactory::create(
         Persistent<Function>::New(
             Local<Function>::Cast(args[numArgs - 1])));
 
-    // Validate host, port, and schemaRequest.
+    // Validate host, port, compress, and schemaRequest.
     if (
-        args.Length() > 4 &&
+        args.Length() > 5 &&
         isDefined(args[0]) && args[0]->IsString() &&
         isDefined(args[1]) && isInteger(args[1]) &&
-        isDefined(args[2]) && args[2]->IsArray())
+        isDefined(args[2]) && args[2]->IsBoolean() &&
+        isDefined(args[3]) && args[3]->IsArray())
     {
         const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
         const std::size_t port(args[1]->Uint32Value());
+        const bool compress(args[2]->BooleanValue());
 
         std::vector<DimInfo> dims;
 
         // Unwrap the schema request into native C++ types.
-        const Local<Array> schemaArray(Array::Cast(*args[2]));
+        const Local<Array> schemaArray(Array::Cast(*args[3]));
 
         for (std::size_t i(0); i < schemaArray->Length(); ++i)
         {
@@ -406,12 +447,12 @@ ReadCommand* ReadCommandFactory::create(
 
         // Unindexed read - starting offset and count supplied.
         if (
-            args.Length() == 7 &&
-            isDefined(args[3]) && isInteger(args[3]) &&
-            isDefined(args[4]) && isInteger(args[4]))
+            args.Length() == 8 &&
+            isDefined(args[4]) && isInteger(args[4]) &&
+            isDefined(args[5]) && isInteger(args[5]))
         {
-            const std::size_t start(args[3]->Uint32Value());
-            const std::size_t count(args[4]->Uint32Value());
+            const std::size_t start(args[4]->Uint32Value());
+            const std::size_t count(args[5]->Uint32Value());
 
             if (start < pdalSession->getNumPoints())
             {
@@ -421,6 +462,7 @@ ReadCommand* ReadCommandFactory::create(
                         readId,
                         host,
                         port,
+                        compress,
                         schema,
                         start,
                         count,
@@ -429,23 +471,25 @@ ReadCommand* ReadCommandFactory::create(
             }
             else
             {
-                errorCallback(queryCallback, "Invalid 'start' in 'read' request");
+                errorCallback(
+                        queryCallback,
+                        "Invalid 'start' in 'read' request");
             }
         }
         // KD-indexed read - point/radius supplied.
         else if (
-            args.Length() == 10 &&
-            isDefined(args[3]) && args[3]->IsBoolean() &&
-            isDefined(args[4]) && args[4]->IsNumber() &&
+            args.Length() == 11 &&
+            isDefined(args[4]) && args[4]->IsBoolean() &&
             isDefined(args[5]) && args[5]->IsNumber() &&
             isDefined(args[6]) && args[6]->IsNumber() &&
-            isDefined(args[7]) && args[7]->IsNumber())
+            isDefined(args[7]) && args[7]->IsNumber() &&
+            isDefined(args[8]) && args[8]->IsNumber())
         {
-            const bool is3d(args[3]->BooleanValue());
-            const double radius(args[4]->NumberValue());
-            const double x(args[5]->NumberValue());
-            const double y(args[6]->NumberValue());
-            const double z(args[7]->NumberValue());
+            const bool is3d(args[4]->BooleanValue());
+            const double radius(args[5]->NumberValue());
+            const double x(args[6]->NumberValue());
+            const double y(args[7]->NumberValue());
+            const double z(args[8]->NumberValue());
 
             readCommand = new ReadCommandPointRadius(
                     pdalSession,
@@ -453,6 +497,7 @@ ReadCommand* ReadCommandFactory::create(
                     readId,
                     host,
                     port,
+                    compress,
                     schema,
                     is3d,
                     radius,
@@ -464,22 +509,22 @@ ReadCommand* ReadCommandFactory::create(
         }
         // Quad index query, bounded and unbounded.
         else if (
-            args.Length() == 8 &&
+            args.Length() == 9 &&
             (
-                (isDefined(args[3]) &&
-                    args[3]->IsArray() &&
-                    Array::Cast(*args[3])->Length() >= 4) ||
-                !isDefined(args[3])
+                (isDefined(args[4]) &&
+                    args[4]->IsArray() &&
+                    Array::Cast(*args[4])->Length() >= 4) ||
+                !isDefined(args[4])
             ) &&
-            isDefined(args[4]) && isInteger(args[4]) &&
-            isDefined(args[5]) && isInteger(args[5]))
+            isDefined(args[5]) && isInteger(args[5]) &&
+            isDefined(args[6]) && isInteger(args[6]))
         {
-            const std::size_t depthBegin(args[4]->Uint32Value());
-            const std::size_t depthEnd(args[5]->Uint32Value());
+            const std::size_t depthBegin(args[5]->Uint32Value());
+            const std::size_t depthEnd(args[6]->Uint32Value());
 
-            if (isDefined(args[3]))
+            if (isDefined(args[4]))
             {
-                Local<Array> bbox(Array::Cast(*args[3]));
+                Local<Array> bbox(Array::Cast(*args[4]));
 
                 if (bbox->Get(Integer::New(0))->IsNumber() &&
                     bbox->Get(Integer::New(1))->IsNumber() &&
@@ -503,6 +548,7 @@ ReadCommand* ReadCommandFactory::create(
                                 readId,
                                 host,
                                 port,
+                                compress,
                                 schema,
                                 xMin,
                                 yMin,
@@ -532,6 +578,7 @@ ReadCommand* ReadCommandFactory::create(
                         readId,
                         host,
                         port,
+                        compress,
                         schema,
                         depthBegin,
                         depthEnd,
@@ -542,16 +589,16 @@ ReadCommand* ReadCommandFactory::create(
         }
         // Custom bounds rasterized query.
         else if (
-            args.Length() == 7 &&
-            (isDefined(args[3]) &&
-                args[3]->IsArray() &&
-                Array::Cast(*args[3])->Length() >= 4) &&
+            args.Length() == 8 &&
             (isDefined(args[4]) &&
                 args[4]->IsArray() &&
-                Array::Cast(*args[4])->Length() == 2))
+                Array::Cast(*args[4])->Length() >= 4) &&
+            (isDefined(args[5]) &&
+                args[5]->IsArray() &&
+                Array::Cast(*args[5])->Length() == 2))
         {
-            Local<Array> bbox(Array::Cast(*args[3]));
-            Local<Array> dims(Array::Cast(*args[4]));
+            Local<Array> bbox(Array::Cast(*args[4]));
+            Local<Array> dims(Array::Cast(*args[5]));
 
             if (bbox->Get(Integer::New(0))->IsNumber() &&
                 bbox->Get(Integer::New(1))->IsNumber() &&
@@ -595,6 +642,7 @@ ReadCommand* ReadCommandFactory::create(
                             readId,
                             host,
                             port,
+                            compress,
                             schema,
                             customRasterMeta,
                             queryCallback,
@@ -611,10 +659,10 @@ ReadCommand* ReadCommandFactory::create(
             }
         }
         else if (
-            args.Length() == 6 &&
-            isDefined(args[3]) && isInteger(args[3]))
+            args.Length() == 7 &&
+            isDefined(args[4]) && isInteger(args[4]))
         {
-            const std::size_t level(args[3]->Uint32Value());
+            const std::size_t level(args[4]->Uint32Value());
 
             readCommand = new ReadCommandQuadLevel(
                     pdalSession,
@@ -622,6 +670,7 @@ ReadCommand* ReadCommandFactory::create(
                     readId,
                     host,
                     port,
+                    compress,
                     schema,
                     level,
                     queryCallback,

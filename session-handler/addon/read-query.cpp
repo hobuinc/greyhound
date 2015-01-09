@@ -2,58 +2,209 @@
 #include "buffer-pool.hpp"
 #include "grey-reader.hpp"
 #include "read-query.hpp"
+#include "compression-stream.hpp"
+
+namespace
+{
+    pdal::DimTypeList pruneDims(
+            pdal::DimTypeList input,
+            const Schema& schema,
+            bool rasterize)
+    {
+        using namespace pdal;
+        using namespace pdal::Dimension;
+        pdal::DimTypeList output;
+
+        for (const auto& dim : schema.dims)
+        {
+            if (schema.use(dim, rasterize))
+            {
+                const BaseType::Enum type(fromName(dim.type));
+                if (type == BaseType::Signed)
+                {
+                    switch (dim.size)
+                    {
+                    case 1:
+                        output.push_back(DimType(dim.id, Type::Signed8));
+                        break;
+                    case 2:
+                        output.push_back(DimType(dim.id, Type::Signed16));
+                        break;
+                    case 4:
+                        output.push_back(DimType(dim.id, Type::Signed32));
+                        break;
+                    case 8:
+                        output.push_back(DimType(dim.id, Type::Signed64));
+                        break;
+                    default:
+                        throw std::runtime_error("Invalid dimension");
+                        break;
+                    }
+                }
+                else if (type == BaseType::Unsigned)
+                {
+                    switch (dim.size)
+                    {
+                    case 1:
+                        output.push_back(DimType(dim.id, Type::Unsigned8));
+                        break;
+                    case 2:
+                        output.push_back(DimType(dim.id, Type::Unsigned16));
+                        break;
+                    case 4:
+                        output.push_back(DimType(dim.id, Type::Unsigned32));
+                        break;
+                    case 8:
+                        output.push_back(DimType(dim.id, Type::Unsigned64));
+                        break;
+                    default:
+                        throw std::runtime_error("Invalid dimension");
+                        break;
+                    }
+                }
+                else
+                {
+                    if (dim.size == 4)
+                    {
+                        output.push_back(DimType(dim.id, Type::Float));
+                    }
+                    else if (dim.size == 8)
+                    {
+                        output.push_back(DimType(dim.id, Type::Double));
+                    }
+                    else {
+                        throw std::runtime_error("Invalid dimension");
+                    }
+                }
+            }
+        }
+
+        return output;
+    }
+}
+
+QueryData::QueryData(
+        pdal::DimTypeList dimTypes,
+        const Schema& schema,
+        const bool compress,
+        const bool rasterize,
+        const std::size_t index)
+    : m_compressionStream()
+    , m_compressor(
+            compress ?
+                new pdal::LazPerfCompressor<CompressionStream>(
+                    m_compressionStream,
+                    pruneDims(dimTypes, schema, rasterize)) :
+                0)
+    , m_compressionOffset(0)
+    , m_schema(schema)
+    , m_rasterize(rasterize)
+    , m_index(index)
+{ }
 
 UnindexedQueryData::UnindexedQueryData(
+        const Schema& schema,
+        bool compress,
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::size_t start,
         std::size_t count)
-    : m_pointBuffer(pointBuffer)
+    : QueryData(
+            pointBuffer->dimTypes(),
+            schema,
+            compress,
+            false,
+            std::min<std::size_t>(start, pointBuffer->size()))
+    , m_pointBuffer(pointBuffer)
     , m_begin(std::min<std::size_t>(start, m_pointBuffer->size()))
     , m_end(
             count == 0 ?
                 m_pointBuffer->size() :
                 std::min<std::size_t>(start + count, m_pointBuffer->size()))
-    , m_index(m_begin)
 { }
 
 LiveQueryData::LiveQueryData(
+        const Schema& schema,
+        bool compress,
+        bool rasterize,
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::vector<std::size_t> indexList)
-    : m_pointBuffer(pointBuffer)
+    : QueryData(pointBuffer->dimTypes(), schema, compress, rasterize)
+    , m_pointBuffer(pointBuffer)
     , m_indexList(indexList)
-    , m_index(0)
 { }
 
-SerialQueryData::SerialQueryData(GreyQuery greyQuery)
-    : m_greyQuery(greyQuery)
-    , m_index(0)
+SerialQueryData::SerialQueryData(
+        const Schema& schema,
+        bool compress,
+        bool rasterize,
+        GreyQuery greyQuery)
+    : QueryData(greyQuery.dimTypes(), schema, compress, rasterize)
+    , m_greyQuery(greyQuery)
 { }
 
-void UnindexedQueryData::read(
+bool QueryData::done() const
+{
+    return eof() &&
+            (!compress() ||
+             m_compressionOffset == m_compressionStream.data().size());
+}
+
+void QueryData::read(
         std::shared_ptr<ItcBuffer> buffer,
         std::size_t maxNumBytes,
-        const Schema& schema,
-        bool)
+        bool rasterize)
 {
-    const std::size_t stride(schema.stride());
-    const std::size_t pointsToRead(
-            std::min(m_end - m_index, maxNumBytes / stride));
-    const std::size_t doneIndex(m_index + pointsToRead);
-
     try
     {
-        buffer->resize(pointsToRead * stride);
-        uint8_t* pos(buffer->data());
+        buffer->resize(0);
+        const std::size_t stride(m_schema.stride(rasterize));
+        std::vector<uint8_t> point(stride);
+        uint8_t* pos(0);
 
-        while (m_index < doneIndex)
+        const bool doCompress(compress());
+
+        while (
+                !eof() &&
+                ((!doCompress &&
+                    buffer->size() + stride <= maxNumBytes) ||
+                 (doCompress &&
+                    m_compressionStream.data().size() - m_compressionOffset <=
+                            maxNumBytes)))
         {
-            for (const auto& dim : schema.dims)
+            pos = point.data();
+
+            // Delegate to specialized subclass.
+            readPoint(pos, m_schema, rasterize);
+
+            if (doCompress)
             {
-                pos += readDim(pos, m_pointBuffer, dim, m_index);
+                m_compressor->compress(
+                    reinterpret_cast<char*>(point.data()), stride);
+            }
+            else
+            {
+                buffer->push(point.data(), stride);
             }
 
             ++m_index;
         }
+
+        if (doCompress)
+        {
+            if (eof()) m_compressor->done();
+
+            const std::size_t size(
+                    std::min(
+                        m_compressionStream.data().size() - m_compressionOffset,
+                        maxNumBytes));
+
+            buffer->push(
+                    m_compressionStream.data().data() + m_compressionOffset,
+                    size);
+
+            m_compressionOffset += size;
+        }
+
     }
     catch (...)
     {
@@ -61,122 +212,81 @@ void UnindexedQueryData::read(
     }
 }
 
-void LiveQueryData::read(
-        std::shared_ptr<ItcBuffer> buffer,
-        std::size_t maxNumBytes,
+void UnindexedQueryData::readPoint(
+        uint8_t* pos,
         const Schema& schema,
-        bool rasterize)
+        bool) const
 {
-    const std::size_t stride(schema.stride(rasterize));
-
-    const std::size_t pointsToRead(
-            std::min(m_indexList.size() - m_index, maxNumBytes / stride));
-    const std::size_t doneIndex(m_index + pointsToRead);
-
-    try
+    for (const auto& dim : schema.dims)
     {
-        buffer->resize(pointsToRead * stride);
-        uint8_t* pos(buffer->data());
-
-        while (m_index < doneIndex)
-        {
-            const std::size_t i(m_indexList[m_index]);
-            if (i != std::numeric_limits<std::size_t>::max())
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a valid point.
-                    std::fill(pos, pos + 1, 1);
-                    ++pos;
-                }
-
-                for (const auto& dim : schema.dims)
-                {
-                    if (schema.use(dim, rasterize))
-                    {
-                        pos += readDim(pos, m_pointBuffer, dim, i);
-                    }
-                }
-            }
-            else
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a hole.
-                    std::fill(pos, pos + 1, 0);
-                }
-
-                pos += stride;
-            }
-
-            ++m_index;
-        }
-    }
-    catch (...)
-    {
-        throw std::runtime_error("Failed to read points from PDAL");
+        pos += readDim(pos, m_pointBuffer, dim, m_index);
     }
 }
 
-void SerialQueryData::read(
-        std::shared_ptr<ItcBuffer> buffer,
-        std::size_t maxNumBytes,
+void LiveQueryData::readPoint(
+        uint8_t* pos,
         const Schema& schema,
-        bool rasterize)
+        bool rasterize) const
 {
-    const std::size_t stride(schema.stride(rasterize));
-
-    const std::size_t pointsToRead(
-            std::min(m_greyQuery.numPoints() - m_index, maxNumBytes / stride));
-    const std::size_t doneIndex(m_index + pointsToRead);
-
-    try
+    const std::size_t i(m_indexList[m_index]);
+    if (i != std::numeric_limits<std::size_t>::max())
     {
-        buffer->resize(pointsToRead * stride);
-        uint8_t* pos(buffer->data());
-
-        while (m_index < doneIndex)
+        if (rasterize)
         {
-            QueryIndex queryIndex(m_greyQuery.queryIndex(m_index));
+            // Mark this point as a valid point.
+            std::fill(pos, pos + 1, 1);
+            ++pos;
+        }
 
-            if (queryIndex.index != std::numeric_limits<std::size_t>::max())
+        for (const auto& dim : schema.dims)
+        {
+            if (schema.use(dim, rasterize))
             {
-                if (rasterize)
-                {
-                    // Mark this point as a valid point.
-                    std::fill(pos, pos + 1, 1);
-                    ++pos;
-                }
-
-                for (const auto& dim : schema.dims)
-                {
-                    if (schema.use(dim, rasterize))
-                    {
-                        pos += readDim(
-                                pos,
-                                m_greyQuery.pointBuffer(queryIndex.id),
-                                dim,
-                                queryIndex.index);
-                    }
-                }
+                pos += readDim(pos, m_pointBuffer, dim, i);
             }
-            else
-            {
-                if (rasterize)
-                {
-                    // Mark this point as a hole.
-                    std::fill(pos, pos + 1, 0);
-                }
-
-                pos += stride;
-            }
-
-            ++m_index;
         }
     }
-    catch (...)
+    else if (rasterize)
     {
-        throw std::runtime_error("Failed to read points from PDAL");
+        // Mark this point as a hole.  Don't clear the rest of the
+        // point data so it will compress nicely if enabled.
+        std::fill(pos, pos + 1, 0);
+    }
+}
+
+void SerialQueryData::readPoint(
+        uint8_t* pos,
+        const Schema& schema,
+        bool rasterize) const
+{
+    QueryIndex queryIndex(m_greyQuery.queryIndex(m_index));
+
+    if (queryIndex.index != std::numeric_limits<std::size_t>::max())
+    {
+        if (rasterize)
+        {
+            // Mark this point as a valid point.
+            std::fill(pos, pos + 1, 1);
+            ++pos;
+        }
+
+        for (const auto& dim : schema.dims)
+        {
+            if (schema.use(dim, rasterize))
+            {
+                pos += readDim(
+                        pos,
+                        m_greyQuery.pointBuffer(queryIndex.id),
+                        dim,
+                        queryIndex.index);
+            }
+        }
+    }
+    else if (rasterize)
+    {
+        // Mark this point as a hole.  Don't clear the rest of the
+        // point data so it will compress nicely if enabled.
+        std::fill(pos, pos + 1, 0);
     }
 }
 
@@ -184,7 +294,7 @@ std::size_t QueryData::readDim(
         uint8_t* buffer,
         const std::shared_ptr<pdal::PointBuffer> pointBuffer,
         const DimInfo& dim,
-        const std::size_t index)
+        const std::size_t index) const
 {
     if (dim.type == "floating")
     {

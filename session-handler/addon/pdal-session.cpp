@@ -141,6 +141,8 @@ bool PdalSession::awaken(const std::vector<std::string>& serialPaths)
 }
 
 std::shared_ptr<QueryData> PdalSession::queryUnindexed(
+        const Schema& schema,
+        bool compress,
         std::size_t start,
         std::size_t count)
 {
@@ -154,12 +156,16 @@ std::shared_ptr<QueryData> PdalSession::queryUnindexed(
     }
 
     return std::shared_ptr<QueryData>(new UnindexedQueryData(
+                schema,
+                compress,
                 m_liveDataSource->pointBuffer(),
                 start,
                 count));
 }
 
 std::shared_ptr<QueryData> PdalSession::query(
+        const Schema& schema,
+        bool compress,
         double xMin,
         double yMin,
         double xMax,
@@ -182,13 +188,17 @@ std::shared_ptr<QueryData> PdalSession::query(
             std::endl;
 
         return std::shared_ptr<QueryData>(
-                new SerialQueryData(m_serialDataSource->query(
-                    xMin,
-                    yMin,
-                    xMax,
-                    yMax,
-                    depthBegin,
-                    depthEnd)));
+                new SerialQueryData(
+                    schema,
+                    compress,
+                    false,
+                    m_serialDataSource->query(
+                        xMin,
+                        yMin,
+                        xMax,
+                        yMax,
+                        depthBegin,
+                        depthEnd)));
     }
     else if (m_liveDataSource)
     {
@@ -199,6 +209,9 @@ std::shared_ptr<QueryData> PdalSession::query(
 
         return std::shared_ptr<QueryData>(
                 new LiveQueryData(
+                    schema,
+                    compress,
+                    false,
                     m_liveDataSource->pointBuffer(),
                     m_liveDataSource->query(
                         xMin,
@@ -215,6 +228,8 @@ std::shared_ptr<QueryData> PdalSession::query(
 }
 
 std::shared_ptr<QueryData> PdalSession::query(
+        const Schema& schema,
+        bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -231,9 +246,13 @@ std::shared_ptr<QueryData> PdalSession::query(
             std::endl;
 
         return std::shared_ptr<QueryData>(
-                new SerialQueryData(m_serialDataSource->query(
-                    depthBegin,
-                    depthEnd)));
+                new SerialQueryData(
+                    schema,
+                    compress,
+                    false,
+                    m_serialDataSource->query(
+                        depthBegin,
+                        depthEnd)));
     }
     else if (m_liveDataSource)
     {
@@ -244,6 +263,9 @@ std::shared_ptr<QueryData> PdalSession::query(
 
         return std::shared_ptr<QueryData>(
                 new LiveQueryData(
+                    schema,
+                    compress,
+                    false,
                     m_liveDataSource->pointBuffer(),
                     m_liveDataSource->query(
                         depthBegin,
@@ -256,6 +278,8 @@ std::shared_ptr<QueryData> PdalSession::query(
 }
 
 std::shared_ptr<QueryData> PdalSession::query(
+        const Schema& schema,
+        bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
@@ -272,9 +296,13 @@ std::shared_ptr<QueryData> PdalSession::query(
             std::endl;
 
         return std::shared_ptr<QueryData>(
-                new SerialQueryData(m_serialDataSource->query(
-                    rasterize,
-                    rasterMeta)));
+                new SerialQueryData(
+                    schema,
+                    compress,
+                    true,
+                    m_serialDataSource->query(
+                        rasterize,
+                        rasterMeta)));
     }
     else if (m_liveDataSource)
     {
@@ -285,6 +313,9 @@ std::shared_ptr<QueryData> PdalSession::query(
 
         return std::shared_ptr<QueryData>(
                 new LiveQueryData(
+                    schema,
+                    compress,
+                    true,
                     m_liveDataSource->pointBuffer(),
                     m_liveDataSource->query(
                         rasterize,
@@ -296,7 +327,10 @@ std::shared_ptr<QueryData> PdalSession::query(
     }
 }
 
-std::shared_ptr<QueryData> PdalSession::query(const RasterMeta& rasterMeta)
+std::shared_ptr<QueryData> PdalSession::query(
+        const Schema& schema,
+        bool compress,
+        const RasterMeta& rasterMeta)
 {
     // Custom-res raster queries are only supported by a live data source.
     if (!m_liveDataSource)
@@ -310,11 +344,16 @@ std::shared_ptr<QueryData> PdalSession::query(const RasterMeta& rasterMeta)
 
     return std::shared_ptr<QueryData>(
             new LiveQueryData(
+                schema,
+                compress,
+                true,
                 m_liveDataSource->pointBuffer(),
                 m_liveDataSource->query(rasterMeta)));
 }
 
 std::shared_ptr<QueryData> PdalSession::query(
+        const Schema& schema,
+        bool compress,
         bool is3d,
         double radius,
         double x,
@@ -333,6 +372,9 @@ std::shared_ptr<QueryData> PdalSession::query(
 
     return std::shared_ptr<QueryData>(
             new LiveQueryData(
+                schema,
+                compress,
+                false,
                 m_liveDataSource->pointBuffer(),
                 m_liveDataSource->query(is3d, radius, x, y, z)));
 }

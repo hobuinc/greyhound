@@ -42,7 +42,7 @@ void CompressionStream::getBytes(uint8_t* bytes, std::size_t length)
     m_index += length;
 }
 
-const std::vector<uint8_t>& CompressionStream::data()
+const std::vector<uint8_t>& CompressionStream::data() const
 {
     return m_data;
 }

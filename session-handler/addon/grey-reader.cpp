@@ -277,7 +277,20 @@ GreyQuery::GreyQuery(
     }
 }
 
-std::shared_ptr<pdal::PointBuffer> GreyQuery::pointBuffer(uint64_t id)
+pdal::DimTypeList GreyQuery::dimTypes() const
+{
+    auto it(m_clusters.begin());
+    if (it != m_clusters.end())
+    {
+        return it->second->pointBuffer()->dimTypes();
+    }
+    else
+    {
+        return pdal::DimTypeList();
+    }
+}
+
+std::shared_ptr<pdal::PointBuffer> GreyQuery::pointBuffer(uint64_t id) const
 {
     std::shared_ptr<pdal::PointBuffer> result;
 
