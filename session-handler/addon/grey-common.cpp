@@ -1,3 +1,8 @@
+#include <cmath>
+#include <string>
+#include <vector>
+#include <cstdint>
+
 #include "grey-common.hpp"
 
 BBox::BBox()

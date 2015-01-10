@@ -8,16 +8,13 @@ export NUMTHREADS
 
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
-git checkout 372a4b3598e658033c247a72fb3607d451ddbd48
+git checkout 1c016a75b65844204d71af7cf701a6a0e11753df
 cmake   -G "Unix Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DWITH_ICONV=ON \
         -DWITH_GEOTIFF=ON \
         -DWITH_LASZIP=ON \
         -DWITH_LAZPERF=ON \
-        -DLAZPERF_INCLUDE_DIR=/usr/local/include/tlaz/ \
-        -DWITH_LIBXML2=ON \
         -DWITH_PYTHON=ON \
         -DWITH_TESTS=OFF
 
