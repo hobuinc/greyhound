@@ -59,6 +59,90 @@ var rendererSchema =
     },
 ];
 
+var rxSchema =
+[
+    {
+        "name" : "X",
+        "size" : "8",
+        "type" : "floating"
+    },
+    {
+        "name" : "Y",
+        "size" : "8",
+        "type" : "floating"
+    },
+    {
+        "name" : "Z",
+        "size" : "8",
+        "type" : "floating"
+    },
+    {
+        "name" : "GpsTime",
+        "size" : "8",
+        "type" : "floating"
+    },
+    {
+        "name" : "ScanAngleRank",
+        "size" : "4",
+        "type" : "floating"
+    },
+    {
+        "name" : "Intensity",
+        "size" : "2",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "PointSourceId",
+        "size" : "2",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "Red",
+        "size" : "2",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "Green",
+        "size" : "2",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "Blue",
+        "size" : "2",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "ReturnNumber",
+        "size" : "1",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "NumberOfReturns",
+        "size" : "1",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "ScanDirectionFlag",
+        "size" : "1",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "EdgeOfFlightLine",
+        "size" : "1",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "Classification",
+        "size" : "1",
+        "type" : "unsigned"
+    },
+    {
+        "name" : "UserData",
+        "size" : "1",
+        "type" : "unsigned"
+    }
+];
+
 var send = function(obj) {
     ws.send(JSON.stringify(obj));
 }
@@ -713,7 +797,7 @@ module.exports = {
                 res: {
                     'status':   ghSuccess,
                     'command':  'schema',
-                    'schema':   dontCare,
+                    'schema':   rxSchema,
                 },
             },
             {

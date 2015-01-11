@@ -22,14 +22,13 @@ External Dependencies
 These dependencies must be installed separately and independently from Greyhound.
 
 Dependencies:
- - `PDAL`_
+ - `PDAL`_ compiled with `LazPerf`_ compression enabled (``-DWITH_LAZPERF=ON``)
  - `Node.js`_ 10.29 or greater
  - `Redis`_ server
  - `HAProxy`_
  - C++11 compiler
  - `Boost`_ library 1.55 or greater
  - `SQLite3`_ C++ library
- - `LazPerf`_ compression library
 
 .. _`PDAL`: http://www.pdal.io/index.html
 .. _`Node.js`: http://nodejs.org/
