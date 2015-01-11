@@ -363,9 +363,19 @@ Read (Basics)
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
 +---------------------+------------+-----------------------------------------------------+
+| (``"compress"``)    | Boolean    | If true, output stream will be compressed           |
++---------------------+------------+-----------------------------------------------------+
 
 Notes:
  - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.
+ - ``compress``: If true, ``read`` the resulting stream will be compressed with `Laz-Perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.
+
+|
+
+Important:
+ - If ``compress`` is specified, the ``numBytes`` field in the Response below still refers to uncompressed bytes.  Therefore the actual data size streamed to the client from Greyhound will be less than specified by ``numBytes``.  A client will not know in advance the actual number of bytes that will be streamed, so a client should decompress the results as they arrive and compare the uncompressed results to the expected values from the Response.
+
+.. _`Laz-Perf`: http://github.com/verma/laz-perf
 
 |
 
