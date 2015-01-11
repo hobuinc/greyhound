@@ -22,5 +22,9 @@ sleep 5
 /vagrant/examples/cpp/put-pipeline
 /vagrant/examples/cpp/put-pipeline examples/data/half-dome.xml
 
+# Index/serialize pipelines.
+node /vagrant/examples/js/serialize.js
+node /vagrant/examples/js/serialize.js a87d0a50e03a880c75e9f872c925f984
+
 cd -
 

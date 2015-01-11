@@ -11,6 +11,7 @@ process.on('uncaughtException', function(err) {
 });
 
 var express = require("express"),
+    _ = require('lodash'),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
     app = express(),
@@ -214,7 +215,31 @@ app.get("/pointsCount/:sessionId", function(req, res) {
 
 app.get("/schema/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
-        res.json({ schema: pdalSession.getSchema() });
+        var dimensions = JSON.parse(pdalSession.getSchema()).dimensions;
+        var schema = undefined;
+
+        if (dimensions && _.isArray(dimensions)) {
+            schema = new Array(dimensions.length);
+            var dim;
+
+            for (var i = 0; i < schema.length; ++i) {
+                schema[i] = { };
+                dim = dimensions[i];
+
+                if (
+                        !dim.name || !dim.name.value ||
+                        !dim.type || !dim.type.value ||
+                        !dim.size || !dim.size.value) {
+                    return res.json(400, { message: 'Invalid PDAL schema' });
+                }
+
+                schema[i].name = dim.name.value;
+                schema[i].type = dim.type.value;
+                schema[i].size = dim.size.value;
+            }
+        }
+
+        res.json({ schema: schema });
     });
 });
 
