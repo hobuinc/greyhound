@@ -14,29 +14,20 @@ var
 		this.ws = ws;
 		this.handlers = {};
 
-		var send = function(obj) {
-			try {
-				ws.send(JSON.stringify(obj));
-			}
-			catch(e) {
-				console.log('Failed to send object: ', obj, e);
-			}
-		}
-
 		var o = this;
 		this.ws.on('message', function(data) {
 			var msg = null;
 			try {
 				msg = JSON.parse(data);
 			} catch(e) {
-				return send({
+				return o.send({
 					status: 0,
 					reason: 'Couldn\'t parse command'
 				});
 			}
 
 			if (!msg.command)
-				return send({
+				return o.send({
 					status: 0,
 					reason: 'Unknown command'
 				});
@@ -44,14 +35,14 @@ var
 			if (_.isFunction(o.handlers[msg.command])) {
 				o.handlers[msg.command](msg, function(err, res) {
 					if (err) {
-                        return send({
+                        return o.send({
                             command: msg.command,
                             status: 0,
                             reason: err.message,
                         });
                     }
                     else {
-                        return send(_.extend(
+                        return o.send(_.extend(
                             res || { },
                             { command: msg.command, status: 1 }
                        ));
@@ -60,12 +51,21 @@ var
 			}
             else {
                 console.log('Improper configuration');
-                return send({
+                return o.send({
                     status: 0,
                 });
             }
 		});
 	};
+
+    CommandHandler.prototype.send = function(obj) {
+        try {
+            this.ws.send(JSON.stringify(obj));
+        }
+        catch(e) {
+            console.log('Failed to send object: ', obj, e);
+        }
+    }
 
 	CommandHandler.prototype.on = function(message, f) {
 		this.handlers[message] = f;
@@ -73,3 +73,4 @@ var
 
 	module.exports.CommandHandler = CommandHandler;
 })();
+
