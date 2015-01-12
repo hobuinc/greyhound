@@ -1095,6 +1095,7 @@ module.exports = {
                     },
                     {
                         'command':  'summary',
+                        'status':   ghSuccess,
                         'readId':   dontCare,
                         // TODO Should just check that numBytes < sampleBytes.
                         'numBytes': 104730,
