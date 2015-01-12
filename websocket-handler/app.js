@@ -542,6 +542,7 @@ process.nextTick(function() {
                             try {
                                 ws.send(JSON.stringify({
                                     command: 'summary',
+                                    status: 1,
                                     readId: readId,
                                     numBytes: streamer.totalSent
                                 }));

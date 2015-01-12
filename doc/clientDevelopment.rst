@@ -352,28 +352,32 @@ Notes:
 Read (Basics)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+----------------------------------------------------------------------------------------+
-| Command                                                                                |
-+---------------------+------------+-----------------------------------------------------+
-| Key                 | Type       | Value                                               |
-+=====================+============+=====================================================+
-| ``"command"``       | String     | ``"read"``                                          |
-+---------------------+------------+-----------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                |
-+---------------------+------------+-----------------------------------------------------+
-| (``"schema"``)      | String     | JSON stringified schema for return data             |
-+---------------------+------------+-----------------------------------------------------+
-| (``"compress"``)    | Boolean    | If true, output stream will be compressed           |
-+---------------------+------------+-----------------------------------------------------+
++------------------------------------------------------------------------------------------------+
+| Command                                                                                        |
++---------------------+------------+-------------------------------------------------------------+
+| Key                 | Type       | Value                                                       |
++=====================+============+=============================================================+
+| ``"command"``       | String     | ``"read"``                                                  |
++---------------------+------------+-------------------------------------------------------------+
+| ``"session"``       | String     | Greyhound session ID                                        |
++---------------------+------------+-------------------------------------------------------------+
+| (``"schema"``)      | String     | JSON stringified schema for return data                     |
++---------------------+------------+-------------------------------------------------------------+
+| (``"compress"``)    | Boolean    | If true, output stream will be compressed                   |
++---------------------+------------+-------------------------------------------------------------+
+| (``"summary"``)     | Boolean    | If true, a summary message will follow binary transmission. |
++---------------------+------------+-------------------------------------------------------------+
 
 Notes:
  - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.
  - ``compress``: If true, ``read`` the resulting stream will be compressed with `Laz-Perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.
+ - ``summary``: This message provides mostly redundant data from the initial ``read`` response below.  In general it is unnecessary, however it may be useful to clients that wish to use compression but lack the ability to decompress data on the fly, therefore must wait until all data is received.  When compression is enabled, if on-the-fly decompression is impossible, there is no way for a client to tell when all binary data has been received - which this option solves.  This provides a "binary transmission complete" indicator as well as provided the *actual* number of bytes transmitted, which will be less than ``numBytes`` specified in the initial response if ``compress`` is set to true.  The response format of ``summary`` is provided below.
 
 |
 
 Important:
  - If ``compress`` is specified, the ``numBytes`` field in the Response below still refers to uncompressed bytes.  Therefore the actual data size streamed to the client from Greyhound will be less than specified by ``numBytes``.  A client will not know in advance the actual number of bytes that will be streamed, so a client should decompress the results as they arrive and compare the uncompressed results to the expected values from the Response.
+ - If both ``compress`` and ``summary`` are specified, the ``summary`` message will specify a smaller ``numBytes`` value than the initial response.
 
 .. _`Laz-Perf`: http://github.com/verma/laz-perf
 
@@ -411,6 +415,26 @@ Important:
  - Because binary data from multiple ``read`` commands cannot be differentiated, no new ``read`` command should be issued over a single websocket connection until a previous ``read`` query completes or is successfully cancelled.  All other commands may still be issued during this time period.
  - There is no further response from Greyhound to indicate that a ``read`` transmission is complete, so a client must take note of ``numBytes`` and track the number of binary bytes received accordingly.
  - Binary data may arrive in multiple "chunked" transmissions.  Chunk size may vary, even within the same response sequence.  Chunks will always arrive in order and may be appended together by a client.  Chunk boundaries may not align with point or dimension boundaries, so a single point, or even a single dimension within a point, may be spread across multiple chunks.
+
+|
+
++-----------------------------------------------------------------------------------------+
+| Summary (if requested)                                                                  |
++-------------------+------------+--------------------------------------------------------+
+| Key               | Type       | Value                                                  |
++===================+============+========================================================+
+| ``"command"``     | String     | ``"summary"``                                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
++-------------------+------------+--------------------------------------------------------+
+| ``"readId"``      | String     | Identification token for this ``read`` request         |
++-------------------+------------+--------------------------------------------------------+
+| ``"numBytes"``    | Integer    | Actual number of bytes transmitted                     |
++-------------------+------------+--------------------------------------------------------+
+
+Notes:
+ - ``numBytes``: If ``compress`` was true in the initial ``read`` request, this value will be less than the ``numBytes`` value in the initial response to ``read``.
+ - Once this summary is received, this ``readId`` is invalidated and no more binary data will follow.
 
 ----
 
