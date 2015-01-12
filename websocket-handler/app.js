@@ -397,10 +397,11 @@ process.nextTick(function() {
 
             handler.on('destroy', function(msg, cb) {
                 console.log("websocket::handler::destroy");
-                // Note: this function does not destroy the actual PdalSession that
-                // was used for this session.  This just erases the session.  The
-                // PdalSession will be destroyed once it has expired, meaning no
-                // sessions have used it for a while.
+                // Note: this function does not destroy the actual PdalSession
+                // that was used for this client session.  This just erases the
+                // client session mapping.  The PdalSession will be destroyed
+                // once it has expired, meaning that no client sessions have
+                // used it for a while.
                 var session = msg['session'];
                 if (!session) return cb(propError('destroy', 'session'));
 
@@ -414,7 +415,9 @@ process.nextTick(function() {
 
                         affinity.delSession(session, function(err) {
                             if (err)
-                                console.log('Delete unclean for session', session);
+                                console.log(
+                                    'Delete unclean for session',
+                                    session);
 
                             cb();
                         });
@@ -461,6 +464,8 @@ process.nextTick(function() {
                 var session = msg['session'];
                 var readId = 0;
                 if (!session) return cb(propError('read', 'session'));
+
+                var summary = msg['summary'];
 
                 affinity.getSh(session, function(err, sessionHandler) {
                     if (err) return cb(err);
@@ -533,11 +538,24 @@ process.nextTick(function() {
                             's:',
                             streamer.totalSent);
 
-                            delete streamers[session][readId];
-
-                            if (Object.keys(streamers[session]) == 0) {
-                                delete streamers[session];
+                        if (summary) {
+                            try {
+                                ws.send(JSON.stringify({
+                                    command: 'summary',
+                                    readId: readId,
+                                    numBytes: streamer.totalSent
+                                }));
                             }
+                            catch(e) {
+                                console.log('Failed to send object: ', obj, e);
+                            }
+                        }
+
+                        delete streamers[session][readId];
+
+                        if (Object.keys(streamers[session]) == 0) {
+                            delete streamers[session];
+                        }
                     });
 
                     streamer.start();

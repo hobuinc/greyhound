@@ -194,6 +194,17 @@ var doExchangeSet = function(test, exchangeSet) {
             }
             else {
                 burst = !expected({}, {}, JSON.parse(data));
+
+                if (exchangeSet[exchangeIndex]['res'].length > 2)
+                {
+                    validateJson(
+                            test,
+                            JSON.parse(data),
+                            exchangeSet[exchangeIndex]['res'][2],
+                            exchangeIndex);
+
+                    burst = false;
+                }
             }
         }
         else {
@@ -1039,6 +1050,65 @@ module.exports = {
                 res: {
                     'command':  'read',
                     'status':   ghFail,
+                },
+            }]
+        );
+    },
+
+    // READ - test with summary flag
+    // Expect: all points read followed by summary
+    testReadSummary: function(test) {
+        var bytesRead = 0;
+        doExchangeSet(
+            test,
+            [{
+                req: {
+                    'command':      'create',
+                    'pipelineId':   samplePipelineId,
+                },
+                res: {
+                    'command':  'create',
+                    'status':   ghSuccess,
+                    'session':  dontCare,
+                },
+            },
+            {
+                req: {
+                    'command':  'read',
+                    'session':  initialSession,
+                    'schema':   rendererSchema,
+                    'count':    0,
+                    'compress': true,
+                    'summary':  true,
+                },
+                res: [
+                    {
+                        'status':       ghSuccess,
+                        'command':      'read',
+                        'readId':       dontCare,
+                        'numPoints':    samplePoints,
+                        'numBytes':     sampleBytes,
+                    },
+                    function(data) {
+                        bytesRead += data.length;
+                        return bytesRead === sampleBytes;
+                    },
+                    {
+                        'command':  'summary',
+                        'readId':   dontCare,
+                        // TODO Should just check that numBytes < sampleBytes.
+                        'numBytes': 104730,
+                    }
+                ]
+            },
+            {
+                req: {
+                    'command':  'destroy',
+                    'session':  initialSession,
+                },
+                res: {
+                    'command':  'destroy',
+                    'status':   ghSuccess,
                 },
             }]
         );
