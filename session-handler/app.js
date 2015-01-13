@@ -307,6 +307,14 @@ app.post("/read/:sessionId", function(req, res) {
             400,
             { message: 'Destination port needs to be specified' });
 
+    // Prune our args to simplify the specialization decision tree.
+    delete args.command;
+    delete args.session;
+    delete args.host;
+    delete args.port;
+    if (args.hasOwnProperty('compress')) delete args.compress;
+    if (args.hasOwnProperty('schema')) delete args.schema;
+
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
         console.log('read('+ sessionId + ')');
 
@@ -379,8 +387,7 @@ app.post("/read/:sessionId", function(req, res) {
         if (
             args.hasOwnProperty('start') ||
             args.hasOwnProperty('count') ||
-            Object.keys(args).length == 5 ||
-            (args.hasOwnProperty('schema') && Object.keys(args).length == 6)) {
+            Object.keys(args).length == 0) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
