@@ -466,6 +466,7 @@ process.nextTick(function() {
                 if (!session) return cb(propError('read', 'session'));
 
                 var summary = msg['summary'];
+                if (msg.hasOwnProperty('summary')) delete msg.summary;
 
                 affinity.getSh(session, function(err, sessionHandler) {
                     if (err) return cb(err);
