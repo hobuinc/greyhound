@@ -59,7 +59,7 @@ var
 				});
 			}
             else {
-                console.log('Improper configuration');
+                console.log('Improper configuration:', msg.command);
                 return send({
                     status: 0,
                 });

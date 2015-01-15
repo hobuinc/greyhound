@@ -97,6 +97,7 @@ var error = function(res) {
 };
 
 var parseArray = function(rawArray, isInt) {
+    rawArray = JSON.parse(rawArray);
     var coords = [];
 
     for (var i in rawArray) {
@@ -207,9 +208,9 @@ app.delete("/:pipelineId", function(req, res) {
     }
 });
 
-app.get("/pointsCount/:sessionId", function(req, res) {
+app.get("/numPoints/:sessionId", function(req, res) {
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
-        res.json({ count: pdalSession.getNumPoints() });
+        res.json({ numPoints: pdalSession.getNumPoints() });
     });
 });
 
@@ -290,10 +291,6 @@ app.post("/read/:sessionId", function(req, res) {
     var port = parseInt(args.port);
     var compress = args.compress ? JSON.parse(args.compress) : false;
     var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : [];
-
-    if (args.hasOwnProperty('resolution')) {
-        args['resolution'] = JSON.parse(args.resolution);
-    }
 
     console.log("session handler: /read/");
 
