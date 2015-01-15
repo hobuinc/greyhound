@@ -50,13 +50,13 @@ var go = function() {
 
     app.use(app.router);
 
-	app.get('/(greyhound)?', function(req, res) {
+	app.get('/', function(req, res) {
         console.log('Query params: ', req.query);
         // This will fail due to no pipeline selection.
 		res.render('index');
 	});
 
-    app.get('(/greyhound)?/data/:pipelineId', function(req, res) {
+    app.get('/data/:pipelineId', function(req, res) {
         console.log('Query params: ', req.query);
         res.render('data');
     });

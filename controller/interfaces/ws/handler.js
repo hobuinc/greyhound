@@ -4,9 +4,9 @@ var
     express = require('express'),
     console = require('clim')(),
 
-    disco = require('../common').disco,
+    disco = require('../../../common').disco,
 
-    CommandHandler = require('./lib/command-handler').CommandHandler,
+    Commander = require('./commander').Commander,
 
     numBytes = { }
     ;
@@ -14,12 +14,12 @@ var
 (function() {
     'use strict';
 
-    var WebsocketHandler = function(controller, port) {
+    var WsHandler = function(controller, port) {
         this.controller = controller;
         this.port = port;
     }
 
-    WebsocketHandler.prototype.start = function() {
+    WsHandler.prototype.start = function() {
         var self = this;
 
         var app = express();
@@ -45,8 +45,8 @@ var
 
             wss.on('connection', function(ws) {
                 console.log("websocket::connection");
-                var handler = new CommandHandler(ws);
-                registerCommands(self.controller, handler, ws);
+                var commander = new Commander(ws);
+                registerCommands(self.controller, commander, ws);
             });
         });
     }
@@ -57,51 +57,51 @@ var
         }
     }
 
-    var registerCommands = function(controller, handler, ws) {
-        handler.on('put', function(msg, cb) {
+    var registerCommands = function(controller, commander, ws) {
+        commander.on('put', function(msg, cb) {
             controller.put(msg.pipeline, cb);
         });
 
-        handler.on('create', function(msg, cb) {
+        commander.on('create', function(msg, cb) {
             controller.create(msg.pipelineId, cb);
         });
 
-        handler.on('numPoints', function(msg, cb) {
+        commander.on('numPoints', function(msg, cb) {
             controller.numPoints(msg.session, cb);
         });
 
-        handler.on('schema', function(msg, cb) {
+        commander.on('schema', function(msg, cb) {
             controller.schema(msg.session, cb);
         });
 
-        handler.on('stats', function(msg, cb) {
+        commander.on('stats', function(msg, cb) {
             controller.stats(msg.session, cb);
         });
 
-        handler.on('srs', function(msg, cb) {
+        commander.on('srs', function(msg, cb) {
             controller.srs(msg.session, cb);
         });
 
-        handler.on('fills', function(msg, cb) {
+        commander.on('fills', function(msg, cb) {
             controller.fills(msg.session, cb);
         });
 
-        handler.on('serialize', function(msg, cb) {
+        commander.on('serialize', function(msg, cb) {
             controller.serialize(msg.session, cb);
         });
 
-        handler.on('destroy', function(msg, cb) {
+        commander.on('destroy', function(msg, cb) {
             controller.destroy(msg.session, cb);
         });
 
-        handler.on('cancel', function(msg, cb) {
+        commander.on('cancel', function(msg, cb) {
             controller.cancel(msg.session, msg.readId, function(err, res) {
                 if (res.cancelled) res['numBytes'] = numBytes[msg.readId];
                 cb(null, res);
             });
         });
 
-        handler.on('read', function(msg, cb) {
+        commander.on('read', function(msg, cb) {
             var params = msg;
 
             var session = params.session;
@@ -148,6 +148,6 @@ var
         });
     }
 
-    module.exports.WebsocketHandler = WebsocketHandler;
+    module.exports.WsHandler = WsHandler;
 })();
 

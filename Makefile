@@ -20,6 +20,8 @@ NPM_DIRS = common \
 		   session-handler \
 		   test \
 		   controller \
+		   controller/interfaces/ws \
+		   controller/interfaces/http \
 		   web
 
 .PHONY: required cpp npm examples test clean install uninstall

@@ -8,7 +8,7 @@ var
     console = require('clim')(),
 
     Controller = require('./controller').Controller,
-    WsHandler = require('./websocket-handler').WebsocketHandler,
+    WsHandler = require('./interfaces/ws/handler').WsHandler,
 
     config = (require('../config').cn || { }),
     globalConfig = (require('../config').global || { })

@@ -1,16 +1,10 @@
-// command-handler.js
-// Handle commands
-//
-
-
-var
-	_ = require('lodash');
-
+// Allow function registration and routing of websocket commands.
+var _ = require('lodash');
 
 (function() {
 	"use strict";
 
-	var CommandHandler = function(ws) {
+	var Commander = function(ws) {
 		this.ws = ws;
 		this.handlers = {};
 
@@ -67,9 +61,10 @@ var
 		});
 	};
 
-	CommandHandler.prototype.on = function(message, f) {
+	Commander.prototype.on = function(message, f) {
 		this.handlers[message] = f;
 	}
 
-	module.exports.CommandHandler = CommandHandler;
+	module.exports.Commander = Commander;
 })();
+
