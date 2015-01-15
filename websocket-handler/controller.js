@@ -9,7 +9,7 @@ var
     Listener = require('./lib/listener').Listener,
     web = require('./lib/web'),
 
-    config = (require('../config').ws || { }),
+    config = (require('../config').cn || { }),
 
     softSessionShareMax = (config.softSessionShareMax || 16),
     hardSessionShareMax = (config.hardSessionShareMax || 0),
@@ -53,16 +53,14 @@ var
         function() {
             return Math.round(Date.now() / 1000);
         }
-
     ;
-
 
 (function() {
     'use strict';
 
     var Controller = function() {
         // Start watching for removed session handlers.
-        process.nextTick(function() { sessionWatch(); });
+        process.nextTick(sessionWatch);
 
         this.listeners = { }
 

@@ -5,7 +5,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 GH_ROOT=/var/greyhound/
 LOG_ROOT=/var/log/greyhound/
 
-COMPONENT=gh_ws
+COMPONENT=gh_cn
 ROOT=$GH_ROOT/websocket-handler/
 
 case $1 in
