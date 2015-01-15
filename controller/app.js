@@ -9,6 +9,7 @@ var
 
     Controller = require('./controller').Controller,
     WsHandler = require('./interfaces/ws/handler').WsHandler,
+    HttpHandler = require('./interfaces/http/handler').HttpHandler,
 
     config = (require('../config').cn || { }),
     globalConfig = (require('../config').global || { })
@@ -24,6 +25,11 @@ process.nextTick(function() {
     if (config.hasOwnProperty('ws') && config.ws.enable) {
         var wsHandler = new WsHandler(controller, config.ws.port);
         wsHandler.start();
+    }
+
+    if (config.hasOwnProperty('http') && config.http.enable) {
+        var httpHandler = new HttpHandler(controller, config.ws.port);
+        httpHandler.start();
     }
 });
 

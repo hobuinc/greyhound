@@ -79,20 +79,6 @@ config.sh = {
     enable: true,
 };
 
-// Webserver configuration.
-config.web = {
-    // Specify a port on which to listen.  If omitted or null, default is 8081.
-    // This is not a public-facing port - haproxy will route to this port for
-    // non-websocket connections.
-    //
-    // IMPORTANT: If a frontend proxy is used, this value must match the
-    // backend web port specified in frontend-proxy/haproxy.cfg.
-    port: 8081,
-
-    // If false, component will not run.
-    enable: true,
-};
-
 // Controller configuration.
 config.cn = {
     ws: {
@@ -102,6 +88,22 @@ config.cn = {
         // Specify a port on which to listen.  If omitted or null, the process
         // will select an open port.
         port: null,
+    },
+
+    http: {
+        // True to support an HTTP interface.
+        enable: true,
+
+        // Set to true to serve static files at /data/ for testing/verification.
+        enableStaticServe: true,
+
+        // Specify a port on which to listen.  If omitted or null, default is
+        // 8081. This is not a public-facing port - haproxy will route to this
+        // port for non-websocket connections.
+        //
+        // IMPORTANT: If a frontend proxy is used, this value must match the
+        // backend web port specified in frontend-proxy/haproxy.cfg.
+        port: 8081,
     },
 
     // After this many concurrent users on a single session within a single

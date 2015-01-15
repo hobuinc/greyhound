@@ -200,7 +200,7 @@ Notes:
 
 ----
 
-Points Count
+NumPoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 +-----------------------------------------------------------------------------+
@@ -514,8 +514,8 @@ Read - Unindexed
 
 Notes:
  - See `Read (Basics)`_ for information on the Greyhound response.
- - ``start``: If omitted or negative, defaults to zero.  If greater than or equal to the value returned by `Points Count`_, no points will be read.
- - ``count``: If omitted or negative, reads from ``start`` through the last point.  If the sum of ``start`` and ``count`` is greater than or equal to the value returned by `Points Count`_, the ``read`` will read from ``start`` through the last point.
+ - ``start``: If omitted or negative, defaults to zero.  If greater than or equal to the value returned by `NumPoints`_, no points will be read.
+ - ``count``: If omitted or negative, reads from ``start`` through the last point.  If the sum of ``start`` and ``count`` is greater than or equal to the value returned by `NumPoints`_, the ``read`` will read from ``start`` through the last point.
  - A client that simply wants to duplicate the entire buffer may issue a ``read`` with only the ``command`` and ``session`` parameters to read all points in their native dimenion formats.
 
 ----

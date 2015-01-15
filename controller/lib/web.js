@@ -15,7 +15,7 @@ var
 
 		var parts = reqHandler.split(':');
 		if (parts.length !== 2)
-			return cb(new Error('The request handler location doesnt look valid'));
+			return cb(new Error('The request handler location is not valid'));
 
 		var host = parts[0];
 		var port = parseInt(parts[1]);
