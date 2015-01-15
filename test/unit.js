@@ -318,7 +318,7 @@ var validateJson = function(test, json, expected, exchangeIndex) {
 // Contents:
 //      PUT
 //      CREATE
-//      POINTSCOUNT
+//      NUMPOINTS
 //      SCHEMA
 //      STATS
 //      SRS
@@ -638,80 +638,80 @@ module.exports = {
         );
     },
 
-    // POINTSCOUNT - test command with missing 'session' parameter
+    // NUMPOINTS - test command with missing 'session' parameter
     // Expect: failure status
-    testPointsCountMissingSession: function(test) {
+    testNumPointsMissingSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command': 'pointsCount',
+                    'command': 'numPoints',
                 },
                 res: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // POINTSCOUNT - test command with invalid 'session' parameter
+    // NUMPOINTS - test command with invalid 'session' parameter
     // Expect: failure status
-    testPointsCountInvalidSession: function(test) {
+    testNumPointsInvalidSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'session':  'I am an invalid session string!',
                 },
                 res: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // POINTSCOUNT - test command with object 'session' parameter
+    // NUMPOINTS - test command with object 'session' parameter
     // Expect: failure status
-    testPointsCountObjectSession: function(test) {
+    testNumPointsObjectSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'session':  { session: 'I am an invalid session object!' }
                 },
                 res: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // POINTSCOUNT - test command with a function as the 'session' parameter
+    // NUMPOINTS - test command with a function as the 'session' parameter
     // Expect: failure status
-    testPointsCountFunctionSession: function(test) {
+    testNumPointsFunctionSession: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'session':  function() { console.log('Wrong'); },
                 },
                 res: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'status':   ghFail,
                 },
             }]
         );
     },
 
-    // POINTSCOUNT - test valid command
+    // NUMPOINTS - test valid command
     // Expect: successful status and number of points
-    testPointsCountValid: function(test) {
+    testNumPointsValid: function(test) {
         doExchangeSet(
             test,
             [{
@@ -727,13 +727,13 @@ module.exports = {
             },
             {
                 req: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'session':  initialSession,
                 },
                 res: {
                     'status':   ghSuccess,
-                    'command':  'pointsCount',
-                    'count':    10653,
+                    'command':  'numPoints',
+                    'numPoints':    10653,
                 },
             },
             {
@@ -2067,12 +2067,12 @@ module.exports = {
             {
                 // Try to use session again - should not work
                 req: {
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                     'session':  initialSession,
                 },
                 res: {
                     'status':   ghFail,
-                    'command':  'pointsCount',
+                    'command':  'numPoints',
                 },
             },
             {

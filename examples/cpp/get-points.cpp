@@ -48,12 +48,12 @@ public:
     template<typename PointsCountHandler>
     void GetPointsCount(const std::string& id, PointsCountHandler handler) {
         Json::Value v;
-        v["command"] = "pointsCount";
+        v["command"] = "numPoints";
         v["session"] = id;
 
         do_exchange(v, [handler](const Json::Value& r) {
             if (r["status"] == 1)
-                handler(r["count"].asInt());
+                handler(r["numPoints"].asInt());
             else
                 handler(-1);
         });

@@ -226,6 +226,8 @@ var web = require('./web'),
     }
 
     Affinity.prototype.getSh = function(sId, cb) {
+        if (!sId) return cb('Invalid session');
+
         console.log('AFF: Getting session handler for', sId);
         redisClient.smembers(sessionIdsStore(sId), function(err, info) {
             console.log('AFF: Got', err, info, info.length);

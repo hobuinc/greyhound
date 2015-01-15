@@ -81,7 +81,7 @@
 		//
 		var count;
 		var session;
-		var pointsCount;
+		var numPoints;
 		var dataBuffer = null; // buffer to collect recieved data
         var meta = null;
         var stats = null;
@@ -224,7 +224,7 @@
 					console.log(msg.numPoints, msg.numBytes);
 
 					count		= 0;
-					pointsCount	= msg.numPoints;
+					numPoints	= msg.numPoints;
 					dataBuffer	= new Int8Array(msg.numBytes);
 
                     if (msg.hasOwnProperty('rasterMeta'))
@@ -232,7 +232,7 @@
                         meta = msg.rasterMeta;
                     }
 
-                    if (pointsCount == 0) {
+                    if (numPoints == 0) {
                         // we're done reading data, close connection
                         ws.send(JSON.stringify({
                             command: 'destroy',
@@ -271,7 +271,7 @@
                 // Use setTimeout so that we call the callback outside the
                 // context of ws.onclose
 				setTimeout(function() {
-					cb(null, dataBuffer, pointsCount, meta, stats);
+					cb(null, dataBuffer, numPoints, meta, stats);
 				}, 0);
 			}
 		};
