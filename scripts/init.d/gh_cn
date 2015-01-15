@@ -6,7 +6,7 @@ GH_ROOT=/var/greyhound/
 LOG_ROOT=/var/log/greyhound/
 
 COMPONENT=gh_cn
-ROOT=$GH_ROOT/websocket-handler/
+ROOT=$GH_ROOT/controller/
 
 case $1 in
     start)

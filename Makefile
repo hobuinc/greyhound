@@ -8,7 +8,7 @@ SRC_DIRS = common \
 		   dist-handler \
 		   frontend-proxy \
 		   session-handler \
-		   websocket-handler \
+		   controller \
 		   web
 
 # Directories where we need to run 'npm install'.
@@ -19,7 +19,7 @@ NPM_DIRS = common \
 		   examples/js \
 		   session-handler \
 		   test \
-		   websocket-handler \
+		   controller \
 		   web
 
 .PHONY: required cpp npm examples test clean install uninstall
