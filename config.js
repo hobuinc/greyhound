@@ -93,11 +93,16 @@ config.web = {
     enable: true,
 };
 
-// Websocket handler configuration.
-config.ws = {
-    // Specify a port on which to listen.  If omitted or null, the process will
-    // select an open port.
-    port: null,
+// Controller configuration.
+config.cn = {
+    ws: {
+        // True to support a websocket interface.
+        enable: true,
+
+        // Specify a port on which to listen.  If omitted or null, the process
+        // will select an open port.
+        port: null,
+    },
 
     // After this many concurrent users on a single session within a single
     // session handler, offload any further requests to a different session

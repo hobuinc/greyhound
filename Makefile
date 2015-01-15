@@ -1,6 +1,6 @@
 STANDALONE?=""
 PROXY?=TRUE
-COMPONENTS = gh_db gh_dist gh_sh gh_ws gh_web
+COMPONENTS = gh_db gh_dist gh_sh gh_cn gh_web
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = common \

@@ -6,7 +6,7 @@ start)
     then
         /etc/init.d/gh_fe start
     fi
-    /etc/init.d/gh_ws start
+    /etc/init.d/gh_cn start
     /etc/init.d/gh_db start
     /etc/init.d/gh_dist start
     /etc/init.d/gh_sh start
@@ -22,7 +22,7 @@ stop)
     then
         /etc/init.d/gh_fe stop
     fi
-    /etc/init.d/gh_ws stop
+    /etc/init.d/gh_cn stop
     /etc/init.d/gh_db stop
     /etc/init.d/gh_dist stop
     /etc/init.d/gh_sh stop
@@ -41,7 +41,7 @@ auto)
     then
         update-rc.d gh_fe defaults 95 05
     fi
-    update-rc.d gh_ws defaults 96 04
+    update-rc.d gh_cn defaults 96 04
     update-rc.d gh_db defaults 96 04
     update-rc.d gh_dist defaults 96 04
     update-rc.d gh_sh defaults 96 04
@@ -58,7 +58,7 @@ rmauto)
     then
         update-rc.d -f gh_fe remove
     fi
-    update-rc.d -f gh_ws remove
+    update-rc.d -f gh_cn remove
     update-rc.d -f gh_db remove
     update-rc.d -f gh_dist remove
     update-rc.d -f gh_sh remove
