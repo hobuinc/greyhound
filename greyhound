@@ -10,7 +10,6 @@ start)
     /etc/init.d/gh_db start
     /etc/init.d/gh_dist start
     /etc/init.d/gh_sh start
-    /etc/init.d/gh_web start
 
     if [ -e "/etc/init.d/gh_mongo" ]
     then
@@ -26,7 +25,6 @@ stop)
     /etc/init.d/gh_db stop
     /etc/init.d/gh_dist stop
     /etc/init.d/gh_sh stop
-    /etc/init.d/gh_web stop
 
     if [ -e "/etc/init.d/gh_mongo" ]
     then
@@ -45,7 +43,6 @@ auto)
     update-rc.d gh_db defaults 96 04
     update-rc.d gh_dist defaults 96 04
     update-rc.d gh_sh defaults 96 04
-    update-rc.d gh_web defaults 96 04
 
     if [ -e "/etc/init.d/gh_mongo" ]
     then
@@ -62,7 +59,6 @@ rmauto)
     update-rc.d -f gh_db remove
     update-rc.d -f gh_dist remove
     update-rc.d -f gh_sh remove
-    update-rc.d -f gh_web remove
 
     if [ -e "/etc/init.d/gh_mongo" ]
     then

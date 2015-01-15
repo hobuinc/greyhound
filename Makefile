@@ -1,6 +1,6 @@
 STANDALONE?=""
 PROXY?=TRUE
-COMPONENTS = gh_db gh_dist gh_sh gh_cn gh_web
+COMPONENTS = gh_db gh_dist gh_sh gh_cn
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = common \
@@ -8,8 +8,7 @@ SRC_DIRS = common \
 		   dist-handler \
 		   frontend-proxy \
 		   session-handler \
-		   controller \
-		   web
+		   controller
 
 # Directories where we need to run 'npm install'.
 # 'npm install' will also be run at the top level.
@@ -21,8 +20,7 @@ NPM_DIRS = common \
 		   test \
 		   controller \
 		   controller/interfaces/ws \
-		   controller/interfaces/http \
-		   web
+		   controller/interfaces/http
 
 .PHONY: required cpp npm examples test clean install uninstall
 

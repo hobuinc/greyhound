@@ -408,9 +408,6 @@ var
         var listeners = self.listeners;
         console.log("websocket::handler::read");
 
-        var summary = params.summary;
-        if (params.hasOwnProperty('summary')) delete params.summary;
-
         affinity.getSh(session, function(err, sh) {
             if (err) return onInit(err);
 
