@@ -6,6 +6,7 @@ var
     express = require('express'),
     bodyParser = require('body-parser'),
     methodOverride = require('method-override'),
+    lessMiddleware = require('less-middleware'),
 
     disco = require('../../../common').disco,
     console = require('clim')()
@@ -50,12 +51,15 @@ var
             app.set('view engine', 'jade');
 
             var publicDir = '/static/public';
-            app.use(require('less-middleware')(path.join(__dirname, publicDir)));
+            app.use(lessMiddleware(path.join(__dirname, publicDir)));
             app.use(express.static(__dirname + publicDir));
 
-            app.get('/data/:pipelineId', function(req, res) {
-                console.log('Query params: ', req.query);
-                res.render('data');
+            app.get('/ws/:pipelineId', function(req, res) {
+                res.render('wsView');
+            });
+
+            app.get('/http/:pipelineId', function(req, res) {
+                res.render('httpView');
             });
         }
 
@@ -144,20 +148,21 @@ var
         });
 
         app.get('/session/:session/read', function(req, res) {
-            var buffer = new Buffer(0);
-
             controller.read(
                 req.params.session,
                 req.query,
-                function() { },
-                function(data) {
-                    // TODO Inefficient.
-                    buffer = Buffer.concat([buffer, data]);
+                function(err, shRes) {
+                    res.header('Num-Points', shRes.numPoints);
+                    res.header('Read-ID', shRes.readId);
+
+                    if (shRes.rasterMeta) {
+                        res.header(
+                            'Raster-Meta',
+                            JSON.stringify(shRes.rasterMeta));
+                    }
                 },
-                function() {
-                    console.log('Sending', buffer.length, 'bytes');
-                    res.send(buffer);
-                }
+                function(data) { res.write(data); },
+                function() { res.end(); }
             );
         });
     }

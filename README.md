@@ -31,17 +31,18 @@ You will need [Vagrant](http://www.vagrantup.com/) installed to play with _Greyh
 
 This will start the virtual machine and launch _Greyhound_.  The first time you do it, it may take a while to set up the virtual machine with all the needed components (some installed from ubuntu repos, some built manually).
 
-_Greyhound_ allows clients to make use of pipelines that have been previously stored within the _Greyhound_ database as their pointcloud source.  These pipelines must be placed into the database before they may be used, and then selected with the ID that _Greyhound_ assigns.  The database is pre-initialized with a sample pipeline during the `vagrant up` procedure.  To have pointcloud data immediately rendered in a browser once the process finishes, you can navigate to:
+_Greyhound_ allows clients to make use of pipelines that have been previously stored within the _Greyhound_ database as their pointcloud source.  These pipelines must be placed into the database before they may be used, and then selected with the ID that _Greyhound_ assigns.  The database is pre-initialized with a sample pipeline during the `vagrant up` procedure.  To have a small point cloud immediately rendered in a browser once the process finishes, you can navigate to:
 
-- [http://localhost:8080/data/58a6ee2c990ba94db936d56bd42aa703](http://localhost:8080/data/5adcf597e3376f98471bf37816e9af2c)
+- [http://localhost:8080/http/58a6ee2c990ba94db936d56bd42aa703](http://localhost:8080/http/5adcf597e3376f98471bf37816e9af2c)
 
 
-_Greyhound_ also supports some spatially indexed queries via URL query parameters (these links operate on a large pipeline):
+_Greyhound_ also supports spatially indexed queries, and has both websocket and HTTP interfaces (view page source and check the `<ws/http>Client.js` files for the API in action).  Some queries can be supported very quickly by a serialized format - but the custom resolution and KD-indexed queries require a live source, meaning the first query will have a bit of a delay:
 
-- [Point-radius query](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?radius=400&geo={%22type%22:%22Point%22,%22coordinates%22:[276488.2105233709,4179808.998997613,2029.596267072244]})
-- [BBox and quadtree search depth query](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?geo={%22bbox%22:[276400,4179000,277100,4179700]}&depthEnd=10)
-- [Quad-tree single-level raster](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?rasterize=9)
-- [Custom resolution bounded raster](http://localhost:8080/data/a87d0a50e03a880c75e9f872c925f984?geo={%22bbox%22:[276400,4179000,277100,4179700]}&resolution=[256,256])
+- BBox/quad-tree depth-limited query: ([WS](http://localhost:8080/ws/a87d0a50e03a880c75e9f872c925f984?bbox=[276400,4179000,277100,4179700]&depthEnd=10)) ([HTTP](http://localhost:8080/http/a87d0a50e03a880c75e9f872c925f984?bbox=[276400,4179000,277100,4179700]&depthEnd=10))
+- Single-level raster: ([WS](http://localhost:8080/ws/a87d0a50e03a880c75e9f872c925f984?rasterize=9)) ([HTTP](http://localhost:8080/http/a87d0a50e03a880c75e9f872c925f984?rasterize=9))
+- Custom resolution bounded raster: ([WS](http://localhost:8080/ws/a87d0a50e03a880c75e9f872c925f984?bbox=[276400,4179000,277100,4179700]&resolution=[256,256])) ([HTTP](http://localhost:8080/http/a87d0a50e03a880c75e9f872c925f984?bbox=[276400,4179000,277100,4179700]&resolution=[256,256]))
+- KD-indexed Point-radius query: ([WS](http://localhost:8080/ws/a87d0a50e03a880c75e9f872c925f984?radius=400&x=276488.2105233709&y=4179808.998997613&z=2029.596267072244)) ([HTTP](http://localhost:8080/http/a87d0a50e03a880c75e9f872c925f984?radius=400&x=276488.2105233709&y=4179808.998997613&z=2029.596267072244))
+
 
 ## Going further
 To get more functionality than looking at the sample point clouds in your browser, you'll need to SSH into your Vagrant machine with:
