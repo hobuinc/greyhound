@@ -370,7 +370,7 @@ Read (Basics)
 
 Notes:
  - ``schema``: If omitted, ``read`` results will be formatted as the schema returned from `Schema`_.  Client may optionally supply a different schema format for the results of this ``read``.  See `Manipulating the Schema`_.
- - ``compress``: If true, ``read`` the resulting stream will be compressed with `Laz-Perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.
+ - ``compress``: If true, the resulting stream will be compressed with `Laz-Perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.
  - ``summary``: This message provides mostly redundant data from the initial ``read`` response below.  In general it is unnecessary, however it may be useful to clients that wish to use compression but lack the ability to decompress data on the fly, therefore must wait until all data is received.  When compression is enabled, if on-the-fly decompression is impossible, there is no way for a client to tell when all binary data has been received - which this option solves.  This provides a "binary transmission complete" indicator as well as provided the *actual* number of bytes transmitted, which will be less than ``numBytes`` specified in the initial response if ``compress`` is set to true.  The response format of ``summary`` is provided below.
 
 |

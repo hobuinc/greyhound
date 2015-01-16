@@ -1,12 +1,9 @@
-// client.js
-// Client side stuffs for greyhound web viewer
-//
+// Client side websocket API exerciser for Greyhound.
 
 (function(w) {
-	"use strict";
+	'use strict';
 
     // get URL parameters
-    // for now, using an adaptation from: http://stackoverflow.com/a/2880929
     var getUrlParameters = function(query) {
         query = query.substring(1);
 
@@ -39,17 +36,17 @@
 
 	// download data over from the server and call the cb when done
 	//
-	var downloadData = function(status_cb, cb) {
+	var downloadData = function(setStatus, cb) {
 		if (!w.WebSocket)
 			return cb(new Error(
                     "Your browser doesn't seem to support websockets"));
 
-		status_cb("Loading Point Cloud Data... Please Wait.");
+		setStatus("Loading Point Cloud Data... Please Wait.");
 
 		// prepare websocket URL and try to create a websocket
 		//
-		var wsURI = "ws://" + w.location.host + "/";
-		var ws = new w.WebSocket(wsURI);
+		var wsUrl = "ws://" + w.location.host + "/";
+		var ws = new w.WebSocket(wsUrl);
 
 		// get data as array buffer
 		ws.binaryType = "arraybuffer";
@@ -58,11 +55,11 @@
 		// Send a command to create a session, we will initiate an actual read
 		// when we get confirmation that the connection was created
 		ws.onopen = function() {
-			status_cb("WebSocket connection established. Creating session...");
+			setStatus("WebSocket connection established. Creating session...");
 
             // var urlParams = getUrlParameters(w.location.search);
 
-            var match = w.location.pathname.match('\/data\/([^\/]+)');
+            var match = w.location.pathname.match('\/ws\/([^\/]+)');
 
             if (match)
             {
@@ -73,16 +70,15 @@
             }
             else
             {
-                status_cb("No pipeline selected!");
+                setStatus('No pipeline selected!');
+                return;
             }
 		};
 
-		// General handler for all messages, our logic goes in here
-		//
 		var count;
 		var session;
 		var numPoints;
-		var dataBuffer = null; // buffer to collect recieved data
+		var dataBuffer = null;
         var meta = null;
         var stats = null;
 
@@ -110,53 +106,8 @@
                     var readParams = { command: 'read', session: session };
                     var urlParams = getUrlParameters(w.location.search);
 
-                    /*
-                    // TODO Parses standard '+' separated query string.  Will
-                    // this be used for any queries, or all GeoJson?
-                    if (urlParams.hasOwnProperty('point') &&
-                        urlParams.hasOwnProperty('radius')) {
-                        var point = urlParams['point'].split(" ");
-
-                        if (point.length >= 2) {
-                            readParams['x'] = parseFloat(point[0]);
-                            readParams['y'] = parseFloat(point[1]);
-
-                            if (point.length == 3)
-                                readParams['z'] = parseFloat(point[2]);
-
-                            readParams['radius'] =
-                                parseFloat(urlParams['radius']);
-                        }
-                    }
-                    */
-
-                    if (urlParams.hasOwnProperty('geo')) {
-                        var geo = jQuery.parseJSON(urlParams['geo']);
-
-                        if (geo['type'] === 'Point') {
-                            var coords = geo['coordinates'];
-
-                            readParams['x'] = coords[0];
-                            readParams['y'] = coords[1];
-
-                            if (coords.length === 3)
-                                readParams['z'] = coords[2];
-
-                            readParams['radius'] =
-                                parseFloat(urlParams['radius']);
-                        }
-
-                        if (geo.hasOwnProperty('bbox'))
-                            readParams['bbox'] = geo['bbox'];
-                    }
-
-                    if (urlParams.hasOwnProperty('resolution')) {
-                        var resolution =
-                            jQuery.parseJSON(urlParams['resolution']);
-
-                        if (resolution.length == 2) {
-                            readParams['resolution'] = resolution;
-                        }
+                    for (var key in urlParams) {
+                        readParams[key] = JSON.parse(urlParams[key]);
                     }
 
                     readParams['schema'] =
@@ -198,20 +149,11 @@
                         },
                     ];
 
-                    if (urlParams.hasOwnProperty('depthBegin'))
-                        readParams['depthBegin'] = urlParams['depthBegin'];
-
-                    if (urlParams.hasOwnProperty('depthEnd'))
-                        readParams['depthEnd'] = urlParams['depthEnd'];
-
-                    if (urlParams.hasOwnProperty('rasterize'))
-                        readParams['rasterize'] = urlParams['rasterize'];
-
 					// This is in response to our create request.  Now request
                     // to receive the data.
 					ws.send(JSON.stringify(readParams));
 
-					status_cb("Read initiated, waiting for response...");
+					setStatus("Read initiated, waiting for response...");
 				}
 				else if (msg.command === "read") {
 					if (msg.status !== 1)
@@ -219,7 +161,7 @@
                                     "Failed to queue read request: " +
                                     (msg.reason || "Unspecified error")));
 
-					status_cb("Reading data... Please wait.");
+					setStatus("Reading data... Please wait.");
 
 					console.log(msg.numPoints, msg.numBytes);
 
@@ -243,7 +185,7 @@
 				else if (msg.command === "destroy") {
 					if (msg.status === 1) {
 						ws.close();
-						return status_cb("Data read successfully.");
+						return setStatus("Data read successfully.");
 					}
 
 					cb(new Error("Session destroy command failed"));

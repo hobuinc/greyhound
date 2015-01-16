@@ -109,6 +109,7 @@ var
             var summary = params.summary;
             if (params.hasOwnProperty('summary')) delete params.summary;
 
+            // Stringify our object parameters.
             stringifyParam(params, 'schema');
             stringifyParam(params, 'resolution');
             stringifyParam(params, 'bbox');
