@@ -51,12 +51,6 @@ var
         });
     }
 
-    var stringifyParam = function(obj, paramName) {
-        if (obj.hasOwnProperty(paramName)) {
-            obj[paramName] = JSON.stringify(obj[paramName]);
-        }
-    }
-
     var registerCommands = function(controller, commander, ws) {
         commander.on('put', function(msg, cb) {
             controller.put(msg.pipeline, cb);
@@ -108,11 +102,6 @@ var
             if (msg.hasOwnProperty('session')) delete params.session;
             var summary = params.summary;
             if (params.hasOwnProperty('summary')) delete params.summary;
-
-            // Stringify our object parameters.
-            stringifyParam(params, 'schema');
-            stringifyParam(params, 'resolution');
-            stringifyParam(params, 'bbox');
 
             var readId;
 

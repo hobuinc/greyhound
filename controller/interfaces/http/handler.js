@@ -88,6 +88,12 @@ var
         return _.extend(response || { }, common);
     }
 
+    var objectify = function(obj, key) {
+        if (obj[key]) {
+            obj[key] = JSON.parse(obj[key]);
+        }
+    }
+
     var registerCommands = function(controller, app) {
         app.post('/create/:pipelineId', function(req, res) {
             controller.create(req.params.pipelineId, function(err, data) {
@@ -148,10 +154,18 @@ var
         });
 
         app.get('/session/:session/read', function(req, res) {
+            var params = req.query;
+
+            objectify(params, 'bbox');
+            objectify(params, 'schema');
+            objectify(params, 'resolution');
+
             controller.read(
                 req.params.session,
-                req.query,
+                params,
                 function(err, shRes) {
+                    if (err) return res.json(500, err);
+
                     res.header('Num-Points', shRes.numPoints);
                     res.header('Read-ID', shRes.readId);
 

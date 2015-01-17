@@ -96,18 +96,6 @@ var error = function(res) {
     };
 };
 
-var parseArray = function(rawArray, isInt) {
-    rawArray = JSON.parse(rawArray);
-    var coords = [];
-
-    for (var i in rawArray) {
-        if (isInt) coords.push(parseInt(rawArray[i]));
-        else coords.push(parseFloat(rawArray[i]));
-    }
-
-    return coords;
-}
-
 var validateRasterSchema = function(schema) {
     // Schema must have X and Y dimensions, and at least one other dimension.
     var xFound = false, yFound = false, otherFound = false;
@@ -289,8 +277,8 @@ app.post("/read/:sessionId", function(req, res) {
 
     var host = args.host;
     var port = parseInt(args.port);
-    var compress = args.compress ? JSON.parse(args.compress) : false;
-    var schema = args.hasOwnProperty('schema') ? JSON.parse(args.schema) : [];
+    var compress = !!args.compress;
+    var schema = args.schema || [];
 
     console.log("session handler: /read/");
 
@@ -424,8 +412,8 @@ app.post("/read/:sessionId", function(req, res) {
                     { message: 'Bad schema - must contain X and Y' });
             }
 
-            var bbox = parseArray(args.bbox);
-            var resolution = parseArray(args.resolution, true);
+            var bbox = args.bbox;
+            var resolution = args.resolution;
 
             if (bbox.length != 4 || resolution.length != 2) {
                 console.log('    Bad args in generic raster request', args);
@@ -452,11 +440,7 @@ app.post("/read/:sessionId", function(req, res) {
             console.log('    Got quad-tree depth range read request');
 
             // Indexed read: quadtree query.
-            var bbox =
-                args.hasOwnProperty('bbox') ?
-                    parseArray(args.bbox) :
-                    undefined;
-
+            var bbox = args.bbox;
             var depthBegin =
                 args.hasOwnProperty('depthBegin') ?
                     parseInt(args.depthBegin) :
