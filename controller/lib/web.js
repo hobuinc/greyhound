@@ -4,14 +4,13 @@
 
 var
 	http = require('http'),
-	qs = require('querystring'),
 	_ = require('lodash');
 
 (function() {
 	"use strict";
 
 	var request = function(reqHandler, method, path, data, cb) {
-		var d = data ? qs.stringify(data) : '';
+		var d = data ? JSON.stringify(data) : '';
 
 		var parts = reqHandler.split(':');
 		if (parts.length !== 2)
@@ -30,7 +29,7 @@ var
 			path: path,
 			method: method,
 			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
+				'Content-Type': 'application/json',
 				'Content-Length': d.length
 			}
 		};
