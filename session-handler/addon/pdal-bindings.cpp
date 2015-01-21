@@ -1,7 +1,9 @@
 #include <node_buffer.h>
+#include <curl/curl.h>
 
 #include "pdal-bindings.hpp"
 #include "read-command.hpp"
+#include "once.hpp"
 
 using namespace v8;
 
@@ -14,6 +16,11 @@ namespace
 
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
+
+    Once curlOnce([]()->void {
+        std::cout << "Destructing global Curl environment" << std::endl;
+        curl_global_cleanup();
+    });
 
     bool isInteger(const Value& value)
     {
@@ -88,7 +95,12 @@ Persistent<Function> PdalBindings::constructor;
 PdalBindings::PdalBindings()
     : m_pdalSession(new PdalSession())
     , m_itcBufferPool(itcBufferPool)
-{ }
+{
+    curlOnce.ensure([]()->void {
+        std::cout << "Initializing global Curl environment" << std::endl;
+        curl_global_init(CURL_GLOBAL_ALL);
+    });
+}
 
 PdalBindings::~PdalBindings()
 { }

@@ -1,10 +1,19 @@
 #include "once.hpp"
 
-Once::Once()
+Once::Once(std::function<void()> destruct)
     : m_done(false)
     , m_err(false)
     , m_mutex()
+    , m_destruct(destruct)
 { }
+
+Once::~Once()
+{
+    if (m_done && !m_err)
+    {
+        m_destruct();
+    }
+}
 
 void Once::ensure(std::function<void()> function)
 {

@@ -7,7 +7,8 @@
 class Once
 {
 public:
-    Once();
+    Once(std::function<void()> destruct = []()->void { });
+    ~Once();
 
     // This function ensures that the function parameter is executed only one
     // time, even with multithreaded callers.  It also ensures that subsequent
@@ -28,5 +29,7 @@ private:
     bool m_done;
     bool m_err;
     std::mutex m_mutex;
+
+    std::function<void()> m_destruct;
 };
 
