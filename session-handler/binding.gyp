@@ -15,7 +15,9 @@
                 './addon/pdal-index.cpp',
                 './addon/pdal-session.cpp',
                 './addon/read-command.cpp',
-                './addon/read-query.cpp'
+                './addon/read-query.cpp',
+                './addon/http/curl.cpp',
+                './addon/http/s3.cpp'
             ],
             'include_dirs': ['./addon'],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
@@ -36,6 +38,8 @@
                     '-lboost_system',
                     '-lpthread',
                     '-lsqlite3',
+                    '-lcurl',
+                    '-lcrypto'
                 ]
             }
         }
