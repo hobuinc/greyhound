@@ -71,14 +71,16 @@ NodeInfo::NodeInfo(
 
 GreyReader::GreyReader(
         const std::string pipelineId,
-        const std::vector<std::string>& serialPaths)
+        const SerialPaths& serialPaths)
     : m_db(0)
     , m_meta()
     , m_idIndex()
     , m_pointContext()
 {
     bool opened(false);
-    for (const auto& path : serialPaths)
+
+    // TODO Check S3 first.
+    for (const auto& path : serialPaths.diskPaths)
     {
         if (sqlite3_open_v2(
                     (path + "/" + pipelineId + ".grey").c_str(),
@@ -129,11 +131,12 @@ GreyReader::~GreyReader()
 
 bool GreyReader::exists(
         const std::string pipelineId,
-        const std::vector<std::string>& serialPaths)
+        const SerialPaths& serialPaths)
 {
     bool exists(false);
 
-    for (const auto& path : serialPaths)
+    // TODO Check S3 first.
+    for (const auto& path : serialPaths.diskPaths)
     {
         std::ifstream stream(path + "/" + pipelineId + ".grey");
         if (stream) exists = true;

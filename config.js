@@ -1,4 +1,14 @@
+var fs = require('fs');
 var config = { };
+
+var awsCredentials = (function() {
+    if (fs.existsSync(__dirname + '/' + 'credentials.js')) {
+        return require(__dirname + '/' + 'credentials').aws;
+    }
+    else {
+        return null;
+    }
+})();
 
 // Database handler configuration.
 config.db = {
@@ -42,8 +52,16 @@ config.sh = {
     // select an open port.
     port: null,
 
-    // Specify whether Greyhound can serialized indexed pipelines to disk for
-    // shorter creation times and less RAM usage.
+    // AWS credentials - specified in the file: credentials.js, if it exists.
+    // If not supplied, S3 capabilities will be disabled.
+    aws: awsCredentials,
+
+    // Specify whether Greyhound can serialize indexed pipelines to disk or
+    // to AWS S3 (if credentials are supplied) for shorter creation times and
+    // less RAM usage.
+    //
+    // If set to true and AWS credentials are supplied, pipelines will be
+    // serialized to S3 instead of the local filesystem.
     serialAllowed: true,
 
     // If serialAllowed is true, these paths will be used for serialization.

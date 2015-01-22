@@ -175,13 +175,13 @@ class GreyReader
 public:
     GreyReader(
             std::string pipelineId,
-            const std::vector<std::string>& serialPaths);
+            const SerialPaths& serialPaths);
 
     ~GreyReader();
 
     static bool exists(
             const std::string pipelineId,
-            const std::vector<std::string>& serialPaths);
+            const SerialPaths& serialPaths);
 
     std::size_t getNumPoints() const            { return m_meta.numPoints;  }
     std::string getSchema() const               { return m_meta.schema;     }

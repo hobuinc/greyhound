@@ -12,6 +12,10 @@ class GreyWriter
 public:
     GreyWriter(const pdal::QuadIndex& quadIndex, GreyMeta meta);
 
+    // Serialize to s3.
+    void write(S3Info s3Info, std::string dir) const;
+
+    // Serialize to local disk.
     void write(std::string filename) const;
 
 private:

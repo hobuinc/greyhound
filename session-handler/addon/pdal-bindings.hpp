@@ -6,6 +6,7 @@
 
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
+#include "grey-common.hpp"
 
 class PdalSession;
 class ReadCommand;
@@ -55,7 +56,7 @@ private:
                 std::string pipelineId,
                 std::string pipeline,
                 bool serialCompress,
-                std::vector<std::string> serialPaths,
+                SerialPaths serialPaths,
                 bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
@@ -78,7 +79,7 @@ private:
         const std::string pipelineId;
         const std::string pipeline;
         const bool serialCompress;
-        const std::vector<std::string> serialPaths;
+        const SerialPaths serialPaths;
         const bool execute;
 
         // Outputs
@@ -91,7 +92,7 @@ private:
     {
         SerializeData(
                 std::shared_ptr<PdalSession> pdalSession,
-                std::vector<std::string> paths,
+                SerialPaths paths,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
             , paths(paths)
@@ -105,7 +106,7 @@ private:
 
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
-        const std::vector<std::string> paths;
+        const SerialPaths paths;
 
         // Outputs
         std::string errMsg;

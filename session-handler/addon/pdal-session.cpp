@@ -20,7 +20,7 @@ void PdalSession::initialize(
         const std::string& pipelineId,
         const std::string& pipeline,
         const bool serialCompress,
-        const std::vector<std::string>& serialPaths,
+        const SerialPaths& serialPaths,
         const bool execute)
 {
     m_initOnce.ensure([
@@ -85,7 +85,7 @@ std::vector<std::size_t> PdalSession::getFills() const
     else throw std::runtime_error("Not initialized!");
 }
 
-void PdalSession::serialize(const std::vector<std::string>& serialPaths)
+void PdalSession::serialize(const SerialPaths& serialPaths)
 {
     if (m_liveDataSource && !m_serialDataSource)
     {
@@ -99,7 +99,7 @@ void PdalSession::serialize(const std::vector<std::string>& serialPaths)
     }
 }
 
-bool PdalSession::awaken(const std::vector<std::string>& serialPaths)
+bool PdalSession::awaken(const SerialPaths& serialPaths)
 {
     bool awoken(false);
 

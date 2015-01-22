@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 #include <openssl/hmac.h>
 
 #include "s3.hpp"
@@ -34,9 +35,10 @@ S3::S3(
     , m_awsSecretAccessKey(awsSecretAccessKey)
     , m_baseAwsUrl(baseAwsUrl)
     , m_bucketName(prefixSlash(bucketName))
+    , m_curl()
 { }
 
-HttpResponse S3::get(std::string file, bool verbose)
+HttpResponse S3::get(std::string file)
 {
     file = prefixSlash(file);
 
@@ -54,21 +56,19 @@ HttpResponse S3::get(std::string file, bool verbose)
             "Authorization: AWS " +
             m_awsAccessKeyId + ":" +
             signedEncodedString);
+    std::vector<std::string> headers;
+    headers.push_back(dateHeader);
+    headers.push_back(authHeader);
 
-    Curl curl(endpoint, true, verbose);
-    curl.addHeader(dateHeader);
-    curl.addHeader(authHeader);
-    HttpResponse res(curl.get());
+    HttpResponse res(m_curl.get(endpoint, headers));
+
     std::cout << res.code() << std::endl;
     for (std::size_t i(0); i < res.data().size(); ++i)
         std::cout << res.data()[i];
     return res;
 }
 
-HttpResponse S3::put(
-        std::string file,
-        const std::vector<uint8_t>& data,
-        bool verbose)
+HttpResponse S3::put(std::string file, const std::vector<uint8_t>& data)
 {
     file = prefixSlash(file);
 
@@ -89,14 +89,22 @@ HttpResponse S3::put(
             m_awsAccessKeyId + ":" +
             signedEncodedString);
 
-    Curl curl(endpoint, true, verbose);
-    curl.addHeader(typeHeader);
-    curl.addHeader(dateHeader);
-    curl.addHeader(authHeader);
-    curl.addHeader("Transfer-Encoding:");
-    curl.addHeader("Expect:");
-    HttpResponse res(curl.put(data));
-    return res;
+    std::vector<std::string> headers;
+    headers.push_back(typeHeader);
+    headers.push_back(dateHeader);
+    headers.push_back(authHeader);
+    headers.push_back("Transfer-Encoding:");
+    headers.push_back("Expect:");
+
+    return m_curl.put(endpoint, data, headers);
+}
+
+HttpResponse S3::put(std::string url, const std::string& data)
+{
+    std::vector<uint8_t> vec(data.size());
+    std::memcpy(vec.data(), data.data(), data.size());
+
+    return put(url, vec);
 }
 
 std::string S3::getHttpDate() const

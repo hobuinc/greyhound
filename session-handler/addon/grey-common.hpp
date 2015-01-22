@@ -4,6 +4,8 @@
 
 #include <pdal/Bounds.hpp>
 
+#include "http/s3.hpp"
+
 static const std::string greyVersion("1.0");
 
 static const uint64_t nwFlag(0);
@@ -53,5 +55,21 @@ struct GreyMeta
     std::string stats;
     std::string srs;
     std::vector<std::size_t> fills;
+};
+
+struct SerialPaths
+{
+    SerialPaths(S3Info s3Info, std::vector<std::string> diskPaths)
+        : s3Info(s3Info)
+        , diskPaths(diskPaths)
+    { }
+
+    SerialPaths(const SerialPaths& other)
+        : s3Info(other.s3Info)
+        , diskPaths(other.diskPaths)
+    { }
+
+    const S3Info s3Info;
+    const std::vector<std::string> diskPaths;
 };
 
