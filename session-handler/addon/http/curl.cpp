@@ -46,26 +46,17 @@ namespace
         in->offset += fullBytes;
         return fullBytes;
     }
+
+    const bool followRedirect(true);
+    const bool verbose(true);
 }
 
-Curl::Curl(std::string url, bool followRedirect, bool verbose)
+Curl::Curl()
     : m_curl(0)
     , m_headers(0)
     , m_data()
 {
     m_curl = curl_easy_init();
-    curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
-
-    if (verbose)
-        curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
-    if (followRedirect)
-        curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-    // Needed for multithreaded Curl usage.
-    curl_easy_setopt(m_curl, CURLOPT_NOSIGNAL, 1L);
-
-    // Faster (by a lot) DNS lookups without IPv6.
-    curl_easy_setopt(m_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 }
 
 Curl::~Curl()
@@ -73,22 +64,35 @@ Curl::~Curl()
     curl_easy_cleanup(m_curl);
 }
 
-void Curl::addHeaders(std::vector<std::string> headers)
+void Curl::init(std::string url, std::vector<std::string> headers)
 {
+    // Reset our curl instance and header list.
+    curl_easy_reset(m_curl);
+    curl_slist_free_all(m_headers);
+    m_headers = 0;
+
+    curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
+
+    // Needed for multithreaded Curl usage.
+    curl_easy_setopt(m_curl, CURLOPT_NOSIGNAL, 1L);
+
+    // Faster (by a lot) DNS lookups without IPv6.
+    curl_easy_setopt(m_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+
+    if (verbose)        curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
+    if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+    // Insert supplied headers.
     for (std::size_t i(0); i < headers.size(); ++i)
     {
-        addHeader(headers[i]);
+        m_headers = curl_slist_append(m_headers, headers[i].c_str());
     }
 }
 
-void Curl::addHeader(std::string header)
+HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
 {
-    // Add to our list of headers, which won't be added to the request yet.
-    m_headers = curl_slist_append(m_headers, header.c_str());
-}
+    init(url, headers);
 
-HttpResponse Curl::get()
-{
     int httpCode(0);
     std::vector<uint8_t>* data = new std::vector<uint8_t>();
 
@@ -108,8 +112,13 @@ HttpResponse Curl::get()
     return res;
 }
 
-HttpResponse Curl::put(const std::vector<uint8_t>& data)
+HttpResponse Curl::put(
+        std::string url,
+        const std::vector<uint8_t>& data,
+        std::vector<std::string> headers)
 {
+    init(url, headers);
+
     int httpCode(0);
 
     PutData* putData(new PutData(data));
@@ -132,6 +141,7 @@ HttpResponse Curl::put(const std::vector<uint8_t>& data)
     curl_easy_perform(m_curl);
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
+    delete putData;
     return HttpResponse(httpCode);
 }
 

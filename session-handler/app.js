@@ -30,6 +30,9 @@ var express = require("express"),
 
     // serialPaths[0] is to be used for writing new serialized entries.
     // serialPaths[0..n] are to be searched when looking for serialized entries.
+    //
+    // If AWS credentials are specified, then S3 will be used for writing and
+    // serialPaths will be read-only unless S3 is unreachable.
     serialPaths = (function() {
         if (!config.serialAllowed) return undefined;
 
@@ -69,7 +72,31 @@ var express = require("express"),
         }
 
         return paths.length ? paths : undefined;
+    })(),
+
+    aws = (function() {
+        var awsCfg = config.aws;
+        var info = [];
+
+        if (awsCfg) {
+            info.push(awsCfg.url);
+            info.push(awsCfg.bucket);
+            info.push(awsCfg.access);
+            info.push(awsCfg.hidden);
+
+            console.log(
+                'S3 serialization enabled for',
+                awsCfg.url,
+                '/',
+                awsCfg.bucket);
+        }
+        else {
+            console.log('S3 serialization disabled - no credentials supplied');
+        }
+
+        return info;
     })();
+
 
 console.log('Serial paths:', serialPaths);
 
@@ -119,6 +146,7 @@ app.get("/validate", function(req, res) {
         '',
         req.body.pipeline,
         serialCompress,
+        aws,
         serialPaths,
         function(err) {
             pdalSession.destroy();
@@ -150,6 +178,7 @@ app.post("/create", function(req, res) {
         pipelineId,
         pipeline,
         serialCompress,
+        aws,
         serialPaths,
         function(err)
     {
@@ -251,14 +280,14 @@ app.get("/fills/:sessionId", function(req, res) {
 });
 
 app.get("/serialize/:sessionId", function(req, res) {
-    if (!config.serialAllowed || !serialPaths) {
+    if (!config.serialAllowed || (!aws && !serialPaths)) {
         return res.json(400, {
             message: 'Serialization disabled'
         });
     }
 
     getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
-        pdalSession.serialize(serialPaths, function(err) {
+        pdalSession.serialize(aws, serialPaths, function(err) {
             if (err) console.log('ERROR during serialization:', err);
         });
         res.json({ message: 'Serialization task launched' });

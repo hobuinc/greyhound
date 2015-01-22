@@ -86,6 +86,7 @@ endif
 # Copy top-level dependencies.
 	cp Makefile /var/greyhound/
 	cp config.js /var/greyhound/
+	cp credentials.js /var/greyhound/
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/

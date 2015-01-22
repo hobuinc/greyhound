@@ -15,7 +15,6 @@
 
 #include "read-command.hpp"
 #include "live-data-source.hpp"
-#include "grey-common.hpp"
 #include "grey-reader.hpp"
 #include "grey-writer.hpp"
 
@@ -123,12 +122,12 @@ std::vector<std::size_t> LiveDataSource::getFills() const
 
 void LiveDataSource::serialize(
         const bool compress,
-        const std::vector<std::string>& serialPaths)
+        const SerialPaths& serialPaths)
 {
-    m_serializeOnce.ensure([this, compress, serialPaths]() {
+    m_serializeOnce.ensure([this, compress, &serialPaths]() {
         std::cout << "Serializing live source " << m_pipelineId << std::endl;
         if (GreyReader::exists(m_pipelineId, serialPaths) ||
-            !serialPaths.size())
+            (!serialPaths.diskPaths.size() && !serialPaths.s3Info.exists))
         {
             return;
         }
@@ -158,10 +157,24 @@ void LiveDataSource::serialize(
         meta.fills = getFills();
 
         GreyWriter greyWriter(quadIndex, meta);
-        const std::string filename(
-                serialPaths.at(0) + "/" + m_pipelineId + ".grey");
-        std::cout << "Writing to disk at " << filename << std::endl;
-        greyWriter.write(filename);
+
+        if (serialPaths.s3Info.exists)
+        {
+
+            std::cout << "Writing to s3 at " <<
+                serialPaths.s3Info.baseAwsUrl << "/" <<
+                serialPaths.s3Info.bucketName << "/" <<
+                m_pipelineId << std::endl;
+
+            greyWriter.write(serialPaths.s3Info, m_pipelineId);
+        }
+        else
+        {
+            const std::string filename(
+                    serialPaths.diskPaths[0] + "/" + m_pipelineId + ".grey");
+            std::cout << "Writing to disk at " << filename << std::endl;
+            greyWriter.write(filename);
+        }
     });
 }
 

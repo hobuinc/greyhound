@@ -58,6 +58,105 @@ GreyWriter::GreyWriter(
     , m_quadIndex(quadIndex)
 { }
 
+void GreyWriter::write(S3Info s3Info, std::string dir) const
+{
+    S3 s3(
+            s3Info.awsAccessKeyId,
+            s3Info.awsSecretAccessKey,
+            s3Info.baseAwsUrl,
+            s3Info.bucketName);
+
+    // TODO Store metadata in some real way.
+    std::vector<uint8_t> bboxRaw(8 * 4);
+    std::memcpy(bboxRaw.data() +  0, &m_meta.bbox.xMin, 8);
+    std::memcpy(bboxRaw.data() +  8, &m_meta.bbox.yMin, 8);
+    std::memcpy(bboxRaw.data() + 16, &m_meta.bbox.xMax, 8);
+    std::memcpy(bboxRaw.data() + 24, &m_meta.bbox.yMax, 8);
+
+    std::vector<uint8_t> fillsRaw(8 * m_meta.fills.size());
+    for (std::size_t i(0); i < m_meta.fills.size(); ++i)
+    {
+        std::memcpy(fillsRaw.data() + 8 * i, &m_meta.fills[i], 8);
+    }
+
+    // Write metadata.
+    s3.put(dir + "/meta/version", m_meta.version);
+    s3.put(dir + "/meta/base", std::to_string(m_meta.base));
+    s3.put(dir + "/meta/pointContextXml", m_meta.pointContextXml);
+    s3.put(dir + "/meta/bbox", bboxRaw);
+    s3.put(dir + "/meta/numPoints", std::to_string(m_meta.numPoints));
+    s3.put(dir + "/meta/schema", m_meta.schema);
+    s3.put(dir + "/meta/compressed", std::to_string(m_meta.compressed));
+    s3.put(dir + "/meta/stats", m_meta.stats);
+    s3.put(dir + "/meta/srs", m_meta.srs);
+    s3.put(dir + "/meta/fills", fillsRaw);
+
+    // Get clustered data.
+    std::map<uint64_t, std::vector<std::size_t>> clusters;
+    clusters[baseId] = m_quadIndex.getPoints(m_meta.base);
+    build(clusters, m_meta.bbox, m_meta.base, baseId);
+
+    const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
+    const std::size_t pointSize(pointBuffer.pointSize());
+
+    bool err(false);
+
+    // Accumulate inserts.
+    for (auto entry : clusters)
+    {
+        const uint64_t clusterId(entry.first);
+        const std::vector<std::size_t>& indexList(entry.second);
+        const uint64_t uncompressedSize(indexList.size() * pointSize);
+
+        // For now use the first 8 bytes as an unsigned integer representing
+        // the uncompressed length.
+        std::vector<uint8_t> data(8 + uncompressedSize);
+        std::memcpy(data.data(), &uncompressedSize, 8);
+        uint8_t* pos(data.data() + 8);
+
+        // Read the entries at these indices into our buffer of real point
+        // data.
+        for (const auto index : indexList)
+        {
+            for (const auto& dimId : pointBuffer.dims())
+            {
+                pointBuffer.getRawField(dimId, index, pos);
+                pos += pointBuffer.dimSize(dimId);
+            }
+        }
+
+        CompressionStream compressionStream;
+
+        if (m_meta.compressed)
+        {
+            // Perform compression for this cluster.
+            pdal::LazPerfCompressor<CompressionStream> compressor(
+                    compressionStream,
+                    pointBuffer.dimTypes());
+
+            compressor.compress(
+                    reinterpret_cast<char*>(data.data()), data.size());
+            compressor.done();
+
+            // Offset by 8 bytes to maintain the uncompressed size field.
+            data.resize(8 + compressionStream.data().size());
+            std::memcpy(
+                    data.data() + 8,
+                    compressionStream.data().data(),
+                    compressionStream.data().size());
+        }
+
+        if (s3.put(dir + "/" + std::to_string(clusterId), data).code() != 200)
+        {
+            err = true;
+        }
+    }
+
+    // TODO Handle.
+    if (err) std::cout << "Error encountered during S3 serialize" << std::endl;
+    else std::cout << "Successfully serialized to S3: " << dir << std::endl;
+}
+
 void GreyWriter::write(std::string filename) const
 {
     // Get clustered data.

@@ -10,7 +10,7 @@ class HttpResponse
 public:
     HttpResponse(int code)
         : m_code(code)
-        , m_data(data)
+        , m_data()
     { }
 
     HttpResponse(int code, std::vector<uint8_t> data)
@@ -36,19 +36,29 @@ private:
 class Curl
 {
 public:
-    Curl(std::string url, bool followRedirect = true, bool verbose = false);
+    Curl();
     ~Curl();
 
-    void addHeaders(std::vector<std::string> headers);
-    void addHeader(std::string header);
+    HttpResponse get(
+            std::string url,
+            std::vector<std::string> headers = std::vector<std::string>());
 
-    HttpResponse get();
-    HttpResponse put(const std::vector<uint8_t>& data);
+    HttpResponse put(
+            std::string url,
+            const std::vector<uint8_t>& data,
+            std::vector<std::string> headers = std::vector<std::string>());
+
+    HttpResponse put(
+            std::string url,
+            const std::string& data,
+            std::vector<std::string> headers = std::vector<std::string>());
 
 private:
     CURL* m_curl;
     curl_slist* m_headers;
 
     std::vector<uint8_t> m_data;
+
+    void init(std::string url, std::vector<std::string> headers);
 };
 

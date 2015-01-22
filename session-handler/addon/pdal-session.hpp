@@ -21,7 +21,7 @@ public:
             const std::string& pipelineId,
             const std::string& pipeline,
             bool serialCompress,
-            const std::vector<std::string>& serialPaths,
+            const SerialPaths& serialPaths,
             bool execute);
 
     // Queries.
@@ -32,10 +32,10 @@ public:
     std::vector<std::size_t> getFills() const;
 
     // Write to disk.
-    void serialize(const std::vector<std::string>& serialPaths);
+    void serialize(const SerialPaths& serialPaths);
 
     // Wake from serialized quad-tree.
-    bool awaken(const std::vector<std::string>& serialPaths);
+    bool awaken(const SerialPaths& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::shared_ptr<QueryData> queryUnindexed(

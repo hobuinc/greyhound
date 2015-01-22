@@ -44,8 +44,7 @@ namespace
         return id;
     }
 
-    std::vector<std::string> parsePathList(
-            const v8::Local<v8::Value>& rawArg)
+    std::vector<std::string> parsePathList(const v8::Local<v8::Value>& rawArg)
     {
         std::vector<std::string> paths;
 
@@ -67,6 +66,40 @@ namespace
         }
 
         return paths;
+    }
+
+    S3Info parseS3Info(const v8::Local<v8::Value>& rawArg)
+    {
+        S3Info info;
+        if (!rawArg->IsUndefined() && rawArg->IsArray())
+        {
+            Local<Array> rawArray(Array::Cast(*rawArg));
+
+            if (rawArray->Length() == 4)
+            {
+                const v8::Local<v8::Value>& rawUrl(
+                        rawArray->Get(Integer::New(0)));
+                const v8::Local<v8::Value>& rawBucket(
+                        rawArray->Get(Integer::New(1)));
+                const v8::Local<v8::Value>& rawAccess(
+                        rawArray->Get(Integer::New(2)));
+                const v8::Local<v8::Value>& rawHidden(
+                        rawArray->Get(Integer::New(3)));
+
+                const std::string url(
+                        *v8::String::Utf8Value(rawUrl->ToString()));
+                const std::string bucket(
+                        *v8::String::Utf8Value(rawBucket->ToString()));
+                const std::string access(
+                        *v8::String::Utf8Value(rawAccess->ToString()));
+                const std::string hidden(
+                        *v8::String::Utf8Value(rawHidden->ToString()));
+
+                return S3Info(url, bucket, access, hidden);
+            }
+        }
+
+        return info;
     }
 
     void safe(std::string& err, std::function<void()> f)
@@ -175,12 +208,12 @@ void PdalBindings::doInitialize(
     if (args[2]->IsUndefined() || !args[2]->IsBoolean())
         errMsg = "'serialCompress' must be boolean - args[2]";
 
-    if (args[4]->IsUndefined() || !args[4]->IsFunction())
+    if (args[5]->IsUndefined() || !args[5]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(
-                    args[4])));
+                    args[5])));
 
     if (errMsg.size())
     {
@@ -192,7 +225,10 @@ void PdalBindings::doInitialize(
     const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
     const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
     const bool serialCompress   (args[2]->BooleanValue());
-    const std::vector<std::string> serialPaths(parsePathList(args[3]));
+    const S3Info s3Info(parseS3Info(args[3]));
+    const std::vector<std::string> diskPaths(parsePathList(args[4]));
+
+    const SerialPaths serialPaths(s3Info, diskPaths);
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
@@ -339,12 +375,12 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
 
     std::string errMsg("");
 
-    if (args[1]->IsUndefined() || !args[1]->IsFunction())
+    if (args[2]->IsUndefined() || !args[2]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'serialize'");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(
-                    args[1])));
+                    args[2])));
 
     if (errMsg.size())
     {
@@ -353,7 +389,10 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    const std::vector<std::string> paths(parsePathList(args[0]));
+    const S3Info s3Info(parseS3Info(args[0]));
+    const std::vector<std::string> diskPaths(parsePathList(args[1]));
+
+    SerialPaths paths(s3Info, diskPaths);
 
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 

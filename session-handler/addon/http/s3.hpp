@@ -5,6 +5,35 @@
 
 #include "curl.hpp"
 
+struct S3Info
+{
+    S3Info(
+            std::string baseAwsUrl,
+            std::string bucketName,
+            std::string awsAccessKeyId,
+            std::string awsSecretAccessKey)
+        : exists(true)
+        , baseAwsUrl(baseAwsUrl)
+        , bucketName(bucketName)
+        , awsAccessKeyId(awsAccessKeyId)
+        , awsSecretAccessKey(awsSecretAccessKey)
+    { }
+
+    S3Info()
+        : exists(false)
+        , baseAwsUrl()
+        , bucketName()
+        , awsAccessKeyId()
+        , awsSecretAccessKey()
+    { }
+
+    const bool exists;
+    const std::string baseAwsUrl;
+    const std::string bucketName;
+    const std::string awsAccessKeyId;
+    const std::string awsSecretAccessKey;
+};
+
 class S3
 {
 public:
@@ -14,14 +43,10 @@ public:
             std::string baseAwsUrl = "s3.amazonaws.com",
             std::string bucketName = "");
 
-    HttpResponse get(
-            std::string file,
-            bool verbose = false);
+    HttpResponse get(std::string file);
 
-    HttpResponse put(
-            std::string file,
-            const std::vector<uint8_t>& data,
-            bool verbose = false);
+    HttpResponse put(std::string file, const std::vector<uint8_t>& data);
+    HttpResponse put(std::string file, const std::string& data);
 
 private:
     std::string getHttpDate() const;
@@ -45,5 +70,7 @@ private:
     const std::string m_awsSecretAccessKey;
     const std::string m_baseAwsUrl;
     const std::string m_bucketName;
+
+    Curl m_curl;
 };
 
