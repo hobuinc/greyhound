@@ -8,6 +8,7 @@
                 './addon/compression-stream.cpp',
                 './addon/grey-common.cpp',
                 './addon/grey-reader.cpp',
+                './addon/grey-reader-types.cpp',
                 './addon/grey-writer.cpp',
                 './addon/once.cpp',
                 './addon/live-data-source.cpp',
