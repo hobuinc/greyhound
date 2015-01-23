@@ -142,8 +142,9 @@ void LiveDataSource::serialize(
 
         // Data storage.
         GreyMeta meta;
-        meta.pointContextXml = writer.xml();
+        meta.version = "0.0.1a";
         meta.base = 8;
+        meta.pointContextXml = writer.xml();
         quadIndex.getBounds(
                 meta.bbox.xMin,
                 meta.bbox.yMin,

@@ -11,6 +11,11 @@
 class PdalSession;
 class ReadCommand;
 
+struct CRYPTO_dynlock_value
+{
+    std::mutex mutex;
+};
+
 enum Action
 {
     Execute,

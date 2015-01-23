@@ -18,9 +18,14 @@
                 './addon/read-command.cpp',
                 './addon/read-query.cpp',
                 './addon/http/curl.cpp',
-                './addon/http/s3.cpp'
+                './addon/http/s3.cpp',
+                './addon/third/jsoncpp.cpp'
             ],
-            'include_dirs': ['./addon'],
+            'include_dirs': [
+                './addon',
+                './addon/third',
+                '/usr/include/libxml2'
+            ],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
             'cflags_cc!': [ '-fno-exceptions', '-fno-rtti' ],
             'cflags': [
@@ -30,8 +35,7 @@
                 '-Werror',
                 '-pedantic',
                 '-fexceptions',
-                '-frtti',
-                '-I/usr/include/libxml2',
+                '-frtti'
             ],
             'link_settings': {
                 'libraries': [

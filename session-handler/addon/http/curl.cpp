@@ -48,7 +48,7 @@ namespace
     }
 
     const bool followRedirect(true);
-    const bool verbose(true);
+    const bool verbose(false);
 }
 
 Curl::Curl()

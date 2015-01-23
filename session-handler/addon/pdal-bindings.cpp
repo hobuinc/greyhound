@@ -1,5 +1,9 @@
+#include <thread>
+#include <sstream>
+
 #include <node_buffer.h>
 #include <curl/curl.h>
+#include <openssl/crypto.h>
 
 #include "pdal-bindings.hpp"
 #include "read-command.hpp"
@@ -16,11 +20,6 @@ namespace
 
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
-
-    Once curlOnce([]()->void {
-        std::cout << "Destructing global Curl environment" << std::endl;
-        curl_global_cleanup();
-    });
 
     bool isInteger(const Value& value)
     {
@@ -123,15 +122,84 @@ namespace
     }
 }
 
+namespace ghEnv
+{
+    std::vector<std::mutex> sslMutexList(CRYPTO_num_locks());
+
+    void sslLock(int mode, int n, const char* file, int line)
+    {
+        if (mode & CRYPTO_LOCK)
+        {
+            std::cout << "Locking #" << n << std::endl;
+            sslMutexList.at(n).lock();
+        }
+        else
+        {
+            std::cout << "Unlocking #" << n << std::endl;
+            sslMutexList.at(n).unlock();
+        }
+        std::cout << "Leaving sslLock" << std::endl;
+    }
+
+    unsigned long sslId()
+    {
+        std::ostringstream ss;
+        ss << std::this_thread::get_id();
+        return std::stoull(ss.str());
+    }
+
+    CRYPTO_dynlock_value* dynamicCreate(const char* file, int line)
+    {
+        std::cout << "Creating DynLock" << std::endl;
+        return new CRYPTO_dynlock_value();
+    }
+
+    void dynamicLock(
+            int mode,
+            CRYPTO_dynlock_value* lock,
+            const char* file,
+            int line)
+    {
+        if (mode & CRYPTO_LOCK)
+        {
+            std::cout << "DynLocking" << std::endl;
+            lock->mutex.lock();
+        }
+        else
+        {
+            std::cout << "DynUnlocking" << std::endl;
+            lock->mutex.unlock();
+        }
+        std::cout << "Leaving sslDynLock" << std::endl;
+    }
+
+    void dynamicDestroy(CRYPTO_dynlock_value* lock, const char* file, int line)
+    {
+        std::cout << "Destroying DynLock" << std::endl;
+        delete lock;
+    }
+
+    Once once([]()->void {
+        std::cout << "Destructing global environment" << std::endl;
+        curl_global_cleanup();
+    });
+}
+
 Persistent<Function> PdalBindings::constructor;
 
 PdalBindings::PdalBindings()
     : m_pdalSession(new PdalSession())
     , m_itcBufferPool(itcBufferPool)
 {
-    curlOnce.ensure([]()->void {
-        std::cout << "Initializing global Curl environment" << std::endl;
+    ghEnv::once.ensure([]()->void {
+        std::cout << "Initializing global environment" << std::endl;
         curl_global_init(CURL_GLOBAL_ALL);
+
+        CRYPTO_set_id_callback(ghEnv::sslId);
+        CRYPTO_set_locking_callback(ghEnv::sslLock);
+        CRYPTO_set_dynlock_create_callback(ghEnv::dynamicCreate);
+        CRYPTO_set_dynlock_lock_callback(ghEnv::dynamicLock);
+        CRYPTO_set_dynlock_destroy_callback(ghEnv::dynamicDestroy);
     });
 }
 

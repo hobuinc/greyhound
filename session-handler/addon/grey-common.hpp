@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 
 #include <pdal/Bounds.hpp>
+#include <json/json.h>
 
 #include "http/s3.hpp"
 
@@ -23,6 +24,15 @@ struct BBox
     BBox(double xMin, double yMin, double xMax, double yMax);
     BBox(pdal::BOX3D bbox);
 
+    static BBox fromJson(const Json::Value& json)
+    {
+        return BBox(
+                json.get(Json::ArrayIndex(0), 0).asDouble(),
+                json.get(Json::ArrayIndex(1), 0).asDouble(),
+                json.get(Json::ArrayIndex(2), 0).asDouble(),
+                json.get(Json::ArrayIndex(3), 0).asDouble());
+    }
+
     double xMin;
     double yMin;
     double xMax;
@@ -41,6 +51,16 @@ struct BBox
     BBox getNe() const;
     BBox getSw() const;
     BBox getSe() const;
+
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        json.append(xMin);
+        json.append(yMin);
+        json.append(xMax);
+        json.append(yMax);
+        return json;
+    }
 };
 
 struct GreyMeta
@@ -55,6 +75,59 @@ struct GreyMeta
     std::string stats;
     std::string srs;
     std::vector<std::size_t> fills;
+
+    GreyMeta() { }
+    explicit GreyMeta(const Json::Value& json)
+        : version           (json["version"].asString())
+        , base              (json["base"].asUInt64())
+        , pointContextXml   (json["pointContextXml"].asString())
+        , bbox              (BBox::fromJson(json["bbox"]))
+        , numPoints         (json["numPoints"].asUInt64())
+        , schema            (json["schema"].asString())
+        , compressed        (json["compressed"].asBool())
+        , stats             (json["stats"].asString())
+        , srs               (json["srs"].asString())
+        , fills             (parseFills(json["fills"]))
+    { }
+
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        json["version"] =           version;
+        json["base"] =              static_cast<Json::Value::UInt64>(base);
+        json["pointContextXml"] =   pointContextXml;
+        json["bbox"] =              bbox.toJson();
+        json["numPoints"] =         static_cast<Json::Value::UInt64>(numPoints);
+        json["schema"] =            schema;
+        json["compressed"] =        compressed;
+        json["stats"] =             stats;
+        json["srs"] =               srs;
+
+        Json::Value jsonFills;
+        for (std::size_t i(0); i < fills.size(); ++i)
+        {
+            jsonFills.append(static_cast<Json::Value::UInt64>(fills[i]));
+        }
+
+        json["fills"] = jsonFills;
+        return json;
+    }
+
+private:
+    std::vector<std::size_t> parseFills(const Json::Value& json)
+    {
+        std::vector<std::size_t> ret;
+
+        if (json.isArray())
+        {
+            for (Json::ArrayIndex i(0); i < json.size(); ++i)
+            {
+                ret.push_back(json[i].asUInt64());
+            }
+        }
+
+        return ret;
+    }
 };
 
 struct SerialPaths
