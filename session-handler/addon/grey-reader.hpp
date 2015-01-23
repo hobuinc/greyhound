@@ -7,6 +7,7 @@
 
 #include <pdal/QuadIndex.hpp>
 
+#include "http/s3.hpp"
 #include "grey-reader-types.hpp"
 #include "grey-common.hpp"
 
@@ -15,12 +16,8 @@ class RasterMeta;
 class GreyReader
 {
 public:
-    GreyReader(std::string pipelineId, const SerialPaths& serialPaths);
-    ~GreyReader();
-
-    static bool exists(
-            const std::string pipelineId,
-            const SerialPaths& serialPaths);
+    GreyReader();
+    virtual ~GreyReader();
 
     std::size_t getNumPoints() const            { return m_meta.numPoints;  }
     std::string getSchema() const               { return m_meta.schema;     }
@@ -40,10 +37,27 @@ public:
 
     GreyQuery query(std::size_t rasterize, RasterMeta& rasterMeta);
 
+    const GreyMeta& meta() const { return m_meta; }
     const pdal::PointContext& pointContext() const { return m_pointContext; }
 
+    static bool exists(
+            std::string pipelineId,
+            const SerialPaths& serialPaths);
+protected:
+    // Query cluster data from the database for the supplied node IDs and store
+    // them in the nodeInfoMap reference.  Quad-index clusters if necessary.
+    //
+    // Does NOT modify the live cache so we do not need mutex protection during
+    // querying, aggregation, and indexing.
+    virtual void queryClusters(
+            NodeInfoMap& nodeInfoMap,
+            const std::vector<std::size_t>& missingIds) = 0;
+
+    // Derived constructors should acquire metadata and call this function.
+    void init(GreyMeta meta);
+
 private:
-    sqlite3* m_db;
+    bool m_initialized;
     GreyMeta m_meta;
     std::unique_ptr<IdIndex> m_idIndex;
 
@@ -52,26 +66,14 @@ private:
     std::mutex m_cacheMutex;
     std::map<uint64_t, std::shared_ptr<GreyCluster>> m_cache;
 
-    void readMeta();
-
     // Processes a collection of node info.
     //      1 - Identify which nodes are already live in the cache.
     //          1a - Quad-index these nodes if it's necessary for this query.
-    //      2 - Return a comma-separated string of the node IDs that are not
-    //              yet present in the cache so they may be queried.
+    //      2 - Return a vector of the node IDs that are not yet present in the
+    //          cache so they may be queried.
     //
     // This function reads from the cache, so it locks the cache mutex.
-    std::string processNodeInfo(NodeInfoMap& nodeInfoMap);
-
-    // Query cluster data from the database for node IDs listed in the comma-
-    // separated missingIds parameter and store them in the nodeInfoMap
-    // reference.  Quad-index clusters if necessary.
-    //
-    // Does NOT modify the live cache so we do not need mutex protection during
-    // querying, aggregation, and indexing.
-    void queryClusters(
-            NodeInfoMap& nodeInfoMap,
-            const std::string& missingIds) const;
+    std::vector<std::size_t> processNodeInfo(NodeInfoMap& nodeInfoMap);
 
     // Write node info to the cache safely (with mutex lock).
     void addToCache(const NodeInfoMap& nodeInfoMap);
@@ -79,5 +81,48 @@ private:
     // Not implemented.
     GreyReader(const GreyReader&);
     GreyReader& operator=(const GreyReader&);
+};
+
+class GreyReaderSqlite : public GreyReader
+{
+public:
+    GreyReaderSqlite(std::string pipelineId, const SerialPaths& serialPaths);
+    ~GreyReaderSqlite();
+
+    static bool exists(
+            const std::string pipelineId,
+            const std::vector<std::string>& diskPaths);
+
+private:
+    sqlite3* m_db;
+
+    virtual void queryClusters(
+            NodeInfoMap& nodeInfoMap,
+            const std::vector<std::size_t>& missingIds);
+};
+
+class GreyReaderS3 : public GreyReader
+{
+public:
+    GreyReaderS3(std::string pipelineId, const SerialPaths& serialPaths);
+
+    static bool exists(const std::string pipelineId, const S3Info& s3Info);
+
+private:
+    S3 m_s3;
+    const std::string m_pipelineId;
+
+    virtual void queryClusters(
+            NodeInfoMap& nodeInfoMap,
+            const std::vector<std::size_t>& missingIds);
+};
+
+class GreyReaderFactory
+{
+public:
+    // Shall not throw.
+    static GreyReader* create(
+            std::string pipelineId,
+            const SerialPaths& serialPaths);
 };
 

@@ -104,36 +104,20 @@ bool PdalSession::awaken(const SerialPaths& serialPaths)
     bool awoken(false);
 
     m_awakenMutex.lock();
-    try
+    if (!m_serialDataSource)
     {
-        if (!m_serialDataSource &&
-            GreyReader::exists(m_pipelineId, serialPaths))
-        {
-            m_serialDataSource.reset(new GreyReader(m_pipelineId, serialPaths));
+        GreyReader* reader(GreyReaderFactory::create(
+                    m_pipelineId, serialPaths));
 
-            if (m_serialDataSource)
-            {
-                std::cout << "Created serial source ";
-                awoken = true;
-            }
-            else
-            {
-                std::cout << "Failed serial source ";
-            }
-
-            std::cout << m_pipelineId << std::endl;
-        }
-        else if (m_serialDataSource)
+        if (reader)
         {
+            m_serialDataSource.reset(reader);
             awoken = true;
         }
-
     }
-    catch (...)
+    else
     {
-        std::cout << "Caught exception in awaken" << std::endl;
-        m_serialDataSource.reset();
-        m_awakenMutex.unlock();
+        awoken = true;
     }
     m_awakenMutex.unlock();
 

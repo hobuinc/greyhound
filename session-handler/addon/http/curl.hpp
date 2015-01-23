@@ -48,11 +48,6 @@ public:
             const std::vector<uint8_t>& data,
             std::vector<std::string> headers = std::vector<std::string>());
 
-    HttpResponse put(
-            std::string url,
-            const std::string& data,
-            std::vector<std::string> headers = std::vector<std::string>());
-
 private:
     CURL* m_curl;
     curl_slist* m_headers;

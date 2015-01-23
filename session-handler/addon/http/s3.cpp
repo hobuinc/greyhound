@@ -60,12 +60,7 @@ HttpResponse S3::get(std::string file)
     headers.push_back(dateHeader);
     headers.push_back(authHeader);
 
-    HttpResponse res(m_curl.get(endpoint, headers));
-
-    std::cout << res.code() << std::endl;
-    for (std::size_t i(0); i < res.data().size(); ++i)
-        std::cout << res.data()[i];
-    return res;
+    return HttpResponse(m_curl.get(endpoint, headers));
 }
 
 HttpResponse S3::put(std::string file, const std::vector<uint8_t>& data)

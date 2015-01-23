@@ -2,6 +2,8 @@
 #include <pdal/QuadIndex.hpp>
 #include <pdal/Compression.hpp>
 
+#include <json/json.h>
+
 #include "grey-writer.hpp"
 #include "compression-stream.hpp"
 
@@ -60,36 +62,15 @@ GreyWriter::GreyWriter(
 
 void GreyWriter::write(S3Info s3Info, std::string dir) const
 {
+    // Write metadata.
+    Json::StyledWriter jsonWriter;
+
     S3 s3(
             s3Info.awsAccessKeyId,
             s3Info.awsSecretAccessKey,
             s3Info.baseAwsUrl,
             s3Info.bucketName);
-
-    // TODO Store metadata in some real way.
-    std::vector<uint8_t> bboxRaw(8 * 4);
-    std::memcpy(bboxRaw.data() +  0, &m_meta.bbox.xMin, 8);
-    std::memcpy(bboxRaw.data() +  8, &m_meta.bbox.yMin, 8);
-    std::memcpy(bboxRaw.data() + 16, &m_meta.bbox.xMax, 8);
-    std::memcpy(bboxRaw.data() + 24, &m_meta.bbox.yMax, 8);
-
-    std::vector<uint8_t> fillsRaw(8 * m_meta.fills.size());
-    for (std::size_t i(0); i < m_meta.fills.size(); ++i)
-    {
-        std::memcpy(fillsRaw.data() + 8 * i, &m_meta.fills[i], 8);
-    }
-
-    // Write metadata.
-    s3.put(dir + "/meta/version", m_meta.version);
-    s3.put(dir + "/meta/base", std::to_string(m_meta.base));
-    s3.put(dir + "/meta/pointContextXml", m_meta.pointContextXml);
-    s3.put(dir + "/meta/bbox", bboxRaw);
-    s3.put(dir + "/meta/numPoints", std::to_string(m_meta.numPoints));
-    s3.put(dir + "/meta/schema", m_meta.schema);
-    s3.put(dir + "/meta/compressed", std::to_string(m_meta.compressed));
-    s3.put(dir + "/meta/stats", m_meta.stats);
-    s3.put(dir + "/meta/srs", m_meta.srs);
-    s3.put(dir + "/meta/fills", fillsRaw);
+    s3.put(dir + "/meta", jsonWriter.write(m_meta.toJson()));
 
     // Get clustered data.
     std::map<uint64_t, std::vector<std::size_t>> clusters;
@@ -110,9 +91,9 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
 
         // For now use the first 8 bytes as an unsigned integer representing
         // the uncompressed length.
-        std::vector<uint8_t> data(8 + uncompressedSize);
-        std::memcpy(data.data(), &uncompressedSize, 8);
-        uint8_t* pos(data.data() + 8);
+        std::vector<uint8_t> data(sizeof(uint64_t) + uncompressedSize);
+        std::memcpy(data.data(), &uncompressedSize, sizeof(uint64_t));
+        uint8_t* pos(data.data() + sizeof(uint64_t));
 
         // Read the entries at these indices into our buffer of real point
         // data.
@@ -135,13 +116,14 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
                     pointBuffer.dimTypes());
 
             compressor.compress(
-                    reinterpret_cast<char*>(data.data()), data.size());
+                    reinterpret_cast<char*>(data.data() + sizeof(uint64_t)),
+                    data.size() - sizeof(uint64_t));
             compressor.done();
 
             // Offset by 8 bytes to maintain the uncompressed size field.
-            data.resize(8 + compressionStream.data().size());
+            data.resize(sizeof(uint64_t) + compressionStream.data().size());
             std::memcpy(
-                    data.data() + 8,
+                    data.data() + sizeof(uint64_t),
                     compressionStream.data().data(),
                     compressionStream.data().size());
         }
