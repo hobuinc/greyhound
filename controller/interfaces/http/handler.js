@@ -95,12 +95,6 @@ var
     }
 
     var registerCommands = function(controller, app) {
-        app.post('/create/:pipeline', function(req, res) {
-            controller.create(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'create'));
-            });
-        });
-
         app.get('/pipeline/:pipeline/numPoints', function(req, res) {
             controller.numPoints(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'numPoints'));

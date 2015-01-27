@@ -50,36 +50,46 @@ void PdalSession::initialize(
     });
 }
 
-std::size_t PdalSession::getNumPoints() const
+std::size_t PdalSession::getNumPoints()
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_serialDataSource)     return m_serialDataSource->getNumPoints();
     else if (m_liveDataSource)  return m_liveDataSource->getNumPoints();
     else throw std::runtime_error("Not initialized!");
 }
 
-std::string PdalSession::getSchema() const
+std::string PdalSession::getSchema()
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_serialDataSource)     return m_serialDataSource->getSchema();
     else if (m_liveDataSource)  return m_liveDataSource->getSchema();
     else throw std::runtime_error("Not initialized!");
 }
 
-std::string PdalSession::getStats() const
+std::string PdalSession::getStats()
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_serialDataSource)     return m_serialDataSource->getStats();
     else if (m_liveDataSource)  return m_liveDataSource->getStats();
     else throw std::runtime_error("Not initialized!");
 }
 
-std::string PdalSession::getSrs() const
+std::string PdalSession::getSrs()
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_serialDataSource)     return m_serialDataSource->getSrs();
     else if (m_liveDataSource)  return m_liveDataSource->getSrs();
     else throw std::runtime_error("Not initialized!");
 }
 
-std::vector<std::size_t> PdalSession::getFills() const
+std::vector<std::size_t> PdalSession::getFills()
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_serialDataSource)     return m_serialDataSource->getFills();
     else if (m_liveDataSource)  return m_liveDataSource->getFills();
     else throw std::runtime_error("Not initialized!");
@@ -87,6 +97,8 @@ std::vector<std::size_t> PdalSession::getFills() const
 
 void PdalSession::serialize(const SerialPaths& serialPaths)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     if (m_liveDataSource && !m_serialDataSource)
     {
         m_liveDataSource->serialize(m_serialCompress, serialPaths);
@@ -134,6 +146,8 @@ std::shared_ptr<QueryData> PdalSession::queryUnindexed(
         std::size_t start,
         std::size_t count)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     std::cout << "Unindexed read - query" << std::endl;
     // Unindexed read queries are only supported by a live data source.
     if (!m_liveDataSource)
@@ -161,6 +175,8 @@ std::shared_ptr<QueryData> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     std::ostringstream logParams;
     logParams <<
             "\tPipeline ID: " << m_pipelineId << "\n" <<
@@ -221,6 +237,8 @@ std::shared_ptr<QueryData> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     std::ostringstream logParams;
     logParams <<
             "\tPipeline ID: " << m_pipelineId << "\n" <<
@@ -271,6 +289,8 @@ std::shared_ptr<QueryData> PdalSession::query(
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     std::ostringstream logParams;
     logParams <<
             "\tPipeline ID: " << m_pipelineId << "\n" <<
@@ -320,6 +340,8 @@ std::shared_ptr<QueryData> PdalSession::query(
         bool compress,
         const RasterMeta& rasterMeta)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     // Custom-res raster queries are only supported by a live data source.
     if (!m_liveDataSource)
     {
@@ -348,6 +370,8 @@ std::shared_ptr<QueryData> PdalSession::query(
         double y,
         double z)
 {
+    if (m_initOnce.await()) throw std::runtime_error("Not initialized!");
+
     // KD-indexed read queries are only supported by a live data source.
     if (!m_liveDataSource)
     {
