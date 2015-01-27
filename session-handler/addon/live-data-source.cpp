@@ -129,6 +129,7 @@ void LiveDataSource::serialize(
         if (GreyReader::exists(m_pipelineId, serialPaths) ||
             (!serialPaths.diskPaths.size() && !serialPaths.s3Info.exists))
         {
+            std::cout << "Already serialized" << std::endl;
             return;
         }
 
@@ -159,22 +160,48 @@ void LiveDataSource::serialize(
 
         GreyWriter greyWriter(quadIndex, meta);
 
+        bool written(false);
+
         if (serialPaths.s3Info.exists)
         {
-
             std::cout << "Writing to s3 at " <<
                 serialPaths.s3Info.baseAwsUrl << "/" <<
                 serialPaths.s3Info.bucketName << "/" <<
                 m_pipelineId << std::endl;
 
-            greyWriter.write(serialPaths.s3Info, m_pipelineId);
+            try
+            {
+                greyWriter.write(serialPaths.s3Info, m_pipelineId);
+                written = true;
+                std::cout << "S3 serialization complete" << std::endl;
+            }
+            catch (...)
+            {
+                std::cout << "Error caught in S3 serialize" << std::endl;
+            }
         }
-        else
+
+        if (!written)
         {
             const std::string filename(
                     serialPaths.diskPaths[0] + "/" + m_pipelineId + ".grey");
-            std::cout << "Writing to disk at " << filename << std::endl;
-            greyWriter.write(filename);
+            std::cout << "Writing sqlite to disk at " << filename << std::endl;
+
+            try
+            {
+                greyWriter.write(filename);
+                written = true;
+                std::cout << "Sqlite serialization complete" << std::endl;
+            }
+            catch (...)
+            {
+                std::cout << "Error caught in sqlite serialize" << std::endl;
+            }
+        }
+
+        if (!written)
+        {
+            std::cout << "Serialization failed: " << m_pipelineId << std::endl;
         }
     });
 }

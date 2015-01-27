@@ -1,17 +1,14 @@
 #include <iostream>
 #include <cstring>
+#include <thread>
+
 #include <openssl/hmac.h>
 
 #include "s3.hpp"
+#include "collector.hpp"
 
 namespace
 {
-    std::string prefixSlash(const std::string& in)
-    {
-        if (in.size() && in[0] != '/') return "/" + in;
-        else return in;
-    }
-
     std::string unPostfixSlash(std::string in)
     {
         while (in.size() && in[in.size() - 1] == '/')
@@ -22,8 +19,10 @@ namespace
         return in;
     }
 
-    const std::string http ("http://");
-    const std::string https("https://");
+    // TODO Configure.
+    const std::size_t curlNumBatches(16);
+    const std::size_t curlBatchSize(64);
+    static CurlPool curlPool(curlNumBatches, curlBatchSize);
 }
 
 S3::S3(
@@ -35,15 +34,16 @@ S3::S3(
     , m_awsSecretAccessKey(awsSecretAccessKey)
     , m_baseAwsUrl(baseAwsUrl)
     , m_bucketName(prefixSlash(bucketName))
-    , m_curl()
+    , m_curlBatch(curlPool.acquire())
 { }
 
-HttpResponse S3::get(std::string file)
+S3::~S3()
 {
-    file = prefixSlash(file);
+    curlPool.release(m_curlBatch);
+}
 
-    const std::string filePath(m_bucketName + file);
-    const std::string endpoint(https + m_baseAwsUrl + filePath);
+std::vector<std::string> S3::getHeaders(std::string filePath) const
+{
     const std::string httpDate(getHttpDate());
     const std::string signedEncodedString(
             getSignedEncodedString(
@@ -59,16 +59,11 @@ HttpResponse S3::get(std::string file)
     std::vector<std::string> headers;
     headers.push_back(dateHeader);
     headers.push_back(authHeader);
-
-    return HttpResponse(m_curl.get(endpoint, headers));
+    return headers;
 }
 
-HttpResponse S3::put(std::string file, const std::vector<uint8_t>& data)
+std::vector<std::string> S3::putHeaders(std::string filePath) const
 {
-    file = prefixSlash(file);
-
-    const std::string filePath(m_bucketName + file);
-    const std::string endpoint(https + m_baseAwsUrl + filePath);
     const std::string httpDate(getHttpDate());
     const std::string signedEncodedString(
             getSignedEncodedString(
@@ -90,16 +85,54 @@ HttpResponse S3::put(std::string file, const std::vector<uint8_t>& data)
     headers.push_back(authHeader);
     headers.push_back("Transfer-Encoding:");
     headers.push_back("Expect:");
-
-    return m_curl.put(endpoint, data, headers);
+    return headers;
 }
 
-HttpResponse S3::put(std::string url, const std::string& data)
+HttpResponse S3::get(std::string file)
 {
-    std::vector<uint8_t> vec(data.size());
-    std::memcpy(vec.data(), data.data(), data.size());
+    const std::string filePath(m_bucketName + prefixSlash(file));
+    const std::string endpoint("http://" + m_baseAwsUrl + filePath);
 
-    return put(url, vec);
+    return m_curlBatch->get(endpoint, getHeaders(filePath));
+}
+
+void S3::get(uint64_t id, std::string file, GetCollector* collector)
+{
+    std::thread t([this, id, file, collector]() {
+        collector->insert(id, file, get(file));
+    });
+
+    t.detach();
+}
+
+HttpResponse S3::put(std::string file, const std::vector<uint8_t>* data)
+{
+    const std::string filePath(m_bucketName + prefixSlash(file));
+    const std::string endpoint("http://" + m_baseAwsUrl + filePath);
+
+    return m_curlBatch->put(endpoint, putHeaders(filePath), data);
+}
+
+HttpResponse S3::put(std::string file, const std::string& data)
+{
+    const std::vector<uint8_t>* vec(
+            new std::vector<uint8_t>(data.begin(), data.end()));
+    HttpResponse res(put(file, vec));
+    delete vec;
+    return res;
+}
+
+void S3::put(
+        uint64_t id,
+        std::string file,
+        const std::vector<uint8_t>* data,
+        PutCollector* collector)
+{
+    std::thread t([this, id, file, data, collector]() {
+        collector->insert(id, put(file, data), data);
+    });
+
+    t.detach();
 }
 
 std::string S3::getHttpDate() const
@@ -212,5 +245,11 @@ std::string S3::encodeBase64(std::vector<uint8_t> input) const
     while (output.size() % 4) output.push_back('=');
 
     return output;
+}
+
+std::string S3::prefixSlash(const std::string& in) const
+{
+    if (in.size() && in[0] != '/') return "/" + in;
+    else return in;
 }
 

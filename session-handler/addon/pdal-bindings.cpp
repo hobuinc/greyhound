@@ -130,15 +130,12 @@ namespace ghEnv
     {
         if (mode & CRYPTO_LOCK)
         {
-            std::cout << "Locking #" << n << std::endl;
             sslMutexList.at(n).lock();
         }
         else
         {
-            std::cout << "Unlocking #" << n << std::endl;
             sslMutexList.at(n).unlock();
         }
-        std::cout << "Leaving sslLock" << std::endl;
     }
 
     unsigned long sslId()
@@ -150,7 +147,6 @@ namespace ghEnv
 
     CRYPTO_dynlock_value* dynamicCreate(const char* file, int line)
     {
-        std::cout << "Creating DynLock" << std::endl;
         return new CRYPTO_dynlock_value();
     }
 
@@ -162,20 +158,16 @@ namespace ghEnv
     {
         if (mode & CRYPTO_LOCK)
         {
-            std::cout << "DynLocking" << std::endl;
             lock->mutex.lock();
         }
         else
         {
-            std::cout << "DynUnlocking" << std::endl;
             lock->mutex.unlock();
         }
-        std::cout << "Leaving sslDynLock" << std::endl;
     }
 
     void dynamicDestroy(CRYPTO_dynlock_value* lock, const char* file, int line)
     {
-        std::cout << "Destroying DynLock" << std::endl;
         delete lock;
     }
 

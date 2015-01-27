@@ -6,6 +6,7 @@
 
 #include "grey-writer.hpp"
 #include "compression-stream.hpp"
+#include "http/collector.hpp"
 
 namespace
 {
@@ -51,6 +52,8 @@ namespace
             throw std::runtime_error("Could not execute SQL: " + errMsg);
         }
     }
+
+    const std::size_t maxPutRetries(4);
 }
 
 GreyWriter::GreyWriter(
@@ -70,7 +73,11 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
             s3Info.awsSecretAccessKey,
             s3Info.baseAwsUrl,
             s3Info.bucketName);
-    s3.put(dir + "/meta", jsonWriter.write(m_meta.toJson()));
+
+    if (s3.put(dir + "/meta", jsonWriter.write(m_meta.toJson())).code() != 200)
+    {
+        throw std::runtime_error("Error writing meta data to S3 - aborting");
+    }
 
     // Get clustered data.
     std::map<uint64_t, std::vector<std::size_t>> clusters;
@@ -80,10 +87,11 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
     const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
     const std::size_t pointSize(pointBuffer.pointSize());
 
-    bool err(false);
+    std::shared_ptr<PutCollector> collector(new PutCollector(clusters.size()));
+    std::size_t i(0);
 
     // Accumulate inserts.
-    for (auto entry : clusters)
+    for (const auto& entry : clusters)
     {
         const uint64_t clusterId(entry.first);
         const std::vector<std::size_t>& indexList(entry.second);
@@ -91,9 +99,10 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
 
         // For now use the first 8 bytes as an unsigned integer representing
         // the uncompressed length.
-        std::vector<uint8_t> data(sizeof(uint64_t) + uncompressedSize);
-        std::memcpy(data.data(), &uncompressedSize, sizeof(uint64_t));
-        uint8_t* pos(data.data() + sizeof(uint64_t));
+        std::vector<uint8_t>* data(
+                new std::vector<uint8_t>(sizeof(uint64_t) + uncompressedSize));
+        std::memcpy(data->data(), &uncompressedSize, sizeof(uint64_t));
+        uint8_t* pos(data->data() + sizeof(uint64_t));
 
         // Read the entries at these indices into our buffer of real point
         // data.
@@ -116,27 +125,63 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
                     pointBuffer.dimTypes());
 
             compressor.compress(
-                    reinterpret_cast<char*>(data.data() + sizeof(uint64_t)),
-                    data.size() - sizeof(uint64_t));
+                    reinterpret_cast<char*>(data->data() + sizeof(uint64_t)),
+                    data->size() - sizeof(uint64_t));
             compressor.done();
 
             // Offset by 8 bytes to maintain the uncompressed size field.
-            data.resize(sizeof(uint64_t) + compressionStream.data().size());
+            data->resize(sizeof(uint64_t) + compressionStream.data().size());
             std::memcpy(
-                    data.data() + sizeof(uint64_t),
+                    data->data() + sizeof(uint64_t),
                     compressionStream.data().data(),
                     compressionStream.data().size());
+
+            // Our buffer may now be significantly smaller.  Free extra heap
+            // space.
+            data->shrink_to_fit();
         }
 
-        if (s3.put(dir + "/" + std::to_string(clusterId), data).code() != 200)
+        const std::string file(dir + "/" + std::to_string(clusterId));
+        s3.put(clusterId, file, data, collector.get());
+
+        if (++i % 128 == 0)
         {
-            err = true;
+            // Don't get too far ahead of actual responses, or we'll create
+            // lots of idle threads waiting for a CurlBatch entry to become
+            // available.
+            collector->waitFor(i - 64);
         }
     }
 
-    // TODO Handle.
-    if (err) std::cout << "Error encountered during S3 serialize" << std::endl;
-    else std::cout << "Successfully serialized to S3: " << dir << std::endl;
+    // Blocks until all responses are received, and clears the Collector of its
+    // errors.
+    auto errs(collector->errs());
+
+    std::size_t retries(0);
+    while (!errs.empty() && retries++ < maxPutRetries)
+    {
+        std::cout << "Retry round " << retries << " - " << errs.size() <<
+            " errors" << std::endl;
+
+        for (const auto& err : errs)
+        {
+            const uint64_t id(err.first);
+            const std::vector<uint8_t>* data(err.second);
+
+            s3.put(id, dir + "/" + std::to_string(id), data, collector.get());
+        }
+
+        errs = collector->errs();
+    }
+
+    if (errs.empty())
+    {
+        // Indicate that this serialization can now be used.
+        if (s3.put(dir + "/0", jsonWriter.write("1")).code() != 200)
+        {
+            throw std::runtime_error("Error finalizing to S3");
+        }
+    }
 }
 
 void GreyWriter::write(std::string filename) const
