@@ -24,6 +24,8 @@ var express = require("express"),
     mkdirp = require('mkdirp'),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
+    Affinity = require('../common/affinity').Affinity,
+    affinity = new Affinity(disco),
 
     serialCompress =
         (config.serialCompress == undefined) ? true : !!config.serialCompress,
@@ -107,14 +109,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 app.use(app.router);
 
-var sessions    = { }; // sessionId -> pdalSession (may be many to one)
 var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
 
-var getSession = function(res, sessionId, cb) {
-    if (!sessions[sessionId])
-        return res.json(404, { message: 'No such session' });
+var getSession = function(res, plId, cb) {
+    if (!pipelineIds[plId])
+        res.json(404, { message: 'No such session' });
 
-    cb(sessionId, sessions[sessionId]);
+    cb(pipelineIds[plId]);
 };
 
 var error = function(res) {
@@ -161,12 +162,10 @@ app.post("/create", function(req, res) {
     var pipelineId = req.body.pipelineId;
     var pipeline = req.body.pipeline;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
-    var sessionId = req.body.sessionId;
 
     // Make sure to set these outside of the callback so that if another
     // request for this pipeline comes immediately after this one, it doesn't
     // create a new PdalSession and clobber our pipelineIds mapping.
-    sessions[sessionId]     = pdalSession;
     pipelineIds[pipelineId] = pdalSession;
 
     // It is safe to call create multiple times on a PdalSession, and it will
@@ -187,52 +186,20 @@ app.post("/create", function(req, res) {
             return error(res)(err);
         }
 
-        console.log('Created session:', sessionId);
-        res.json({ sessionId: sessionId });
+        res.json({ });
     });
 });
 
-app.delete("/sessions/:sessionId", function(req, res) {
-    var sessionId = req.params.sessionId;
-    if (sessions.hasOwnProperty(sessionId)) {
-        delete sessions[sessionId];
-    }
-    return res.json({ message: 'Removed session ' + sessionId });
-});
-
-app.delete("/:pipelineId", function(req, res) {
-    var sessionsRemoved = [];
-    var pipelineId = req.params.pipelineId;
-
-    if (pipelineIds.hasOwnProperty(pipelineId)) {
-        for (var sessionId in sessions) {
-            if (sessions[sessionId] === pipelineIds[pipelineId]) {
-                sessionsRemoved.push(sessionId);
-                delete sessions[sessionId];
-            }
-        }
-
-        pipelineIds[pipelineId].destroy();
-        delete pipelineIds[pipelineId];
-
-        console.log('DESTROY pipelineId', pipelineId);
-        return res.json({ message: 'Deleted', sessions: sessionsRemoved });
-    }
-    else {
-        return res.json(
-            400,
-            { message: 'Pipeline not found' });
-    }
-});
-
-app.get("/numPoints/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.get("/numPoints/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         res.json({ numPoints: pdalSession.getNumPoints() });
     });
 });
 
-app.get("/schema/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.get("/schema/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         var dimensions = JSON.parse(pdalSession.getSchema()).dimensions;
         var schema = undefined;
 
@@ -261,32 +228,34 @@ app.get("/schema/:sessionId", function(req, res) {
     });
 });
 
-app.get("/stats/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.get("/stats/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         res.json({ stats: pdalSession.getStats() });
     });
 });
 
-app.get("/srs/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.get("/srs/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         res.json({ srs: pdalSession.getSrs() });
     });
 });
 
-app.get("/fills/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.get("/fills/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         res.json({ fills: pdalSession.getFills() });
     });
 });
 
-app.get("/serialize/:sessionId", function(req, res) {
+app.get("/serialize/:plId", function(req, res) {
     if (!config.serialAllowed || (!aws && !serialPaths)) {
-        return res.json(400, {
-            message: 'Serialization disabled'
-        });
+        return res.json(400, { message: 'Serialization disabled' });
     }
 
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         pdalSession.serialize(aws, serialPaths, function(err) {
             if (err) console.log('ERROR during serialization:', err);
         });
@@ -294,14 +263,15 @@ app.get("/serialize/:sessionId", function(req, res) {
     });
 });
 
-app.post("/cancel/:sessionId", function(req, res) {
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
+app.post("/cancel/:plId", function(req, res) {
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
         console.log('Got CANCEL request for session', sessionId);
         res.json({ 'cancelled': pdalSession.cancel(req.body.readId) });
     });
 });
 
-app.post("/read/:sessionId", function(req, res) {
+app.post("/read/:plId", function(req, res) {
     var args = req.body;
 
     var host = args.host;
@@ -323,14 +293,14 @@ app.post("/read/:sessionId", function(req, res) {
 
     // Prune our args to simplify the specialization decision tree.
     delete args.command;
-    delete args.session;
     delete args.host;
     delete args.port;
     if (args.hasOwnProperty('compress')) delete args.compress;
     if (args.hasOwnProperty('schema')) delete args.schema;
 
-    getSession(res, req.params.sessionId, function(sessionId, pdalSession) {
-        console.log('read('+ sessionId + ')');
+    getSession(res, req.params.plId, function(pdalSession) {
+        if (!pdalSession) return;
+        console.log('read('+ req.params.plId + ')');
 
         var readHandler = function(
             err,
@@ -405,7 +375,7 @@ app.post("/read/:sessionId", function(req, res) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
-            // host+port+cmd+session, then use this branch.
+            // host+port+cmd+plId, then use this branch.
             console.log('    Got unindexed read request');
 
             var start = args.hasOwnProperty('start') ? parseInt(args.start) : 0;

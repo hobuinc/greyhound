@@ -17,8 +17,8 @@ var run = function() {
 	ws.on('open', function() {
 		// As soon as the socket opens, send command to create a session.
 		send({
-			command: 'create',
-            pipelineId: pipelineId
+			command: 'serialize',
+            pipeline: pipelineId
 		});
 	});
 
@@ -29,24 +29,12 @@ var run = function() {
         var obj = JSON.parse(data);
         console.log('Got back:', obj);
 
-        if (obj.command === 'create' && obj.status === 1) {
-            session = obj.session;
-            send({
-                command: 'serialize',
-                session: session
-            });
-        }
-        else if(obj.command === 'serialize' && obj.status === 1) {
-            send({
-                command: 'destroy',
-                session: session
-            });
-        }
-        else if (obj.command == 'destroy' && obj.status === 1) {
-            // Session was destroyed succesfully.
-            session = null;
-            console.log('Done');
+        if(obj.command === 'serialize' && obj.status === 1) {
             process.exit(0);
+        }
+        else {
+            console.log('ERROR');
+            process.exit(1);
         }
 	});
 }

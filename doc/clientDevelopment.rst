@@ -18,10 +18,6 @@ Greyhound operates via `WebSocket`_ connections, so usage begins by opening a We
 
 Command-and-response exchanges are issued via stringified `JSON`_ objects over the WebSocket connection.  Every Greyhound command has an associated response.
 
-The first action by a client is to create a session, which activates a PDAL pipeline that is stored on the server and issues the client a session token.  This token is used for all further interaction with this session.  After creation, the client can perform various commands like fetching statistics on the point cloud, gathering other metadata, or issuing real-time indexed read queries.
-
-When a session is no longer needed, it is destroyed by the client and the WebSocket connection is closed.
-
 .. _`WebSocket`: http://en.wikipedia.org/wiki/WebSocket
 .. _`JSON`: http://json.org/
 
@@ -36,25 +32,21 @@ Command Set
 +===============+=============================================================+
 | put           | Store a pipeline.                                           |
 +---------------+-------------------------------------------------------------+
-| create        | Create a PDAL session using a previously stored pipeline.   |
+| serialize     | Request serialization of an indexed PDAL pipeline.          |
 +---------------+-------------------------------------------------------------+
-| serialize     | Request serialization of an indexed PDAL session.           |
+| numPoints     | Get the number of points present in a pipeline.             |
 +---------------+-------------------------------------------------------------+
-| numPoints     | Get the number of points present in a session.              |
+| schema        | Get the Greyhound schema of a pipeline.                     |
 +---------------+-------------------------------------------------------------+
-| schema        | Get the Greyhound schema of a session.                      |
+| stats         | Get the PDAL statistics for this pipeline's pipeline.       |
 +---------------+-------------------------------------------------------------+
-| stats         | Get the PDAL statistics for this session's pipeline.        |
-+---------------+-------------------------------------------------------------+
-| srs           | Get the spatial reference system of a session.              |
+| srs           | Get the spatial reference system of a pipeline.             |
 +---------------+-------------------------------------------------------------+
 | fills         | Get the quad tree depth and number of points per depth.     |
 +---------------+-------------------------------------------------------------+
-| read          | Read points from a session.                                 |
+| read          | Read points from a pipeline.                                |
 +---------------+-------------------------------------------------------------+
 | cancel        | Cancel an ongoing 'read' command.                           |
-+---------------+-------------------------------------------------------------+
-| destroy       | Destroy an active session.                                  |
 +---------------+-------------------------------------------------------------+
 
 |
@@ -138,49 +130,18 @@ Notes:
 
 ----
 
-Create
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+-------------------------------------------------------------------------------+
-| Command                                                                       |
-+-----------------+------------+------------------------------------------------+
-| Key             | Type       | Value                                          |
-+=================+============+================================================+
-| ``"command"``   | String     | ``"create"``                                   |
-+-----------------+------------+------------------------------------------------+
-| ``"pipelineId"``| String     | Greyhound pipeline ID                          |
-+-----------------+------------+------------------------------------------------+
-
-+-------------------------------------------------------------------------------------+
-| Response                                                                            |
-+-------------------+------------+----------------------------------------------------+
-| Key               | Type       | Value                                              |
-+===================+============+====================================================+
-| ``"command"``     | String     | ``"create"``                                       |
-+-------------------+------------+----------------------------------------------------+
-| ``"status"``      | Integer    | ``1`` for success, else ``0``                      |
-+-------------------+------------+----------------------------------------------------+
-| ``"session"``     | String     | Greyhound session ID                               |
-+-------------------+------------+----------------------------------------------------+
-
-Notes:
- - ``pipelineId``: stored from the results of a previous ``put`` command.  If the given ``pipelineId`` does not exist within Greyhound, then the returning ``status`` will be ``0``.
- - ``session``: represents a token required for future use of this session.  All Greyhound commands except for ``put`` and ``create`` require an active Greyhound session token as a parameter.
-
-----
-
 Serialize
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"serialize"``                                |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"serialize"``                                |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
 
 +-------------------------------------------------------------------------------------+
 | Response                                                                            |
@@ -194,24 +155,24 @@ Serialize
 
 Notes:
  - This command batches a background task to serialize the pipeline for instantaneous reinitialization at a later time.
- - The ``status`` in the response indicates whether the task was successfully batched for processing, not necessarily that the serialization is complete - for which there is no further indication.  The session may still be used as usual after this command.
+ - The ``status`` in the response indicates whether the task was successfully batched for processing, not necessarily that the serialization is complete - for which there is no further indication.  The pipeline may still be used as usual after this command.
  - The serialized file may be written in a compressed format depending on Greyhound's configuration settings.
- - If the PDAL session has not yet been quad-indexed, this command will create the quad-index.  The response will not come back until this indexing has completed successfully.
+ - If the PDAL pipeline has not yet been quad-indexed, this command will create the quad-index.  The response will not come back until this indexing has completed successfully.
 
 ----
 
 NumPoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"numPoints"``                                |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"numPoints"``                                |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
 
 +-------------------------------------------------------------------------------------+
 | Response                                                                            |
@@ -222,7 +183,7 @@ NumPoints
 +-------------------+------------+----------------------------------------------------+
 | ``"status"``      | Integer    | ``1`` for success, else ``0``                      |
 +-------------------+------------+----------------------------------------------------+
-| ``"count"``       | Integer    | Number of points in this session                   |
+| ``"count"``       | Integer    | Number of points in this pipeline                  |
 +-------------------+------------+----------------------------------------------------+
 
 ----
@@ -230,15 +191,15 @@ NumPoints
 Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"schema"``                                   |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"schema"``                                   |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
 
 +--------------------------------------------------------------------------------------------+
 | Response                                                                                   |
@@ -249,26 +210,26 @@ Schema
 +-------------------+---------------+--------------------------------------------------------+
 | ``"status"``      | Integer       | ``1`` for success, else ``0``                          |
 +-------------------+---------------+--------------------------------------------------------+
-| ``"schema"``      | Array[Object] | Greyhound schema for this session                      |
+| ``"schema"``      | Array[Object] | Greyhound schema for this pipeline                     |
 +-------------------+---------------+--------------------------------------------------------+
 
 Notes:
- - ``schema``: see `Session Schema`_.
+ - ``schema``: see `Pipeline Schema`_.
 
 ----
 
 Stats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"stats"``                                    |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"stats"``                                    |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
 
 +-----------------------------------------------------------------------------------------+
 | Response                                                                                |
@@ -279,7 +240,7 @@ Stats
 +-------------------+------------+--------------------------------------------------------+
 | ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
 +-------------------+------------+--------------------------------------------------------+
-| ``"stats"``       | Object     | JSON stringified PDAL statistics for this session.     |
+| ``"stats"``       | Object     | JSON stringified PDAL statistics for this pipeline.    |
 +-------------------+------------+--------------------------------------------------------+
 
 Notes:
@@ -292,15 +253,15 @@ Notes:
 Spatial Reference System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"srs"``                                      |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"srs"``                                      |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
 
 +-----------------------------------------------------------------------------------------+
 | Response                                                                                |
@@ -311,7 +272,7 @@ Spatial Reference System
 +-------------------+------------+--------------------------------------------------------+
 | ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
 +-------------------+------------+--------------------------------------------------------+
-| ``"srs"``         | String     | Spatial reference system for this session              |
+| ``"srs"``         | String     | Spatial reference system for this pipeline             |
 +-------------------+------------+--------------------------------------------------------+
 
 Notes:
@@ -322,15 +283,15 @@ Notes:
 Quad-Tree Fills
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"fills"``                                    |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"fills"``                                    |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Greyhound session ID                           |
++----------------+------------+------------------------------------------------+
 
 +---------------------------------------------------------------------------------------------+
 | Response                                                                                    |
@@ -359,7 +320,7 @@ Read (Basics)
 +=====================+============+=============================================================+
 | ``"command"``       | String     | ``"read"``                                                  |
 +---------------------+------------+-------------------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                        |
+| ``"pipeline"``      | String     | Pipeline ID                                                 |
 +---------------------+------------+-------------------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data                     |
 +---------------------+------------+-------------------------------------------------------------+
@@ -503,7 +464,7 @@ Read - Unindexed
 +=====================+============+=====================================================+
 | ``"command"``       | String     | ``"read"``                                          |
 +---------------------+------------+-----------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                |
+| ``"pipeline"``      | String     | Pipeline ID                                         |
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
 +---------------------+------------+-----------------------------------------------------+
@@ -516,7 +477,7 @@ Notes:
  - See `Read (Basics)`_ for information on the Greyhound response.
  - ``start``: If omitted or negative, defaults to zero.  If greater than or equal to the value returned by `NumPoints`_, no points will be read.
  - ``count``: If omitted or negative, reads from ``start`` through the last point.  If the sum of ``start`` and ``count`` is greater than or equal to the value returned by `NumPoints`_, the ``read`` will read from ``start`` through the last point.
- - A client that simply wants to duplicate the entire buffer may issue a ``read`` with only the ``command`` and ``session`` parameters to read all points in their native dimenion formats.
+ - A client that simply wants to duplicate the entire buffer may issue a ``read`` with only the ``command`` and ``pipeline`` parameters to read all points in their native dimenion formats.
 
 ----
 
@@ -530,7 +491,7 @@ Read - Quad-Tree Indexed Points
 +=====================+============+=====================================================+
 | ``"command"``       | String     | ``"read"``                                          |
 +---------------------+------------+-----------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                |
+| ``"pipeline"``      | String     | Pipeline ID                                         |
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
 +---------------------+------------+-----------------------------------------------------+
@@ -562,7 +523,7 @@ Read - Quad-Tree Indexed Raster
 +=====================+============+=====================================================+
 | ``"command"``       | String     | ``"read"``                                          |
 +---------------------+------------+-----------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                |
+| ``"pipeline"``      | String     | Pipeline ID                                         |
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
 +---------------------+------------+-----------------------------------------------------+
@@ -588,7 +549,7 @@ Read - Generic Raster
 +=====================+===============+=====================================================+
 | ``"command"``       | String        | ``"read"``                                          |
 +---------------------+---------------+-----------------------------------------------------+
-| ``"session"``       | String        | Greyhound session ID                                |
+| ``"pipeline"``      | String        | Pipeline ID                                         |
 +---------------------+---------------+-----------------------------------------------------+
 | (``"schema"``)      | String        | JSON stringified schema for return data             |
 +---------------------+---------------+-----------------------------------------------------+
@@ -618,7 +579,7 @@ Read - KD-Tree Indexed (Point-Radius)
 +=====================+============+=====================================================+
 | ``"command"``       | String     | ``"read"``                                          |
 +---------------------+------------+-----------------------------------------------------+
-| ``"session"``       | String     | Greyhound session ID                                |
+| ``"pipeline"``      | String     | Pipeline ID                                         |
 +---------------------+------------+-----------------------------------------------------+
 | (``"schema"``)      | String     | JSON stringified schema for return data             |
 +---------------------+------------+-----------------------------------------------------+
@@ -641,17 +602,17 @@ Notes:
 Cancel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"cancel"``                                   |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
-| ``"readId"``  | String     | Greyhound read ID                              |
-+---------------+------------+------------------------------------------------+
++------------------------------------------------------------------------------+
+| Command                                                                      |
++----------------+------------+------------------------------------------------+
+| Key            | Type       | Value                                          |
++================+============+================================================+
+| ``"command"``  | String     | ``"cancel"``                                   |
++----------------+------------+------------------------------------------------+
+| ``"pipeline"`` | String     | Pipeline ID                                    |
++----------------+------------+------------------------------------------------+
+| ``"readId"``   | String     | Greyhound read ID                              |
++----------------+------------+------------------------------------------------+
 
 +---------------------------------------------------------------------------------------------+
 | Response                                                                                    |
@@ -676,33 +637,6 @@ Notes:
 Important:
  - When a ``cancel`` request is received there may already be buffered data within various Greyhound components or perhaps already in network propagation back to the client.  Therefore a successful ``cancel`` request returns an updated ``numBytes`` which must be accounted for before the ``read`` can be considered complete.  Another ``read`` must not be issued over the same websocket connection before these bytes are accounted for.  In the general case, ``numBytes`` bytes will already have been received by the time the ``cancel`` response arrives.  However this is **not** guaranteed to be the case.
 
-----
-
-Destroy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------+------------+------------------------------------------------+
-| Key           | Type       | Value                                          |
-+===============+============+================================================+
-| ``"command"`` | String     | ``"destroy"``                                  |
-+---------------+------------+------------------------------------------------+
-| ``"session"`` | String     | Greyhound session ID                           |
-+---------------+------------+------------------------------------------------+
-
-+-----------------------------------------------------------------------------------------+
-| Response                                                                                |
-+-------------------+------------+--------------------------------------------------------+
-| Key               | Type       | Value                                                  |
-+===================+============+========================================================+
-| ``"command"``     | String     | ``"destroy"``                                          |
-+-------------------+------------+--------------------------------------------------------+
-| ``"status"``      | Integer    | ``1`` for success, else ``0``                          |
-+-------------------+------------+--------------------------------------------------------+
-
-Notes:
- - After ``destroy`` is issued successfully, ``session`` is no longer valid for any command.  To reactivate a session with the pipeline from this session, a client needs to call ``create`` again, which will cause a new ``session`` ID to be issued.
 
 Working with Greyhound
 ===============================================================================
@@ -710,7 +644,7 @@ Working with Greyhound
 The Schema
 -------------------------------------------------------------------------------
 
-Session Schema
+Pipeline Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The transfer schema used by Greyhound is an array of JSON objects containing dimension information.  Each dimension entry contains:
@@ -811,7 +745,7 @@ An example return object from the ``schema`` call looks something like: ::
         }
     ]
 
-This schema represents the native PDAL dimensions and storage types inherent to the requested session.  However, not all of these dimensions may be necessary for a given ``read``, and retrieving needed dimensions in their native types may not be ideal for every situation.
+This schema represents the native PDAL dimensions and storage types inherent to the requested pipeline.  However, not all of these dimensions may be necessary for a given ``read``, and retrieving needed dimensions in their native types may not be ideal for every situation.
 
 Manipulating the Schema
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -824,14 +758,14 @@ For various reasons, a client may wish to ``read`` with a different schema than 
 
 Therefore Greyhound provides the ability to request the results of a ``read`` in a flexible way.  By supplying a ``schema`` parameter in the ``read`` request, the resulting ``read`` will format its binary data in accordance with the requested ``schema`` instead of the default.  The default schema can be queried with the `Schema` request.
 
-Dimension names should be a subset of those returned from ``schema``.  Names that do not exist in the current session will be silently ignored by Greyhound as if they were not present in the requested ``schema``.
+Dimension names should be a subset of those returned from ``schema``.  Names that do not exist in the pipeline will be silently ignored by Greyhound as if they were not present in the requested ``schema``.
 
 Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A visual rendering client may only with to retrieve dimensions relevant to displaying the data.  This example ``schema``, to be included in each ``read`` request, demonstrates the client's ability to
 
- - retrieve only a subset of all existing dimensions in the session
+ - retrieve only a subset of all existing dimensions in the pipeline
  - halve the bandwidth required to transmit the ``X``, ``Y``, and ``Z`` dimensions by requesting them as 4 bytes rather than the native 8
 
 ::
