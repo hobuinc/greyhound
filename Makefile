@@ -1,6 +1,7 @@
 STANDALONE?=""
 PROXY?=TRUE
 COMPONENTS = gh_db gh_dist gh_sh gh_cn
+CREDENTIALS = credentials.js
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = common \
@@ -86,7 +87,9 @@ endif
 # Copy top-level dependencies.
 	cp Makefile /var/greyhound/
 	cp config.js /var/greyhound/
-	cp credentials.js /var/greyhound/
+ifneq ("$(wildcard $(CREDENTIALS))","")
+	cp $(CREDENTIALS) /var/greyhound
+endif
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/

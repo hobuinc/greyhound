@@ -51,11 +51,23 @@ void Once::ensure(std::function<void()> function)
     }
 }
 
-bool Once::done() const {
+bool Once::await()
+{
+    if (!done())
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_cv.wait(lock, [this]()->bool { return done(); });
+    }
+    return m_err;
+}
+
+bool Once::done() const
+{
     return m_done;
 }
 
-bool Once::err() const {
+bool Once::err() const
+{
     return m_err;
 }
 
@@ -70,5 +82,6 @@ void Once::unlock(bool err)
     m_err = err;
 
     m_mutex.unlock();
+    m_cv.notify_all();
 }
 

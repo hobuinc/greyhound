@@ -25,11 +25,11 @@ public:
             bool execute);
 
     // Queries.
-    std::size_t getNumPoints() const;
-    std::string getSchema() const;
-    std::string getStats() const;
-    std::string getSrs() const;
-    std::vector<std::size_t> getFills() const;
+    std::size_t getNumPoints();
+    std::string getSchema();
+    std::string getStats();
+    std::string getSrs();
+    std::vector<std::size_t> getFills();
 
     // Write to disk.
     void serialize(const SerialPaths& serialPaths);
