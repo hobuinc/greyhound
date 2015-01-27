@@ -9,6 +9,7 @@
 #include "compression-stream.hpp"
 #include "grey-reader.hpp"
 #include "read-command.hpp"
+#include "http/collector.hpp"
 
 namespace
 {
@@ -37,6 +38,8 @@ namespace
 
         return exp * exp;
     }
+
+    const std::size_t maxGetRetries(4);
 }
 
 GreyReader::GreyReader()
@@ -423,23 +426,26 @@ GreyReaderS3::GreyReaderS3(
         {
             Json::Reader jsonReader;
             Json::Value jsonMeta;
-            const std::vector<uint8_t>& rawMeta(res.data());
+            const std::vector<uint8_t>* rawMeta(res.data());
 
             if (jsonReader.parse(
-                    reinterpret_cast<const char*>(rawMeta.data()),
+                    reinterpret_cast<const char*>(rawMeta->data()),
                     reinterpret_cast<const char*>(
-                        rawMeta.data() + rawMeta.size()),
+                        rawMeta->data() + rawMeta->size()),
                     jsonMeta))
             {
                 init(GreyMeta(jsonMeta));
+                delete res.data();
             }
             else
             {
+                delete res.data();
                 throw std::runtime_error("Could not parse metadata from S3");
             }
         }
         else
         {
+            delete res.data();
             throw std::runtime_error("Could not get metadata from S3");
         }
     }
@@ -461,7 +467,12 @@ bool GreyReaderS3::exists(const std::string pipelineId, const S3Info& s3Info)
                 s3Info.baseAwsUrl,
                 s3Info.bucketName);
 
-        if (s3.get(pipelineId + "/meta").code() == 200)
+        HttpResponse metaRes(s3.get(pipelineId + "/meta"));
+        HttpResponse zeroRes(s3.get(pipelineId + "/0"));
+        delete metaRes.data();
+        delete zeroRes.data();
+
+        if (metaRes.code() == 200 && zeroRes.code() == 200)
         {
             exists = true;
         }
@@ -474,20 +485,65 @@ void GreyReaderS3::queryClusters(
         NodeInfoMap& nodeInfoMap,
         const std::vector<std::size_t>& missingIds)
 {
+    std::size_t i(0);
+    std::shared_ptr<GetCollector> collector(
+            new GetCollector(missingIds.size()));
+
     for (const auto& id : missingIds)
     {
-        HttpResponse res(m_s3.get(m_pipelineId + "/" + std::to_string(id)));
-        if (res.code() != 200) continue;
+        const std::string file(m_pipelineId + "/" + std::to_string(id));
+        m_s3.get(id, file, collector.get());
+
+        if (++i % 128 == 0)
+        {
+            // Don't get too far ahead of actual responses, or we'll create
+            // lots of idle threads waiting for a CurlBatch entry to become
+            // available.
+            collector->waitFor(i - 64);
+        }
+    }
+
+    // Blocks until all responses are received, and clears the Collector of its
+    // errors.
+    auto errs(collector->errs());
+
+    std::size_t retries(0);
+    while (!errs.empty() && retries++ < maxGetRetries)
+    {
+        std::cout << "Retry round " << retries << " - " << errs.size() <<
+            " errors" << std::endl;
+
+        for (const auto& err : errs)
+        {
+            const uint64_t id(err.first);
+            const std::string file(err.second);
+
+            m_s3.get(id, file, collector.get());
+        }
+
+        errs = collector->errs();
+    }
+
+    if (!errs.empty())
+    {
+        throw std::runtime_error("Error finalizing to S3");
+    }
+
+    for (auto& res : collector->responses())
+    {
+        const uint64_t id(res.first);
+        const std::vector<uint8_t>* resData(res.second);
 
         std::uint64_t uncompressedSize(0);
-        std::memcpy(&uncompressedSize, res.data().data(), sizeof(uint64_t));
+        std::memcpy(&uncompressedSize, resData->data(), sizeof(uint64_t));
 
-        const uint8_t* rawData(res.data().data() + sizeof(uint64_t));
-        const std::size_t rawNumBytes(res.data().size() - sizeof(uint64_t));
+        const uint8_t* rawData(resData->data() + sizeof(uint64_t));
+        const std::size_t rawNumBytes(resData->size() - sizeof(uint64_t));
 
         // Data from the table may be compressed.
         std::vector<uint8_t> tableData(rawNumBytes);
         std::memcpy(tableData.data(), rawData, rawNumBytes);
+        delete resData->data();
         std::vector<uint8_t>& data(tableData);
 
         std::vector<uint8_t> uncompressedData(

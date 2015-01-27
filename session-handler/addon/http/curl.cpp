@@ -7,12 +7,12 @@ namespace
 {
     struct PutData
     {
-        PutData(const std::vector<uint8_t>& data)
+        PutData(const std::vector<uint8_t>* data)
             : data(data)
             , offset(0)
         { }
 
-        std::vector<uint8_t> data;
+        const std::vector<uint8_t>* data;
         std::size_t offset;
     };
 
@@ -40,8 +40,8 @@ namespace
         const std::size_t fullBytes(
                 std::min(
                     size * num,
-                    in->data.size() - in->offset));
-        std::memcpy(out, in->data.data() + in->offset, fullBytes);
+                    in->data->size() - in->offset));
+        std::memcpy(out, in->data->data() + in->offset, fullBytes);
 
         in->offset += fullBytes;
         return fullBytes;
@@ -51,10 +51,11 @@ namespace
     const bool verbose(false);
 }
 
-Curl::Curl()
+Curl::Curl(std::size_t id)
     : m_curl(0)
     , m_headers(0)
     , m_data()
+    , m_id(id)
 {
     m_curl = curl_easy_init();
 }
@@ -64,21 +65,25 @@ Curl::~Curl()
     curl_easy_cleanup(m_curl);
 }
 
-void Curl::init(std::string url, std::vector<std::string> headers)
+void Curl::init(std::string url, const std::vector<std::string>& headers)
 {
     // Reset our curl instance and header list.
-    curl_easy_reset(m_curl);
     curl_slist_free_all(m_headers);
     m_headers = 0;
 
+    // Set URL.
     curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
 
     // Needed for multithreaded Curl usage.
     curl_easy_setopt(m_curl, CURLOPT_NOSIGNAL, 1L);
 
-    // Faster (by a lot) DNS lookups without IPv6.
+    // Substantially faster DNS lookups without IPv6.
     curl_easy_setopt(m_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 
+    // Don't wait forever.
+    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 120);
+
+    // Configuration options.
     if (verbose)        curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
 
@@ -94,7 +99,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     init(url, headers);
 
     int httpCode(0);
-    std::vector<uint8_t>* data = new std::vector<uint8_t>();
+    std::vector<uint8_t>* data(new std::vector<uint8_t>());
 
     // Register callback function and date pointer to consume the result.
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
@@ -107,25 +112,25 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     curl_easy_perform(m_curl);
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
-    HttpResponse res(httpCode, *data);
-    delete data;
+    HttpResponse res(httpCode, data);
+    curl_easy_reset(m_curl);
     return res;
 }
 
 HttpResponse Curl::put(
         std::string url,
-        const std::vector<uint8_t>& data,
-        std::vector<std::string> headers)
+        std::vector<std::string> headers,
+        const std::vector<uint8_t>* data)
 {
     init(url, headers);
 
     int httpCode(0);
 
-    PutData* putData(new PutData(data));
+    std::shared_ptr<PutData> putData(new PutData(data));
 
     // Register callback function and data pointer to create the request.
     curl_easy_setopt(m_curl, CURLOPT_READFUNCTION, putCb);
-    curl_easy_setopt(m_curl, CURLOPT_READDATA, putData);
+    curl_easy_setopt(m_curl, CURLOPT_READDATA, putData.get());
 
     // Insert all headers into the request.
     curl_easy_setopt(m_curl, CURLOPT_HTTPHEADER, m_headers);
@@ -133,15 +138,105 @@ HttpResponse Curl::put(
     // Specify that this is a PUT request.
     curl_easy_setopt(m_curl, CURLOPT_PUT, 1L);
 
-    // Must use this for binary data, otherwise curl will use  strlen(), which
+    // Must use this for binary data, otherwise curl will use strlen(), which
     // will likely be incorrect.
-    curl_easy_setopt(m_curl, CURLOPT_INFILESIZE_LARGE, data.size());
+    curl_easy_setopt(m_curl, CURLOPT_INFILESIZE_LARGE, data->size());
 
     // Run the command.
     curl_easy_perform(m_curl);
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
-    delete putData;
+    curl_easy_reset(m_curl);
     return HttpResponse(httpCode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+CurlBatch::CurlBatch(std::size_t id, std::size_t batchSize)
+    : m_available(batchSize)
+    , m_curls(batchSize, 0)
+    , m_id(id)
+    , m_mutex()
+    , m_cv()
+{
+    for (std::size_t i(0); i < batchSize; ++i)
+    {
+        m_available[i] = i;
+        m_curls[i].reset(new Curl(i));
+    }
+}
+
+HttpResponse CurlBatch::get(
+        std::string url,
+        std::vector<std::string> headers)
+{
+    std::shared_ptr<Curl> curl(acquire());
+    HttpResponse res(curl->get(url, headers));
+    release(curl);
+    return res;
+}
+
+HttpResponse CurlBatch::put(
+        std::string url,
+        std::vector<std::string> headers,
+        const std::vector<uint8_t>* data)
+{
+    std::shared_ptr<Curl> curl(acquire());
+    HttpResponse res(curl->put(url, headers, data));
+    release(curl);
+    return res;
+}
+
+std::shared_ptr<Curl> CurlBatch::acquire()
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_cv.wait(lock, [this]()->bool { return !m_available.empty(); });
+    std::shared_ptr<Curl> curl(m_curls[m_available.back()]);
+    m_available.pop_back();
+    lock.unlock();
+    return curl;
+}
+
+void CurlBatch::release(std::shared_ptr<Curl> curl)
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_available.push_back(curl->id());
+    lock.unlock();
+    m_cv.notify_one();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+CurlPool::CurlPool(std::size_t numBatches, std::size_t batchSize)
+    : m_available(numBatches)
+    , m_curlBatches()
+    , m_mutex()
+    , m_cv()
+{
+    for (std::size_t i(0); i < numBatches; ++i)
+    {
+        m_available[i] = i;
+        m_curlBatches.insert(std::make_pair(
+                    i,
+                    std::shared_ptr<CurlBatch>(new CurlBatch(i, batchSize))));
+    }
+}
+
+std::shared_ptr<CurlBatch> CurlPool::acquire()
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_cv.wait(lock, [this]()->bool { return !m_curlBatches.empty(); });
+    std::shared_ptr<CurlBatch> curlBatch(m_curlBatches[m_available.back()]);
+    m_available.pop_back();
+    lock.unlock();
+    return curlBatch;
+}
+
+void CurlPool::release(std::shared_ptr<CurlBatch> curlBatch)
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_available.push_back(curlBatch->id());
+    lock.unlock();
+    m_cv.notify_one();
 }
 

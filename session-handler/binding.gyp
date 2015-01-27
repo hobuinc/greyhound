@@ -17,6 +17,7 @@
                 './addon/pdal-session.cpp',
                 './addon/read-command.cpp',
                 './addon/read-query.cpp',
+                './addon/http/collector.cpp',
                 './addon/http/curl.cpp',
                 './addon/http/s3.cpp',
                 './addon/third/jsoncpp.cpp'
