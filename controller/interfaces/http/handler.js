@@ -95,57 +95,51 @@ var
     }
 
     var registerCommands = function(controller, app) {
-        app.post('/create/:pipelineId', function(req, res) {
-            controller.create(req.params.pipelineId, function(err, data) {
+        app.post('/create/:pipeline', function(req, res) {
+            controller.create(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'create'));
             });
         });
 
-        app.get('/session/:session/numPoints', function(req, res) {
-            controller.numPoints(req.params.session, function(err, data) {
+        app.get('/pipeline/:pipeline/numPoints', function(req, res) {
+            controller.numPoints(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'numPoints'));
             });
         });
 
-        app.get('/session/:session/schema', function(req, res) {
-            controller.schema(req.params.session, function(err, data) {
+        app.get('/pipeline/:pipeline/schema', function(req, res) {
+            controller.schema(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'schema'));
             });
         });
 
-        app.get('/session/:session/stats', function(req, res) {
-            controller.stats(req.params.session, function(err, data) {
+        app.get('/pipeline/:pipeline/stats', function(req, res) {
+            controller.stats(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'stats'));
             });
         });
 
-        app.get('/session/:session/srs', function(req, res) {
-            controller.srs(req.params.session, function(err, data) {
+        app.get('/pipeline/:pipeline/srs', function(req, res) {
+            controller.srs(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'srs'));
             });
         });
 
-        app.get('/session/:session/fills', function(req, res) {
-            controller.fills(req.params.session, function(err, data) {
+        app.get('/pipeline/:pipeline/fills', function(req, res) {
+            controller.fills(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'fills'));
             });
         });
 
-        app.post('/session/:session/serialize', function(req, res) {
-            controller.serialize(req.params.session, function(err, data) {
+        app.post('/pipeline/:pipeline/serialize', function(req, res) {
+            controller.serialize(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'serialize'));
             });
         });
 
-        app.delete('/session/:session', function(req, res) {
-            controller.destroy(req.params.session, function(err, data) {
-                res.json(extend(err, data, 'destroy'));
-            });
-        });
-
-        app.delete('/session/:session/readId/:readId', function(req, res) {
+        app.delete('/pipeline/:pipeline/readId/:readId', function(req, res) {
             controller.cancel(
-                req.params.session,
+                req.params.pipeline,
                 req.params.readId,
                 function(err, data) {
                     res.json(extend(err, data, 'cancel'));
@@ -153,7 +147,7 @@ var
             );
         });
 
-        app.get('/session/:session/read', function(req, res) {
+        app.get('/pipeline/:pipeline/read', function(req, res) {
             var params = req.query;
 
             objectify(params, 'bbox');
@@ -161,7 +155,7 @@ var
             objectify(params, 'resolution');
 
             controller.read(
-                req.params.session,
+                req.params.pipeline,
                 params,
                 function(err, shRes) {
                     if (err) return res.json(500, err);

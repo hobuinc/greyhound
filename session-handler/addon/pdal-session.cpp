@@ -97,6 +97,10 @@ void PdalSession::serialize(const SerialPaths& serialPaths)
         // pending READs must complete first - new ones (except for the custom
         // raster) will already be routed to the serial data source.
     }
+    else if (m_serialDataSource)
+    {
+        std::cout << "Already serialized." << std::endl;
+    }
 }
 
 bool PdalSession::awaken(const SerialPaths& serialPaths)

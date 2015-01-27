@@ -56,40 +56,36 @@ var
             controller.put(msg.pipeline, cb);
         });
 
-        commander.on('create', function(msg, cb) {
-            controller.create(msg.pipelineId, cb);
-        });
-
         commander.on('numPoints', function(msg, cb) {
-            controller.numPoints(msg.session, cb);
+            controller.numPoints(msg.pipeline, cb);
         });
 
         commander.on('schema', function(msg, cb) {
-            controller.schema(msg.session, cb);
+            controller.schema(msg.pipeline, cb);
         });
 
         commander.on('stats', function(msg, cb) {
-            controller.stats(msg.session, cb);
+            controller.stats(msg.pipeline, cb);
         });
 
         commander.on('srs', function(msg, cb) {
-            controller.srs(msg.session, cb);
+            controller.srs(msg.pipeline, cb);
         });
 
         commander.on('fills', function(msg, cb) {
-            controller.fills(msg.session, cb);
+            controller.fills(msg.pipeline, cb);
         });
 
         commander.on('serialize', function(msg, cb) {
-            controller.serialize(msg.session, cb);
+            controller.serialize(msg.pipeline, cb);
         });
 
         commander.on('destroy', function(msg, cb) {
-            controller.destroy(msg.session, cb);
+            controller.destroy(msg.pipeline, cb);
         });
 
         commander.on('cancel', function(msg, cb) {
-            controller.cancel(msg.session, msg.readId, function(err, res) {
+            controller.cancel(msg.pipeline, msg.readId, function(err, res) {
                 if (res.cancelled) res['numBytes'] = numBytes[msg.readId];
                 cb(null, res);
             });
@@ -98,15 +94,15 @@ var
         commander.on('read', function(msg, cb) {
             var params = msg;
 
-            var session = params.session;
-            if (msg.hasOwnProperty('session')) delete params.session;
+            var pipeline = params.pipeline;
+            if (msg.hasOwnProperty('pipeline')) delete params.pipeline;
             var summary = params.summary;
             if (params.hasOwnProperty('summary')) delete params.summary;
 
             var readId;
 
             controller.read(
-                session,
+                pipeline,
                 params,
                 function(err, res) {
                     if (!err) readId = res.readId;

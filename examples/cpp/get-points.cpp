@@ -31,25 +31,11 @@ public:
         client_.init_asio();
     }
 
-    template<typename CreateHandler>
-    void Create(std::string pipelineId, CreateHandler handler) {
-        Json::Value v;
-        v["command"] = "create";
-        v["pipelineId"] = pipelineId;
-
-        do_exchange(v, [handler](const Json::Value& r) {
-            if (r["status"] == 1)
-                handler(r["session"].asString());
-            else
-                handler("");
-        });
-    }
-
     template<typename PointsCountHandler>
     void GetPointsCount(const std::string& id, PointsCountHandler handler) {
         Json::Value v;
         v["command"] = "numPoints";
-        v["session"] = id;
+        v["pipeline"] = id;
 
         do_exchange(v, [handler](const Json::Value& r) {
             if (r["status"] == 1)
@@ -68,7 +54,7 @@ public:
             int count = -1) {
         Json::Value v;
         v["command"] = "read";
-        v["session"] = id;
+        v["pipeline"] = id;
         v["start"] = offset;
         if (count != -1) v["count"] = count;
 
@@ -89,26 +75,9 @@ public:
         });
     }
 
-    template<typename DestroyHandler>
-    void Destroy(const std::string& id, DestroyHandler handler) {
-        Json::Value v;
-        v["command"] = "destroy";
-        v["session"] = id;
-
-        do_exchange(v, [handler](const Json::Value& r) {
-            handler(r["status"] == 1);
-        });
-    }
-
-    void Destroy(const std::string& id) {
-        Destroy(id, [](bool val) { });
-    }
-
-
     void Run() {
         client_.run();
     }
-
 
 private:
     void send(websocketpp::connection_hdl hdl, const Json::Value& v) {
@@ -210,63 +179,43 @@ int main(int argc, char* argv[])
     }
 
     WebSocketClient client("ws://localhost:8080/");
-    const std::string pipelineId =
+    const std::string plId =
         argc == 2 ?
             argv[1] :
             "5adcf597e3376f98471bf37816e9af2c"; // ID of sample pipeline
 
-    int ibytesToRead = 0, bytesRead = 0;
+    int bytesToRead = 0, bytesRead = 0;
 
-    client.Create(
-        pipelineId,
-        [&client, &ibytesToRead, &bytesRead](const std::string& session)
+    client.GetPointsCount(
+            plId,
+            [&client, plId, &bytesToRead, &bytesRead](int count)
     {
-        if (session != "")
-        {
-            std::cout << "Session created: " << session << std::endl;
+        std::cout << "Pipeline has " << count << " points." << std::endl;
 
-            client.GetPointsCount(
-                session,
-                [&client, session, &ibytesToRead, &bytesRead](int count)
+        client.Read(plId, [&bytesToRead](int npoints, int nbytes) {
+            std::cout << "Total " << npoints << " points in " <<
+                    nbytes << " bytes will arrive." << std::endl;
+
+            bytesToRead = nbytes;
+
+            if (nbytes == 0)
             {
-                std::cout << "Session has " << count << " points." << std::endl;
+                std::cout <<
+                    "No points to arrive - exiting" <<
+                    std::endl;
 
-                client.Read(
-                    session,
-                    [&ibytesToRead](int npoints, int nbytes)
-                    {
-                        std::cout << "Total " << npoints << " points in " <<
-                                nbytes << " bytes will arrive." << std::endl;
+                exit(1);
+            }
+        },
+        [plId, &client, &bytesToRead, &bytesRead](const std::string& data) {
+            bytesRead += data.length();
 
-                        ibytesToRead = nbytes;
-
-                        if (nbytes == 0)
-                        {
-                            std::cout <<
-                                "No points to arrive - exiting" <<
-                                std::endl;
-
-                            exit(1);
-                        }
-                    },
-                    [session, &client, &ibytesToRead, &bytesRead](
-                        const std::string& data)
-                    {
-                        bytesRead += data.length();
-
-                        if (bytesRead >= ibytesToRead)
-                        {
-                            std::cout << "All bytes read in." << std::endl;
-                            client.Destroy(session, [](bool val) { exit(0); });
-                        }
-                    });
-            });
-        }
-        else
-        {
-            std::cout << "Session creation failed - exiting." << std::endl;
-            exit(1);
-        }
+            if (bytesRead >= bytesToRead)
+            {
+                std::cout << "All bytes read in." << std::endl;
+                exit(0);
+            }
+        });
     });
 
     client.Run();

@@ -276,10 +276,6 @@ var ghFail = function(rxStatus) {
     return !ghSuccess(rxStatus);
 }
 
-var initialSession = function(prevResponses) {
-    return prevResponses[0]['session'];
-}
-
 var validateJson = function(test, json, expected, exchangeIndex) {
     for (var field in expected) {
         test.ok(
@@ -463,184 +459,9 @@ module.exports = {
         );
     },
 
-    // CREATE - test without a pipelineId parameter
+    // NUMPOINTS - test command with missing 'pipeline' parameter
     // Expect: failure status
-    testCreateNoPipelineId: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':  'create',
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghFail,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test with an invalid pipeline ID
-    // Expect: failure status
-    testCreateInvalidPipelineId: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   'This is not a valid pipelineId',
-                },
-                res: {
-                    'command':      'create',
-                    'status':       ghFail,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test with a non-string pipeline ID
-    // Expect: failure status
-    testCreateWrongTypePipelineId: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   42,
-                },
-                res: {
-                    'command':      'create',
-                    'status':       ghFail,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test with a function as the pipeline ID
-    // Expect: failure status
-    testCreateFunctionPipelineId: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   function() { console.log('Wrong'); },
-                },
-                res: {
-                    'command':      'create',
-                    'status':       ghFail,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test with a wildcard pipeline ID
-    // Expect: failure status
-    testCreateWildcardPipelineId: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   '*',
-                },
-                res: {
-                    'command':      'create',
-                    'status':       ghFail,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test valid command
-    // Expect: successful status and 'session' parameter in response
-    testCreateValid: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command': 'create',
-                    'pipelineId': samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command': 'destroy',
-                    'session': function(prevResponses) {
-                        var prev = prevResponses[prevResponses.length - 1];
-                        return prev['session'];
-                    },
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            }]
-        );
-    },
-
-    // CREATE - test multiple sessions created with the same pipeline
-    // Expect: two successful statuses with different 'session' parameters
-    testCreateDouble: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  function(prevResponses) {
-                        // Destroy the second session created.
-                        var prev = prevResponses[prevResponses.length - 2];
-                        return prev['session'];
-                    },
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            }]
-        );
-    },
-
-    // NUMPOINTS - test command with missing 'session' parameter
-    // Expect: failure status
-    testNumPointsMissingSession: function(test) {
+    testNumPointsMissingPipeline: function(test) {
         doExchangeSet(
             test,
             [{
@@ -655,15 +476,15 @@ module.exports = {
         );
     },
 
-    // NUMPOINTS - test command with invalid 'session' parameter
+    // NUMPOINTS - test command with invalid 'pipeline' parameter
     // Expect: failure status
-    testNumPointsInvalidSession: function(test) {
+    testNumPointsInvalidPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
                     'command':  'numPoints',
-                    'session':  'I am an invalid session string!',
+                    'pipeline':  'I am an invalid pipeline ID!',
                 },
                 res: {
                     'command':  'numPoints',
@@ -673,15 +494,15 @@ module.exports = {
         );
     },
 
-    // NUMPOINTS - test command with object 'session' parameter
+    // NUMPOINTS - test command with object 'pipeline' parameter
     // Expect: failure status
-    testNumPointsObjectSession: function(test) {
+    testNumPointsObjectPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
                     'command':  'numPoints',
-                    'session':  { session: 'I am an invalid session object!' }
+                    'pipeline':  { pipeline : 'I am an invalid pipeline ID!' }
                 },
                 res: {
                     'command':  'numPoints',
@@ -691,15 +512,15 @@ module.exports = {
         );
     },
 
-    // NUMPOINTS - test command with a function as the 'session' parameter
+    // NUMPOINTS - test command with a function as the 'pipeline' parameter
     // Expect: failure status
-    testNumPointsFunctionSession: function(test) {
+    testNumPointsFunctionPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
                     'command':  'numPoints',
-                    'session':  function() { console.log('Wrong'); },
+                    'pipeline':  function() { console.log('Wrong'); },
                 },
                 res: {
                     'command':  'numPoints',
@@ -716,42 +537,21 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'numPoints',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                 },
                 res: {
                     'status':   ghSuccess,
                     'command':  'numPoints',
                     'numPoints':    10653,
                 },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
-    // SCHEMA - test command with missing 'session' parameter
+    // SCHEMA - test command with missing 'pipeline' parameter
     // Expect: failure status
-    testSchemaMissingSession: function(test) {
+    testSchemaMissingPipeline: function(test) {
         doExchangeSet(
             test,
             [{
@@ -766,15 +566,15 @@ module.exports = {
         );
     },
 
-    // SCHEMA - test command with invalid 'session' parameter
+    // SCHEMA - test command with invalid 'pipeline' parameter
     // Expect: failure status
-    testSchemaInvalidSession: function(test) {
+    testSchemaInvalidPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
                     'command':  'schema',
-                    'session':  'I am an invalid session string!',
+                    'pipeline':  'I am an invalid pipeline ID!',
                 },
                 res: {
                     'command':  'schema',
@@ -791,34 +591,13 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'schema',
-                    'session':  initialSession,
+                    'pipeline':  samplePipelineId,
                 },
                 res: {
                     'status':   ghSuccess,
                     'command':  'schema',
                     'schema':   rxSchema,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
                 },
             }]
         );
@@ -832,55 +611,23 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'stats',
-                    'session':  initialSession,
+                    'pipeline':  samplePipelineId,
                 },
                 res: {
                     'status':   ghSuccess,
                     'command':  'stats',
                     'stats':   dontCare,
                 },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
-    // SRS - test command with missing 'session' parameter
-    testSrsMissingSession: function(test) {
+    // SRS - test command with missing 'pipeline' parameter
+    testSrsMissingPipeline: function(test) {
         doExchangeSet(
             test,
             [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
                 req: {
                     'command':  'srs',
                 },
@@ -888,53 +635,22 @@ module.exports = {
                     'command':  'srs',
                     'status':   ghFail,
                 },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
-    // SRS - test command with invalid 'session' parameter
-    testSrsInvalidSession: function(test) {
+    // SRS - test command with invalid 'pipeline' parameter
+    testSrsInvalidPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'srs',
-                    'session':  'I am an invalid session string!',
+                    'pipeline': 'I am an invalid pipeline ID!',
                 },
                 res: {
                     'command':  'srs',
                     'status':   ghFail,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
                 },
             }]
         );
@@ -946,34 +662,13 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'srs',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                 },
                 res: {
                     'command':  'srs',
                     'status':   ghSuccess,
                     'srs':      sampleSrs,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
                 },
             }]
         );
@@ -985,42 +680,21 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'fills',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                 },
                 res: {
                     'command':  'fills',
                     'status':   ghSuccess,
                     'fills':    [1,4,16,64,256,1004,3330,4375,1436,160,7]
                 },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
-    // READ - test command with missing 'session' parameter
+    // READ - test command with missing 'pipeline' parameter
     // Expect: failure status
-    testReadMissingSession: function(test) {
+    testReadMissingPipeline: function(test) {
         doExchangeSet(
             test,
             [{
@@ -1036,15 +710,15 @@ module.exports = {
         );
     },
 
-    // READ - test command with invalid 'session' parameter
+    // READ - test command with invalid 'pipeline' parameter
     // Expect: failure status
-    testReadInvalidSession: function(test) {
+    testReadInvalidPipeline: function(test) {
         doExchangeSet(
             test,
             [{
                 req: {
                     'command':  'read',
-                    'session':  'I am an invalid session string!',
+                    'pipeline': 'I am an invalid pipeline ID!',
                     'schema':   rendererSchema,
                 },
                 res: {
@@ -1055,7 +729,7 @@ module.exports = {
         );
     },
 
-    // READ - test with summary flag
+    // READ - test with summary flag and compression.
     // Expect: all points read followed by summary
     testReadSummary: function(test) {
         var bytesRead = 0;
@@ -1063,19 +737,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    0,
                     'compress': true,
@@ -1101,16 +764,6 @@ module.exports = {
                         'numBytes': 104730,
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1123,19 +776,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    0,
                 },
@@ -1152,124 +794,6 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            }]
-        );
-    },
-
-    // READ - test multiple sessions with interleaved read requests
-    // Expect: all points read for both sessions, successful destroys
-    testReadMultipleSessions: function(test) {
-        var bytesRead = 0;
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':  'read',
-                    'session':  initialSession,
-                    'schema':   rendererSchema,
-                    'count':    0,
-                },
-                res: [
-                    {
-                        'status':       ghSuccess,
-                        'command':      'read',
-                        'readId':       dontCare,
-                        'numPoints':    samplePoints,
-                        'numBytes':     sampleBytes,
-                    },
-                    function(data) {
-                        bytesRead += data.length;
-                        if (bytesRead === sampleBytes) {
-                            // Reset for the next read.
-                            bytesRead = 0;
-                            return true;
-                        }
-                        else {
-                            return false;
-                        }
-                    }
-                ]
-            },
-            {
-                req: {
-                    'command':  'read',
-                    'session':  function(prevResponses) {
-                        // Issue a read on the second session created.
-                        var prev = prevResponses[1];
-                        return prev['session'];
-                    },
-                    'schema':   rendererSchema,
-                    'count':    0,
-                },
-                res: [
-                    {
-                        'status':       ghSuccess,
-                        'command':      'read',
-                        'readId':       dontCare,
-                        'numPoints':    samplePoints,
-                        'numBytes':     sampleBytes,
-                    },
-                    function(data) {
-                        bytesRead += data.length;
-                        return bytesRead === sampleBytes;
-                    }
-                ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  function(prevResponses) {
-                        // Issue a destroy on the second session created.
-                        var prev = prevResponses[1];
-                        return prev['session'];
-                    },
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1282,19 +806,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    'Wrong type!',
                 },
@@ -1302,16 +815,6 @@ module.exports = {
                 {
                     'status':       ghFail,
                     'command':      'read',
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
                 },
             }]
         );
@@ -1325,19 +828,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    -2,
                 },
@@ -1354,16 +846,6 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1376,19 +858,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    samplePoints + 50,
                 },
@@ -1405,41 +876,20 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
     // READ - test request of offset >= numPoints
-    // Expect: failure status, no points read - session still available
+    // Expect: failure status, no points read
     testReadTooLargeOffset: function(test) {
         var bytesRead = 0;
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    1,
                     'start':    samplePoints,
@@ -1453,7 +903,7 @@ module.exports = {
                 // Now make sure a valid read still works.
                 req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    10,
                 },
@@ -1470,16 +920,6 @@ module.exports = {
                         return bytesRead === 10 * sampleStride;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1492,19 +932,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    10,
                     'start':    -1,
@@ -1522,16 +951,6 @@ module.exports = {
                         return bytesRead === 10 * sampleStride;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1544,19 +963,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
@@ -1574,16 +982,6 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1596,19 +994,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    20,
                     'start':    30,
@@ -1626,16 +1013,6 @@ module.exports = {
                         return bytesRead === 20 * sampleStride;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1648,19 +1025,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    20,
                 },
@@ -1677,16 +1043,6 @@ module.exports = {
                         return bytesRead === 20 * sampleStride;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1701,19 +1057,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'start':    suppliedOffset,
                 },
@@ -1730,21 +1075,11 @@ module.exports = {
                         return bytesRead === expectedBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
 
-    // READ - test that multiple reads may be issued on the same session.
+    // READ - test that multiple reads may be issued on the same pipeline
     // Expect: both reads complete successfully
     testDoubleRead: function(test) {
         var bytesRead = 0;
@@ -1752,19 +1087,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
@@ -1793,7 +1117,7 @@ module.exports = {
             {
                 req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    samplePoints,
                     'start':    0,
@@ -1811,16 +1135,6 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1833,19 +1147,8 @@ module.exports = {
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'cancel',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'readId':   'not a valid readId'
                 },
                 res: {
@@ -1857,7 +1160,7 @@ module.exports = {
             {
                 req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
                     'count':    0,
                 },
@@ -1874,16 +1177,6 @@ module.exports = {
                         return bytesRead === sampleBytes;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
@@ -1893,33 +1186,23 @@ module.exports = {
     // TODO Test READ without schema parameter
     // TODO Test READ with raster queries
     // TODO Test READ with generic raster query
+    // TODO Sessionless cancel
 
     // CANCEL - test cancel functionality and subsequent read
     // Expect: Partially transmitted data, successful cancel, successful read
+    /*
     testValidCancel: function(test) {
-        console.log('Starting long test (~10 seconds)...');
         var bytesRead = 0;
-        var bytesExpected = 7954265 * sampleStride;
+        var bytesExpected = 214737 * sampleStride;
         doExchangeSet(
             test,
             [{
                 req: {
-                    'command':      'create',
-                    'pipelineId':   bigPipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': bigPipelineId,
                     'schema':   rendererSchema,
-                    'count':    0,
-                    'start':    0,
+                    'depthBegin':   0,
+                    'depthEnd':     10,
                 },
                 res: [
                     {
@@ -1930,7 +1213,9 @@ module.exports = {
                         'numBytes':     dontCare,
                     },
                     function(data, prevResponses, json) {
+                        console.log('Got res');
                         if (json) {
+                            console.log(JSON.stringify(json));
                             // At some point we'll get a reply to our cancel.
                             test.ok(json['command'] === 'cancel');
                             test.ok(ghSuccess(json['status']));
@@ -1943,12 +1228,13 @@ module.exports = {
                             bytesExpected = json['numBytes'];
                         }
                         else {
+                            console.log('Sending cancel');
                             // On the first binary blob, send the cancel.
                             if (bytesRead === 0) {
                                 send({
                                     'command':  'cancel',
                                     'readId':   prevResponses[1].readId,
-                                    'session':  prevResponses[0].session,
+                                    'pipeline': bigPipelineId,
                                 });
                             }
 
@@ -1970,125 +1256,28 @@ module.exports = {
             {
                 req: {
                     'command':  'read',
-                    'session':  initialSession,
+                    'pipeline': samplePipelineId,
                     'schema':   rendererSchema,
-                    'count':    20,
-                    'start':    30,
+                    'depthBegin':   1,
+                    'depthEnd':     2,
                 },
                 res: [
                     {
                         'status':       ghSuccess,
                         'command':      'read',
                         'readId':       dontCare,
-                        'numPoints':    20,
-                        'numBytes':     20 * sampleStride,
+                        'numPoints':    4,
+                        'numBytes':     4 * sampleStride,
                     },
                     function(data) {
                         bytesRead += data.length;
-                        return bytesRead === 20 * sampleStride;
+                        return bytesRead === 4 * sampleStride;
                     }
                 ]
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
             }]
         );
     },
-
-    // DESTROY - test command with missing 'session' parameter
-    // Expect: failure status
-    testDestroyMissingSession: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command': 'destroy',
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghFail,
-                },
-            }]
-        );
-    },
-
-    // DESTROY - test command with invalid 'session' parameter
-    // Expect: failure status
-    testDestroyInvalidSession: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':  'destroy',
-                    'session':  'I am an invalid session string!',
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghFail,
-                },
-            }]
-        );
-    },
-
-    // DESTROY - test valid destroy
-    // Expect: Successful destroy, session not useable or re-destroyable after
-    // initial destroy
-    testDestroyValid: function(test) {
-        doExchangeSet(
-            test,
-            [{
-                req: {
-                    'command':      'create',
-                    'pipelineId':   samplePipelineId,
-                },
-                res: {
-                    'command':  'create',
-                    'status':   ghSuccess,
-                    'session':  dontCare,
-                },
-            },
-            {
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghSuccess,
-                },
-            },
-            {
-                // Try to use session again - should not work
-                req: {
-                    'command':  'numPoints',
-                    'session':  initialSession,
-                },
-                res: {
-                    'status':   ghFail,
-                    'command':  'numPoints',
-                },
-            },
-            {
-                // Try to destroy again - should not work
-                req: {
-                    'command':  'destroy',
-                    'session':  initialSession,
-                },
-                res: {
-                    'command':  'destroy',
-                    'status':   ghFail,
-                },
-            },
-            ]
-        );
-    },
+    */
 
     // OTHER - test non-existent command
     testOtherBadCommand: function(test) {

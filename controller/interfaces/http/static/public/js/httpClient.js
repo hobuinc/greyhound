@@ -136,47 +136,39 @@
             return cb('No pipeline selected!');
         }
 
-        $.post('http://' + url + '/create/' + pipelineId, function(createRes) {
-            if (createRes.status != 1) {
-                return cb('CREATE returned invalid status');
+        var statsUrl = 'http://' + url + '/pipeline/' + pipelineId + '/stats/';
+
+        $.get(statsUrl, function(statsRes) {
+            if (statsRes.status != 1) {
+                return cb('STATS returned invalid status');
             }
 
-            var session = createRes.session;
+            var stats = JSON.parse(statsRes.stats);
+            console.log(stats.stages['filters.stats']);
 
-            var statsUrl = 'http://' + url + '/session/' + session + '/stats/';
+            var readUrl =
+                'http://' + url + '/pipeline/' + pipelineId + '/read';
 
-            $.get(statsUrl, function(statsRes) {
-                if (statsRes.status != 1) {
-                    return cb('STATS returned invalid status');
-                }
+            var query = w.location.search;
+            var sep = (query ? '&' : '?');
+            setStatus("Read initiated, waiting for response...");
 
-                var stats = JSON.parse(statsRes.stats);
-                console.log(stats.stages['filters.stats']);
+            $.ajax({
+                dataType: 'binary',
+                responseType: 'arraybuffer',
+                type: 'GET',
+                url:
+                    readUrl + w.location.search + sep + 'schema=' + schema()
+            }).done(function(readRes, status, request) {
+                var dataBuffer = new Int8Array(readRes);
+                var numPoints  = request.getResponseHeader('Num-Points');
+                var rasterMeta = JSON.parse(
+                    request.getResponseHeader('Raster-Meta'));
 
-                var readUrl =
-                    'http://' + url + '/session/' + session + '/read';
-
-                var query = w.location.search;
-                var sep = (query ? '&' : '?');
-                setStatus("Read initiated, waiting for response...");
-
-                $.ajax({
-                    dataType: 'binary',
-                    responseType: 'arraybuffer',
-                    type: 'GET',
-                    url:
-                        readUrl + w.location.search + sep + 'schema=' + schema()
-                }).done(function(readRes, status, request) {
-                    var dataBuffer = new Int8Array(readRes);
-                    var numPoints  = request.getResponseHeader('Num-Points');
-                    var rasterMeta = JSON.parse(
-                        request.getResponseHeader('Raster-Meta'));
-
-                    return cb(null, dataBuffer, numPoints, rasterMeta, stats);
-                }).fail(function(err) {
-                    console.log('READ failed');
-                    return cb('Failed' + err);
-                });
+                return cb(null, dataBuffer, numPoints, rasterMeta, stats);
+            }).fail(function(err) {
+                console.log('READ failed');
+                return cb('Failed' + err);
             });
         });
     }
