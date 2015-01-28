@@ -36,6 +36,7 @@ var
         // Set the x-powered-by header
         app.use(function(req, res, next) {
             res.header("X-powered-by", "Hobu, Inc.");
+            res.header("Cache-Control", "public, max-age=120");
             next();
         });
 
@@ -154,12 +155,12 @@ var
                 function(err, shRes) {
                     if (err) return res.json(500, err);
 
-                    res.header('Num-Points', shRes.numPoints);
-                    res.header('Read-ID', shRes.readId);
+                    res.header('X-Greyhound-Num-Points', shRes.numPoints);
+                    res.header('X-Greyhound-Read-ID', shRes.readId);
 
                     if (shRes.rasterMeta) {
                         res.header(
-                            'Raster-Meta',
+                            'X-Greyhound-Raster-Meta',
                             JSON.stringify(shRes.rasterMeta));
                     }
                 },

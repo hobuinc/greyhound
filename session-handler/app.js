@@ -113,7 +113,7 @@ var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
 
 var getSession = function(res, plId, cb) {
     if (!pipelineIds[plId])
-        res.json(404, { message: 'No such session' });
+        res.json(404, { message: 'No such pipeline' });
 
     cb(pipelineIds[plId]);
 };
@@ -231,7 +231,14 @@ app.get("/schema/:plId", function(req, res) {
 app.get("/stats/:plId", function(req, res) {
     getSession(res, req.params.plId, function(pdalSession) {
         if (!pdalSession) return;
-        res.json({ stats: pdalSession.getStats() });
+        try {
+            res.json({ stats: JSON.parse(pdalSession.getStats()) });
+        }
+        catch (e) {
+            return res.json(
+                500,
+                { message: 'Stats could not be parsed' });
+        }
     });
 });
 
