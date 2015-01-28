@@ -89,7 +89,7 @@
                 console.log('Incoming:', msg);
 
                 if (msg.command === "stats") {
-                    stats = JSON.parse(msg.stats);
+                    stats = msg.stats;
                     console.log(stats.stages['filters.stats']);
 
                     if (msg.status === 0)

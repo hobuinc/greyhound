@@ -136,14 +136,14 @@
             return cb('No pipeline selected!');
         }
 
-        var statsUrl = 'http://' + url + '/pipeline/' + pipelineId + '/stats/';
+        var statsUrl = 'http://' + url + '/pipeline/' + pipelineId + '/stats';
 
         $.get(statsUrl, function(statsRes) {
             if (statsRes.status != 1) {
                 return cb('STATS returned invalid status');
             }
 
-            var stats = JSON.parse(statsRes.stats);
+            var stats = statsRes.stats;
             console.log(stats.stages['filters.stats']);
 
             var readUrl =
@@ -161,9 +161,10 @@
                     readUrl + w.location.search + sep + 'schema=' + schema()
             }).done(function(readRes, status, request) {
                 var dataBuffer = new Int8Array(readRes);
-                var numPoints  = request.getResponseHeader('Num-Points');
+                var numPoints  =
+                    request.getResponseHeader('X-Greyhound-Num-Points');
                 var rasterMeta = JSON.parse(
-                    request.getResponseHeader('Raster-Meta'));
+                    request.getResponseHeader('X-Greyhound-Raster-Meta'));
 
                 return cb(null, dataBuffer, numPoints, rasterMeta, stats);
             }).fail(function(err) {
