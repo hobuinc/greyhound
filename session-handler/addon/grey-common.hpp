@@ -2,7 +2,7 @@
 
 #include <sqlite3.h>
 
-#include <pdal/Bounds.hpp>
+#include <pdal/util/Bounds.hpp>
 #include <json/json.h>
 
 #include "http/s3.hpp"
