@@ -276,12 +276,12 @@
         var xMax = meta.xBegin + meta.xStep * meta.xNum;
         var yMax = meta.yBegin + meta.yStep * meta.yNum;
         var zMax = parseFloat(
-                stats.stages['filters.stats'].statistic[2].maximum.value);
+                stats.stages['filters.stats'].statistic[2].maximum);
 
         var xMin = meta.xBegin;
         var yMin = meta.yBegin;
         var zMin = parseFloat(
-                stats.stages['filters.stats'].statistic[2].minimum.value);
+                stats.stages['filters.stats'].statistic[2].minimum);
 
         var maxBound = Math.max(
                 xMax - xMin,

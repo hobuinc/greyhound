@@ -67,6 +67,7 @@ struct GreyMeta
 {
     std::string version;
     std::size_t base;
+    std::size_t cutoff;
     std::string pointContextXml;
     BBox bbox;
     std::size_t numPoints;
@@ -76,7 +77,20 @@ struct GreyMeta
     std::string srs;
     std::vector<std::size_t> fills;
 
-    GreyMeta() { }
+    GreyMeta()
+        : version()
+        , base()
+        , cutoff()
+        , pointContextXml()
+        , bbox()
+        , numPoints()
+        , schema()
+        , compressed()
+        , stats()
+        , srs()
+        , fills()
+    { }
+
     explicit GreyMeta(const Json::Value& json)
         : version           (json["version"].asString())
         , base              (json["base"].asUInt64())

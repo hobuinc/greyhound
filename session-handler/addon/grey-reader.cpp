@@ -13,11 +13,7 @@
 
 namespace
 {
-    const std::string sqlQueryMeta(
-            "SELECT "
-                "version, base, pointContext, xMin, yMin, xMax, yMax, "
-                "numPoints, schema, compressed, stats, srs, fills "
-            "FROM meta");
+    const std::string sqlQueryMeta("SELECT json FROM meta");
 
     // Returns the number of points in the raster.
     std::size_t initRaster(
@@ -225,8 +221,6 @@ GreyReaderSqlite::GreyReaderSqlite(
         throw std::runtime_error("Could not open serial DB " + pipelineId);
     }
 
-    GreyMeta meta;
-
     sqlite3_stmt* stmt(0);
     sqlite3_prepare_v2(
             m_db,
@@ -245,44 +239,28 @@ GreyReaderSqlite::GreyReaderSqlite(
     {
         if (metaRows > 1)
         {
+            sqlite3_finalize(stmt);
             throw std::runtime_error("Multiple metadata rows detected");
         }
 
-        meta.version =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        const std::string rawMeta(
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
 
-        meta.base = sqlite3_column_int64(stmt, 1);
+        Json::Reader jsonReader;
+        Json::Value jsonMeta;
 
-        meta.pointContextXml =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-
-        meta.bbox.xMin = sqlite3_column_double(stmt, 3);
-        meta.bbox.yMin = sqlite3_column_double(stmt, 4);
-        meta.bbox.xMax = sqlite3_column_double(stmt, 5);
-        meta.bbox.yMax = sqlite3_column_double(stmt, 6);
-        meta.numPoints = sqlite3_column_int64 (stmt, 7);
-        meta.schema =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
-        meta.compressed = sqlite3_column_int(stmt, 9);
-        meta.stats =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
-        meta.srs =
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
-
-        const char* rawFills(
-                reinterpret_cast<const char*>(
-                    sqlite3_column_blob(stmt, 12)));
-        const std::size_t rawBytes(sqlite3_column_bytes(stmt, 12));
-
-        meta.fills.resize(
-                reinterpret_cast<const std::size_t*>(rawFills + rawBytes) -
-                reinterpret_cast<const std::size_t*>(rawFills));
-
-        std::memcpy(meta.fills.data(), rawFills, rawBytes);
+        if (jsonReader.parse(rawMeta, jsonMeta))
+        {
+            init(GreyMeta(jsonMeta));
+        }
+        else
+        {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error("Could not parse metadata from sqlite");
+        }
     }
 
     sqlite3_finalize(stmt);
-    init(meta);
 }
 
 bool GreyReaderSqlite::exists(
