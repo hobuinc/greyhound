@@ -11,27 +11,10 @@
 namespace
 {
     const std::string sqlCreateTableMeta(
-            "CREATE TABLE meta("
-                "id             INT PRIMARY KEY,"
-                "version        TEXT,"
-                "base           INT,"
-                "pointContext   TEXT,"
-                "xMin           REAL,"
-                "yMin           REAL,"
-                "xMax           REAL,"
-                "yMax           REAL,"
-                "numPoints      INT,"
-                "schema         TEXT,"
-                "compressed     INT,"
-                "stats          TEXT,"
-                "srs            TEXT,"
-                "fills          BLOB)");
+            "CREATE TABLE meta(id INT PRIMARY KEY, json TEXT)");
 
     const std::string sqlPrepMeta(
-            "INSERT INTO meta VALUES "
-                "(@id, @version, @base, @pointContext,"
-                " @xMin, @yMin, @xMax, @yMax, @numPoints, @schema,"
-                " @compressed, @stats, @srs, @fills)");
+            "INSERT INTO meta VALUES (@id, @json)");
 
     const std::string sqlCreateTableClusters(
             "CREATE TABLE clusters("
@@ -53,6 +36,41 @@ namespace
         }
     }
 
+    const std::size_t greyBase(8);
+    std::size_t calcCutoff(
+            const std::vector<std::size_t>& fills,
+            const std::size_t base)
+    {
+        std::size_t cutoff(0);
+        std::size_t sum(0);
+        std::size_t curr(0);
+
+        for (std::size_t i(1); i < fills.size(); ++i)
+        {
+            sum += fills[i - 1];
+            curr = fills[i];
+            if (curr < sum)
+            {
+                cutoff = curr;
+                break;
+            }
+        }
+
+        if (cutoff && cutoff < base)
+        {
+            if (base < fills.size())
+            {
+                cutoff = 0;
+            }
+            else
+            {
+                cutoff = base;
+            }
+        }
+
+        return cutoff;
+    }
+
     const std::size_t maxPutRetries(4);
 }
 
@@ -61,7 +79,10 @@ GreyWriter::GreyWriter(
         const GreyMeta meta)
     : m_meta(meta)
     , m_quadIndex(quadIndex)
-{ }
+{
+    m_meta.base = greyBase;
+    m_meta.cutoff = calcCutoff(m_meta.fills, greyBase);
+}
 
 void GreyWriter::write(S3Info s3Info, std::string dir) const
 {
@@ -232,27 +253,14 @@ void GreyWriter::writeMeta(sqlite3* db) const
     // Begin accumulating 'insert' transaction.
     sqlExec(db, "BEGIN TRANSACTION");
 
-    const std::vector<std::size_t>& fills(m_meta.fills);
-    const char* pcPtr(m_meta.pointContextXml.c_str());
+    Json::StyledWriter jsonWriter;
 
-    if (sqlite3_bind_int  (stmt, 1, 0) ||
-        sqlite3_bind_text (stmt, 2, greyVersion.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_int64(stmt, 3, m_meta.base) ||
-        sqlite3_bind_text (stmt, 4, pcPtr, -1, SQLITE_STATIC) ||
-        sqlite3_bind_double(stmt, 5, m_meta.bbox.xMin) ||
-        sqlite3_bind_double(stmt, 6, m_meta.bbox.yMin) ||
-        sqlite3_bind_double(stmt, 7, m_meta.bbox.xMax) ||
-        sqlite3_bind_double(stmt, 8, m_meta.bbox.yMax) ||
-        sqlite3_bind_int64 (stmt, 9, m_meta.numPoints) ||
-        sqlite3_bind_text(stmt, 10, m_meta.schema.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_int (stmt, 11, m_meta.compressed) ||
-        sqlite3_bind_text(stmt, 12, m_meta.stats.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_text(stmt, 13, m_meta.srs.c_str(), -1, SQLITE_STATIC) ||
-        sqlite3_bind_blob(stmt, 14,
-            fills.data(),
-            // Need number of bytes here.
-            reinterpret_cast<const char*>(fills.data() + fills.size()) -
-                reinterpret_cast<const char*>(fills.data()),
+    if (sqlite3_bind_int(stmt, 1, 0) ||
+        sqlite3_bind_text(
+            stmt,
+            2,
+            jsonWriter.write(m_meta.toJson()).c_str(),
+            -1,
             SQLITE_STATIC))
     {
         throw std::runtime_error("Error binding meta values");

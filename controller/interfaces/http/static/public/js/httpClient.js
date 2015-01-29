@@ -157,8 +157,7 @@
                 dataType: 'binary',
                 responseType: 'arraybuffer',
                 type: 'GET',
-                url:
-                    readUrl + w.location.search + sep + 'schema=' + schema()
+                url: readUrl + w.location.search + sep + 'schema=' + schema()
             }).done(function(readRes, status, request) {
                 var dataBuffer = new Int8Array(readRes);
                 var numPoints  =

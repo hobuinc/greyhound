@@ -19,7 +19,7 @@ public:
     void write(std::string filename) const;
 
 private:
-    const GreyMeta m_meta;
+    GreyMeta m_meta;
     const pdal::QuadIndex& m_quadIndex;
 
     void writeMeta(sqlite3* db) const;
