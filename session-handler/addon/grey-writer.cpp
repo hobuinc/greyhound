@@ -398,11 +398,14 @@ std::vector<std::size_t> GreyWriter::getPoints(
         const BBox& bbox,
         std::size_t level) const
 {
+    const Point min(bbox.min());
+    const Point max(bbox.max());
+
     return m_quadIndex.getPoints(
-            bbox.xMin,
-            bbox.yMin,
-            bbox.xMax,
-            bbox.yMax,
+            min.x,
+            min.y,
+            max.x,
+            max.y,
             level,
             level + 1);
 }

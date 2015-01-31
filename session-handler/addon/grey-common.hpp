@@ -3,11 +3,11 @@
 #include <sqlite3.h>
 
 #include <pdal/util/Bounds.hpp>
-#include <json/json.h>
 
+#include "types.hpp"
 #include "http/s3.hpp"
 
-static const std::string greyVersion("1.0");
+static const std::string greyVersion("0.0.1a");
 
 static const uint64_t nwFlag(0);
 static const uint64_t neFlag(1);
@@ -16,52 +16,6 @@ static const uint64_t seFlag(3);
 
 // Must be non-zero to distinguish between various levels of NW-only paths.
 static const uint64_t baseId(3);
-
-struct BBox
-{
-    BBox();
-    BBox(const BBox& other);
-    BBox(double xMin, double yMin, double xMax, double yMax);
-    BBox(pdal::BOX3D bbox);
-
-    static BBox fromJson(const Json::Value& json)
-    {
-        return BBox(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble(),
-                json.get(Json::ArrayIndex(2), 0).asDouble(),
-                json.get(Json::ArrayIndex(3), 0).asDouble());
-    }
-
-    double xMin;
-    double yMin;
-    double xMax;
-    double yMax;
-
-    double xMid() const;
-    double yMid() const;
-
-    bool overlaps(const BBox& other) const;
-    bool contains(const BBox& other) const;
-
-    double width() const;
-    double height() const;
-
-    BBox getNw() const;
-    BBox getNe() const;
-    BBox getSw() const;
-    BBox getSe() const;
-
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json.append(xMin);
-        json.append(yMin);
-        json.append(xMax);
-        json.append(yMax);
-        return json;
-    }
-};
 
 struct GreyMeta
 {

@@ -410,7 +410,10 @@ void GreyCluster::index()
         m_quadTree.reset(
                 new pdal::QuadIndex(*m_pointBuffer.get(), m_depth));
 
-        m_quadTree->build(m_bbox.xMin, m_bbox.yMin, m_bbox.xMax, m_bbox.yMax);
+        const Point min(m_bbox.min());
+        const Point max(m_bbox.max());
+
+        m_quadTree->build(min.x, min.y, max.x, max.y);
     }
 }
 
@@ -462,12 +465,15 @@ void GreyCluster::getIndexList(
 
     if (m_quadTree)
     {
+        const Point min(bbox.min());
+        const Point max(bbox.max());
+
         const std::vector<std::size_t> indexList(
                 m_quadTree->getPoints(
-                    bbox.xMin,
-                    bbox.yMin,
-                    bbox.xMax,
-                    bbox.yMax,
+                    min.x,
+                    min.y,
+                    max.x,
+                    max.y,
                     depthBegin,
                     depthEnd));
 

@@ -141,15 +141,15 @@ void LiveDataSource::serialize(
         m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
+        Point min, max;
+        quadIndex.getBounds(min.x, min.y, max.x, max.y);
+
         // Data storage.
         GreyMeta meta;
-        meta.version = "0.0.1a";
+        meta.version = greyVersion;
         meta.pointContextXml = writer.xml();
-        quadIndex.getBounds(
-                meta.bbox.xMin,
-                meta.bbox.yMin,
-                meta.bbox.xMax,
-                meta.bbox.yMax);
+        meta.bbox.min(min);
+        meta.bbox.max(max);
         meta.numPoints = getNumPoints();
         meta.schema = getSchema();
         meta.compressed = compress;
