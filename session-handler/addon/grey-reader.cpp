@@ -22,15 +22,16 @@ namespace
             const BBox& bbox)
     {
         const std::size_t exp(std::pow(2, rasterize));
-        const double xWidth(bbox.xMax - bbox.xMin);
-        const double yWidth(bbox.yMax - bbox.yMin);
 
-        rasterMeta.xStep =  xWidth / exp;
-        rasterMeta.yStep =  yWidth / exp;
-        rasterMeta.xBegin = bbox.xMin + (rasterMeta.xStep / 2);
-        rasterMeta.yBegin = bbox.yMin + (rasterMeta.yStep / 2);
-        rasterMeta.xEnd =   bbox.xMax + (rasterMeta.xStep / 2);
-        rasterMeta.yEnd =   bbox.yMax + (rasterMeta.yStep / 2);
+        const Point min(bbox.min());
+        const Point max(bbox.max());
+
+        rasterMeta.xStep =  bbox.width()  / exp;
+        rasterMeta.yStep =  bbox.height() / exp;
+        rasterMeta.xBegin = min.x + (rasterMeta.xStep / 2);
+        rasterMeta.yBegin = min.y + (rasterMeta.yStep / 2);
+        rasterMeta.xEnd =   max.x + (rasterMeta.xStep / 2);
+        rasterMeta.yEnd =   max.y + (rasterMeta.yStep / 2);
 
         return exp * exp;
     }
@@ -93,7 +94,7 @@ GreyQuery GreyReader::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    const BBox bbox(xMin, yMin, xMax, yMax);
+    const BBox bbox(Point(xMin, yMin), Point(xMax, yMax));
 
     NodeInfoMap nodeInfoMap;
     m_idIndex->find(nodeInfoMap, depthBegin, depthEnd, bbox);

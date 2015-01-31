@@ -6,7 +6,6 @@
             'sources': [
                 './addon/buffer-pool.cpp',
                 './addon/compression-stream.cpp',
-                './addon/grey-common.cpp',
                 './addon/grey-reader.cpp',
                 './addon/grey-reader-types.cpp',
                 './addon/grey-writer.cpp',
@@ -17,10 +16,13 @@
                 './addon/pdal-session.cpp',
                 './addon/read-command.cpp',
                 './addon/read-query.cpp',
+                './addon/types.cpp',
                 './addon/http/collector.cpp',
                 './addon/http/curl.cpp',
                 './addon/http/s3.cpp',
-                './addon/third/jsoncpp.cpp'
+                './addon/third/jsoncpp.cpp',
+                './addon/tree/node.cpp',
+                './addon/tree/sleepy-tree.cpp'
             ],
             'include_dirs': [
                 './addon',

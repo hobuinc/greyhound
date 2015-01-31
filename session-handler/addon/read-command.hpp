@@ -10,6 +10,8 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
 
+#include "types.hpp"
+
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
@@ -17,97 +19,6 @@ void errorCallback(
 class QueryData;
 class ItcBufferPool;
 class ItcBuffer;
-
-struct RasterMeta
-{
-    RasterMeta() : xBegin(), xEnd(), xStep(), yBegin(), yEnd(), yStep() { }
-
-    RasterMeta(
-            double xBegin,
-            double xEnd,
-            double xStep,
-            double yBegin,
-            double yEnd,
-            double yStep)
-        : xBegin(xBegin)
-        , xEnd(xEnd)
-        , xStep(xStep)
-        , yBegin(yBegin)
-        , yEnd(yEnd)
-        , yStep(yStep)
-    { }
-
-    double xBegin;
-    double xEnd;
-    double xStep;
-    double yBegin;
-    double yEnd;
-    double yStep;
-
-    std::size_t xNum() const { return std::round((xEnd - xBegin) / xStep); }
-    std::size_t yNum() const { return std::round((yEnd - yBegin) / yStep); }
-};
-
-struct DimInfo
-{
-    DimInfo(std::string name, std::string type, std::size_t size)
-        : id(pdal::Dimension::id(name)), type(type), size(size)
-    { }
-
-    DimInfo(
-            const pdal::Dimension::Id::Enum id,
-            const pdal::Dimension::Type::Enum type)
-        : id(id)
-        , type(pdal::Dimension::toName(pdal::Dimension::base(type)))
-        , size(pdal::Dimension::size(type))
-    { }
-
-    const pdal::Dimension::Id::Enum id;
-    const std::string type;
-    const std::size_t size;
-};
-
-struct Schema
-{
-    explicit Schema(std::vector<DimInfo> dims) : dims(dims) { }
-    const std::vector<DimInfo> dims;
-
-    std::size_t stride(bool rasterize = false) const
-    {
-        std::size_t stride(0);
-
-        for (const auto& dim : dims)
-        {
-            if (!rasterize || !Schema::rasterOmit(dim.id))
-            {
-                stride += dim.size;
-            }
-        }
-
-        if (rasterize)
-        {
-            // Clientward rasterization schemas always contain a byte to specify
-            // whether a point at this location in the raster exists.
-            ++stride;
-        }
-
-        return stride;
-    }
-
-    bool use(const DimInfo& dim, bool rasterize) const
-    {
-        return !rasterize || !Schema::rasterOmit(dim.id);
-    }
-
-    static bool rasterOmit(pdal::Dimension::Id::Enum id)
-    {
-        // These Dimensions are not explicitly placed in the output buffer
-        // for rasterized requests.
-        return id == pdal::Dimension::Id::X || id == pdal::Dimension::Id::Y;
-    }
-
-};
-
 class PdalSession;
 
 class ReadCommand
