@@ -115,6 +115,14 @@ config.cn = {
         // Set to true to serve static files at /data/ for testing/verification.
         enableStaticServe: true,
 
+        // HTTP headers to be applied to Greyhound responses.  Likely uses
+        // include CORS settings and cache control.
+        headers: {
+            'Cache-Control':                  'public, max-age=86400',
+            'Access-Control-Allow-Origin':    '*',
+            'Access-Control-Allow-Methods':   'GET,PUT,POST,DELETE'
+        },
+
         // Specify a port on which to listen.  If omitted or null, default is
         // 8081. This is not a public-facing port - haproxy will route to this
         // port for non-websocket connections.
