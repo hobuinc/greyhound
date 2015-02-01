@@ -14,7 +14,22 @@ var
     controllerConfig = (require('../../../config').cn || { }),
     httpConfig = (controllerConfig ? controllerConfig.http  : { }),
     wsConfig   = (controllerConfig ? controllerConfig.ws    : { })
+    exposedHeaders =
+            'X-Greyhound-Num-Points,' +
+            'X-Greyhound-Read-ID,' +
+            'X-Greyhound-Raster-Meta'
     ;
+
+
+if (
+        httpConfig.headers &&
+        httpConfig.headers['Access-Control-Expose-Headers'])
+{
+    exposedHeaders +=
+        ',' +
+        httpConfig.headers['Access-Control-Expose-Headers'];
+    delete httpConfig.headers['Access-Control-Expose-Headers'];
+}
 
 (function() {
     'use strict';
@@ -35,8 +50,12 @@ var
 
         // Set the x-powered-by header
         app.use(function(req, res, next) {
-            res.header("X-powered-by", "Hobu, Inc.");
-            res.header("Cache-Control", "public, max-age=120");
+            Object.keys(httpConfig.headers).map(function(key) {
+                res.header(key, httpConfig.headers[key]);
+            });
+            res.header('X-powered-by', 'Hobu, Inc.');
+            res.header('Access-Control-Expose-Headers', exposedHeaders);
+            res.header('Access-Control-Allow-Headers', 'Content-Type');
             next();
         });
 
@@ -157,6 +176,7 @@ var
 
                     res.header('X-Greyhound-Num-Points', shRes.numPoints);
                     res.header('X-Greyhound-Read-ID', shRes.readId);
+                    res.header('Content-Type', 'application/octet-stream');
 
                     if (shRes.rasterMeta) {
                         res.header(
