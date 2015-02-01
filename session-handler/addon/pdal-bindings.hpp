@@ -37,10 +37,7 @@ private:
 
     static v8::Handle<v8::Value> construct(const v8::Arguments& args);
 
-    static void doInitialize(const v8::Arguments& args, bool execute = true);
-    static v8::Handle<v8::Value> parse(const v8::Arguments& args);
     static v8::Handle<v8::Value> create(const v8::Arguments& args);
-
     static v8::Handle<v8::Value> destroy(const v8::Arguments& args);
     static v8::Handle<v8::Value> getNumPoints(const v8::Arguments& args);
     static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
@@ -54,22 +51,20 @@ private:
 
     ItcBufferPool& m_itcBufferPool;
 
-    struct CreateData
+    struct CreateData : public Background
     {
         CreateData(
                 std::shared_ptr<PdalSession> pdalSession,
                 std::string pipelineId,
-                std::string pipeline,
+                std::string filename,
                 bool serialCompress,
                 SerialPaths serialPaths,
-                bool execute,
                 v8::Persistent<v8::Function> callback)
             : pdalSession(pdalSession)
             , pipelineId(pipelineId)
-            , pipeline(pipeline)
+            , filename(filename)
             , serialCompress(serialCompress)
             , serialPaths(serialPaths)
-            , execute(execute)
             , errMsg()
             , callback(callback)
         { }
@@ -82,10 +77,9 @@ private:
         // Inputs
         const std::shared_ptr<PdalSession> pdalSession;
         const std::string pipelineId;
-        const std::string pipeline;
+        const std::string filename;
         const bool serialCompress;
         const SerialPaths serialPaths;
-        const bool execute;
 
         // Outputs
         std::string errMsg;
@@ -93,7 +87,7 @@ private:
         v8::Persistent<v8::Function> callback;
     };
 
-    struct SerializeData
+    struct SerializeData : public Background
     {
         SerializeData(
                 std::shared_ptr<PdalSession> pdalSession,

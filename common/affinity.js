@@ -67,10 +67,16 @@ var web = require('./web'),
         ;
     }
 
-    Affinity.prototype.del = function(plId, cb) {
+    Affinity.prototype.del = function(plId, sh, cb) {
+        if (!cb) {
+            cb = sh;
+            sh = null;
+        }
+
         console.log('Aff del', plId);
         var self = this;
-        self.get(plId, function(err, sh) {
+
+        var doDel = function(sh, cb) {
             redisClient.multi()
                 .del (plStore(plId))
                 .srem(plStore(), plId)
@@ -79,7 +85,17 @@ var web = require('./web'),
                     return cb(err);
                 })
             ;
-        });
+        }
+
+        if (sh) {
+            doDel(sh, cb);
+        }
+        else {
+            self.get(plId, function(err, sh) {
+                if (err) return cb(err);
+                doDel(sh, cb);
+            });
+        }
     }
 
     // Creates the pdalSession for this pipelineId if necessary.
@@ -97,7 +113,7 @@ var web = require('./web'),
                 if (err) return cb(err);
 
                 // Get the actual contents of the pipeline file.
-                self.getPlContents(db, plId, function(err, plContents) {
+                self.getPlContents(db, plId, function(err, filename) {
                     if (err) return cb(err);
 
                     // Request creation of this pipeline.
@@ -106,17 +122,25 @@ var web = require('./web'),
 
                         self.add(plId, sh, function(err) {
                             if (err) {
+                                console.log('Error adding');
                                 self.del(plId);
                                 return cb(err);
                             }
 
                             var params = {
                                 pipelineId: plId,
-                                pipeline:   plContents,
+                                filename:   filename,
                             };
 
                             web.post(sh, '/create', params, function(err, res) {
-                                if (err) self.del(plId);
+                                if (err) {
+                                    self.del(plId, sh, function(err) {
+                                        if (err) {
+                                            console.log('Err in del:', err);
+                                        }
+                                    });
+                                }
+
                                 return cb(err, sh);
                             });
                         })

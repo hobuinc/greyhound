@@ -34,10 +34,7 @@ switch (type) {
 app.use(methodOverride());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.errorHandler({
-    dumpExceptions: true,
-    showStack: true
-}));
+app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 app.use(app.router);
 
 var error = function(res) {
@@ -63,11 +60,8 @@ app.get("/", function(req, res) {
 
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    driver.put(req.body.pipeline, function(err, pipelineId) {
-        if (err)
-            return error(res)(err);
-
-        // Respond with database ID of the inserted pipeline.
+    driver.put(req.body.filename, function(err, pipelineId) {
+        if (err) return error(res)(err);
         return res.json({ id: pipelineId });
     });
 });
@@ -77,18 +71,17 @@ app.get("/retrieve", function(req, res) {
         var pipelineId = req.body.pipelineId;
         console.log("/retrieve with pipelineId:", pipelineId);
 
-        driver.retrieve(pipelineId.toString(), function(err, foundPipeline) {
-            if (err)
+        driver.retrieve(pipelineId.toString(), function(err, filename) {
+            if (err == 404)
+                return res.json(404);
+            else if (err)
                 return error(res)(err);
-            else if (!foundPipeline)
+            else if (!filename)
                 return error(res)('    Could not retrieve pipeline');
 
-            console.log(
-                '    /retrieve with pipelineId:',
-                pipelineId,
-                'successful');
+            console.log('    /retrieve success:', pipelineId, '->', filename);
 
-            return res.json({ pipeline: foundPipeline });
+            return res.json({ pipeline: filename });
         });
     });
 });
