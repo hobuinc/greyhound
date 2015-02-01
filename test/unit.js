@@ -19,43 +19,43 @@ var rendererSchema =
     {
         "name": "X",
         "type": "floating",
-        "size": "4"
+        "size": 4
     },
     {
         "name": "Y",
         "type": "floating",
-        "size": "4"
+        "size": 4
     },
     {
         "name": "Z",
         "type": "floating",
-        "size": "4"
+        "size": 4
     },
     {
         "name": "Intensity",
         "type": "unsigned",
-        "size": "2"
+        "size": 2
     },
     {
         "name": "Red",
         "type": "unsigned",
-        "size": "2"
+        "size": 2
     },
     {
         "name": "Green",
         "type": "unsigned",
-        "size": "2"
+        "size": 2
     },
     {
         "name": "Blue",
         "type": "unsigned",
-        "size": "2"
+        "size": 2
     },
     {
         // Invalid dimension in schema request - will always be omitted.
         "name": "BAD DIMENSION NAME",
         "type": "unsigned",
-        "size": "2"
+        "size": 2
     },
 ];
 
@@ -63,82 +63,82 @@ var rxSchema =
 [
     {
         "name" : "X",
-        "size" : "8",
+        "size" : 8,
         "type" : "floating"
     },
     {
         "name" : "Y",
-        "size" : "8",
+        "size" : 8,
         "type" : "floating"
     },
     {
         "name" : "Z",
-        "size" : "8",
+        "size" : 8,
         "type" : "floating"
     },
     {
         "name" : "GpsTime",
-        "size" : "8",
+        "size" : 8,
         "type" : "floating"
     },
     {
         "name" : "ScanAngleRank",
-        "size" : "4",
+        "size" : 4,
         "type" : "floating"
     },
     {
         "name" : "Intensity",
-        "size" : "2",
+        "size" : 2,
         "type" : "unsigned"
     },
     {
         "name" : "PointSourceId",
-        "size" : "2",
+        "size" : 2,
         "type" : "unsigned"
     },
     {
         "name" : "Red",
-        "size" : "2",
+        "size" : 2,
         "type" : "unsigned"
     },
     {
         "name" : "Green",
-        "size" : "2",
+        "size" : 2,
         "type" : "unsigned"
     },
     {
         "name" : "Blue",
-        "size" : "2",
+        "size" : 2,
         "type" : "unsigned"
     },
     {
         "name" : "ReturnNumber",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     },
     {
         "name" : "NumberOfReturns",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     },
     {
         "name" : "ScanDirectionFlag",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     },
     {
         "name" : "EdgeOfFlightLine",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     },
     {
         "name" : "Classification",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     },
     {
         "name" : "UserData",
-        "size" : "1",
+        "size" : 1,
         "type" : "unsigned"
     }
 ];
@@ -286,8 +286,9 @@ var validateJson = function(test, json, expected, exchangeIndex) {
             if (typeof expected[field] !== "function") {
                 test.ok(
                     _.isEqual(json[field], expected[field]),
-                    'Expected json[' + field + '] === ' + expected[field] +
-                            ', got: ' + json[field]);
+                    'Expected json[' + field + '] ===\n' +
+                        JSON.stringify(expected[field]) +
+                        '\n\nGot:\n' + JSON.stringify(json[field]));
             }
             else {
                 test.ok(
@@ -429,8 +430,7 @@ module.exports = {
     // Expect: Two successful statuses with a pipelineId parameter in each
     // response
     testPutDoublePipeline: function(test) {
-        var filename = '/vagrant/examples/data/read.xml';
-        file = fs.readFileSync(filename, 'utf8');
+        var file = '/vagrant/examples/data/read.xml';
 
         doExchangeSet(
             test,

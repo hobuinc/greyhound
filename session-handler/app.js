@@ -140,27 +140,10 @@ app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
 });
 
-// handlers for our API
-app.get("/validate", function(req, res) {
-    var pdalSession = new PdalSession();
-    pdalSession.parse(
-        '',
-        req.body.pipeline,
-        serialCompress,
-        aws,
-        serialPaths,
-        function(err) {
-            pdalSession.destroy();
-            if (err) console.log('Pipeline validation error:', err);
-            res.json({ valid: err ? false : true });
-        }
-    );
-});
-
 app.post("/create", function(req, res) {
     console.log(':session-handler:CREATE');
     var pipelineId = req.body.pipelineId;
-    var pipeline = req.body.pipeline;
+    var filename = req.body.filename;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
 
     // Make sure to set these outside of the callback so that if another
@@ -175,13 +158,15 @@ app.post("/create", function(req, res) {
     // that call completes.
     pdalSession.create(
         pipelineId,
-        pipeline,
+        filename,
         serialCompress,
         aws,
         serialPaths,
         function(err)
     {
         if (err) {
+            delete pipelineIds[pipelineId];
+
             console.log('Error in CREATE:', err);
             return error(res)(err);
         }
@@ -211,16 +196,13 @@ app.get("/schema/:plId", function(req, res) {
                 schema[i] = { };
                 dim = dimensions[i];
 
-                if (
-                        !dim.name || !dim.name.value ||
-                        !dim.type || !dim.type.value ||
-                        !dim.size || !dim.size.value) {
+                if (!dim.name || !dim.type || !dim.size) {
                     return res.json(400, { message: 'Invalid PDAL schema' });
                 }
 
-                schema[i].name = dim.name.value;
-                schema[i].type = dim.type.value;
-                schema[i].size = dim.size.value;
+                schema[i].name = dim.name;
+                schema[i].type = dim.type;
+                schema[i].size = dim.size;
             }
         }
 

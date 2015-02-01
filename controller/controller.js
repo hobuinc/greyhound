@@ -1,6 +1,5 @@
 var
     _ = require('lodash'),
-    crypto = require('crypto'),
     console = require('clim')(),
 
     disco = require('../common').disco,
@@ -41,35 +40,20 @@ var
         }
     }
 
-    Controller.prototype.put = function(pipeline, cb) {
+    Controller.prototype.put = function(filename, cb) {
         var self = this;
         console.log("controller::put");
-        // Validate this pipeline and then hand it to the db-handler.
-        if (!pipeline) return cb(self.propError('put', 'pipeline'));
 
-        affinity.lightestLoad(function(err, sh) {
-            if (err) return new Error('No session handler found');
+        affinity.getDb(function(err, db) {
+            if (err) return cb(err);
 
-            var params = { pipeline: pipeline };
-            web.get(sh, '/validate/', params, function(err, res) {
-                if (err || !res.valid) {
-                    console.log('PUT - Pipeline validation failed');
-                    return cb(err || 'Pipeline is not valid');
-                }
-
-                affinity.getDb(function(err, db) {
-                    if (err) return cb(err);
-
-                    web.post(db, '/put', params, function(err, res) {
-                        if (err)
-                            return cb(err);
-                        if (!res.hasOwnProperty('id'))
-                            return cb(new Error(
-                                    'Invalid response from PUT'));
-                        else
-                            cb(null, { pipelineId: res.id });
-                    });
-                });
+            web.post(db, '/put', { filename: filename }, function(err, res) {
+                if (err)
+                    return cb(err);
+                if (!res.hasOwnProperty('id'))
+                    return cb(new Error('Invalid response from PUT'));
+                else
+                    cb(null, { pipelineId: res.id });
             });
         });
     }

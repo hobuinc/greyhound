@@ -100,26 +100,6 @@ namespace
 
         return info;
     }
-
-    void safe(std::string& err, std::function<void()> f)
-    {
-        try
-        {
-            f();
-        }
-        catch (const std::runtime_error& e)
-        {
-            err = e.what();
-        }
-        catch (const std::bad_alloc& ba)
-        {
-            err = "Caught bad alloc";
-        }
-        catch (...)
-        {
-            err = "Unknown error";
-        }
-    }
 }
 
 namespace ghEnv
@@ -208,8 +188,6 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
     // Prototype
     tpl->PrototypeTemplate()->Set(String::NewSymbol("construct"),
         FunctionTemplate::New(construct)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("parse"),
-        FunctionTemplate::New(parse)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("create"),
         FunctionTemplate::New(create)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("destroy"),
@@ -251,19 +229,16 @@ Handle<Value> PdalBindings::construct(const Arguments& args)
     }
 }
 
-void PdalBindings::doInitialize(
-        const Arguments& args,
-        const bool execute)
+Handle<Value> PdalBindings::create(const Arguments& args)
 {
     HandleScope scope;
-
     std::string errMsg("");
 
     if (args[0]->IsUndefined() || !args[0]->IsString())
         errMsg = "'pipelineId' must be a string - args[0]";
 
     if (args[1]->IsUndefined() || !args[1]->IsString())
-        errMsg = "'pipeline' must be a string - args[1]";
+        errMsg = "'filename' must be a string - args[1]";
 
     if (args[2]->IsUndefined() || !args[2]->IsBoolean())
         errMsg = "'serialCompress' must be boolean - args[2]";
@@ -278,12 +253,11 @@ void PdalBindings::doInitialize(
     if (errMsg.size())
     {
         errorCallback(callback, errMsg);
-        scope.Close(Undefined());
-        return;
+        return scope.Close(Undefined());
     }
 
     const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
-    const std::string pipeline  (*v8::String::Utf8Value(args[1]->ToString()));
+    const std::string filename  (*v8::String::Utf8Value(args[1]->ToString()));
     const bool serialCompress   (args[2]->BooleanValue());
     const S3Info s3Info(parseS3Info(args[3]));
     const std::vector<std::string> diskPaths(parsePathList(args[4]));
@@ -297,10 +271,9 @@ void PdalBindings::doInitialize(
     req->data = new CreateData(
             obj->m_pdalSession,
             pipelineId,
-            pipeline,
+            filename,
             serialCompress,
             serialPaths,
-            execute,
             callback);
 
     uv_queue_work(
@@ -309,13 +282,12 @@ void PdalBindings::doInitialize(
         (uv_work_cb)([](uv_work_t *req)->void {
             CreateData* createData(static_cast<CreateData*>(req->data));
 
-            safe(createData->errMsg, [createData]()->void {
+            createData->safe(createData->errMsg, [createData]()->void {
                 createData->pdalSession->initialize(
                     createData->pipelineId,
-                    createData->pipeline,
+                    createData->filename,
                     createData->serialCompress,
-                    createData->serialPaths,
-                    createData->execute);
+                    createData->serialPaths);
             });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void {
@@ -339,27 +311,6 @@ void PdalBindings::doInitialize(
             delete req;
         })
     );
-
-    scope.Close(Undefined());
-}
-
-Handle<Value> PdalBindings::create(const Arguments& args)
-{
-    HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-    obj->doInitialize(args, true);
-    return scope.Close(Undefined());
-}
-
-Handle<Value> PdalBindings::parse(const Arguments& args)
-{
-    HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-    obj->doInitialize(args, false);
-
-    // Release this session from memory now - we will need to reset the
-    // session anyway in order to use it after this.
-    obj->m_pdalSession.reset();
 
     return scope.Close(Undefined());
 }
@@ -469,7 +420,7 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
             SerializeData* serializeData(
                 reinterpret_cast<SerializeData*>(req->data));
 
-            safe(serializeData->errMsg, [serializeData]()->void {
+            serializeData->safe(serializeData->errMsg, [serializeData]()->void {
                 serializeData->pdalSession->serialize(serializeData->paths);
             });
         }),
@@ -536,7 +487,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             ReadCommand* readCommand(
                 static_cast<ReadCommand*>(readReq->data));
 
-            safe(readCommand->errMsg(), [readCommand]()->void {
+            readCommand->safe(readCommand->errMsg(), [readCommand]()->void {
                 // Run the query.  This will ensure indexing if needed, and
                 // will obtain everything needed to start streaming binary
                 // data to the client.
@@ -658,7 +609,10 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
 
-                    safe(readCommand->errMsg(), [readCommand]()->void {
+                    readCommand->safe(
+                        readCommand->errMsg(),
+                        [readCommand]()->void
+                    {
                         readCommand->acquire();
 
                         do

@@ -2,6 +2,7 @@
     var MongoDriver = function() {
         var mongo = require('mongoskin'),
             crypto = require('crypto'),
+            fs = require('fs'),
             db = null;
 
         this.initialize = function(options, cb) {
@@ -29,24 +30,33 @@
             );
         }
 
-        this.put = function(pipeline, cb) {
-            console.log("db.put");
+        this.put = function(filename, cb) {
+            console.log("db.put", filename);
 
-            // Hash the pipeline as the database key.
-            var hash = crypto.createHash('md5').update(pipeline).digest("hex");
-            var entry = { id: hash, pipeline: pipeline };
+            fs.open(filename, 'r', function(err, fd) {
+                if (err) return cb(err);
 
-            db.collection('pipelines').findAndModify(
-                { id: hash },
-                { },
-                { $setOnInsert: entry },
-                { 'new': true, 'upsert': true },
-                function(err, result) {
-                    console.log("    :got put result");
-                    if (err) console.log("        :err:", err);
-                    return cb(err, result.id);
-                }
-            );
+                var buffer = new Buffer(1024);
+                fs.read(fd, buffer, 0, 1024, 0, function(err, num) {
+                    // Hash the pipeline as the database key.
+                    var hash = crypto.createHash('md5')
+                        .update(buffer.toString('utf-8', 0, num)).digest("hex");
+
+                    var entry = { id: hash, pipeline: filename };
+
+                    db.collection('pipelines').findAndModify(
+                        { id: hash },
+                        { },
+                        { $setOnInsert: entry },
+                        { 'new': true, 'upsert': true },
+                        function(err, result) {
+                            console.log("    :got put result");
+                            if (err) console.log("        :err:", err);
+                            return cb(err, result.id);
+                        }
+                    );
+                });
+            });
         }
 
         this.retrieve = function(pipelineId, cb) {
@@ -57,7 +67,7 @@
             db.collection('pipelines').findOne(query, function(err, entry) {
                 if (err) console.log("    db.collection.findOne:", err);
                 if (!err && (!entry || !entry.hasOwnProperty('pipeline')))
-                    return cb('Invalid entry retreived');
+                    return cb(404);
 
                 return cb(err, entry.pipeline);
             });

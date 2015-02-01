@@ -19,10 +19,9 @@ public:
 
     void initialize(
             const std::string& pipelineId,
-            const std::string& pipeline,
+            const std::string& filename,
             bool serialCompress,
-            const SerialPaths& serialPaths,
-            bool execute);
+            const SerialPaths& serialPaths);
 
     // Queries.
     std::size_t getNumPoints();
@@ -33,9 +32,6 @@ public:
 
     // Write to disk.
     void serialize(const SerialPaths& serialPaths);
-
-    // Wake from serialized quad-tree.
-    bool awaken(const SerialPaths& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::shared_ptr<QueryData> queryUnindexed(
@@ -100,8 +96,11 @@ public:
     }
 
 private:
+    // Wake from serialized quad-tree.
+    bool awaken(const SerialPaths& serialPaths);
+
     std::string m_pipelineId;
-    std::string m_pipeline;
+    std::string m_filename;
     bool m_serialCompress;
     std::shared_ptr<LiveDataSource> m_liveDataSource;
     std::shared_ptr<GreyReader> m_serialDataSource;
