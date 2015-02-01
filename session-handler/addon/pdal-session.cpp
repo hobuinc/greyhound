@@ -8,7 +8,7 @@
 
 PdalSession::PdalSession()
     : m_pipelineId()
-    , m_pipeline()
+    , m_filename()
     , m_serialCompress()
     , m_liveDataSource()
     , m_serialDataSource()
@@ -18,34 +18,29 @@ PdalSession::PdalSession()
 
 void PdalSession::initialize(
         const std::string& pipelineId,
-        const std::string& pipeline,
+        const std::string& filename,
         const bool serialCompress,
-        const SerialPaths& serialPaths,
-        const bool execute)
+        const SerialPaths& serialPaths)
 {
     m_initOnce.ensure([
             this,
             &pipelineId,
-            &pipeline,
+            &filename,
             serialCompress,
-            &serialPaths,
-            execute]()
+            &serialPaths]()
     {
         m_pipelineId = pipelineId;
-        m_pipeline = pipeline;
+        m_filename = filename;
         m_serialCompress = serialCompress;
+        std::cout << "Initializing " << pipelineId << " - " << filename <<
+            std::endl;
 
         // Try to awaken from serialized source.  If unsuccessful, initialize a
-        // live source.  For pipeline validation only, this will be called with
-        // an empty pipelineId since it does not exist yet.  In this case,
-        // always perform live initialization.
-        if (!pipelineId.size() || (!awaken(serialPaths) && !m_liveDataSource))
+        // live source.
+        if (!awaken(serialPaths) && !m_liveDataSource)
         {
-            m_liveDataSource.reset(
-                    new LiveDataSource(pipelineId, pipeline, execute));
-
-            if (pipelineId.size())
-                std::cout << "Created live source " << pipelineId << std::endl;
+            m_liveDataSource.reset(new LiveDataSource(pipelineId, filename));
+            std::cout << "Created live source " << pipelineId << std::endl;
         }
     });
 }
@@ -119,11 +114,13 @@ bool PdalSession::awaken(const SerialPaths& serialPaths)
 {
     bool awoken(false);
 
-    m_awakenMutex.lock();
+    std::lock_guard<std::mutex> lock(m_awakenMutex);
     if (!m_serialDataSource)
     {
-        GreyReader* reader(GreyReaderFactory::create(
-                    m_pipelineId, serialPaths));
+        GreyReader* reader(
+                GreyReaderFactory::create(
+                    m_pipelineId,
+                    serialPaths));
 
         if (reader)
         {
@@ -135,7 +132,6 @@ bool PdalSession::awaken(const SerialPaths& serialPaths)
     {
         awoken = true;
     }
-    m_awakenMutex.unlock();
 
     return awoken;
 }
@@ -153,8 +149,7 @@ std::shared_ptr<QueryData> PdalSession::queryUnindexed(
     if (!m_liveDataSource)
     {
         std::cout << "Resetting live data source" << std::endl;
-        m_liveDataSource.reset(
-                new LiveDataSource(m_pipelineId, m_pipeline, true));
+        m_liveDataSource.reset(new LiveDataSource(m_pipelineId, m_filename));
     }
 
     return std::shared_ptr<QueryData>(new UnindexedQueryData(
@@ -345,8 +340,7 @@ std::shared_ptr<QueryData> PdalSession::query(
     // Custom-res raster queries are only supported by a live data source.
     if (!m_liveDataSource)
     {
-        m_liveDataSource.reset(
-                new LiveDataSource(m_pipelineId, m_pipeline, true));
+        m_liveDataSource.reset(new LiveDataSource(m_pipelineId, m_filename));
     }
 
     if (!m_liveDataSource)
@@ -375,8 +369,7 @@ std::shared_ptr<QueryData> PdalSession::query(
     // KD-indexed read queries are only supported by a live data source.
     if (!m_liveDataSource)
     {
-        m_liveDataSource.reset(
-                new LiveDataSource(m_pipelineId, m_pipeline, true));
+        m_liveDataSource.reset(new LiveDataSource(m_pipelineId, m_filename));
     }
 
     if (!m_liveDataSource)

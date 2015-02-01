@@ -105,10 +105,7 @@ int main(int argc, char* argv[])
 
     Json::Value v;
     v["command"] = "put";
-    std::ifstream stream(filename, std::ios_base::in);
-    std::stringstream buffer;
-    buffer << stream.rdbuf();
-    v["pipeline"] = buffer.str();
+    v["pipeline"] = filename;
 
     Json::Value result(client.exchange(v));
 

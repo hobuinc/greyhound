@@ -1,5 +1,6 @@
 #include <thread>
 #include <fstream>
+#include <streambuf>
 
 #include <sqlite3.h>
 #include <boost/property_tree/json_parser.hpp>
@@ -11,6 +12,7 @@
 #include <pdal/Options.hpp>
 #include <pdal/Metadata.hpp>
 #include <pdal/QuadIndex.hpp>
+#include <pdal/StageFactory.hpp>
 #include <pdal/XMLSchema.hpp>
 
 #include "read-command.hpp"
@@ -48,41 +50,61 @@ namespace
 
 LiveDataSource::LiveDataSource(
         const std::string& pipelineId,
-        const std::string& pipeline,
-        const bool execute)
+        const std::string& filename)
     : m_pipelineId(pipelineId)
     , m_pipelineManager()
     , m_pointBuffer()
     , m_pointContext()
     , m_pdalIndex(new PdalIndex())
 {
-    std::istringstream ssPipeline(pipeline);
-    pdal::PipelineReader pipelineReader(m_pipelineManager);
-    pipelineReader.readPipeline(ssPipeline);
+    pdal::StageFactory stageFactory;
+    pdal::Options options;
 
-    if (execute)
+    const std::string driver(stageFactory.inferReaderDriver(filename));
+
+    if (driver.size())
     {
-        m_pipelineManager.addFilter(
-            "filters.stats",
-            m_pipelineManager.getStage());
+        std::cout << pipelineId << " - inferred " << filename << std::endl;
+        m_pipelineManager.addReader(driver);
 
-        pdal::Options options;
+        pdal::Stage* reader(
+                static_cast<pdal::Reader*>(m_pipelineManager.getStage()));
+        options.add(pdal::Option("filename", filename));
+        reader->setOptions(options);
+    }
+    else
+    {
+        std::cout << pipelineId << " - inferred XML pipeline" << std::endl;
+
+        std::ifstream fileStream(filename);
+        const std::string pipeline(
+                (std::istreambuf_iterator<char>(fileStream)),
+                std::istreambuf_iterator<char>());
+
+        std::istringstream ssPipeline(pipeline);
+        pdal::PipelineReader pipelineReader(m_pipelineManager);
+        pipelineReader.readPipeline(ssPipeline);
+
+        m_pipelineManager.addFilter(
+                "filters.stats",
+                m_pipelineManager.getStage());
+
         options.add("do_sample", false);
         m_pipelineManager.getStage()->setOptions(options);
+    }
 
-        m_pipelineManager.execute();
+    m_pipelineManager.execute();
 
-        m_pointContext = m_pipelineManager.context();
-        const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
-        m_pointBuffer = *pbSet.begin();
+    m_pointContext = m_pipelineManager.context();
+    const pdal::PointBufferSet& pbSet(m_pipelineManager.buffers());
+    m_pointBuffer = *pbSet.begin();
 
-        if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
-            !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
-            !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
-        {
-            throw std::runtime_error(
-                "Pipeline output should contain X, Y, and Z dimensions");
-        }
+    if (!m_pointBuffer->hasDim(pdal::Dimension::Id::X) ||
+        !m_pointBuffer->hasDim(pdal::Dimension::Id::Y) ||
+        !m_pointBuffer->hasDim(pdal::Dimension::Id::Z))
+    {
+        throw std::runtime_error(
+            "Pipeline output should contain X, Y, and Z dimensions");
     }
 }
 

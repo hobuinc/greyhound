@@ -19,8 +19,7 @@ class LiveDataSource
 public:
     LiveDataSource(
             const std::string& pipelineId,
-            const std::string& pipeline,
-            bool execute);
+            const std::string& filename);
 
     void ensureIndex(PdalIndex::IndexType indexType);
 
