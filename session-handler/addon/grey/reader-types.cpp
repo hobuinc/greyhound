@@ -1,7 +1,8 @@
 #include <pdal/QuadIndex.hpp>
 #include <pdal/PointBuffer.hpp>
 
-#include "grey-reader-types.hpp"
+#include "types/raster-meta.hpp"
+#include "reader-types.hpp"
 
 namespace
 {
@@ -415,6 +416,21 @@ void GreyCluster::index()
 
         m_quadTree->build(min.x, min.y, max.x, max.y);
     }
+}
+
+bool GreyCluster::populated() const
+{
+    return m_pointBuffer.get() != 0;
+}
+
+bool GreyCluster::indexed() const
+{
+    return m_quadTree.get() != 0;
+}
+
+std::shared_ptr<pdal::PointBuffer> GreyCluster::pointBuffer()
+{
+    return m_pointBuffer;
 }
 
 void GreyCluster::getIndexList(

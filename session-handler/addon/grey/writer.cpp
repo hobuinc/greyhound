@@ -4,9 +4,9 @@
 
 #include <json/json.h>
 
-#include "grey-writer.hpp"
 #include "compression-stream.hpp"
 #include "http/collector.hpp"
+#include "writer.hpp"
 
 namespace
 {

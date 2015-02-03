@@ -5,8 +5,15 @@
 
 #include <pdal/PointContext.hpp>
 
-#include "types.hpp"
+#include "types/point.hpp"
 
+namespace pdal
+{
+    class PointBuffer;
+}
+
+class BBox;
+class RasterMeta;
 class StemNode;
 
 typedef uint64_t Origin;

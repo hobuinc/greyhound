@@ -1,7 +1,8 @@
-#include "read-command.hpp"
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
 #include "read-query.hpp"
+
+#include "commands/read.hpp"
 
 using namespace v8;
 
@@ -46,7 +47,7 @@ ReadCommand::ReadCommand(
         const std::string host,
         const std::size_t port,
         const bool compress,
-        const Schema schema,
+        const Schema& schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : m_pdalSession(pdalSession)
@@ -65,9 +66,45 @@ ReadCommand::ReadCommand(
     , m_errMsg()
 { }
 
+ReadCommand::~ReadCommand()
+{
+    m_queryCallback.Dispose();
+    m_dataCallback.Dispose();
+
+    if (m_async)
+    {
+        uv_close((uv_handle_t*)m_async, NULL);
+    }
+}
+
+std::size_t ReadCommand::numBytes() const
+{
+    return numPoints() * m_schema.stride(rasterize());
+}
+
+void ReadCommand::cancel(bool cancel)
+{
+    m_cancel = cancel;
+}
+
+std::string& ReadCommand::errMsg()
+{
+    return m_errMsg;
+}
+
+std::shared_ptr<ItcBuffer> ReadCommand::getBuffer()
+{
+    return m_itcBuffer;
+}
+
+ItcBufferPool& ReadCommand::getBufferPool()
+{
+    return m_itcBufferPool;
+}
+
 bool ReadCommand::done() const
 {
-    return m_queryData->done();
+    return m_readQuery->done();
 }
 
 void ReadCommand::run()
@@ -82,22 +119,37 @@ void ReadCommand::acquire()
 
 void ReadCommand::read(std::size_t maxNumBytes)
 {
-    m_queryData->read(m_itcBuffer, maxNumBytes);
+    m_readQuery->read(m_itcBuffer, maxNumBytes);
 }
 
 void ReadCommandRastered::read(std::size_t maxNumBytes)
 {
-    m_queryData->read(m_itcBuffer, maxNumBytes, true);
+    m_readQuery->read(m_itcBuffer, maxNumBytes, true);
 }
 
 std::size_t ReadCommand::numPoints() const
 {
-    return m_queryData->numPoints();
+    return m_readQuery->numPoints();
 }
 
-std::size_t ReadCommandRastered::numBytes() const
+std::string ReadCommand::readId() const
 {
-    return numPoints() * m_schema.stride(true);
+    return m_readId;
+}
+
+bool ReadCommand::cancel() const
+{
+    return m_cancel;
+}
+
+v8::Persistent<v8::Function> ReadCommand::queryCallback() const
+{
+    return m_queryCallback;
+}
+
+v8::Persistent<v8::Function> ReadCommand::dataCallback() const
+{
+    return m_dataCallback;
 }
 
 ReadCommandUnindexed::ReadCommandUnindexed(
@@ -192,10 +244,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::size_t port,
         bool compress,
         Schema schema,
-        double xMin,
-        double yMin,
-        double xMax,
-        double yMax,
+        BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::Persistent<v8::Function> queryCallback,
@@ -212,10 +261,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
             depthEnd,
             queryCallback,
             dataCallback)
-    , m_xMin(xMin)
-    , m_yMin(yMin)
-    , m_xMax(xMax)
-    , m_yMax(yMax)
+    , m_bbox(bbox)
 { }
 
 ReadCommandRastered::ReadCommandRastered(
@@ -315,7 +361,7 @@ Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
 
 void ReadCommandUnindexed::query()
 {
-    m_queryData = m_pdalSession->queryUnindexed(
+    m_readQuery = m_pdalSession->queryUnindexed(
             m_schema,
             m_compress,
             m_start,
@@ -324,7 +370,7 @@ void ReadCommandUnindexed::query()
 
 void ReadCommandQuadIndex::query()
 {
-    m_queryData = m_pdalSession->query(
+    m_readQuery = m_pdalSession->query(
             m_schema,
             m_compress,
             m_depthBegin,
@@ -333,20 +379,17 @@ void ReadCommandQuadIndex::query()
 
 void ReadCommandBoundedQuadIndex::query()
 {
-    m_queryData = m_pdalSession->query(
+    m_readQuery = m_pdalSession->query(
             m_schema,
             m_compress,
-            m_xMin,
-            m_yMin,
-            m_xMax,
-            m_yMax,
+            m_bbox,
             m_depthBegin,
             m_depthEnd);
 }
 
 void ReadCommandRastered::query()
 {
-    m_queryData = m_pdalSession->query(
+    m_readQuery = m_pdalSession->query(
             m_schema,
             m_compress,
             m_rasterMeta);
@@ -354,7 +397,7 @@ void ReadCommandRastered::query()
 
 void ReadCommandQuadLevel::query()
 {
-    m_queryData = m_pdalSession->query(
+    m_readQuery = m_pdalSession->query(
             m_schema,
             m_compress,
             m_level,
@@ -363,7 +406,7 @@ void ReadCommandQuadLevel::query()
 
 void ReadCommandPointRadius::query()
 {
-    m_queryData = m_pdalSession->query(
+    m_readQuery = m_pdalSession->query(
             m_schema,
             m_compress,
             m_is3d,
@@ -531,16 +574,14 @@ ReadCommand* ReadCommandFactory::create(
                     bbox->Get(Integer::New(2))->IsNumber() &&
                     bbox->Get(Integer::New(3))->IsNumber())
                 {
-                    const double xMin(
-                            bbox->Get(Integer::New(0))->NumberValue());
-                    const double yMin(
+                    const Point min(
+                            bbox->Get(Integer::New(0))->NumberValue(),
                             bbox->Get(Integer::New(1))->NumberValue());
-                    const double xMax(
-                            bbox->Get(Integer::New(2))->NumberValue());
-                    const double yMax(
+                    const Point max(
+                            bbox->Get(Integer::New(2))->NumberValue(),
                             bbox->Get(Integer::New(3))->NumberValue());
 
-                    if (xMax >= xMin && yMax >= xMin)
+                    if (max.x >= min.x && max.y >= min.y)
                     {
                         readCommand = new ReadCommandBoundedQuadIndex(
                                 pdalSession,
@@ -550,10 +591,7 @@ ReadCommand* ReadCommandFactory::create(
                                 port,
                                 compress,
                                 schema,
-                                xMin,
-                                yMin,
-                                xMax,
-                                yMax,
+                                BBox(min, max),
                                 depthBegin,
                                 depthEnd,
                                 queryCallback,

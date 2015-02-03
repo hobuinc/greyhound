@@ -5,19 +5,21 @@
 
 #include <sqlite3.h>
 
+#include <pdal/PointContext.hpp>
 #include <pdal/QuadIndex.hpp>
 
 #include "http/s3.hpp"
-#include "grey-reader-types.hpp"
-#include "grey-common.hpp"
+#include "grey/reader-types.hpp"
+#include "grey/common.hpp"
 
 class RasterMeta;
+class SerialPaths;
 
 class GreyReader
 {
 public:
     GreyReader();
-    virtual ~GreyReader();
+    virtual ~GreyReader() { }
 
     std::size_t getNumPoints() const            { return m_meta.numPoints;  }
     std::string getSchema() const               { return m_meta.schema;     }
@@ -28,10 +30,7 @@ public:
     GreyQuery query(std::size_t depthBegin, std::size_t depthEnd);
 
     GreyQuery query(
-            double xMin,
-            double yMin,
-            double xMax,
-            double yMax,
+            const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -87,7 +86,7 @@ class GreyReaderSqlite : public GreyReader
 {
 public:
     GreyReaderSqlite(std::string pipelineId, const SerialPaths& serialPaths);
-    ~GreyReaderSqlite();
+    ~GreyReaderSqlite() { if (m_db) sqlite3_close_v2(m_db); }
 
     static bool exists(
             const std::string pipelineId,
@@ -105,6 +104,7 @@ class GreyReaderS3 : public GreyReader
 {
 public:
     GreyReaderS3(std::string pipelineId, const SerialPaths& serialPaths);
+    ~GreyReaderS3() { }
 
     static bool exists(const std::string pipelineId, const S3Info& s3Info);
 

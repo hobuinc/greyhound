@@ -1,11 +1,11 @@
 #pragma once
 
-#include <sqlite3.h>
+#include <cstdint>
+#include <vector>
 
-#include <pdal/util/Bounds.hpp>
+#include "json/json.h"
 
-#include "types.hpp"
-#include "http/s3.hpp"
+#include "types/bbox.hpp"
 
 static const std::string greyVersion("0.0.1a");
 
@@ -96,21 +96,5 @@ private:
 
         return ret;
     }
-};
-
-struct SerialPaths
-{
-    SerialPaths(S3Info s3Info, std::vector<std::string> diskPaths)
-        : s3Info(s3Info)
-        , diskPaths(diskPaths)
-    { }
-
-    SerialPaths(const SerialPaths& other)
-        : s3Info(other.s3Info)
-        , diskPaths(other.diskPaths)
-    { }
-
-    const S3Info s3Info;
-    const std::vector<std::string> diskPaths;
 };
 
