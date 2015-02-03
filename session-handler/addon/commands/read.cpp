@@ -17,6 +17,33 @@ namespace
     {
         return !value->IsUndefined();
     }
+
+    pdal::Dimension::Type::Enum getType(
+            std::string baseTypeName,
+            std::size_t size)
+    {
+        if (baseTypeName == "floating")
+        {
+            if      (size == 4) return pdal::Dimension::Type::Float;
+            else if (size == 8) return pdal::Dimension::Type::Double;
+        }
+        if (baseTypeName == "unsigned")
+        {
+            if      (size == 1) return pdal::Dimension::Type::Unsigned8;
+            else if (size == 2) return pdal::Dimension::Type::Unsigned16;
+            else if (size == 4) return pdal::Dimension::Type::Unsigned32;
+            else if (size == 8) return pdal::Dimension::Type::Unsigned64;
+        }
+        else if (baseTypeName == "signed")
+        {
+            if      (size == 1) return pdal::Dimension::Type::Signed8;
+            else if (size == 2) return pdal::Dimension::Type::Signed16;
+            else if (size == 4) return pdal::Dimension::Type::Signed32;
+            else if (size == 8) return pdal::Dimension::Type::Signed64;
+        }
+
+        throw std::runtime_error("Invalid type specification");
+    }
 }
 
 void errorCallback(
@@ -475,13 +502,13 @@ ReadCommand* ReadCommandFactory::create(
                 const std::string name(*v8::String::Utf8Value(
                         dimObj->Get(String::New("name"))->ToString()));
 
-                const std::string type(*v8::String::Utf8Value(
+                const std::string baseType(*v8::String::Utf8Value(
                         dimObj->Get(String::New("type"))->ToString()));
 
-                if (pdalSession->pointContext().hasDim(
-                            pdal::Dimension::id(name)))
+                const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
+                if (pdalSession->pointContext().hasDim(id))
                 {
-                    dims.push_back(DimInfo(name, type, size));
+                    dims.push_back(DimInfo(id, getType(baseType, size)));
                 }
             }
         }

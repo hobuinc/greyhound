@@ -18,7 +18,7 @@ struct Schema
         {
             if (!rasterize || !Schema::rasterOmit(dim.id))
             {
-                stride += dim.size;
+                stride += dim.size();
             }
         }
 

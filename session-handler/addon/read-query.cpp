@@ -10,71 +10,13 @@ namespace
             const Schema& schema,
             bool rasterize)
     {
-        using namespace pdal;
-        using namespace pdal::Dimension;
         pdal::DimTypeList output;
 
         for (const auto& dim : schema.dims)
         {
             if (schema.use(dim, rasterize))
             {
-                const BaseType::Enum type(fromName(dim.type));
-                if (type == BaseType::Signed)
-                {
-                    switch (dim.size)
-                    {
-                    case 1:
-                        output.push_back(DimType(dim.id, Type::Signed8));
-                        break;
-                    case 2:
-                        output.push_back(DimType(dim.id, Type::Signed16));
-                        break;
-                    case 4:
-                        output.push_back(DimType(dim.id, Type::Signed32));
-                        break;
-                    case 8:
-                        output.push_back(DimType(dim.id, Type::Signed64));
-                        break;
-                    default:
-                        throw std::runtime_error("Invalid dimension");
-                        break;
-                    }
-                }
-                else if (type == BaseType::Unsigned)
-                {
-                    switch (dim.size)
-                    {
-                    case 1:
-                        output.push_back(DimType(dim.id, Type::Unsigned8));
-                        break;
-                    case 2:
-                        output.push_back(DimType(dim.id, Type::Unsigned16));
-                        break;
-                    case 4:
-                        output.push_back(DimType(dim.id, Type::Unsigned32));
-                        break;
-                    case 8:
-                        output.push_back(DimType(dim.id, Type::Unsigned64));
-                        break;
-                    default:
-                        throw std::runtime_error("Invalid dimension");
-                        break;
-                    }
-                }
-                else
-                {
-                    if (dim.size == 4)
-                    {
-                        output.push_back(DimType(dim.id, Type::Float));
-                    }
-                    else if (dim.size == 8)
-                    {
-                        output.push_back(DimType(dim.id, Type::Double));
-                    }
-                    else {
-                        throw std::runtime_error("Invalid dimension");
-                    }
-                }
+                output.push_back(pdal::DimType(dim.id, dim.type));
             }
         }
 
@@ -294,82 +236,12 @@ std::size_t ReadQuery::readDim(
         const DimInfo& dim,
         const std::size_t index) const
 {
-    if (dim.type == "floating")
-    {
-        if (dim.size == 4)
-        {
-            float val(pointBuffer->getFieldAs<float>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            double val(pointBuffer->getFieldAs<double>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid floating size requested");
-        }
-    }
-    else if (dim.type == "unsigned")
-    {
-        if (dim.size == 1)
-        {
-            uint8_t val(pointBuffer->getFieldAs<uint8_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 2)
-        {
-            uint16_t val(pointBuffer->getFieldAs<uint16_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 4)
-        {
-            uint32_t val(pointBuffer->getFieldAs<uint32_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            uint64_t val(pointBuffer->getFieldAs<uint64_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid integer size requested");
-        }
-    }
-    else if (dim.type == "signed")
-    {
-        if (dim.size == 1)
-        {
-            int8_t val(pointBuffer->getFieldAs<int8_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 2)
-        {
-            int16_t val(pointBuffer->getFieldAs<int16_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 4)
-        {
-            int32_t val(pointBuffer->getFieldAs<int32_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else if (dim.size == 8)
-        {
-            int64_t val(pointBuffer->getFieldAs<int64_t>(dim.id, index));
-            std::memcpy(buffer, &val, dim.size);
-        }
-        else
-        {
-            throw std::runtime_error("Invalid integer size requested");
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Invalid dimension type requested");
-    }
+    pointBuffer->getField(
+            reinterpret_cast<char*>(buffer),
+            dim.id,
+            dim.type,
+            index);
 
-    return dim.size;
+    return dim.size();
 }
 
