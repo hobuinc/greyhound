@@ -1,62 +1,48 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
+#include <mutex>
 #include <vector>
 
-#include "once.hpp"
-#include "types/bbox.hpp"
-#include "data-sources/arbiter.hpp"
+#include "data-sources/live.hpp"
+#include "data-sources/serial.hpp"
+#include "types/serial-paths.hpp"
 
 namespace pdal
 {
     class PointContext;
+    class PointBuffer;
 }
 
 class BBox;
+class DataSource;
 class RasterMeta;
 class ReadQuery;
 class Schema;
-class SerialPaths;
 
-class PdalSession
+class Arbiter
 {
 public:
-    PdalSession();
-    ~PdalSession() { }
-
-    void initialize(
+    // If the constructor throws, then this may not be used.
+    Arbiter(
             const std::string& pipelineId,
             const std::string& filename,
             bool serialCompress,
             const SerialPaths& serialPaths);
+    ~Arbiter() { }
 
-    void initialize(
-            const std::string& pipelineId,
-            const std::vector<std::string>& paths,
-            const BBox& bbox,
-            bool serialCompress,
-            const SerialPaths& serialPaths);
+    std::size_t getNumPoints() const;
+    std::string getSchema() const;
+    std::string getStats() const;
+    std::string getSrs() const;
+    std::vector<std::size_t> getFills() const;
 
-    // Queries.
-    std::size_t getNumPoints();
-    std::string getSchema();
-    std::string getStats();
-    std::string getSrs();
-    std::vector<std::size_t> getFills();
-
-    // Write to disk.
-    void serialize(const SerialPaths& serialPaths);
-
-    // Read un-indexed data with an offset and a count.
     std::shared_ptr<ReadQuery> queryUnindexed(
             const Schema& schema,
             bool compress,
             std::size_t start,
             std::size_t count);
 
-    // Read quad-tree indexed data with a bounding box query and min/max tree
-    // depths to search.
     std::shared_ptr<ReadQuery> query(
             const Schema& schema,
             bool compress,
@@ -64,27 +50,23 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    // Read quad-tree indexed data with min/max tree depths to search.
     std::shared_ptr<ReadQuery> query(
             const Schema& schema,
             bool compress,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    // Read quad-tree indexed data with depth level for rasterization.
     std::shared_ptr<ReadQuery> query(
             const Schema& schema,
             bool compress,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
-    // Read a bounded set of points into a raster of pre-determined resolution.
     std::shared_ptr<ReadQuery> query(
             const Schema& schema,
             bool compress,
             const RasterMeta& rasterMeta);
 
-    // Perform KD-indexed query of point + radius.
     std::shared_ptr<ReadQuery> query(
             const Schema& schema,
             bool compress,
@@ -94,17 +76,24 @@ public:
             double y,
             double z);
 
-    const pdal::PointContext& pointContext();
+    const pdal::PointContext& pointContext() const;
+
+    // Returns true if successfully created.
+    bool serialize();   // Try to serialize live source.
 
 private:
-    // Make sure we are successfully initialized.
-    void check();
+    // Returns true if successfully created.
+    bool awaken();      // Try to wake up serialized source.
+    bool enliven();     // Try to wake up live source.
 
-    Once m_initOnce;
-    std::unique_ptr<Arbiter> m_arbiter;
+    const std::string m_pipelineId;
+    const std::string m_filename;
+    const bool m_serialCompress;
+    const SerialPaths m_serialPaths;
 
-    // Disallow copy/assignment.
-    PdalSession(const PdalSession&);
-    PdalSession& operator=(const PdalSession&);
+    std::mutex m_mutex;     // Guards post-ctor awakening of data sources.
+
+    std::shared_ptr<SerialDataSource> m_serialDataSource;
+    std::shared_ptr<LiveDataSource> m_liveDataSource;
 };
 

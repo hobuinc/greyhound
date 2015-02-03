@@ -82,11 +82,6 @@ var rxSchema =
         "type" : "floating"
     },
     {
-        "name" : "ScanAngleRank",
-        "size" : 4,
-        "type" : "floating"
-    },
-    {
         "name" : "Intensity",
         "size" : 2,
         "type" : "unsigned"
@@ -135,6 +130,11 @@ var rxSchema =
         "name" : "Classification",
         "size" : 1,
         "type" : "unsigned"
+    },
+    {
+        "name" : "ScanAngleRank",
+        "size" : 1,
+        "type" : "signed"
     },
     {
         "name" : "UserData",
@@ -437,7 +437,7 @@ module.exports = {
             [{
                 req: {
                     'command':  'put',
-                    'pipeline': file,
+                    'path': file,
                 },
                 res: {
                     'command':      'put',
@@ -448,7 +448,7 @@ module.exports = {
             {
                 req: {
                     'command':  'put',
-                    'pipeline': file,
+                    'path': file,
                 },
                 res: {
                     'command':      'put',
@@ -484,7 +484,7 @@ module.exports = {
             [{
                 req: {
                     'command':  'numPoints',
-                    'pipeline':  'I am an invalid pipeline ID!',
+                    'pipeline': 'I am an invalid pipeline ID!',
                 },
                 res: {
                     'command':  'numPoints',

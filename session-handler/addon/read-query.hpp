@@ -4,20 +4,24 @@
 #include <memory>
 
 #include <pdal/PointBuffer.hpp>
-#include <pdal/QuadIndex.hpp>
 #include <pdal/Compression.hpp>
 
 #include "compression-stream.hpp"
+#include "grey/reader-types.hpp"
+
+namespace pdal
+{
+    class PointBuffer;
+}
 
 class Schema;
 class ItcBuffer;
 class DimInfo;
-class QueryData;
 
-class QueryData
+class ReadQuery
 {
 public:
-    QueryData(
+    ReadQuery(
             pdal::DimTypeList dimTypes,
             const Schema& schema,
             bool compress,
@@ -59,10 +63,10 @@ private:
     virtual bool eof() const = 0;
 };
 
-class UnindexedQueryData : public QueryData
+class UnindexedReadQuery : public ReadQuery
 {
 public:
-    UnindexedQueryData(
+    UnindexedReadQuery(
             const Schema& schema,
             bool compress,
             std::shared_ptr<pdal::PointBuffer> pointBuffer,
@@ -84,10 +88,10 @@ private:
             bool rasterize) const;
 };
 
-class LiveQueryData : public QueryData
+class LiveReadQuery : public ReadQuery
 {
 public:
-    LiveQueryData(
+    LiveReadQuery(
             const Schema& schema,
             bool compress,
             bool rasterize,
@@ -110,10 +114,10 @@ private:
             bool rasterize) const;
 };
 
-class SerialQueryData : public QueryData
+class SerialReadQuery : public ReadQuery
 {
 public:
-    SerialQueryData(
+    SerialReadQuery(
             const Schema& schema,
             bool compress,
             bool rasterize,

@@ -1,9 +1,6 @@
 #include <cmath>
-#include <string>
-#include <vector>
-#include <cstdint>
 
-#include "types.hpp"
+#include "bbox.hpp"
 
 BBox::BBox() : m_min(), m_max() { }
 BBox::BBox(Point min, Point max) : m_min(min), m_max(max) { }
@@ -92,4 +89,5 @@ BBox BBox::fromJson(const Json::Value& json)
                 json.get(Json::ArrayIndex(2), 0).asDouble(),
                 json.get(Json::ArrayIndex(3), 0).asDouble()));
 }
+
 

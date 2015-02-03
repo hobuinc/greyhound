@@ -5,9 +5,15 @@
 #include <curl/curl.h>
 #include <openssl/crypto.h>
 
-#include "pdal-bindings.hpp"
-#include "read-command.hpp"
+#include "buffer-pool.hpp"
 #include "once.hpp"
+#include "pdal-session.hpp"
+#include "commands/create.hpp"
+#include "commands/read.hpp"
+#include "commands/serialize.hpp"
+#include "types/bbox.hpp"
+
+#include "pdal-bindings.hpp"
 
 using namespace v8;
 
@@ -237,18 +243,68 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     if (args[0]->IsUndefined() || !args[0]->IsString())
         errMsg = "'pipelineId' must be a string - args[0]";
 
-    if (args[1]->IsUndefined() || !args[1]->IsString())
-        errMsg = "'filename' must be a string - args[1]";
+    if (args[1]->IsUndefined() || (!args[1]->IsString() && !args[1]->IsArray()))
+        errMsg = "'pathData' must be a string or array of strings - args[1]";
 
     if (args[2]->IsUndefined() || !args[2]->IsBoolean())
         errMsg = "'serialCompress' must be boolean - args[2]";
 
-    if (args[5]->IsUndefined() || !args[5]->IsFunction())
+    if (args[6]->IsUndefined() || !args[6]->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(
-                    args[5])));
+                    args[6])));
+
+    Point min, max;
+    const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
+    std::vector<std::string> paths;
+
+    if (args[1]->IsString())
+    {
+        paths.push_back(*v8::String::Utf8Value(args[1]->ToString()));
+    }
+    else if (args[1]->IsArray() || args[5]->IsArray())
+    {
+        const Local<Array> b(Array::Cast(*args[5]));
+        if (b->Length() != 4)
+        {
+            errMsg = "Invalid bbox in multi specification";
+        }
+        else
+        {
+            for (std::size_t i(0); i < b->Length(); ++i)
+            {
+                if (!b->Get(Integer::New(i))->IsNumber())
+                {
+                    errMsg = "Invalid bbox type in multi specification";
+                }
+            }
+        }
+        min.x = b->Get(Integer::New(0))->NumberValue();
+        min.y = b->Get(Integer::New(1))->NumberValue();
+        max.x = b->Get(Integer::New(2))->NumberValue();
+        max.y = b->Get(Integer::New(3))->NumberValue();
+
+        const Local<Array> p(Array::Cast(*args[1]));
+        for (std::size_t i(0); i < p->Length(); ++i)
+        {
+            auto path(p->Get(Integer::New(i)));
+            if (path->IsString())
+            {
+                paths.push_back(*v8::String::Utf8Value(path->ToString()));
+            }
+            else
+            {
+                errMsg = "Invalid path in multi specification";
+                break;
+            }
+        }
+    }
+    else
+    {
+        errMsg = "Invalid 'create' specification";
+    }
 
     if (errMsg.size())
     {
@@ -256,11 +312,10 @@ Handle<Value> PdalBindings::create(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
-    const std::string filename  (*v8::String::Utf8Value(args[1]->ToString()));
     const bool serialCompress   (args[2]->BooleanValue());
     const S3Info s3Info(parseS3Info(args[3]));
     const std::vector<std::string> diskPaths(parsePathList(args[4]));
+    const BBox bbox(min, max);
 
     const SerialPaths serialPaths(s3Info, diskPaths);
 
@@ -271,7 +326,8 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     req->data = new CreateData(
             obj->m_pdalSession,
             pipelineId,
-            filename,
+            paths,
+            bbox,
             serialCompress,
             serialPaths,
             callback);
@@ -283,11 +339,23 @@ Handle<Value> PdalBindings::create(const Arguments& args)
             CreateData* createData(static_cast<CreateData*>(req->data));
 
             createData->safe(createData->errMsg, [createData]()->void {
-                createData->pdalSession->initialize(
-                    createData->pipelineId,
-                    createData->filename,
-                    createData->serialCompress,
-                    createData->serialPaths);
+                if (createData->paths.size() == 1)
+                {
+                    createData->pdalSession->initialize(
+                        createData->pipelineId,
+                        createData->paths[0],
+                        createData->serialCompress,
+                        createData->serialPaths);
+                }
+                else
+                {
+                    createData->pdalSession->initialize(
+                        createData->pipelineId,
+                        createData->paths,
+                        createData->bbox,
+                        createData->serialCompress,
+                        createData->serialPaths);
+                }
             });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void {

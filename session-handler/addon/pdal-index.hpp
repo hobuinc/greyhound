@@ -35,9 +35,9 @@ public:
     const pdal::QuadIndex& quadIndex()  { return *m_quadIndex.get(); }
 
 private:
-    std::unique_ptr<pdal::KDIndex> m_kdIndex2d;
-    std::unique_ptr<pdal::KDIndex> m_kdIndex3d;
-    std::unique_ptr<pdal::QuadIndex> m_quadIndex;
+    std::unique_ptr<pdal::KDIndex>      m_kdIndex2d;
+    std::unique_ptr<pdal::KDIndex>      m_kdIndex3d;
+    std::unique_ptr<pdal::QuadIndex>    m_quadIndex;
 
     Once m_kd2dOnce;
     Once m_kd3dOnce;

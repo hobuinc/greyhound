@@ -1,8 +1,7 @@
-#include "read-command.hpp"
 #include "buffer-pool.hpp"
-#include "grey-reader.hpp"
+#include "types/schema.hpp"
+
 #include "read-query.hpp"
-#include "compression-stream.hpp"
 
 namespace
 {
@@ -83,7 +82,7 @@ namespace
     }
 }
 
-QueryData::QueryData(
+ReadQuery::ReadQuery(
         pdal::DimTypeList dimTypes,
         const Schema& schema,
         const bool compress,
@@ -102,13 +101,13 @@ QueryData::QueryData(
     , m_index(index)
 { }
 
-UnindexedQueryData::UnindexedQueryData(
+UnindexedReadQuery::UnindexedReadQuery(
         const Schema& schema,
         bool compress,
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::size_t start,
         std::size_t count)
-    : QueryData(
+    : ReadQuery(
             pointBuffer->dimTypes(),
             schema,
             compress,
@@ -122,34 +121,34 @@ UnindexedQueryData::UnindexedQueryData(
                 std::min<std::size_t>(start + count, m_pointBuffer->size()))
 { }
 
-LiveQueryData::LiveQueryData(
+LiveReadQuery::LiveReadQuery(
         const Schema& schema,
         bool compress,
         bool rasterize,
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::vector<std::size_t> indexList)
-    : QueryData(pointBuffer->dimTypes(), schema, compress, rasterize)
+    : ReadQuery(pointBuffer->dimTypes(), schema, compress, rasterize)
     , m_pointBuffer(pointBuffer)
     , m_indexList(indexList)
 { }
 
-SerialQueryData::SerialQueryData(
+SerialReadQuery::SerialReadQuery(
         const Schema& schema,
         bool compress,
         bool rasterize,
         GreyQuery greyQuery)
-    : QueryData(greyQuery.dimTypes(), schema, compress, rasterize)
+    : ReadQuery(greyQuery.dimTypes(), schema, compress, rasterize)
     , m_greyQuery(greyQuery)
 { }
 
-bool QueryData::done() const
+bool ReadQuery::done() const
 {
     return eof() &&
             (!compress() ||
              m_compressionOffset == m_compressionStream.data().size());
 }
 
-void QueryData::read(
+void ReadQuery::read(
         std::shared_ptr<ItcBuffer> buffer,
         std::size_t maxNumBytes,
         bool rasterize)
@@ -204,7 +203,6 @@ void QueryData::read(
 
             m_compressionOffset += size;
         }
-
     }
     catch (...)
     {
@@ -212,7 +210,7 @@ void QueryData::read(
     }
 }
 
-void UnindexedQueryData::readPoint(
+void UnindexedReadQuery::readPoint(
         uint8_t* pos,
         const Schema& schema,
         bool) const
@@ -223,7 +221,7 @@ void UnindexedQueryData::readPoint(
     }
 }
 
-void LiveQueryData::readPoint(
+void LiveReadQuery::readPoint(
         uint8_t* pos,
         const Schema& schema,
         bool rasterize) const
@@ -254,7 +252,7 @@ void LiveQueryData::readPoint(
     }
 }
 
-void SerialQueryData::readPoint(
+void SerialReadQuery::readPoint(
         uint8_t* pos,
         const Schema& schema,
         bool rasterize) const
@@ -290,7 +288,7 @@ void SerialQueryData::readPoint(
     }
 }
 
-std::size_t QueryData::readDim(
+std::size_t ReadQuery::readDim(
         uint8_t* buffer,
         const std::shared_ptr<pdal::PointBuffer> pointBuffer,
         const DimInfo& dim,
@@ -313,7 +311,7 @@ std::size_t QueryData::readDim(
             throw std::runtime_error("Invalid floating size requested");
         }
     }
-    else if (dim.type == "signed" || dim.type == "unsigned")
+    else if (dim.type == "unsigned")
     {
         if (dim.size == 1)
         {
@@ -333,6 +331,33 @@ std::size_t QueryData::readDim(
         else if (dim.size == 8)
         {
             uint64_t val(pointBuffer->getFieldAs<uint64_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else
+        {
+            throw std::runtime_error("Invalid integer size requested");
+        }
+    }
+    else if (dim.type == "signed")
+    {
+        if (dim.size == 1)
+        {
+            int8_t val(pointBuffer->getFieldAs<int8_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 2)
+        {
+            int16_t val(pointBuffer->getFieldAs<int16_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 4)
+        {
+            int32_t val(pointBuffer->getFieldAs<int32_t>(dim.id, index));
+            std::memcpy(buffer, &val, dim.size);
+        }
+        else if (dim.size == 8)
+        {
+            int64_t val(pointBuffer->getFieldAs<int64_t>(dim.id, index));
             std::memcpy(buffer, &val, dim.size);
         }
         else

@@ -3,6 +3,7 @@
         var mongo = require('mongoskin'),
             crypto = require('crypto'),
             fs = require('fs'),
+            _ = require('lodash'),
             db = null;
 
         this.initialize = function(options, cb) {
@@ -30,33 +31,44 @@
             );
         }
 
-        this.put = function(filename, cb) {
-            console.log("db.put", filename);
+        this.put = function(path, cb) {
+            console.log("db.put", path);
 
-            fs.open(filename, 'r', function(err, fd) {
-                if (err) return cb(err);
+            var insert = function(hash, path, cb) {
+                var entry = { id: hash, pipeline: path };
 
-                var buffer = new Buffer(1024);
-                fs.read(fd, buffer, 0, 1024, 0, function(err, num) {
-                    // Hash the pipeline as the database key.
-                    var hash = crypto.createHash('md5')
-                        .update(buffer.toString('utf-8', 0, num)).digest("hex");
+                db.collection('pipelines').findAndModify(
+                    { id: hash },
+                    { },
+                    { $setOnInsert: entry },
+                    { 'new': true, 'upsert': true },
+                    function(err, result) {
+                        console.log("    :got put result:");
+                        if (err) console.log("        :err:", err);
+                        return cb(err, hash/*result.id*/);
+                    }
+                );
+            }
 
-                    var entry = { id: hash, pipeline: filename };
+            if (_.isString(path)) {
+                fs.open(path, 'r', function(err, fd) {
+                    if (err) return cb(err);
 
-                    db.collection('pipelines').findAndModify(
-                        { id: hash },
-                        { },
-                        { $setOnInsert: entry },
-                        { 'new': true, 'upsert': true },
-                        function(err, result) {
-                            console.log("    :got put result");
-                            if (err) console.log("        :err:", err);
-                            return cb(err, result.id);
-                        }
-                    );
+                    var buffer = new Buffer(1024);
+                    fs.read(fd, buffer, 0, 1024, 0, function(err, num) {
+                        // Hash the pipeline as the database key.
+                        var hash = crypto.createHash('md5')
+                                .update(buffer.toString('utf-8', 0, num))
+                                .digest("hex");
+
+                        insert(hash, path, cb);
+                    });
                 });
-            });
+            }
+            else {
+                var hash = crypto.randomBytes(16).toString('hex');
+                insert(hash, path, cb);
+            }
         }
 
         this.retrieve = function(pipelineId, cb) {

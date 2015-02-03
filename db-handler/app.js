@@ -10,6 +10,7 @@ var express = require('express')
   , methodOverride = require('method-override')
   , bodyParser = require('body-parser')
   , disco = require('../common').disco
+  , _ = require('lodash')
   , console = require('clim')()
   , MongoDriver = require('./drivers/mongo').MongoDriver
   , HttpDriver = require('./drivers/http').HttpDriver
@@ -60,10 +61,16 @@ app.get("/", function(req, res) {
 
 // Handle a 'put' request.
 app.post("/put", function(req, res) {
-    driver.put(req.body.filename, function(err, pipelineId) {
-        if (err) return error(res)(err);
-        return res.json({ id: pipelineId });
-    });
+    var path = req.body.path;
+    if (_.isString(path) || _.isArray(path)) {
+        driver.put(req.body.path, function(err, pipelineId) {
+            if (err) return error(res)(err);
+            return res.json({ id: pipelineId });
+        });
+    }
+    else {
+        return res.json(400, { message: 'Invalid path specification' });
+    }
 });
 
 app.get("/retrieve", function(req, res) {

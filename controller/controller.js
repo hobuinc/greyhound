@@ -40,20 +40,38 @@ var
         }
     }
 
-    Controller.prototype.put = function(filename, cb) {
+    Controller.prototype.put = function(path, bbox, cb) {
+        if (!cb) {
+            cb = bbox;
+            bbox = null;
+        }
+
+        var multi = false;
+        if (_.isArray(path)) {
+            if (!bbox) return cb('No bbox given for multi spec');
+            else multi = true;
+        }
+
         var self = this;
         console.log("controller::put");
 
         affinity.getDb(function(err, db) {
             if (err) return cb(err);
 
-            web.post(db, '/put', { filename: filename }, function(err, res) {
-                if (err)
+            web.post(db, '/put', { path: path }, function(err, res) {
+                if (err) {
                     return cb(err);
-                if (!res.hasOwnProperty('id'))
-                    return cb(new Error('Invalid response from PUT'));
-                else
-                    cb(null, { pipelineId: res.id });
+                }
+                else if (multi) {
+                    // For a multi-pipeline, make sure 'create' gets called
+                    // now so we don't wait for a query to start building.
+                    affinity.get(res.id, bbox, function(err) {
+                        cb(err, { pipelineId: res.id });
+                    });
+                }
+                else {
+                    cb(err, { pipelineId: res.id });
+                }
             });
         });
     }

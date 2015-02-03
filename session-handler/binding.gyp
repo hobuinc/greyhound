@@ -6,21 +6,32 @@
             'sources': [
                 './addon/buffer-pool.cpp',
                 './addon/compression-stream.cpp',
-                './addon/grey-reader.cpp',
-                './addon/grey-reader-types.cpp',
-                './addon/grey-writer.cpp',
                 './addon/once.cpp',
-                './addon/live-data-source.cpp',
                 './addon/pdal-bindings.cpp',
                 './addon/pdal-index.cpp',
                 './addon/pdal-session.cpp',
-                './addon/read-command.cpp',
                 './addon/read-query.cpp',
-                './addon/types.cpp',
+
+                './addon/commands/read.cpp',
+
+                './addon/data-sources/arbiter.cpp',
+                './addon/data-sources/base.cpp',
+                './addon/data-sources/live.cpp',
+                './addon/data-sources/multi.cpp',
+                './addon/data-sources/serial.cpp',
+
+                './addon/grey/reader.cpp',
+                './addon/grey/reader-types.cpp',
+                './addon/grey/writer.cpp',
+
                 './addon/http/collector.cpp',
                 './addon/http/curl.cpp',
                 './addon/http/s3.cpp',
+
                 './addon/third/jsoncpp.cpp',
+
+                './addon/types/bbox.cpp',
+
                 './addon/tree/node.cpp',
                 './addon/tree/sleepy-tree.cpp'
             ],
@@ -43,7 +54,6 @@
             'link_settings': {
                 'libraries': [
                     '-lpdalcpp',
-                    '-lboost_system',
                     '-lpthread',
                     '-lsqlite3',
                     '-lcurl',

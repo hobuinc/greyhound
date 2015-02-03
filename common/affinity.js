@@ -99,7 +99,11 @@ var web = require('./web'),
     }
 
     // Creates the pdalSession for this pipelineId if necessary.
-    Affinity.prototype.get = function(plId, cb) {
+    Affinity.prototype.get = function(plId, bbox, cb) {
+        if (!cb) {
+            cb = bbox;
+            bbox = null;
+        }
         console.log('Aff get', plId);
         var self = this;
         if (!plId) return cb('Invalid pipelineId');
@@ -113,7 +117,7 @@ var web = require('./web'),
                 if (err) return cb(err);
 
                 // Get the actual contents of the pipeline file.
-                self.getPlContents(db, plId, function(err, filename) {
+                self.getPlContents(db, plId, function(err, path) {
                     if (err) return cb(err);
 
                     // Request creation of this pipeline.
@@ -129,8 +133,10 @@ var web = require('./web'),
 
                             var params = {
                                 pipelineId: plId,
-                                filename:   filename,
+                                pathData:   path,
                             };
+
+                            if (bbox) params['bbox'] = bbox;
 
                             web.post(sh, '/create', params, function(err, res) {
                                 if (err) {

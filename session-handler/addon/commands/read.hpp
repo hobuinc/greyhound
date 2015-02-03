@@ -10,67 +10,23 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
 
-#include "types.hpp"
+#include "types/bbox.hpp"
+#include "types/raster-meta.hpp"
+#include "types/schema.hpp"
+#include "commands/background.hpp"
 
 void errorCallback(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
 
-class QueryData;
+class ReadQuery;
 class ItcBufferPool;
 class ItcBuffer;
 class PdalSession;
 
-struct Background
-{
-    void safe(std::string& err, std::function<void()> f)
-    {
-        try
-        {
-            f();
-        }
-        catch (const std::runtime_error& e)
-        {
-            err = e.what();
-        }
-        catch (const std::bad_alloc& ba)
-        {
-            err = "Caught bad alloc";
-        }
-        catch (...)
-        {
-            err = "Unknown error";
-        }
-    }
-};
-
 class ReadCommand : public Background
 {
 public:
-    void run();
-
-    virtual void read(std::size_t maxNumBytes);
-
-    virtual bool rasterize() const { return false; }
-    virtual std::size_t numBytes() const
-    {
-        return numPoints() * m_schema.stride();
-    }
-
-    void cancel(bool cancel) { m_cancel = cancel; }
-    std::string& errMsg() { return m_errMsg; }
-    std::shared_ptr<ItcBuffer> getBuffer() { return m_itcBuffer; }
-    ItcBufferPool& getBufferPool() { return m_itcBufferPool; }
-
-    bool done() const;
-    void acquire();
-
-    std::size_t numPoints() const;
-    std::string readId()    const { return m_readId; }
-    bool        cancel()    const { return m_cancel; }
-    v8::Persistent<v8::Function> queryCallback() const { return m_queryCallback; }
-    v8::Persistent<v8::Function> dataCallback() const { return m_dataCallback; }
-
     ReadCommand(
             std::shared_ptr<PdalSession> pdalSession,
             ItcBufferPool& itcBufferPool,
@@ -78,20 +34,31 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            const Schema& schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
+    virtual ~ReadCommand();
 
-    virtual ~ReadCommand()
-    {
-        m_queryCallback.Dispose();
-        m_dataCallback.Dispose();
+    virtual void read(std::size_t maxNumBytes);
+    virtual bool rasterize() const { return false; }
 
-        if (m_async)
-        {
-            uv_close((uv_handle_t*)m_async, NULL);
-        }
-    }
+    void run();
+
+    void cancel(bool cancel);
+    std::string& errMsg();
+    std::shared_ptr<ItcBuffer> getBuffer();
+    ItcBufferPool& getBufferPool();
+
+    bool done() const;
+    void acquire();
+
+    std::size_t numPoints() const;
+    std::size_t numBytes() const;
+
+    std::string readId()    const;
+    bool        cancel()    const;
+    v8::Persistent<v8::Function> queryCallback() const;
+    v8::Persistent<v8::Function> dataCallback() const;
 
     uv_async_t* async() { return m_async; }
 
@@ -110,7 +77,7 @@ protected:
     const bool m_compress;
     const Schema m_schema;
     std::size_t m_numSent;
-    std::shared_ptr<QueryData> m_queryData;
+    std::shared_ptr<ReadQuery> m_readQuery;
 
     v8::Persistent<v8::Function> m_queryCallback;
     v8::Persistent<v8::Function> m_dataCallback;
@@ -208,10 +175,7 @@ public:
             std::size_t port,
             bool compress,
             Schema schema,
-            double xMin,
-            double yMin,
-            double xMax,
-            double yMax,
+            BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> queryCallback,
@@ -220,10 +184,7 @@ public:
 private:
     virtual void query();
 
-    const double m_xMin;
-    const double m_yMin;
-    const double m_xMax;
-    const double m_yMax;
+    const BBox m_bbox;
 };
 
 class ReadCommandRastered : public ReadCommand
@@ -253,7 +214,6 @@ public:
             v8::Persistent<v8::Function> dataCallback);
 
     virtual void read(std::size_t maxNumBytes);
-    virtual std::size_t numBytes() const;
 
     virtual bool rasterize() const { return true; }
     RasterMeta rasterMeta() const { return m_rasterMeta; }

@@ -1,12 +1,12 @@
 #include <limits>
 #include <cmath>
 #include <memory>
+#include <string>
 
 #include <pdal/PointBuffer.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/Utils.hpp>
 
-#include "types.hpp"
 #include "node.hpp"
 
 namespace
@@ -20,6 +20,7 @@ namespace
         pointContext.registerDim(pdal::Dimension::Id::Z);
         pointContext.registerDim(pdal::Dimension::Id::Intensity);
         pointContext.registerDim(pdal::Dimension::Id::Classification);
+        pointContext.assignDim("OriginId", pdal::Dimension::Type::Unsigned64);
         return pointContext;
     }
 }
@@ -43,10 +44,16 @@ PointInfo::PointInfo(
     }
 }
 
-SleepyTree::SleepyTree(const BBox& bbox, std::size_t overflowDepth)
+SleepyTree::SleepyTree(
+        const BBox& bbox,
+        /*Schema schema, */
+        std::size_t overflowDepth)
     : m_overflowDepth(overflowDepth)
     , m_pointContext(initPointContext())
     , m_tree(new StemNode(bbox, overflowDepth))
+{ }
+
+SleepyTree::~SleepyTree()
 { }
 
 void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)

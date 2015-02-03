@@ -7,9 +7,10 @@
 #include <mutex>
 #include <vector>
 
-#include "types.hpp"
-#include "grey-common.hpp"
 #include "sleepy-tree.hpp"
+#include "grey/common.hpp"
+#include "types/bbox.hpp"
+#include "types/point.hpp"
 
 class LeafNode;
 

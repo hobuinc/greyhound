@@ -5,7 +5,8 @@
 
 #include <sqlite3.h>
 
-#include "grey-common.hpp"
+#include "grey/common.hpp"
+#include "http/s3.hpp"
 
 class GreyWriter
 {

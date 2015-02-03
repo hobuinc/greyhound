@@ -3,11 +3,12 @@
 #include <memory>
 
 #include <pdal/QuadIndex.hpp>
+#include <pdal/Dimension.hpp>
 
-#include "grey-common.hpp"
-#include "read-command.hpp"
+#include "grey/common.hpp"
 
 class GreyCluster;
+class RasterMeta;
 
 std::size_t getRasterIndex(
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
@@ -74,9 +75,10 @@ public:
     GreyCluster(std::size_t depth, const BBox& bbox, bool isBase);
 
     void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
-    bool populated() const { return m_pointBuffer.get() != 0; }
     void index();
-    bool indexed() const { return m_quadTree.get() != 0; }
+
+    bool populated() const;
+    bool indexed() const;
 
     std::size_t depth() const { return m_depth; }
     BBox bbox() const { return m_bbox; }
@@ -105,7 +107,7 @@ public:
             std::size_t rasterize,
             const RasterMeta& rasterMeta) const;
 
-    std::shared_ptr<pdal::PointBuffer> pointBuffer() { return m_pointBuffer; }
+    std::shared_ptr<pdal::PointBuffer> pointBuffer();
 
 private:
     std::shared_ptr<pdal::PointBuffer> m_pointBuffer;

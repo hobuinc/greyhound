@@ -143,7 +143,8 @@ app.get("/", function(req, res) {
 app.post("/create", function(req, res) {
     console.log(':session-handler:CREATE');
     var pipelineId = req.body.pipelineId;
-    var filename = req.body.filename;
+    var pathData = req.body.pathData;
+    var bbox = req.body.bbox;
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
 
     // Make sure to set these outside of the callback so that if another
@@ -158,10 +159,11 @@ app.post("/create", function(req, res) {
     // that call completes.
     pdalSession.create(
         pipelineId,
-        filename,
+        pathData,
         serialCompress,
         aws,
         serialPaths,
+        bbox,
         function(err)
     {
         if (err) {

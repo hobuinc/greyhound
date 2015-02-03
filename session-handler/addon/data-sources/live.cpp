@@ -15,38 +15,14 @@
 #include <pdal/StageFactory.hpp>
 #include <pdal/XMLSchema.hpp>
 
-#include "read-command.hpp"
-#include "live-data-source.hpp"
-#include "grey-reader.hpp"
-#include "grey-writer.hpp"
-
-namespace
-{
-    const std::string sqlCreateTable(
-            "CREATE TABLE clusters("
-                "id INT PRIMARY KEY,"
-                "xMin           REAL,"
-                "yMin           REAL,"
-                "xMax           REAL,"
-                "yMax           REAL,"
-                "depthBegin     INT,"
-                "depthEnd       INT,"
-                "data           BLOB)");
-
-    const std::string sqlPrep(
-            "INSERT INTO clusters VALUES ("
-                "@id,@xMin,@yMin,@xMax,@yMax,@depthBegin,@depthEnd,@data)");
-
-    const std::vector<std::string> sqlCreateIndex(
-    {
-        "CREATE INDEX xMin ON clusters (xMin)",
-        "CREATE INDEX yMin ON clusters (yMin)",
-        "CREATE INDEX xMax ON clusters (xMax)",
-        "CREATE INDEX yMax ON clusters (yMax)",
-        "CREATE INDEX depthBegin ON clusters (depthBegin)",
-        "CREATE INDEX depthEnd ON clusters (depthEnd)"
-    });
-}
+#include "read-query.hpp"
+#include "grey/reader.hpp"
+#include "grey/writer.hpp"
+#include "tree/sleepy-tree.hpp"
+#include "types/raster-meta.hpp"
+#include "types/serial-paths.hpp"
+#include "types/bbox.hpp"
+#include "live.hpp"
 
 LiveDataSource::LiveDataSource(
         const std::string& pipelineId,
@@ -57,6 +33,11 @@ LiveDataSource::LiveDataSource(
     , m_pointContext()
     , m_pdalIndex(new PdalIndex())
 {
+    exec(filename);
+}
+
+void LiveDataSource::exec(const std::string filename)
+{
     pdal::StageFactory stageFactory;
     pdal::Options options;
 
@@ -64,7 +45,6 @@ LiveDataSource::LiveDataSource(
 
     if (driver.size())
     {
-        std::cout << pipelineId << " - inferred " << filename << std::endl;
         m_pipelineManager.addReader(driver);
 
         pdal::Stage* reader(
@@ -74,8 +54,6 @@ LiveDataSource::LiveDataSource(
     }
     else
     {
-        std::cout << pipelineId << " - inferred XML pipeline" << std::endl;
-
         std::ifstream fileStream(filename);
         const std::string pipeline(
                 (std::istreambuf_iterator<char>(fileStream)),
@@ -143,10 +121,10 @@ std::vector<std::size_t> LiveDataSource::getFills() const
 }
 
 void LiveDataSource::serialize(
-        const bool compress,
+        const bool compressed,
         const SerialPaths& serialPaths)
 {
-    m_serializeOnce.ensure([this, compress, &serialPaths]() {
+    m_serializeOnce.ensure([this, compressed, &serialPaths]() {
         std::cout << "Serializing live source " << m_pipelineId << std::endl;
         if (GreyReader::exists(m_pipelineId, serialPaths) ||
             (!serialPaths.diskPaths.size() && !serialPaths.s3Info.exists))
@@ -174,7 +152,7 @@ void LiveDataSource::serialize(
         meta.bbox.max(max);
         meta.numPoints = getNumPoints();
         meta.schema = getSchema();
-        meta.compressed = compress;
+        meta.compressed = compressed;
         meta.stats = getStats();
         meta.srs = getSrs();
         meta.fills = getFills();
@@ -227,21 +205,29 @@ void LiveDataSource::serialize(
     });
 }
 
-std::size_t LiveDataSource::queryUnindexed(
+std::shared_ptr<ReadQuery> LiveDataSource::queryUnindexed(
+        const Schema& schema,
+        bool compressed,
         const std::size_t start,
-        const std::size_t count)
+        std::size_t count)
 {
     // If zero points specified, read all points after 'start'.
-    return count > 0 ?
+    count = count > 0 ?
             std::min<std::size_t>(count, getNumPoints() - start) :
             getNumPoints() - start;
+
+    return std::shared_ptr<ReadQuery>(new UnindexedReadQuery(
+                schema,
+                compressed,
+                m_pointBuffer,
+                start,
+                count));
 }
 
-std::vector<std::size_t> LiveDataSource::query(
-        const double xMin,
-        const double yMin,
-        const double xMax,
-        const double yMax,
+std::shared_ptr<ReadQuery> LiveDataSource::query(
+        const Schema& schema,
+        bool compressed,
+        const BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -249,17 +235,25 @@ std::vector<std::size_t> LiveDataSource::query(
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
     const std::vector<std::size_t> results(quadIndex.getPoints(
-            xMin,
-            yMin,
-            xMax,
-            yMax,
+            bbox.min().x,
+            bbox.min().y,
+            bbox.max().x,
+            bbox.max().y,
             depthBegin,
             depthEnd));
 
-    return results;
+    return std::shared_ptr<ReadQuery>(
+            new LiveReadQuery(
+                schema,
+                compressed,
+                false,
+                m_pointBuffer,
+                results));
 }
 
-std::vector<std::size_t> LiveDataSource::query(
+std::shared_ptr<ReadQuery> LiveDataSource::query(
+        const Schema& schema,
+        bool compressed,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -270,10 +264,18 @@ std::vector<std::size_t> LiveDataSource::query(
             depthBegin,
             depthEnd));
 
-    return results;
+    return std::shared_ptr<ReadQuery>(
+            new LiveReadQuery(
+                schema,
+                compressed,
+                false,
+                m_pointBuffer,
+                results));
 }
 
-std::vector<std::size_t> LiveDataSource::query(
+std::shared_ptr<ReadQuery> LiveDataSource::query(
+        const Schema& schema,
+        bool compressed,
         const std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
@@ -289,10 +291,19 @@ std::vector<std::size_t> LiveDataSource::query(
             rasterMeta.yEnd,
             rasterMeta.yStep));
 
-    return results;
+    return std::shared_ptr<ReadQuery>(
+            new LiveReadQuery(
+                schema,
+                compressed,
+                true,
+                m_pointBuffer,
+                results));
 }
 
-std::vector<std::size_t> LiveDataSource::query(const RasterMeta& rasterMeta)
+std::shared_ptr<ReadQuery> LiveDataSource::query(
+        const Schema& schema,
+        bool compressed,
+        const RasterMeta& rasterMeta)
 {
     m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
     const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
@@ -305,10 +316,18 @@ std::vector<std::size_t> LiveDataSource::query(const RasterMeta& rasterMeta)
             rasterMeta.yEnd,
             rasterMeta.yStep));
 
-    return results;
+    return std::shared_ptr<ReadQuery>(
+            new LiveReadQuery(
+                schema,
+                compressed,
+                true,
+                m_pointBuffer,
+                results));
 }
 
-std::vector<std::size_t> LiveDataSource::query(
+std::shared_ptr<ReadQuery> LiveDataSource::query(
+        const Schema& schema,
+        bool compressed,
         const bool is3d,
         const double radius,
         const double x,
@@ -326,6 +345,12 @@ std::vector<std::size_t> LiveDataSource::query(
     const std::vector<std::size_t> results(
             kdIndex.radius(x, y, z, radius * radius));
 
-    return results;
+    return std::shared_ptr<ReadQuery>(
+            new LiveReadQuery(
+                schema,
+                compressed,
+                false,
+                m_pointBuffer,
+                results));
 }
 

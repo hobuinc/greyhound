@@ -7,9 +7,10 @@
 #include <pdal/Compression.hpp>
 
 #include "compression-stream.hpp"
-#include "grey-reader.hpp"
-#include "read-command.hpp"
+#include "commands/read.hpp"
+#include "grey/reader.hpp"
 #include "http/collector.hpp"
+#include "types/serial-paths.hpp"
 
 namespace
 {
@@ -69,9 +70,6 @@ void GreyReader::init(GreyMeta meta)
     m_initialized = true;
 }
 
-GreyReader::~GreyReader()
-{ }
-
 GreyQuery GreyReader::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -87,15 +85,10 @@ GreyQuery GreyReader::query(
 }
 
 GreyQuery GreyReader::query(
-        double xMin,
-        double yMin,
-        double xMax,
-        double yMax,
+        const BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    const BBox bbox(Point(xMin, yMin), Point(xMax, yMax));
-
     NodeInfoMap nodeInfoMap;
     m_idIndex->find(nodeInfoMap, depthBegin, depthEnd, bbox);
 
@@ -279,14 +272,6 @@ bool GreyReaderSqlite::exists(
     }
 
     return exists;
-}
-
-GreyReaderSqlite::~GreyReaderSqlite()
-{
-    if (m_db)
-    {
-        sqlite3_close_v2(m_db);
-    }
 }
 
 void GreyReaderSqlite::queryClusters(

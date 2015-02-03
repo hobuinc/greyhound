@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 
     Json::Value v;
     v["command"] = "put";
-    v["pipeline"] = filename;
+    v["path"] = filename;
 
     Json::Value result(client.exchange(v));
 
