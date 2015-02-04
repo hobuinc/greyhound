@@ -10,7 +10,6 @@
                 './addon/pdal-bindings.cpp',
                 './addon/pdal-index.cpp',
                 './addon/pdal-session.cpp',
-                './addon/read-query.cpp',
 
                 './addon/commands/read.cpp',
 
@@ -27,6 +26,11 @@
                 './addon/http/collector.cpp',
                 './addon/http/curl.cpp',
                 './addon/http/s3.cpp',
+
+                './addon/read-queries/base.cpp',
+                './addon/read-queries/live.cpp',
+                './addon/read-queries/serial.cpp',
+                './addon/read-queries/unindexed.cpp',
 
                 './addon/third/jsoncpp.cpp',
 

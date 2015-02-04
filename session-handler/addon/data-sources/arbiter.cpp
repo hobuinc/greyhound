@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "read-query.hpp"
+#include "read-queries/base.hpp"
 #include "types/schema.hpp"
 #include "arbiter.hpp"
 

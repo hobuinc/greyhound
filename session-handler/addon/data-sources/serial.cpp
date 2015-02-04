@@ -1,6 +1,6 @@
 #include "serial.hpp"
 
-#include "read-query.hpp"
+#include "read-queries/serial.hpp"
 #include "types/bbox.hpp"
 #include "types/raster-meta.hpp"
 #include "types/serial-paths.hpp"
