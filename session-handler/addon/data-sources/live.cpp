@@ -15,7 +15,8 @@
 #include <pdal/StageFactory.hpp>
 #include <pdal/XMLSchema.hpp>
 
-#include "read-query.hpp"
+#include "read-queries/live.hpp"
+#include "read-queries/unindexed.hpp"
 #include "grey/reader.hpp"
 #include "grey/writer.hpp"
 #include "tree/sleepy-tree.hpp"

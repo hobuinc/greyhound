@@ -4,8 +4,8 @@
 #include <pdal/PointContext.hpp>
 
 #include "buffer-pool.hpp"
+#include "read-queries/base.hpp"
 #include "pdal-session.hpp"
-#include "read-query.hpp"
 
 PdalSession::PdalSession()
     : m_initOnce()

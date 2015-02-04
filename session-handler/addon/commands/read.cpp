@@ -1,6 +1,6 @@
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
-#include "read-query.hpp"
+#include "read-queries/base.hpp"
 
 #include "commands/read.hpp"
 
