@@ -349,9 +349,13 @@ Handle<Value> PdalBindings::create(const Arguments& args)
                 }
                 else
                 {
+                    // TODO Set schema.
+                    std::vector<DimInfo> dimInfo;
+                    Schema schema(dimInfo);
                     createData->pdalSession->initialize(
                         createData->pipelineId,
                         createData->paths,
+                        schema,
                         createData->bbox,
                         createData->serialCompress,
                         createData->serialPaths);

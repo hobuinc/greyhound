@@ -141,10 +141,16 @@ app.get("/", function(req, res) {
 });
 
 app.post("/create", function(req, res) {
-    console.log(':session-handler:CREATE');
     var pipelineId = req.body.pipelineId;
     var pathData = req.body.pathData;
     var bbox = req.body.bbox;
+
+    console.log(':session-handler:CREATE', req.body.pipelineId);
+
+    if (_.isArray(pathData) && !bbox) {
+        return res.json(400, { message: 'No bbox in multi specification' });
+    }
+
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
 
     // Make sure to set these outside of the callback so that if another
@@ -172,6 +178,8 @@ app.post("/create", function(req, res) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
         }
+
+        console.log('Successfully finished CREATE:', pipelineId);
 
         res.json({ });
     });
@@ -219,6 +227,7 @@ app.get("/stats/:plId", function(req, res) {
             res.json({ stats: JSON.parse(pdalSession.getStats()) });
         }
         catch (e) {
+            console.log('Invalid stats -', req.params.plId);
             return res.json(
                 500,
                 { message: 'Stats could not be parsed' });

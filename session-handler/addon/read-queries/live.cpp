@@ -4,7 +4,7 @@
 #include <pdal/PointBuffer.hpp>
 
 #include "types/schema.hpp"
-#include "live.hpp"
+#include "read-queries/live.hpp"
 
 LiveReadQuery::LiveReadQuery(
         const Schema& schema,

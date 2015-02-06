@@ -17,7 +17,9 @@
                 './addon/data-sources/base.cpp',
                 './addon/data-sources/live.cpp',
                 './addon/data-sources/multi.cpp',
+                './addon/data-sources/multi-arbiter.cpp',
                 './addon/data-sources/serial.cpp',
+                './addon/data-sources/standard-arbiter.cpp',
 
                 './addon/grey/reader.cpp',
                 './addon/grey/reader-types.cpp',
@@ -29,6 +31,7 @@
 
                 './addon/read-queries/base.cpp',
                 './addon/read-queries/live.cpp',
+                './addon/read-queries/multi.cpp',
                 './addon/read-queries/serial.cpp',
                 './addon/read-queries/unindexed.cpp',
 

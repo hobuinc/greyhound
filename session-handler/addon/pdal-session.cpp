@@ -4,6 +4,8 @@
 #include <pdal/PointContext.hpp>
 
 #include "buffer-pool.hpp"
+#include "data-sources/standard-arbiter.hpp"
+#include "data-sources/multi-arbiter.hpp"
 #include "read-queries/base.hpp"
 #include "pdal-session.hpp"
 
@@ -27,7 +29,7 @@ void PdalSession::initialize(
     {
         try
         {
-            m_arbiter.reset(new Arbiter(
+            m_arbiter.reset(new StandardArbiter(
                     pipelineId,
                     filename,
                     serialCompress,
@@ -36,11 +38,8 @@ void PdalSession::initialize(
         catch (...)
         {
             m_arbiter.reset();
-
-            // Throw here so that Once::await() will return an error
-            // indication so we won't use this arbiter.
             throw std::runtime_error(
-                    "Caught exception in init - " + pipelineId);
+                    "Caught exception in standard init - " + pipelineId);
         }
     });
 }
@@ -48,6 +47,7 @@ void PdalSession::initialize(
 void PdalSession::initialize(
         const std::string& pipelineId,
         const std::vector<std::string>& paths,
+        const Schema& schema,
         const BBox& bbox,
         const bool serialCompress,
         const SerialPaths& serialPaths)
@@ -56,11 +56,27 @@ void PdalSession::initialize(
             this,
             &pipelineId,
             &paths,
+            &schema,
             &bbox,
             serialCompress,
             &serialPaths]()
     {
-        // TODO Initialize multi-arbiter.
+        try
+        {
+            m_arbiter.reset(new MultiArbiter(
+                    pipelineId,
+                    paths,
+                    schema,
+                    bbox,
+                    serialCompress,
+                    serialPaths));
+        }
+        catch (...)
+        {
+            m_arbiter.reset();
+            throw std::runtime_error(
+                    "Caught exception in multi init - " + pipelineId);
+        }
     });
 }
 

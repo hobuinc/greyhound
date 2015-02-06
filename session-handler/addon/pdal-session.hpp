@@ -34,6 +34,7 @@ public:
     void initialize(
             const std::string& pipelineId,
             const std::vector<std::string>& paths,
+            const Schema& schema,
             const BBox& bbox,
             bool serialCompress,
             const SerialPaths& serialPaths);

@@ -1,3 +1,5 @@
+#include <limits>
+
 #include <pdal/PointBuffer.hpp>
 #include <pdal/PointContext.hpp>
 
@@ -8,13 +10,13 @@ namespace
     // Factory method used during construction.
     Node* create(
             const BBox& bbox,
-            std::size_t depth,
             std::size_t overflowDepth,
+            std::size_t depth,
             uint64_t id)
     {
         if (depth < overflowDepth)
         {
-            return new StemNode(bbox, depth, overflowDepth, id);
+            return new StemNode(bbox, overflowDepth, depth, id);
         }
         else if (depth == overflowDepth)
         {
@@ -32,17 +34,23 @@ StemNode::StemNode(
         std::size_t overflowDepth,
         std::size_t depth,
         const uint64_t id)
-    : Node(bbox)
+    : Node(bbox, id)
     , data(0)
-    , nw(create(bbox.getNw(), depth + 1, overflowDepth, (id << 2) | nwFlag))
-    , ne(create(bbox.getNe(), depth + 1, overflowDepth, (id << 2) | neFlag))
-    , sw(create(bbox.getSw(), depth + 1, overflowDepth, (id << 2) | swFlag))
-    , se(create(bbox.getSe(), depth + 1, overflowDepth, (id << 2) | seFlag))
+    , index(std::numeric_limits<std::size_t>::max())
+    , nw(create(bbox.getNw(), overflowDepth, depth + 1, (id << 2) | nwFlag))
+    , ne(create(bbox.getNe(), overflowDepth, depth + 1, (id << 2) | neFlag))
+    , sw(create(bbox.getSw(), overflowDepth, depth + 1, (id << 2) | swFlag))
+    , se(create(bbox.getSe(), overflowDepth, depth + 1, (id << 2) | seFlag))
 { }
 
 StemNode::~StemNode()
 {
     if (data.load()) delete data.load();
+}
+
+bool StemNode::hasData() const
+{
+    return index != std::numeric_limits<std::size_t>::max();
 }
 
 LeafNode* StemNode::addPoint(const PointInfo* toAdd)
@@ -88,7 +96,7 @@ LeafNode* StemNode::addPoint(const PointInfo* toAdd)
     }
     else
     {
-        std::lock_guard<std::mutex> lock(mutex);
+        std::unique_lock<std::mutex> lock(mutex);
         const PointInfo* current(data.load());
 
         if (!current)
@@ -98,6 +106,8 @@ LeafNode* StemNode::addPoint(const PointInfo* toAdd)
         else
         {
             // Someone beat us here, call again to enter the other branch.
+            // Be sure to unlock our mutex first.
+            lock.unlock();
             addPoint(toAdd);
         }
     }
@@ -105,209 +115,100 @@ LeafNode* StemNode::addPoint(const PointInfo* toAdd)
     return 0;
 }
 
-/*
-void Node::getPoints(
-        std::vector<std::size_t>& results,
+void StemNode::finalize(
+        std::shared_ptr<pdal::PointBuffer> pointBuffer,
+        std::map<uint64_t, LeafNode*>& leafNodes)
+{
+    // Get our data, and zero it out.  From now on we're just maintaining an
+    // index into the pointBuffer we're about to populate.
+    const PointInfo* pointInfo(data.exchange(0));
+
+    if (pointInfo)
+    {
+        std::vector<char> bytes(8);
+        char* pos(bytes.data());
+
+        try
+        {
+            // Store the fields we'll need later.
+            index = pointBuffer->size();
+            point = pointInfo->point;
+
+            const auto dimTypes(pointBuffer->dimTypes());
+            //const auto dimIds(pointBuffer->dims());
+
+            //for (std::size_t i(0); i < dimTypes.size(); ++i)
+            for (const auto dim : pointBuffer->dimTypes())
+            {
+                pointInfo->pointBuffer.getRawField(dim.m_id, 0, pos);
+                pointBuffer->setField(dim.m_id, dim.m_type, index, pos);
+            }
+
+            delete pointInfo;
+        }
+        catch (...)
+        {
+            delete pointInfo;
+        }
+
+        if (nw) nw->finalize(pointBuffer, leafNodes);
+        if (ne) ne->finalize(pointBuffer, leafNodes);
+        if (se) se->finalize(pointBuffer, leafNodes);
+        if (sw) sw->finalize(pointBuffer, leafNodes);
+    }
+}
+
+void StemNode::getPoints(
+        MultiResults& results,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         std::size_t curDepth) const
 {
-    if (data && curDepth >= depthBegin)
+    if (hasData() && curDepth >= depthBegin)
     {
-        results.push_back(data->pbIndex);
-    }
+        results.push_back(std::make_pair(0, index));
 
-    if (++curDepth < depthEnd || depthEnd == 0)
-    {
-        if (nw) nw->getPoints(results, depthBegin, depthEnd, curDepth);
-        if (ne) ne->getPoints(results, depthBegin, depthEnd, curDepth);
-        if (se) se->getPoints(results, depthBegin, depthEnd, curDepth);
-        if (sw) sw->getPoints(results, depthBegin, depthEnd, curDepth);
-    }
-}
-
-void Node::getPoints(
-        std::vector<std::size_t>& results,
-        const std::size_t rasterize,
-        const double xBegin,
-        const double xEnd,
-        const double xStep,
-        const double yBegin,
-        const double yEnd,
-        const double yStep,
-        std::size_t curDepth) const
-{
-    if (curDepth == rasterize)
-    {
-        const Point mid(bbox.mid());
-
-        if (data)
+        if (++curDepth < depthEnd || depthEnd == 0)
         {
-            const std::size_t xOffset(
-                    pdal::Utils::sround((mid.x - xBegin) / xStep));
-            const double yOffset(
-                    pdal::Utils::sround((mid.y - yBegin) / yStep));
-
-            const std::size_t index(
-                pdal::Utils::sround(yOffset * (xEnd - xBegin) / xStep + xOffset));
-
-            results.at(index) = data->pbIndex;
-        }
-    }
-    else if (++curDepth <= rasterize)
-    {
-        if (nw) nw->getPoints(
-                results,
-                rasterize,
-                xBegin,
-                xEnd,
-                xStep,
-                yBegin,
-                yEnd,
-                yStep,
-                curDepth);
-
-        if (ne) ne->getPoints(
-                results,
-                rasterize,
-                xBegin,
-                xEnd,
-                xStep,
-                yBegin,
-                yEnd,
-                yStep,
-                curDepth);
-
-        if (se) se->getPoints(
-                results,
-                rasterize,
-                xBegin,
-                xEnd,
-                xStep,
-                yBegin,
-                yEnd,
-                yStep,
-                curDepth);
-
-        if (sw) sw->getPoints(
-                results,
-                rasterize,
-                xBegin,
-                xEnd,
-                xStep,
-                yBegin,
-                yEnd,
-                yStep,
-                curDepth);
-    }
-}
-
-void Node::getPoints(
-        std::vector<std::size_t>& results,
-        const double xBegin,
-        const double xEnd,
-        const double xStep,
-        const double yBegin,
-        const double yEnd,
-        const double yStep) const
-{
-    if (!bbox.overlaps(BBox(Point(xBegin, xEnd), Point(yBegin, yEnd))))
-    {
-        return;
-    }
-
-    if (nw) nw->getPoints(
-            results,
-            xBegin,
-            xEnd,
-            xStep,
-            yBegin,
-            yEnd,
-            yStep);
-
-    if (ne) ne->getPoints(
-            results,
-            xBegin,
-            xEnd,
-            xStep,
-            yBegin,
-            yEnd,
-            yStep);
-
-    if (se) se->getPoints(
-            results,
-            xBegin,
-            xEnd,
-            xStep,
-            yBegin,
-            yEnd,
-            yStep);
-
-    if (sw) sw->getPoints(
-            results,
-            xBegin,
-            xEnd,
-            xStep,
-            yBegin,
-            yEnd,
-            yStep);
-
-    // Add data after calling child nodes so we prefer upper levels of the tree.
-    if (
-            data &&
-            data->point.x >= xBegin &&
-            data->point.y >= yBegin &&
-            data->point.x < xEnd - xStep &&
-            data->point.y < yEnd - yStep)
-    {
-        const std::size_t xOffset(
-                pdal::Utils::sround((data->point.x - xBegin) / xStep));
-        const std::size_t yOffset(
-                pdal::Utils::sround((data->point.y - yBegin) / yStep));
-
-        const std::size_t index(
-            pdal::Utils::sround(yOffset * (xEnd - xBegin) / xStep + xOffset));
-
-        if (index < results.size())
-        {
-            results.at(index) = data->pbIndex;
+            if (nw) nw->getPoints(results, depthBegin, depthEnd, curDepth);
+            if (ne) ne->getPoints(results, depthBegin, depthEnd, curDepth);
+            if (se) se->getPoints(results, depthBegin, depthEnd, curDepth);
+            if (sw) sw->getPoints(results, depthBegin, depthEnd, curDepth);
         }
     }
 }
 
-void Node::getPoints(
-        std::vector<std::size_t>& results,
+void StemNode::getPoints(
+        MultiResults& results,
         const BBox& query,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        std::size_t curDepth) const
+        std::size_t depth) const
 {
     if (!query.overlaps(bbox))
     {
         return;
     }
 
-    if (data &&
-        query.contains(data->point) &&
-        curDepth >= depthBegin &&
-        (curDepth < depthEnd || depthEnd == 0))
+    if (hasData() &&
+        query.contains(point) &&
+        depth >= depthBegin &&
+        (depth < depthEnd || depthEnd == 0))
     {
-        results.push_back(data->pbIndex);
-    }
+        results.push_back(std::make_pair(0, index));
 
-    if (++curDepth < depthEnd || depthEnd == 0)
-    {
-        if (nw) nw->getPoints(results, query, depthBegin, depthEnd, curDepth);
-        if (ne) ne->getPoints(results, query, depthBegin, depthEnd, curDepth);
-        if (se) se->getPoints(results, query, depthBegin, depthEnd, curDepth);
-        if (sw) sw->getPoints(results, query, depthBegin, depthEnd, curDepth);
+        if (++depth < depthEnd || depthEnd == 0)
+        {
+            if (nw) nw->getPoints(results, query, depthBegin, depthEnd, depth);
+            if (ne) ne->getPoints(results, query, depthBegin, depthEnd, depth);
+            if (se) se->getPoints(results, query, depthBegin, depthEnd, depth);
+            if (sw) sw->getPoints(results, query, depthBegin, depthEnd, depth);
+        }
     }
 }
-*/
 
 LeafNode::LeafNode(const BBox& bbox, uint64_t id)
-    : Node(bbox)
-    , id(id)
+    : Node(bbox, id)
     , overflow()
 { }
 
@@ -316,9 +217,17 @@ LeafNode::~LeafNode()
 
 LeafNode* LeafNode::addPoint(const PointInfo* toAdd)
 {
-    std::lock_guard<std::mutex> lock(mutex);
-    overflow.emplace_front(toAdd);
+    delete toAdd;
+    //std::lock_guard<std::mutex> lock(mutex);
+    //overflow.emplace_front(toAdd);
     return this;
+}
+
+void LeafNode::finalize(
+        std::shared_ptr<pdal::PointBuffer> pointBuffer,
+        std::map<uint64_t, LeafNode*>& leafNodes)
+{
+    // TODO
 }
 
 void LeafNode::save()
@@ -333,5 +242,24 @@ void LeafNode::load()
     // TODO
     std::lock_guard<std::mutex> lock(mutex);
     std::cout << "Loading" << std::endl;
+}
+
+void LeafNode::getPoints(
+        MultiResults& results,
+        std::size_t depthBegin,
+        std::size_t depthEnd,
+        std::size_t curDepth) const
+{
+    // TODO
+}
+
+void LeafNode::getPoints(
+        MultiResults& results,
+        const BBox& query,
+        std::size_t depthBegin,
+        std::size_t depthEnd,
+        std::size_t curDepth) const
+{
+    // TODO
 }
 

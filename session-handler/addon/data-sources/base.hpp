@@ -18,8 +18,7 @@ public:
     virtual std::string getSchema() const = 0;
     virtual std::string getStats() const = 0;
     virtual std::string getSrs() const = 0;
-
-    virtual std::vector<std::size_t> getFills() const;
+    virtual std::vector<std::size_t> getFills() const = 0;
 
     // Read un-indexed data with an offset and a count.
     virtual std::shared_ptr<ReadQuery> queryUnindexed(

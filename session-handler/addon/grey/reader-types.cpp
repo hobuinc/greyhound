@@ -9,25 +9,28 @@ namespace
     const std::size_t invalidIndex(std::numeric_limits<std::size_t>::max());
 }
 
-std::size_t getRasterIndex(
-        std::shared_ptr<pdal::PointBuffer> pointBuffer,
-        std::size_t index,
-        const RasterMeta& rasterMeta)
+std::size_t getRasterIndex(const Point& p, const RasterMeta& rasterMeta)
 {
-    const double x(
-        pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index));
-    const double y(
-        pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index));
-
     const std::size_t xOffset(pdal::Utils::sround(
-            (x - rasterMeta.xBegin) / rasterMeta.xStep));
+            (p.x - rasterMeta.xBegin) / rasterMeta.xStep));
     const std::size_t yOffset(pdal::Utils::sround(
-            (y - rasterMeta.yBegin) / rasterMeta.yStep));
+            (p.y - rasterMeta.yBegin) / rasterMeta.yStep));
 
     if (xOffset < rasterMeta.xNum() && yOffset < rasterMeta.yNum())
         return yOffset * rasterMeta.xNum() + xOffset;
     else
         return invalidIndex;
+}
+
+std::size_t getRasterIndex(
+        std::shared_ptr<pdal::PointBuffer> pointBuffer,
+        std::size_t index,
+        const RasterMeta& rasterMeta)
+{
+    const Point p(
+            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
+            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index));
+    return getRasterIndex(p, rasterMeta);
 }
 
 NodeInfo::NodeInfo(

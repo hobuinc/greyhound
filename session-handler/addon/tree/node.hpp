@@ -5,7 +5,7 @@
 #include <forward_list>
 #include <memory>
 #include <mutex>
-#include <vector>
+#include <map>
 
 #include "sleepy-tree.hpp"
 #include "grey/common.hpp"
@@ -17,37 +17,31 @@ class LeafNode;
 class Node
 {
 public:
-    explicit Node(const BBox& bbox) : bbox(bbox) { }
+    Node(const BBox& bbox, uint64_t id) : bbox(bbox), id(id) { }
     virtual ~Node() { }
 
     virtual LeafNode* addPoint(const PointInfo* toAdd) = 0;
 
-    /*
+    virtual void finalize(
+            std::shared_ptr<pdal::PointBuffer> pointBuffer,
+            std::map<uint64_t, LeafNode*>& leafNodes) = 0;
+
     virtual void getPoints(
-            std::vector<std::size_t>& results,
+            MultiResults& results,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
+            std::size_t curDepth = 0) const = 0;
 
     virtual void getPoints(
-            std::vector<std::size_t>& results,
-            std::size_t rasterize,
-            const RasterMeta& rasterMeta,
-            std::size_t curDepth = 0) const;
-
-    virtual void getPoints(
-            std::vector<std::size_t>& results,
-            const RasterMeta& rasterMeta) const;
-
-    virtual void getPoints(
-            std::vector<std::size_t>& results,
+            MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
-    */
+            std::size_t curDepth = 0) const = 0;
 
     const BBox bbox;
+    const uint64_t id;
+
 protected:
     std::mutex mutex;
 
@@ -69,8 +63,32 @@ public:
 
     virtual LeafNode* addPoint(const PointInfo* toAdd);
 
+    virtual void finalize(
+            std::shared_ptr<pdal::PointBuffer> pointBuffer,
+            std::map<uint64_t, LeafNode*>& leafNodes);
+
+    virtual void getPoints(
+            MultiResults& results,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            std::size_t curDepth = 0) const;
+
+    virtual void getPoints(
+            MultiResults& results,
+            const BBox& query,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            std::size_t curDepth = 0) const;
+
 private:
+    bool hasData() const;
+
+    // Used only during the build phase.  Not valid after finalize() is called.
     std::atomic<const PointInfo*> data;
+
+    std::size_t index;
+    Point point;
+
     std::unique_ptr<Node> nw;
     std::unique_ptr<Node> ne;
     std::unique_ptr<Node> sw;
@@ -85,11 +103,27 @@ public:
 
     virtual LeafNode* addPoint(const PointInfo* toAdd);
 
+    virtual void finalize(
+            std::shared_ptr<pdal::PointBuffer> pointBuffer,
+            std::map<uint64_t, LeafNode*>& leafNodes);
+
+    virtual void getPoints(
+            MultiResults& results,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            std::size_t curDepth = 0) const;
+
+    virtual void getPoints(
+            MultiResults& results,
+            const BBox& query,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            std::size_t curDepth = 0) const;
+
     void save();
     void load();
 
 private:
-    const uint64_t id;
     std::forward_list<std::unique_ptr<const PointInfo>> overflow;
 };
 
