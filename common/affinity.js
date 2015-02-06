@@ -149,7 +149,7 @@ var web = require('./web'),
 
                                 return cb(err, sh);
                             });
-                        })
+                        });
                     });
                 });
             });
@@ -186,8 +186,13 @@ var web = require('./web'),
         var self = this;
         self.disco.get('sh', function(err, shList) {
             // TODO
-            var sh = shList[0];
-            return cb(null, (sh.host || "localhost") + ':' + sh.port);
+            if (shList) {
+                var sh = shList[0];
+                return cb(null, (sh.host || "localhost") + ':' + sh.port);
+            }
+            else {
+                return cb('No SH found');
+            }
         });
     }
 

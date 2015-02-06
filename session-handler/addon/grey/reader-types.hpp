@@ -10,6 +10,7 @@
 class GreyCluster;
 class RasterMeta;
 
+std::size_t getRasterIndex(const Point& p, const RasterMeta& rasterMeta);
 std::size_t getRasterIndex(
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::size_t index,

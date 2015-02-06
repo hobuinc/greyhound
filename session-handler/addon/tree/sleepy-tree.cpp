@@ -9,49 +9,61 @@
 
 #include "node.hpp"
 
-namespace
-{
-    pdal::PointContext initPointContext(/*Schema schema*/)
-    {
-        // TODO Programmatically via schema.
-        pdal::PointContext pointContext;
-        pointContext.registerDim(pdal::Dimension::Id::X);
-        pointContext.registerDim(pdal::Dimension::Id::Y);
-        pointContext.registerDim(pdal::Dimension::Id::Z);
-        pointContext.registerDim(pdal::Dimension::Id::Intensity);
-        pointContext.registerDim(pdal::Dimension::Id::Classification);
-        pointContext.assignDim("OriginId", pdal::Dimension::Type::Unsigned64);
-        return pointContext;
-    }
-}
-
 PointInfo::PointInfo(
         const Point& point,
-        const pdal::PointBuffer& pointBuffer,
+        const pdal::PointBuffer& other,
         const pdal::PointContext& pointContext,
+        const pdal::Dimension::Id::Enum originDim,
         std::size_t index,
-        const Origin& origin,
-        std::size_t size)
+        const Origin& origin)
     : point(point)
     , origin(origin)
-    , bytes(size)
+    , pointBuffer(pointContext)
 {
-    char* pos(reinterpret_cast<char*>(bytes.data()));
-    for (auto dim : pointContext.dims())
+    std::vector<char> bytes(8);
+    char* pos(bytes.data());
+    for (auto dim : pointContext.dimTypes())
     {
-        pointBuffer.getField(pos, dim, pointContext.dimType(dim), index);
-        pos += pointContext.dimSize(dim);
+        // Not all dimensions may be present in every pipeline of our
+        // invokation, which is not an error.
+        if (other.hasDim(dim.m_id))
+        {
+            other.getField(pos, dim.m_id, dim.m_type, index);
+            pointBuffer.setField(dim.m_id, dim.m_type, 0, pos);
+        }
     }
+
+    // Set our custom origin value.
+    pointBuffer.setField(originDim, 0, origin);
 }
 
 SleepyTree::SleepyTree(
         const BBox& bbox,
-        /*Schema schema, */
+        const Schema& schema,
         std::size_t overflowDepth)
     : m_overflowDepth(overflowDepth)
-    , m_pointContext(initPointContext())
-    , m_tree(new StemNode(bbox, overflowDepth))
-{ }
+    , m_pointContext()
+    , m_stemPointBuffer()
+    , m_tree(new StemNode(bbox.encapsulate(), overflowDepth))
+    , m_originDim(static_cast<pdal::Dimension::Id::Enum>(0xFFFF))
+{
+    // TODO Programmatically via schema.
+    m_pointContext.registerDim(pdal::Dimension::Id::X);
+    m_pointContext.registerDim(pdal::Dimension::Id::Y);
+    m_pointContext.registerDim(pdal::Dimension::Id::Z);
+    m_pointContext.registerDim(pdal::Dimension::Id::ScanAngleRank);
+    m_pointContext.registerDim(pdal::Dimension::Id::Intensity);
+    m_pointContext.registerDim(pdal::Dimension::Id::PointSourceId);
+    m_pointContext.registerDim(pdal::Dimension::Id::ReturnNumber);
+    m_pointContext.registerDim(pdal::Dimension::Id::NumberOfReturns);
+    m_pointContext.registerDim(pdal::Dimension::Id::ScanDirectionFlag);
+    m_pointContext.registerDim(pdal::Dimension::Id::EdgeOfFlightLine);
+    m_pointContext.registerDim(pdal::Dimension::Id::Classification);
+    m_originDim =
+        m_pointContext.assignDim("OriginId", pdal::Dimension::Type::Unsigned64);
+
+    m_stemPointBuffer.reset(new pdal::PointBuffer(m_pointContext));
+}
 
 SleepyTree::~SleepyTree()
 { }
@@ -61,7 +73,6 @@ void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
     Point point;
     std::set<LeafNode*> leafSet;
     LeafNode* leaf;
-    const std::size_t size(m_pointContext.pointSize());
     for (std::size_t i = 0; i < pointBuffer.size(); ++i)
     {
         point.x = pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, i);
@@ -74,9 +85,9 @@ void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
                         point,
                         pointBuffer,
                         m_pointContext,
+                        m_originDim,
                         i,
-                        origin,
-                        size));
+                        origin));
 
             if (leaf)
             {
@@ -91,70 +102,52 @@ void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
     }
 }
 
+void SleepyTree::save()
+{
+    std::map<uint64_t, LeafNode*> leafNodes;
+    m_tree->finalize(m_stemPointBuffer, leafNodes);
+    std::cout << "Saved.  PB size: " << m_stemPointBuffer->size() << std::endl;
+}
+
+void SleepyTree::load()
+{
+
+}
+
 BBox SleepyTree::getBounds() const
 {
     return m_tree->bbox;
 }
 
-/*
-std::vector<std::size_t> SleepyTree::getPoints(
-        const std::size_t minDepth,
-        const std::size_t maxDepth) const
+MultiResults SleepyTree::getPoints(
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
 {
-    std::vector<std::size_t> results;
-    m_tree->getPoints(results, minDepth, maxDepth);
+    MultiResults results;
+    m_tree->getPoints(results, depthBegin, depthEnd);
 
     return results;
 }
 
-std::vector<std::size_t> SleepyTree::getPoints(
-        const std::size_t rasterize,
-        RasterMeta& rasterMeta) const
-{
-    std::vector<std::size_t> results;
-
-    const Point min(m_tree->bbox.min());
-    const Point max(m_tree->bbox.max());
-
-    const std::size_t exp(std::pow(2, rasterize));
-
-    rasterMeta.xStep =  m_tree->bbox.width() / exp;
-    rasterMeta.yStep =  m_tree->bbox.height() / exp;
-    rasterMeta.xBegin = min.x + (xStep / 2);
-    rasterMeta.yBegin = min.y + (yStep / 2);
-    rasterMeta.xEnd =   max.x + (xStep / 2); // One tick past the end.
-    rasterMeta.yEnd =   max.y + (yStep / 2);
-
-    results.resize(exp * exp, std::numeric_limits<std::size_t>::max());
-
-    m_tree->getPoints(results, rasterize, rasterMeta);
-
-    return results;
-}
-
-std::vector<std::size_t> SleepyTree::getPoints(
-        const RasterMeta& rasterMeta) const;
-{
-    std::vector<std::size_t> results;
-
-    const std::size_t width (pdal::Utils::sround((xEnd - xBegin) / xStep));
-    const std::size_t height(pdal::Utils::sround((yEnd - yBegin) / yStep));
-    results.resize(width * height, std::numeric_limits<std::size_t>::max());
-
-    m_tree->getPoints(results, rasterMeta);
-
-    return results;
-}
-
-std::vector<std::size_t> SleepyTree::getPoints(
+MultiResults SleepyTree::getPoints(
         const BBox& bbox,
-        std::size_t minDepth,
-        std::size_t maxDepth) const
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
 {
-    std::vector<std::size_t> results;
-    m_tree->getPoints(results, bbox, minDepth, maxDepth);
+    MultiResults results;
+    m_tree->getPoints(results, bbox, depthBegin, depthEnd);
 
     return results;
 }
-*/
+
+const pdal::PointContext& SleepyTree::pointContext() const
+{
+    return m_pointContext;
+}
+
+std::shared_ptr<pdal::PointBuffer> SleepyTree::pointBuffer(uint64_t id) const
+{
+    // TODO Support leaf nodes.
+    return m_stemPointBuffer;
+}
 

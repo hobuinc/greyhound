@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 
 #include "bbox.hpp"
 
@@ -67,6 +68,15 @@ BBox BBox::getSe() const
 {
     const Point middle(mid());
     return BBox(Point(middle.x, m_min.y), Point(m_max.x, middle.y));
+}
+
+BBox BBox::encapsulate() const
+{
+    return BBox(
+            m_min,
+            Point(
+                m_max.x + std::numeric_limits<double>::min(),
+                m_max.y + std::numeric_limits<double>::min()));
 }
 
 Json::Value BBox::toJson() const

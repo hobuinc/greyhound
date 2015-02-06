@@ -3,20 +3,19 @@
 #include <vector>
 #include <memory>
 
+#include <pdal/PointBuffer.hpp>
 #include <pdal/PointContext.hpp>
+#include <pdal/Dimension.hpp>
 
 #include "types/point.hpp"
 
-namespace pdal
-{
-    class PointBuffer;
-}
-
 class BBox;
 class RasterMeta;
+class Schema;
 class StemNode;
 
 typedef uint64_t Origin;
+typedef std::vector<std::pair<uint64_t, std::size_t>> MultiResults;
 
 struct PointInfo
 {
@@ -24,67 +23,62 @@ struct PointInfo
             const Point& point,
             const pdal::PointBuffer& pointBuffer,
             const pdal::PointContext& pointContext,
+            const pdal::Dimension::Id::Enum originDim,
             std::size_t index,
-            const Origin& origin,
-            std::size_t size);
+            const Origin& origin);
 
     const Point point;
     const Origin origin;
-    std::vector<uint8_t> bytes;
+    pdal::PointBuffer pointBuffer;
 };
 
 class SleepyTree
 {
 public:
-    explicit SleepyTree(const BBox& bbox, std::size_t overflowDepth = 12);
+    explicit SleepyTree(
+            const BBox& bbox,
+            const Schema& schema,
+            std::size_t overflowDepth = 10); // TODO
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
     void insert(const pdal::PointBuffer& pointBuffer, Origin origin);
 
+    // Finalize the tree so it may be queried.  No more pipelines may be added.
+    void save();
+
+    // Awaken the tree so more pipelines may be added.  After a load(), no
+    // queries should be made until save() is subsequently called.
+    void load();
+
     // Get bounds of the quad tree.
     BBox getBounds() const;
 
-    // Return all points at depth levels strictly less than depthEnd.
-    // A depthEnd value of zero returns all points in the tree.
-    std::vector<std::size_t> getPoints(
-            std::size_t depthEnd = 0) const;
-
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
-    std::vector<std::size_t> getPoints(
+    MultiResults getPoints(
             std::size_t depthBegin,
             std::size_t depthEnd) const;
-
-    // Rasterize a single level of the tree.
-    std::vector<std::size_t> getPoints(
-            std::size_t rasterize,
-            RasterMeta& rasterMeta) const;
-
-    // Get custom raster via bounds and resolution query.
-    std::vector<std::size_t> getPoints(const RasterMeta& rasterMeta) const;
-
-    // Return all points within the query bounding box, searching only up to
-    // depth levels strictly less than depthEnd.
-    // A depthEnd value of zero will return all existing points that fall
-    // within the query range regardless of depth.
-    std::vector<std::size_t> getPoints(
-            const BBox& bbox,
-            std::size_t depthEnd = 0) const;
 
     // Return all points within the bounding box, searching at tree depth
     // levels from [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points within the query range
     // that have a tree level >= depthBegin.
-    std::vector<std::size_t> getPoints(
+    MultiResults getPoints(
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
+    const pdal::PointContext& pointContext() const;
+    std::shared_ptr<pdal::PointBuffer> pointBuffer(uint64_t id) const;
+
 private:
     const std::size_t m_overflowDepth;
-    const pdal::PointContext m_pointContext;
+    pdal::PointContext m_pointContext;
+    std::shared_ptr<pdal::PointBuffer> m_stemPointBuffer;
     std::unique_ptr<StemNode> m_tree;
+
+    pdal::Dimension::Id::Enum m_originDim;
 
     SleepyTree(const SleepyTree&);
     SleepyTree& operator=(const SleepyTree&);
