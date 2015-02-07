@@ -36,7 +36,7 @@ void LiveReadQuery::readPoint(
         {
             if (schema.use(dim, rasterize))
             {
-                pos += readDim(pos, m_pointBuffer, dim, i);
+                pos += readDim(pos, m_pointBuffer.get(), dim, i);
             }
         }
     }

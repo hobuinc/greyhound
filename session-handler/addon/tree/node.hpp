@@ -20,11 +20,9 @@ public:
     Node(const BBox& bbox, uint64_t id) : bbox(bbox), id(id) { }
     virtual ~Node() { }
 
-    virtual LeafNode* addPoint(const PointInfo* toAdd) = 0;
-
-    virtual void finalize(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::map<uint64_t, LeafNode*>& leafNodes) = 0;
+    virtual LeafNode* addPoint(
+            pdal::PointBuffer* basePointBuffer,
+            PointInfo** toAdd) = 0;
 
     virtual void getPoints(
             MultiResults& results,
@@ -55,17 +53,16 @@ class StemNode : public Node
 {
 public:
     StemNode(
+            pdal::PointBuffer* pointBuffer,
             const BBox& bbox,
             std::size_t overflowDepth,
             std::size_t curDepth = 0,
             uint64_t id = baseId);
     ~StemNode();
 
-    virtual LeafNode* addPoint(const PointInfo* toAdd);
-
-    virtual void finalize(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::map<uint64_t, LeafNode*>& leafNodes);
+    virtual LeafNode* addPoint(
+            pdal::PointBuffer* basePointBuffer,
+            PointInfo** toAdd);
 
     virtual void getPoints(
             MultiResults& results,
@@ -81,13 +78,9 @@ public:
             std::size_t curDepth = 0) const;
 
 private:
-    bool hasData() const;
+    std::atomic<const Point*> point;
 
-    // Used only during the build phase.  Not valid after finalize() is called.
-    std::atomic<const PointInfo*> data;
-
-    std::size_t index;
-    Point point;
+    const std::size_t index;
 
     std::unique_ptr<Node> nw;
     std::unique_ptr<Node> ne;
@@ -101,11 +94,9 @@ public:
     LeafNode(const BBox& bbox, uint64_t id);
     ~LeafNode();
 
-    virtual LeafNode* addPoint(const PointInfo* toAdd);
-
-    virtual void finalize(
-            std::shared_ptr<pdal::PointBuffer> pointBuffer,
-            std::map<uint64_t, LeafNode*>& leafNodes);
+    virtual LeafNode* addPoint(
+            pdal::PointBuffer* basePointBuffer,
+            PointInfo** toAdd);
 
     virtual void getPoints(
             MultiResults& results,

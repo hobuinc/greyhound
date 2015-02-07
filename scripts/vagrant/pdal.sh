@@ -8,7 +8,7 @@ export NUMTHREADS
 
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
-git checkout fc7850de12a320ff3a4c6bcd214b7944062733da
+git checkout c70287817ebe90573578657d4b9912f970cec468
 cmake   -G "Unix Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \

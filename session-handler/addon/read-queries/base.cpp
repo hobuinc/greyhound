@@ -116,7 +116,7 @@ void ReadQuery::read(
 
 std::size_t ReadQuery::readDim(
         uint8_t* buffer,
-        const std::shared_ptr<pdal::PointBuffer> pointBuffer,
+        const pdal::PointBuffer* pointBuffer,
         const DimInfo& dim,
         const std::size_t index) const
 {

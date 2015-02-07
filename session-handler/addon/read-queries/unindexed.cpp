@@ -30,7 +30,7 @@ void UnindexedReadQuery::readPoint(
 {
     for (const auto& dim : schema.dims)
     {
-        pos += readDim(pos, m_pointBuffer, dim, m_index);
+        pos += readDim(pos, m_pointBuffer.get(), dim, m_index);
     }
 }
 
