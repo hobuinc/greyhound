@@ -1,3 +1,5 @@
+#include <thread>
+
 #include <pdal/Options.hpp>
 #include <pdal/PipelineManager.hpp>
 #include <pdal/PointBuffer.hpp>
@@ -18,40 +20,50 @@ MultiDataSource::MultiDataSource(
     , m_paths(paths)
     , m_sleepyTree(new SleepyTree(bbox, schema))
 {
+    std::vector<std::thread> threads;
     for (std::size_t i(0); i < paths.size(); ++i)
     {
-        std::unique_ptr<pdal::PipelineManager> pipelineManager(
-                new pdal::PipelineManager());
-        std::unique_ptr<pdal::StageFactory> stageFactory(
-                new pdal::StageFactory());
-        std::unique_ptr<pdal::Options> options(
-                new pdal::Options());
-
-        const std::string& filename(paths[i]);
-        std::cout << "Adding " << filename << std::endl;
-
-        const std::string driver(stageFactory->inferReaderDriver(filename));
-        if (driver.size())
+        threads.push_back(std::thread([this, &paths, i]()
         {
-            pipelineManager->addReader(driver);
+            std::unique_ptr<pdal::PipelineManager> pipelineManager(
+                    new pdal::PipelineManager());
+            std::unique_ptr<pdal::StageFactory> stageFactory(
+                    new pdal::StageFactory());
+            std::unique_ptr<pdal::Options> options(
+                    new pdal::Options());
 
-            pdal::Stage* reader(
-                    static_cast<pdal::Reader*>(pipelineManager->getStage()));
-            options->add(pdal::Option("filename", filename));
-            reader->setOptions(*options.get());
+            const std::string& filename(paths[i]);
+            std::cout << "Adding " << filename << std::endl;
 
-            pipelineManager->execute();
-            const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
-
-            for (const auto pointBuffer : pbSet)
+            const std::string driver(stageFactory->inferReaderDriver(filename));
+            if (driver.size())
             {
-                m_sleepyTree->insert(*pointBuffer.get(), i);
+                pipelineManager->addReader(driver);
+
+                pdal::Stage* reader(
+                        static_cast<pdal::Reader*>(pipelineManager->getStage()));
+                options->add(pdal::Option("filename", filename));
+                reader->setOptions(*options.get());
+
+                pipelineManager->execute();
+                const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
+
+                for (const auto pointBuffer : pbSet)
+                {
+                    m_sleepyTree->insert(pointBuffer.get(), i);
+                }
             }
-        }
-        else
-        {
-            std::cout << "No driver found - " << filename << std::endl;
-        }
+            else
+            {
+                std::cout << "No driver found - " << filename << std::endl;
+            }
+        }));
+    }
+
+    std::cout << "Spawned " << threads.size() << " threads" << std::endl;
+    for (std::size_t i(0); i < threads.size(); ++i)
+    {
+        threads[i].join();
     }
 
     m_sleepyTree->save();
@@ -59,8 +71,7 @@ MultiDataSource::MultiDataSource(
 
 std::size_t MultiDataSource::getNumPoints() const
 {
-    // TODO
-    return 0;
+    return m_sleepyTree->numPoints();
 }
 
 std::string MultiDataSource::getSchema() const

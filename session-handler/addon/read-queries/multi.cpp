@@ -24,7 +24,7 @@ void MultiReadQuery::readPoint(
         const Schema& schema,
         bool rasterize) const
 {
-    const std::shared_ptr<pdal::PointBuffer> pointBuffer(
+    const pdal::PointBuffer* pointBuffer(
             m_sleepyTree->pointBuffer(m_multiResults[m_index].first));
 
     // TODO

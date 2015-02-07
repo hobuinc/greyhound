@@ -35,7 +35,7 @@ void SerialReadQuery::readPoint(
             {
                 pos += readDim(
                         pos,
-                        m_greyQuery.pointBuffer(queryIndex.id),
+                        m_greyQuery.pointBuffer(queryIndex.id).get(),
                         dim,
                         queryIndex.index);
             }
