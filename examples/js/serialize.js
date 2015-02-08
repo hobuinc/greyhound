@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 // A websocket client that serializes a pre-created pipeline ID.
 var WebSocket = require('ws'),
     argv = require('minimist')(process.argv.slice(2)),

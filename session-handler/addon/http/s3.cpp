@@ -37,6 +37,14 @@ S3::S3(
     , m_curlBatch(curlPool.acquire())
 { }
 
+S3::S3(const S3Info& s3Info)
+    : m_awsAccessKeyId(s3Info.awsAccessKeyId)
+    , m_awsSecretAccessKey(s3Info.awsSecretAccessKey)
+    , m_baseAwsUrl(s3Info.baseAwsUrl)
+    , m_bucketName(prefixSlash(s3Info.bucketName))
+    , m_curlBatch(curlPool.acquire())
+{ }
+
 S3::~S3()
 {
     curlPool.release(m_curlBatch);
@@ -105,7 +113,9 @@ void S3::get(uint64_t id, std::string file, GetCollector* collector)
     t.detach();
 }
 
-HttpResponse S3::put(std::string file, const std::vector<uint8_t>* data)
+HttpResponse S3::put(
+        std::string file,
+        const std::shared_ptr<std::vector<uint8_t>> data)
 {
     const std::string filePath(m_bucketName + prefixSlash(file));
     const std::string endpoint("http://" + m_baseAwsUrl + filePath);
@@ -115,17 +125,15 @@ HttpResponse S3::put(std::string file, const std::vector<uint8_t>* data)
 
 HttpResponse S3::put(std::string file, const std::string& data)
 {
-    const std::vector<uint8_t>* vec(
+    std::shared_ptr<std::vector<uint8_t>> vec(
             new std::vector<uint8_t>(data.begin(), data.end()));
-    HttpResponse res(put(file, vec));
-    delete vec;
-    return res;
+    return put(file, vec);
 }
 
 void S3::put(
         uint64_t id,
         std::string file,
-        const std::vector<uint8_t>* data,
+        const std::shared_ptr<std::vector<uint8_t>> data,
         PutCollector* collector)
 {
     std::thread t([this, id, file, data, collector]() {

@@ -46,6 +46,8 @@ public:
             std::string baseAwsUrl = "s3.amazonaws.com",
             std::string bucketName = "");
 
+    S3(const S3Info& s3Info);
+
     ~S3();
 
     // Functions that take a Collector argument asynchonously push their
@@ -63,12 +65,14 @@ public:
     HttpResponse get(std::string file);
     void get(uint64_t id, std::string file, GetCollector* collector);
 
-    HttpResponse put(std::string file, const std::vector<uint8_t>* data);
+    HttpResponse put(
+            std::string file,
+            const std::shared_ptr<std::vector<uint8_t>> data);
     HttpResponse put(std::string file, const std::string& data);
     void put(
             uint64_t id,
             std::string file,
-            const std::vector<uint8_t>* data,
+            const std::shared_ptr<std::vector<uint8_t>> data,
             PutCollector* collector);
 
     const std::string& baseAwsUrl() const { return m_baseAwsUrl; }
