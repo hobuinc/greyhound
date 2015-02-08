@@ -87,7 +87,7 @@ ItcBufferPool::ItcBufferPool(std::size_t numBuffers, std::size_t capacity)
 std::shared_ptr<ItcBuffer> ItcBufferPool::acquire()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_cv.wait(lock, [this]()->bool { return !m_buffers.empty(); });
+    m_cv.wait(lock, [this]()->bool { return !m_available.empty(); });
     std::shared_ptr<ItcBuffer> itcBuffer(m_buffers[m_available.back()]);
     m_available.pop_back();
     lock.unlock();
