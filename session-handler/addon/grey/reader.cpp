@@ -390,7 +390,7 @@ GreyReaderS3::GreyReaderS3(
         {
             Json::Reader jsonReader;
             Json::Value jsonMeta;
-            const std::vector<uint8_t>* rawMeta(res.data());
+            const std::shared_ptr<std::vector<uint8_t>> rawMeta(res.data());
 
             if (jsonReader.parse(
                     reinterpret_cast<const char*>(rawMeta->data()),
@@ -399,17 +399,14 @@ GreyReaderS3::GreyReaderS3(
                     jsonMeta))
             {
                 init(GreyMeta(jsonMeta));
-                delete res.data();
             }
             else
             {
-                delete res.data();
                 throw std::runtime_error("Could not parse metadata from S3");
             }
         }
         else
         {
-            delete res.data();
             throw std::runtime_error("Could not get metadata from S3");
         }
     }
@@ -433,8 +430,6 @@ bool GreyReaderS3::exists(const std::string pipelineId, const S3Info& s3Info)
 
         HttpResponse metaRes(s3.get(pipelineId + "/meta"));
         HttpResponse zeroRes(s3.get(pipelineId + "/0"));
-        delete metaRes.data();
-        delete zeroRes.data();
 
         if (metaRes.code() == 200 && zeroRes.code() == 200)
         {
@@ -496,7 +491,7 @@ void GreyReaderS3::queryClusters(
     for (auto& res : collector->responses())
     {
         const uint64_t id(res.first);
-        const std::vector<uint8_t>* resData(res.second);
+        std::shared_ptr<std::vector<uint8_t>> resData(res.second);
 
         std::uint64_t uncompressedSize(0);
         std::memcpy(&uncompressedSize, resData->data(), sizeof(uint64_t));
@@ -507,7 +502,7 @@ void GreyReaderS3::queryClusters(
         // Data from the table may be compressed.
         std::vector<uint8_t> tableData(rawNumBytes);
         std::memcpy(tableData.data(), rawData, rawNumBytes);
-        delete resData->data();
+        resData.reset();
         std::vector<uint8_t>& data(tableData);
 
         std::vector<uint8_t> uncompressedData(

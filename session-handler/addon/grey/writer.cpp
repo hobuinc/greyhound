@@ -108,7 +108,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
     const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
     const std::size_t pointSize(pointBuffer.pointSize());
 
-    std::shared_ptr<PutCollector> collector(new PutCollector(clusters.size()));
+    std::unique_ptr<PutCollector> collector(new PutCollector(clusters.size()));
     std::size_t i(0);
 
     // Accumulate inserts.
@@ -120,20 +120,16 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
 
         // For now use the first 8 bytes as an unsigned integer representing
         // the uncompressed length.
-        std::vector<uint8_t>* data(
+        std::shared_ptr<std::vector<uint8_t>> data(
                 new std::vector<uint8_t>(sizeof(uint64_t) + uncompressedSize));
         std::memcpy(data->data(), &uncompressedSize, sizeof(uint64_t));
         uint8_t* pos(data->data() + sizeof(uint64_t));
 
-        // Read the entries at these indices into our buffer of real point
-        // data.
+        // Read the entries at these indices into our buffer of point data.
         for (const auto index : indexList)
         {
-            for (const auto& dimId : pointBuffer.dims())
-            {
-                pointBuffer.getRawField(dimId, index, pos);
-                pos += pointBuffer.dimSize(dimId);
-            }
+            pointBuffer.context().rawPtBuf()->getPoint(index, pos);
+            pos += pointSize;
         }
 
         CompressionStream compressionStream;
@@ -147,7 +143,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
 
             compressor.compress(
                     reinterpret_cast<char*>(data->data() + sizeof(uint64_t)),
-                    data->size() - sizeof(uint64_t));
+                    uncompressedSize);
             compressor.done();
 
             // Offset by 8 bytes to maintain the uncompressed size field.
@@ -187,7 +183,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
         for (const auto& err : errs)
         {
             const uint64_t id(err.first);
-            const std::vector<uint8_t>* data(err.second);
+            const std::shared_ptr<std::vector<uint8_t>> data(err.second);
 
             s3.put(id, dir + "/" + std::to_string(id), data, collector.get());
         }

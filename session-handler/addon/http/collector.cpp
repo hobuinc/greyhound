@@ -56,24 +56,14 @@ PutCollector::PutCollector(const std::size_t numExpected)
 { }
 
 PutCollector::~PutCollector()
-{
-    for (auto& err : m_errs)
-    {
-        const std::vector<uint8_t>* data(err.second);
-        delete data;
-    }
-}
+{ }
 
 void PutCollector::insert(
     uint64_t id,
     HttpResponse res,
-    const std::vector<uint8_t>* data)
+    const std::shared_ptr<std::vector<uint8_t>> data)
 {
-    if (res.code() == 200)
-    {
-        if (data) delete data;
-    }
-    else
+    if (res.code() != 200)
     {
         if (res.code() / 100 == 5) m_shouldSlowDown = true;
 
@@ -86,10 +76,11 @@ void PutCollector::insert(
     inc();
 }
 
-std::map<uint64_t, const std::vector<uint8_t>*> PutCollector::errs()
+std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>>
+PutCollector::errs()
 {
     waitFor(m_expected);
-    std::map<uint64_t, const std::vector<uint8_t>*> tmp;
+    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> tmp;
     m_errs.swap(tmp);
     return tmp;
 }
@@ -113,8 +104,6 @@ void GetCollector::insert(uint64_t id, std::string file, HttpResponse res)
     }
     else
     {
-        delete res.data();
-
         if (res.code() != 404)
         {
             // 404s are expected, since we are querying nodes from a theoretical
@@ -140,7 +129,8 @@ std::map<uint64_t, std::string> GetCollector::errs()
     return tmp;
 }
 
-std::map<uint64_t, const std::vector<uint8_t>*> GetCollector::responses()
+std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>>
+GetCollector::responses()
 {
     return m_data;
 }

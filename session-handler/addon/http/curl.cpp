@@ -7,12 +7,12 @@ namespace
 {
     struct PutData
     {
-        PutData(const std::vector<uint8_t>* data)
+        PutData(const std::shared_ptr<std::vector<uint8_t>> data)
             : data(data)
             , offset(0)
         { }
 
-        const std::vector<uint8_t>* data;
+        const std::shared_ptr<std::vector<uint8_t>> data;
         std::size_t offset;
     };
 
@@ -99,11 +99,11 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     init(url, headers);
 
     int httpCode(0);
-    std::vector<uint8_t>* data(new std::vector<uint8_t>());
+    std::shared_ptr<std::vector<uint8_t>> data(new std::vector<uint8_t>());
 
     // Register callback function and date pointer to consume the result.
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, data);
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, data.get());
 
     // Insert all headers into the request.
     curl_easy_setopt(m_curl, CURLOPT_HTTPHEADER, m_headers);
@@ -120,13 +120,13 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
 HttpResponse Curl::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::vector<uint8_t>* data)
+        const std::shared_ptr<std::vector<uint8_t>> data)
 {
     init(url, headers);
 
     int httpCode(0);
 
-    std::shared_ptr<PutData> putData(new PutData(data));
+    std::unique_ptr<PutData> putData(new PutData(data));
 
     // Register callback function and data pointer to create the request.
     curl_easy_setopt(m_curl, CURLOPT_READFUNCTION, putCb);
@@ -179,7 +179,7 @@ HttpResponse CurlBatch::get(
 HttpResponse CurlBatch::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::vector<uint8_t>* data)
+        const std::shared_ptr<std::vector<uint8_t>> data)
 {
     std::shared_ptr<Curl> curl(acquire());
     HttpResponse res(curl->put(url, headers, data));
