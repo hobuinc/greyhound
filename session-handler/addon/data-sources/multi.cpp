@@ -9,7 +9,13 @@
 
 #include "tree/sleepy-tree.hpp"
 #include "data-sources/multi.hpp"
+#include "data-sources/multi-batcher.hpp"
 #include "read-queries/multi.hpp"
+
+namespace
+{
+    const std::size_t numBatches(6);
+}
 
 MultiDataSource::MultiDataSource(
         const std::string& pipelineId,
@@ -20,52 +26,13 @@ MultiDataSource::MultiDataSource(
     , m_paths(paths)
     , m_sleepyTree(new SleepyTree(bbox, schema))
 {
-    std::vector<std::thread> threads;
+    MultiBatcher batcher(numBatches, m_sleepyTree);
     for (std::size_t i(0); i < paths.size(); ++i)
     {
-        threads.push_back(std::thread([this, &paths, i]()
-        {
-            std::unique_ptr<pdal::PipelineManager> pipelineManager(
-                    new pdal::PipelineManager());
-            std::unique_ptr<pdal::StageFactory> stageFactory(
-                    new pdal::StageFactory());
-            std::unique_ptr<pdal::Options> options(
-                    new pdal::Options());
-
-            const std::string& filename(paths[i]);
-            std::cout << "Adding " << filename << std::endl;
-
-            const std::string driver(stageFactory->inferReaderDriver(filename));
-            if (driver.size())
-            {
-                pipelineManager->addReader(driver);
-
-                pdal::Stage* reader(
-                        static_cast<pdal::Reader*>(pipelineManager->getStage()));
-                options->add(pdal::Option("filename", filename));
-                reader->setOptions(*options.get());
-
-                pipelineManager->execute();
-                const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
-
-                for (const auto pointBuffer : pbSet)
-                {
-                    m_sleepyTree->insert(pointBuffer.get(), i);
-                }
-            }
-            else
-            {
-                std::cout << "No driver found - " << filename << std::endl;
-            }
-        }));
+        batcher.add(paths[i], i);
     }
 
-    std::cout << "Spawned " << threads.size() << " threads" << std::endl;
-    for (std::size_t i(0); i < threads.size(); ++i)
-    {
-        threads[i].join();
-    }
-
+    batcher.done();
     m_sleepyTree->save();
 }
 

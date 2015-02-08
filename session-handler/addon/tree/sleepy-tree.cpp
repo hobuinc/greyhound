@@ -25,7 +25,6 @@ namespace
         pointContext.registerDim(pdal::Dimension::Id::ReturnNumber);
         pointContext.registerDim(pdal::Dimension::Id::NumberOfReturns);
         pointContext.registerDim(pdal::Dimension::Id::ScanDirectionFlag);
-        pointContext.registerDim(pdal::Dimension::Id::EdgeOfFlightLine);
         pointContext.registerDim(pdal::Dimension::Id::Classification);
         return pointContext;
     }

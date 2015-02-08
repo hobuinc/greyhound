@@ -18,6 +18,7 @@
                 './addon/data-sources/live.cpp',
                 './addon/data-sources/multi.cpp',
                 './addon/data-sources/multi-arbiter.cpp',
+                './addon/data-sources/multi-batcher.cpp',
                 './addon/data-sources/serial.cpp',
                 './addon/data-sources/standard-arbiter.cpp',
 
