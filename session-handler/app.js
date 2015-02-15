@@ -152,6 +152,10 @@ app.post("/create", function(req, res) {
     }
 
     var pdalSession = pipelineIds[pipelineId] || new PdalSession();
+    if (bbox) {
+        mkdirp.sync('/var/greyhound/serial/' + pipelineId);
+        mkdirp.sync('/var/greyhound/tmp/');
+    }
 
     // Make sure to set these outside of the callback so that if another
     // request for this pipeline comes immediately after this one, it doesn't

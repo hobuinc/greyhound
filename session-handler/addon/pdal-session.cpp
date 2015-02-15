@@ -93,7 +93,6 @@ void PdalSession::initialize(
                     "Caught exception in multi init - " + pipelineId);
         }
     });
-    std::cout << "Done initing multi" << std::endl;
 }
 
 std::size_t PdalSession::getNumPoints()

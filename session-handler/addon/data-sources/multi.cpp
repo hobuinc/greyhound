@@ -1,6 +1,4 @@
-#include <thread>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <chrono>
 
 #include <pdal/Options.hpp>
 #include <pdal/PipelineManager.hpp>
@@ -28,17 +26,20 @@ MultiDataSource::MultiDataSource(
         const S3Info& s3Info)
     : m_sleepyTree(new SleepyTree(pipelineId, bbox, schema, s3Info, 12))
 {
-    // TODO
-    mkdir(("/var/greyhound/serial/" + pipelineId).c_str(), DEFFILEMODE);
-
-    MultiBatcher batcher(numBatches, m_sleepyTree);
+    MultiBatcher batcher(s3Info, pipelineId, numBatches, m_sleepyTree);
+    const auto start(std::chrono::high_resolution_clock::now());
     for (std::size_t i(0); i < paths.size(); ++i)
     {
         batcher.add(paths[i], i);
     }
 
     batcher.done();
-    std::cout << "Tree saved" << std::endl;
+    const auto end(std::chrono::high_resolution_clock::now());
+    const std::chrono::duration<double> d(end - start);
+    std::cout << "Multi " << pipelineId << " complete - took " <<
+            std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
+            " seconds" <<
+            std::endl;
 }
 
 std::size_t MultiDataSource::getNumPoints() const

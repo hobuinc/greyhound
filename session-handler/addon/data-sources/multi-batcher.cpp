@@ -1,5 +1,7 @@
+//#include <sys/stat.h>
+//#include <sys/types.h>
+#include <cstdio>
 #include <thread>
-#include <forward_list>
 
 #include <pdal/Options.hpp>
 #include <pdal/PipelineManager.hpp>
@@ -10,10 +12,28 @@
 
 #include "multi-batcher.hpp"
 
+/*
+namespace
+{
+    std::string vfile(const std::string& pipelineId, std::size_t id)
+    {
+        return "/var/greyhound/tmp/" + pipelineId + "-" + std::to_string(id);
+    }
+}
+*/
+
 MultiBatcher::MultiBatcher(
+        const S3Info& s3Info,
+        const std::string& pipelineId,
         const std::size_t numBatches,
         std::shared_ptr<SleepyTree> sleepyTree)
-    : m_batches(numBatches)
+    : m_s3(
+            s3Info.awsAccessKeyId,
+            s3Info.awsSecretAccessKey,
+            s3Info.baseAwsUrl,
+            s3Info.bucketName)
+    , m_pipelineId(pipelineId)
+    , m_batches(numBatches)
     , m_available(numBatches)
     , m_sleepyTree(sleepyTree)
     , m_mutex()
@@ -47,11 +67,63 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
             const std::string driver(stageFactory->inferReaderDriver(filename));
             if (driver.size())
             {
+                const std::string localPath(
+                        "/var/greyhound/tmp/" + m_pipelineId + "-" +
+                        std::to_string(origin));
+
+                {
+                    // Retrieve remote file.
+                    HttpResponse res(m_s3.get("IA_LAZlib/" + filename));
+
+                    // TODO Retry a few times.
+                    if (res.code() != 200)
+                    {
+                        std::cout << "Couldn't fetch " + filename <<
+                                " - Got: " << res.code() << std::endl;
+                        throw std::runtime_error("Couldn't fetch " + filename);
+                    }
+
+                    std::shared_ptr<std::vector<uint8_t>> fileData(res.data());
+                    std::ofstream writer(
+                            localPath,
+                            std::ofstream::binary |
+                                std::ofstream::out |
+                                std::ofstream::trunc);
+                    writer.write(
+                            reinterpret_cast<const char*>(fileData->data()),
+                            fileData->size());
+                    writer.close();
+                }
+
+                /*
+                // Set up virtual file writer.
+                const std::string vfilename(vfile(m_pipelineId, index));
+                int handle(mkfifo(vfilename.c_str(), S_IRUSR | S_IWUSR));
+
+                if (handle < 0)
+                {
+                    std::cout << "Couldn't map " << filename << std::endl;
+                    throw std::runtime_error("Couldn't map virtual file");
+                }
+
+                // Spawn writer process.
+                std::thread writer = std::thread([handle, filename, fileData]() {
+                    if (write(handle, fileData->data(), fileData->size()) < 0)
+                    {
+                        std::cout << "Couldn't write " << filename << std::endl;
+                        throw std::runtime_error("Couldn't write virtual file");
+                    }
+
+                    std::cout << "Syncing " << filename << std::endl;
+                    fsync(handle);
+                });
+                */
+
                 pipelineManager->addReader(driver);
 
                 pdal::Stage* reader(static_cast<pdal::Reader*>(
                         pipelineManager->getStage()));
-                readerOptions->add(pdal::Option("filename", filename));
+                readerOptions->add(pdal::Option("filename", localPath));
                 reader->setOptions(*readerOptions.get());
 
                 reader->setSpatialReference(
@@ -77,6 +149,12 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
                 // Get and insert the buffer of reprojected points.
                 pipelineManager->execute();
                 const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
+
+                if (remove(localPath.c_str()) != 0)
+                {
+                    std::cout << "Couldn't delete " << localPath << std::endl;
+                    throw std::runtime_error("Couldn't delete tmp file");
+                }
 
                 for (const auto pointBuffer : pbSet)
                 {
