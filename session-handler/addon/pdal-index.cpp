@@ -23,7 +23,6 @@ void PdalIndex::ensureIndex(
         case QuadIndex:
             m_quadOnce.ensure([this, &pointBuffer]() {
                 m_quadIndex.reset(new pdal::QuadIndex(pointBuffer));
-                m_quadIndex->build();
             });
             break;
         default:

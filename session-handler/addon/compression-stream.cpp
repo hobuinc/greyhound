@@ -13,6 +13,13 @@ CompressionStream::CompressionStream(const std::vector<uint8_t>& data)
     , m_index(0)
 { }
 
+CompressionStream::CompressionStream(const std::vector<char>& data)
+    : m_data(data.size())
+    , m_index(0)
+{
+    std::memcpy(m_data.data(), data.data(), data.size());
+}
+
 void CompressionStream::putBytes(const uint8_t* bytes, const std::size_t length)
 {
     for (std::size_t i(0); i < length; ++i)

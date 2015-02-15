@@ -11,7 +11,10 @@
 class GreyWriter
 {
 public:
-    GreyWriter(const pdal::QuadIndex& quadIndex, GreyMeta meta);
+    GreyWriter(
+            const pdal::PointBuffer& pointBuffer,
+            const pdal::QuadIndex& quadIndex,
+            GreyMeta meta);
 
     // Serialize to s3.
     void write(S3Info s3Info, std::string dir) const;
@@ -21,6 +24,7 @@ public:
 
 private:
     GreyMeta m_meta;
+    const pdal::PointBuffer& m_pointBuffer;
     const pdal::QuadIndex& m_quadIndex;
 
     void writeMeta(sqlite3* db) const;

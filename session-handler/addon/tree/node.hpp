@@ -12,7 +12,14 @@
 #include "types/bbox.hpp"
 #include "types/point.hpp"
 
+namespace pdal
+{
+    class QuadIndex;
+}
+
 class LeafNode;
+class PutCollector;
+class S3;
 
 class Node
 {
@@ -20,22 +27,26 @@ public:
     Node(const BBox& bbox, uint64_t id) : bbox(bbox), id(id) { }
     virtual ~Node() { }
 
-    virtual LeafNode* addPoint(
-            pdal::PointBuffer* basePointBuffer,
-            PointInfo** toAdd) = 0;
+    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd) = 0;
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const = 0;
+            std::size_t curDepth = 0) = 0;
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const = 0;
+            std::size_t curDepth = 0) = 0;
 
     const BBox bbox;
     const uint64_t id;
@@ -53,34 +64,39 @@ class StemNode : public Node
 {
 public:
     StemNode(
-            pdal::PointBuffer* pointBuffer,
+            std::vector<char>* basePoints,
+            std::size_t pointSize,
             const BBox& bbox,
             std::size_t overflowDepth,
             std::size_t curDepth = 0,
             uint64_t id = baseId);
     ~StemNode();
 
-    virtual LeafNode* addPoint(
-            pdal::PointBuffer* basePointBuffer,
-            PointInfo** toAdd);
+    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd);
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
+            std::size_t curDepth = 0);
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
+            std::size_t curDepth = 0);
 
 private:
     std::atomic<const Point*> point;
 
-    const std::size_t index;
+    const std::size_t offset;
 
     std::unique_ptr<Node> nw;
     std::unique_ptr<Node> ne;
@@ -94,27 +110,47 @@ public:
     LeafNode(const BBox& bbox, uint64_t id);
     ~LeafNode();
 
-    virtual LeafNode* addPoint(
-            pdal::PointBuffer* basePointBuffer,
-            PointInfo** toAdd);
+    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd);
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
+            std::size_t curDepth = 0);
 
     virtual void getPoints(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            SleepyCache& cache,
             MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            std::size_t curDepth = 0) const;
+            std::size_t curDepth = 0);
 
-    void save();
-    void load();
+    void save(
+            const std::string& pipelineId,
+            const pdal::PointContextRef pointContext);
 
 private:
-    std::forward_list<std::unique_ptr<const PointInfo>> overflow;
+    bool build(
+            const pdal::PointContextRef pointContext,
+            const std::string& pipelineId,
+            std::size_t curDepth);
+
+    std::shared_ptr<std::vector<char>> compress(
+            std::vector<char>& uncompressed,
+            const pdal::PointContextRef pointContext) const;
+
+    std::shared_ptr<std::vector<char>> decompress(
+            const std::vector<char>& compressed,
+            std::size_t uncompressedSize,
+            const pdal::PointContextRef pointContext) const;
+
+    std::shared_ptr<std::vector<char>> overflow;
+    std::unique_ptr<pdal::QuadIndex> quadIndex;
 };
 

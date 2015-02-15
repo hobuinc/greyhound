@@ -411,13 +411,17 @@ void GreyCluster::index()
 {
     if (!m_quadTree)
     {
-        m_quadTree.reset(
-                new pdal::QuadIndex(*m_pointBuffer.get(), m_depth));
-
         const Point min(m_bbox.min());
         const Point max(m_bbox.max());
 
-        m_quadTree->build(min.x, min.y, max.x, max.y);
+        m_quadTree.reset(
+                new pdal::QuadIndex(
+                    *m_pointBuffer.get(),
+                    min.x,
+                    min.y,
+                    max.x,
+                    max.y,
+                    m_depth));
     }
 }
 

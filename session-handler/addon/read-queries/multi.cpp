@@ -17,28 +17,73 @@ MultiReadQuery::MultiReadQuery(
     , m_sleepyTree(sleepyTree)
     , m_multiResults(multiResults)
     , m_offset(0)
-{ }
+{
+    std::cout << "TODO: read-queries/multi.cpp - readPoint\n\t" <<
+        "Dimension request casting" << std::endl;
+}
 
 void MultiReadQuery::readPoint(
         uint8_t* pos,
         const Schema& schema,
         bool rasterize) const
 {
-    const pdal::PointBuffer* pointBuffer(
-            m_sleepyTree->pointBuffer(m_multiResults[m_index].first));
+    std::shared_ptr<std::vector<char>> data(
+            m_sleepyTree->data(m_multiResults[m_index].first));
+
+    const pdal::PointContextRef pointContext(m_sleepyTree->pointContext());
 
     // TODO
     if (rasterize) throw std::runtime_error("No raster for multi yet.");
 
+    const std::size_t pointOffset(
+            m_multiResults[m_index].second * pointContext.pointSize());
+
+    std::vector<char> bytes(8);
+
     for (const auto& dim : schema.dims)
     {
-        if (schema.use(dim, rasterize))
+        if (schema.use(dim, rasterize) && pointContext.hasDim(dim.id))
         {
-            pos += readDim(
-                    pos,
-                    pointBuffer,
-                    dim,
-                    m_multiResults[m_index].second);
+            const std::size_t dimOffset(
+                    pointContext.dimDetail(dim.id)->m_offset);
+            const std::size_t nativeSize(pointContext.dimSize(dim.id));
+
+            std::memcpy(
+                    bytes.data(),
+                    data->data() + pointOffset + dimOffset,
+                    nativeSize);
+
+            using namespace pdal::Dimension;
+            const BaseType::Enum baseType(base(dim.type));
+            const std::size_t dimSize(dim.size());
+
+            if (baseType == BaseType::Floating)
+            {
+                if (dimSize != nativeSize)
+                {
+                    if (nativeSize == 8)
+                    {
+                        double d(0);
+                        std::memcpy(&d, bytes.data(), 8);
+                        float f(static_cast<float>(d));
+                        std::memcpy(pos, &f, 4);
+                    }
+                    else
+                    {
+                        float f(0);
+                        std::memcpy(&f, bytes.data() + 4, 4);
+                        double d(static_cast<double>(f));
+                        std::memcpy(pos, &d, 8);
+                    }
+                }
+            }
+            else
+            {
+                if (nativeSize != dimSize) throw std::runtime_error("TODO");
+                std::memcpy(pos, bytes.data(), dimSize);
+            }
+
+            pos += dimSize;
         }
     }
 }

@@ -4,10 +4,14 @@
 #include <string>
 #include <thread>
 
-#include <pdal/PointBuffer.hpp>
+#include <pdal/Charbuf.hpp>
+#include <pdal/Compression.hpp>
 #include <pdal/Dimension.hpp>
+#include <pdal/PointBuffer.hpp>
 #include <pdal/Utils.hpp>
 
+#include "compression-stream.hpp"
+#include "http/collector.hpp"
 #include "node.hpp"
 
 namespace
@@ -28,81 +32,76 @@ namespace
         pointContext.registerDim(pdal::Dimension::Id::Classification);
         return pointContext;
     }
+
+    // TODO
+    const std::string diskPath("/var/greyhound/serial");
 }
 
-PointInfo::PointInfo(const Point* point)
-    : point(point)
-{ }
-
-PointInfoNative::PointInfoNative(
-        const pdal::PointBuffer& pointBuffer,
-        std::size_t index,
+PointInfo::PointInfo(
+        const pdal::PointContextRef pointContext,
+        const pdal::PointBuffer* pointBuffer,
+        const std::size_t index,
         const pdal::Dimension::Id::Enum originDim,
-        const Origin& origin)
-    : PointInfo(new Point(
-            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, index),
-            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::Y, index)))
-    , pointBuffer(pointBuffer)
-    , index(index)
-    , originDim(originDim)
-    , origin(origin)
-{ }
-
-void PointInfoNative::write(
-        pdal::PointBuffer* dstPointBuffer,
-        std::size_t dstIndex)
+        const Origin origin)
+    : point(new Point(
+            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
+            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index)))
+    , bytes(pointBuffer->pointSize())
 {
-    std::vector<char> bytes(8);
     char* pos(bytes.data());
-    for (const auto& dim : dstPointBuffer->dimTypes())
+    for (const auto& dim : pointContext.dims())
     {
         // Not all dimensions may be present in every pipeline of our
         // invokation, which is not an error.
-        if (pointBuffer.hasDim(dim.m_id))
+        if (pointBuffer->hasDim(dim))
         {
-            //pointBuffer.getField(pos, dim.m_id, dim.m_type, index);
-            pointBuffer.getRawField(dim.m_id, index, pos);
-            dstPointBuffer->setField(dim.m_id, dim.m_type, dstIndex, pos);
+            pointBuffer->getRawField(dim, index, pos);
         }
+        else if (dim == originDim)
+        {
+            std::memcpy(pos, &origin, sizeof(Origin));
+        }
+
+        pos += pointContext.dimSize(dim);
     }
-
-    // Set our custom origin value.
-    dstPointBuffer->setField(originDim, dstIndex, origin);
 }
 
-PointInfoPulled::PointInfoPulled(
-        const Point* point,
-        const pdal::PointBuffer* srcPointBuffer,
-        std::size_t index)
-    : PointInfo(point)
-    , bytes(srcPointBuffer->pointSize())
+PointInfo::PointInfo(const Point* point, char* pos, const std::size_t len)
+    : point(point)
+    , bytes(len)
 {
-    srcPointBuffer->context().rawPtBuf()->getPoint(index, bytes.data());
+    std::memcpy(bytes.data(), pos, len);
 }
 
-void PointInfoPulled::write(
-        pdal::PointBuffer* dstPointBuffer,
-        std::size_t dstIndex)
+void PointInfo::write(char* pos)
 {
-    dstPointBuffer->context().rawPtBuf()->setPoint(dstIndex, bytes.data());
+    std::memcpy(pos, bytes.data(), bytes.size());
 }
 
 SleepyTree::SleepyTree(
+        const std::string& pipelineId,
         const BBox& bbox,
         const Schema& schema,
+        const S3Info& s3Info,
         std::size_t overflowDepth)
-    : m_overflowDepth(overflowDepth)
+    : m_pipelineId(pipelineId)
+    , m_overflowDepth(overflowDepth)
     , m_pointContext(initPointContext(schema))
     , m_originDim(m_pointContext.assignDim(
                 "OriginId",
                 pdal::Dimension::Type::Unsigned64))
-    , m_basePointBuffer(new pdal::PointBuffer(m_pointContext))
+    , m_basePoints(new std::vector<char>())
+    , m_cache()
     , m_tree(new StemNode(
-                m_basePointBuffer.get(),
+                m_basePoints.get(),
+                m_pointContext.pointSize(),
                 bbox.encapsulate(),
                 m_overflowDepth))
+    , m_s3(s3Info)
     , m_numPoints(0)
-{ }
+{
+    m_cache.insert(0, m_basePoints);
+}
 
 SleepyTree::~SleepyTree()
 { }
@@ -115,22 +114,21 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
     for (std::size_t i = 0; i < pointBuffer->size(); ++i)
     {
-        ++m_numPoints;
         point.x = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i);
         point.y = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
         if (m_tree->bbox.contains(point))
         {
             PointInfo* pointInfo(
-                    new PointInfoNative(
-                        *pointBuffer,
+                    new PointInfo(
+                        m_pointContext,
+                        pointBuffer,
                         i,
                         m_originDim,
                         origin));
 
-            leaf = m_tree->addPoint(
-                    m_basePointBuffer.get(),
-                    &pointInfo);
+            ++m_numPoints;
+            leaf = m_tree->addPoint(m_basePoints.get(), &pointInfo);
 
             if (leaf)
             {
@@ -139,16 +137,49 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
         }
     }
 
-    for (auto it : leafSet)
+    for (auto& it : leafSet)
     {
-        it->save();
+        it->save(m_pipelineId, m_pointContext);
     }
 }
 
 void SleepyTree::save()
 {
-    //std::map<uint64_t, LeafNode*> leafNodes;
-    //m_tree->finalize(m_basePointBuffer, leafNodes);
+    std::string path(diskPath + "/" + m_pipelineId + "/0");
+    std::ofstream dataStream;
+    dataStream.open(
+            path,
+            std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+
+    const uint64_t uncompressedSize(m_basePoints->size());
+
+    // TODO Duplicate code with Node::compress().
+    CompressionStream compressionStream;
+    pdal::LazPerfCompressor<CompressionStream> compressor(
+            compressionStream,
+            m_pointContext.dimTypes());
+
+    compressor.compress(m_basePoints->data(), m_basePoints->size());
+    compressor.done();
+
+    std::shared_ptr<std::vector<char>> compressed(
+            new std::vector<char>(compressionStream.data().size()));
+
+    std::memcpy(
+            compressed->data(),
+            compressionStream.data().data(),
+            compressed->size());
+    const uint64_t compressedSize(compressed->size());
+
+    dataStream.write(
+            reinterpret_cast<const char*>(&uncompressedSize),
+            sizeof(uint64_t));
+    dataStream.write(
+            reinterpret_cast<const char*>(&compressedSize),
+            sizeof(uint64_t));
+    dataStream.write(compressed->data(), compressed->size());
+    dataStream.close();
+
     std::cout << "Done: " << m_numPoints << " points." << std::endl;
 }
 
@@ -157,17 +188,23 @@ void SleepyTree::load()
 
 }
 
-BBox SleepyTree::getBounds() const
+const BBox& SleepyTree::getBounds() const
 {
     return m_tree->bbox;
 }
 
 MultiResults SleepyTree::getPoints(
         const std::size_t depthBegin,
-        const std::size_t depthEnd) const
+        const std::size_t depthEnd)
 {
     MultiResults results;
-    m_tree->getPoints(results, depthBegin, depthEnd);
+    m_tree->getPoints(
+            m_pointContext,
+            m_pipelineId,
+            m_cache,
+            results,
+            depthBegin,
+            depthEnd);
 
     return results;
 }
@@ -175,10 +212,17 @@ MultiResults SleepyTree::getPoints(
 MultiResults SleepyTree::getPoints(
         const BBox& bbox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd) const
+        const std::size_t depthEnd)
 {
     MultiResults results;
-    m_tree->getPoints(results, bbox, depthBegin, depthEnd);
+    m_tree->getPoints(
+            m_pointContext,
+            m_pipelineId,
+            m_cache,
+            results,
+            bbox,
+            depthBegin,
+            depthEnd);
 
     return results;
 }
@@ -188,9 +232,8 @@ const pdal::PointContext& SleepyTree::pointContext() const
     return m_pointContext;
 }
 
-pdal::PointBuffer* SleepyTree::pointBuffer(uint64_t id) const
+std::shared_ptr<std::vector<char>> SleepyTree::data(uint64_t id)
 {
-    // TODO Support leaf nodes.
-    return m_basePointBuffer.get();
+    return m_cache.data(id);
 }
 

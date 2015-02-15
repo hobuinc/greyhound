@@ -1,4 +1,6 @@
 #include "data-sources/multi.hpp"
+#include "http/s3.hpp"
+#include "types/serial-paths.hpp"
 #include "multi-arbiter.hpp"
 
 MultiArbiter::MultiArbiter(
@@ -8,7 +10,13 @@ MultiArbiter::MultiArbiter(
         const BBox& bbox,
         const bool serialCompress,
         const SerialPaths& serialPaths)
-    : m_multiDataSource(new MultiDataSource(pipelineId, paths, schema, bbox))
+    : m_multiDataSource(
+            new MultiDataSource(
+                pipelineId,
+                paths,
+                schema,
+                bbox,
+                serialPaths.s3Info))
 { }
 
 std::size_t MultiArbiter::getNumPoints() const
