@@ -44,8 +44,7 @@ void MultiReadQuery::readPoint(
     {
         if (schema.use(dim, rasterize) && pointContext.hasDim(dim.id))
         {
-            const std::size_t dimOffset(
-                    pointContext.dimDetail(dim.id)->m_offset);
+            const std::size_t dimOffset(pointContext.dimOffset(dim.id));
             const std::size_t nativeSize(pointContext.dimSize(dim.id));
 
             std::memcpy(
