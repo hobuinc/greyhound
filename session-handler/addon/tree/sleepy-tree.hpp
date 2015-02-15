@@ -1,12 +1,13 @@
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include <pdal/PointBuffer.hpp>
 #include <pdal/PointContext.hpp>
 #include <pdal/Dimension.hpp>
 
+#include "http/s3.hpp"
 #include "types/point.hpp"
 
 class BBox;
@@ -19,55 +20,56 @@ typedef std::vector<std::pair<uint64_t, std::size_t>> MultiResults;
 
 struct PointInfo
 {
-    PointInfo(const Point* point);
-    virtual ~PointInfo() { }
+    PointInfo(
+            const pdal::PointContextRef pointContext,
+            const pdal::PointBuffer* pointBuffer,
+            std::size_t index,
+            pdal::Dimension::Id::Enum originDim,
+            Origin origin);
 
-    virtual void write(
-            pdal::PointBuffer* dstPointBuffer,
-            std::size_t dstIndex) = 0;
+    PointInfo(const Point* point, char* pos, std::size_t len);
+
+    void write(char* pos);
 
     const Point* point;
-};
-
-struct PointInfoNative : PointInfo
-{
-    PointInfoNative(
-            const pdal::PointBuffer& pointBuffer,
-            std::size_t index,
-            const pdal::Dimension::Id::Enum originDim,
-            const Origin& origin);
-
-    virtual void write(
-            pdal::PointBuffer* dstPointBuffer,
-            std::size_t dstIndex);
-
-    const pdal::PointBuffer& pointBuffer;
-    const std::size_t index;
-    const pdal::Dimension::Id::Enum originDim;
-    const Origin origin;
-};
-
-struct PointInfoPulled : PointInfo
-{
-    PointInfoPulled(
-            const Point* point,
-            const pdal::PointBuffer* srcPointBuffer,
-            std::size_t index);
-
-    virtual void write(
-            pdal::PointBuffer* dstPointBuffer,
-            std::size_t dstIndex);
-
     std::vector<char> bytes;
-    //std::unique_ptr<pdal::PointBuffer> pointBuffer;
+};
+
+class SleepyCache
+{
+public:
+    void insert(uint64_t id, std::shared_ptr<std::vector<char>> data)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        cache.insert(std::make_pair(id, data));
+    }
+
+    std::shared_ptr<std::vector<char>> data(uint64_t id)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (cache.count(id))
+        {
+            return cache.at(id);
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+private:
+    std::mutex mutex;
+    std::map<uint64_t, std::shared_ptr<std::vector<char>>> cache;
 };
 
 class SleepyTree
 {
 public:
-    explicit SleepyTree(
+    SleepyTree(
+            const std::string& pipelineId,
             const BBox& bbox,
             const Schema& schema,
+            const S3Info& s3Info,
             std::size_t overflowDepth = 12);
     ~SleepyTree();
 
@@ -82,13 +84,13 @@ public:
     void load();
 
     // Get bounds of the quad tree.
-    BBox getBounds() const;
+    const BBox& getBounds() const;
 
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
     MultiResults getPoints(
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd);
 
     // Return all points within the bounding box, searching at tree depth
     // levels from [depthBegin, depthEnd).
@@ -97,22 +99,26 @@ public:
     MultiResults getPoints(
             const BBox& bbox,
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd);
 
     const pdal::PointContext& pointContext() const;
-    pdal::PointBuffer* pointBuffer(uint64_t id) const;
+    std::shared_ptr<std::vector<char>> data(uint64_t id);
 
     std::size_t numPoints() const;
 
 private:
+    const std::string m_pipelineId;
     const std::size_t m_overflowDepth;
 
     // Must be this order.
     pdal::PointContext m_pointContext;
     pdal::Dimension::Id::Enum m_originDim;
-    std::unique_ptr<pdal::PointBuffer> m_basePointBuffer;
+    //std::unique_ptr<pdal::PointBuffer> m_basePointBuffer;
+    std::shared_ptr<std::vector<char>> m_basePoints;
+    SleepyCache m_cache;
     std::unique_ptr<StemNode> m_tree;
 
+    S3 m_s3;
     std::size_t m_numPoints;
 
     SleepyTree(const SleepyTree&);

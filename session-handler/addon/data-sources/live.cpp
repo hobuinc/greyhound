@@ -158,16 +158,16 @@ void LiveDataSource::serialize(
         meta.srs = getSrs();
         meta.fills = getFills();
 
-        GreyWriter greyWriter(quadIndex, meta);
+        GreyWriter greyWriter(*m_pointBuffer.get(), quadIndex, meta);
 
         bool written(false);
 
         if (serialPaths.s3Info.exists)
         {
             std::cout << "Writing to s3 at " <<
-                serialPaths.s3Info.baseAwsUrl << "/" <<
-                serialPaths.s3Info.bucketName << "/" <<
-                m_pipelineId << std::endl;
+                    serialPaths.s3Info.baseAwsUrl << "/" <<
+                    serialPaths.s3Info.bucketName << "/" <<
+                    m_pipelineId << std::endl;
 
             try
             {

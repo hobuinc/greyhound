@@ -41,9 +41,7 @@ public:
     PutCollector(std::size_t numExpected);
     ~PutCollector();
 
-    // Insert a response.  Performs a 'delete' on 'data' if the HttpResponse
-    // incdicates that the PUT was successful.  Otherwise, the data is not
-    // deleted, and these failed PUTs can be access by the errs() function.
+    // Insert a response.
     void insert(
             uint64_t id,
             HttpResponse res,

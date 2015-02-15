@@ -11,6 +11,7 @@ namespace pdal
 }
 
 class ReadQuery;
+class S3Info;
 class SerialPaths;
 class Schema;
 class SleepyTree;
@@ -22,7 +23,8 @@ public:
             const std::string& pipelineId,
             const std::vector<std::string>& paths,
             const Schema& schema,
-            const BBox& bbox);
+            const BBox& bbox,
+            const S3Info& s3Info);
 
     virtual std::size_t getNumPoints() const;
     virtual std::string getSchema() const;
@@ -46,9 +48,6 @@ public:
     const pdal::PointContext& pointContext() const;
 
 private:
-    const std::string m_pipelineId;
-    const std::vector<std::string> m_paths;
-
     std::shared_ptr<SleepyTree> m_sleepyTree;
 };
 

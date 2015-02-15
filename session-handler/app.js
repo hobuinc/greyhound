@@ -178,11 +178,13 @@ app.post("/create", function(req, res) {
             console.log('Error in CREATE:', err);
             return error(res)(err);
         }
-
-        console.log('Successfully finished CREATE:', pipelineId);
-
-        res.json({ });
+        else if (!bbox) {
+            console.log('Successfully finished CREATE:', pipelineId);
+            res.json({ });
+        }
     });
+
+    if (bbox) res.json({ });
 });
 
 app.get("/numPoints/:plId", function(req, res) {

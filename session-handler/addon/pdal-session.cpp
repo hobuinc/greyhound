@@ -52,6 +52,7 @@ void PdalSession::initialize(
         const bool serialCompress,
         const SerialPaths& serialPaths)
 {
+    std::cout << "Init multi" << std::endl;
     m_initOnce.ensure([
             this,
             &pipelineId,
@@ -61,6 +62,20 @@ void PdalSession::initialize(
             serialCompress,
             &serialPaths]()
     {
+        if (!serialPaths.s3Info.exists)
+        {
+            throw std::runtime_error(
+                "No S3 credentials supplied - required for multi-pipeline");
+        }
+
+        if (!serialCompress)
+        {
+            std::cout <<
+                "Configuration said no serial compression - " <<
+                "ignoring for multi-pipeline and compressing anyway." <<
+                std::endl;
+        }
+
         try
         {
             m_arbiter.reset(new MultiArbiter(
@@ -78,6 +93,7 @@ void PdalSession::initialize(
                     "Caught exception in multi init - " + pipelineId);
         }
     });
+    std::cout << "Done initing multi" << std::endl;
 }
 
 std::size_t PdalSession::getNumPoints()

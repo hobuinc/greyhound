@@ -8,6 +8,7 @@ class CompressionStream
 public:
     CompressionStream();
     CompressionStream(const std::vector<uint8_t>& data);
+    CompressionStream(const std::vector<char>& data);
 
     void putBytes(const uint8_t* bytes, std::size_t length);
     void putByte(uint8_t byte);

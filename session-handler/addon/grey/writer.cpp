@@ -75,9 +75,11 @@ namespace
 }
 
 GreyWriter::GreyWriter(
+        const pdal::PointBuffer& pointBuffer,
         const pdal::QuadIndex& quadIndex,
         const GreyMeta meta)
     : m_meta(meta)
+    , m_pointBuffer(pointBuffer)
     , m_quadIndex(quadIndex)
 {
     m_meta.base = greyBase;
@@ -105,7 +107,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
     clusters[baseId] = m_quadIndex.getPoints(m_meta.base);
     build(clusters, m_meta.bbox, m_meta.base, baseId);
 
-    const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
+    const pdal::PointBuffer& pointBuffer(m_pointBuffer);
     const std::size_t pointSize(pointBuffer.pointSize());
 
     std::unique_ptr<PutCollector> collector(new PutCollector(clusters.size()));
@@ -292,7 +294,7 @@ void GreyWriter::writeData(
     // Begin accumulating 'insert' transaction.
     sqlExec(db, "BEGIN TRANSACTION");
 
-    const pdal::PointBuffer& pointBuffer(m_quadIndex.pointBuffer());
+    const pdal::PointBuffer& pointBuffer(m_pointBuffer);
     const std::size_t pointSize(pointBuffer.pointSize());
 
     // Accumulate inserts.

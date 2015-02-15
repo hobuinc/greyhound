@@ -1,4 +1,6 @@
 #include <thread>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <pdal/Options.hpp>
 #include <pdal/PipelineManager.hpp>
@@ -10,22 +12,25 @@
 #include "tree/sleepy-tree.hpp"
 #include "data-sources/multi.hpp"
 #include "data-sources/multi-batcher.hpp"
+#include "http/s3.hpp"
 #include "read-queries/multi.hpp"
 
 namespace
 {
-    const std::size_t numBatches(6);
+    const std::size_t numBatches(2);
 }
 
 MultiDataSource::MultiDataSource(
         const std::string& pipelineId,
         const std::vector<std::string>& paths,
         const Schema& schema,
-        const BBox& bbox)
-    : m_pipelineId(pipelineId)
-    , m_paths(paths)
-    , m_sleepyTree(new SleepyTree(bbox, schema))
+        const BBox& bbox,
+        const S3Info& s3Info)
+    : m_sleepyTree(new SleepyTree(pipelineId, bbox, schema, s3Info, 12))
 {
+    // TODO
+    mkdir(("/var/greyhound/serial/" + pipelineId).c_str(), DEFFILEMODE);
+
     MultiBatcher batcher(numBatches, m_sleepyTree);
     for (std::size_t i(0); i < paths.size(); ++i)
     {
@@ -33,7 +38,7 @@ MultiDataSource::MultiDataSource(
     }
 
     batcher.done();
-    m_sleepyTree->save();
+    std::cout << "Tree saved" << std::endl;
 }
 
 std::size_t MultiDataSource::getNumPoints() const

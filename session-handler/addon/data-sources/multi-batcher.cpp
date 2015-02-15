@@ -1,8 +1,10 @@
 #include <thread>
+#include <forward_list>
 
 #include <pdal/Options.hpp>
 #include <pdal/PipelineManager.hpp>
 #include <pdal/PointBuffer.hpp>
+#include <pdal/SpatialReference.hpp>
 #include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
 
@@ -39,7 +41,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
                     new pdal::PipelineManager());
             std::unique_ptr<pdal::StageFactory> stageFactory(
                     new pdal::StageFactory());
-            std::unique_ptr<pdal::Options> options(
+            std::unique_ptr<pdal::Options> readerOptions(
                     new pdal::Options());
 
             const std::string driver(stageFactory->inferReaderDriver(filename));
@@ -49,9 +51,30 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
                 pdal::Stage* reader(static_cast<pdal::Reader*>(
                         pipelineManager->getStage()));
-                options->add(pdal::Option("filename", filename));
-                reader->setOptions(*options.get());
+                readerOptions->add(pdal::Option("filename", filename));
+                reader->setOptions(*readerOptions.get());
 
+                reader->setSpatialReference(
+                        pdal::SpatialReference("EPSG:26915"));
+
+                // Reproject to Web Mercator.
+                pipelineManager->addFilter(
+                        "filters.reprojection",
+                        pipelineManager->getStage());
+
+                pdal::Options srsOptions;
+                srsOptions.add(
+                        pdal::Option(
+                            "in_srs",
+                            pdal::SpatialReference("EPSG:26915")));
+                srsOptions.add(
+                        pdal::Option(
+                            "out_srs",
+                            pdal::SpatialReference("EPSG:3857")));
+
+                pipelineManager->getStage()->setOptions(srsOptions);
+
+                // Get and insert the buffer of reprojected points.
                 pipelineManager->execute();
                 const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
 
@@ -70,6 +93,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
             std::cout << "Exception in multi-batcher " << filename << std::endl;
         }
 
+        std::cout << "    Done " << filename << std::endl;
         std::unique_lock<std::mutex> lock(m_mutex);
         m_available.push_back(index);
         m_batches[index].detach();
@@ -80,9 +104,15 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
 void MultiBatcher::done()
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    m_cv.wait(lock, [this]()->bool {
-        return m_available.size() == m_batches.size();
+    std::thread t([this]() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_cv.wait(lock, [this]()->bool {
+            return m_available.size() == m_batches.size();
+        });
     });
+
+    t.join();
+
+    m_sleepyTree->save();
 }
 
