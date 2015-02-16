@@ -139,7 +139,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
     for (auto& it : leafSet)
     {
-        it->save(m_pipelineId, m_pointContext);
+        it->save(origin);
     }
 }
 

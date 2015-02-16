@@ -107,8 +107,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
     clusters[baseId] = m_quadIndex.getPoints(m_meta.base);
     build(clusters, m_meta.bbox, m_meta.base, baseId);
 
-    const pdal::PointBuffer& pointBuffer(m_pointBuffer);
-    const std::size_t pointSize(pointBuffer.pointSize());
+    const std::size_t pointSize(m_pointBuffer.pointSize());
 
     std::unique_ptr<PutCollector> collector(new PutCollector(clusters.size()));
     std::size_t i(0);
@@ -130,7 +129,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
         // Read the entries at these indices into our buffer of point data.
         for (const auto index : indexList)
         {
-            pointBuffer.context().rawPtBuf()->getPoint(index, pos);
+            m_pointBuffer.context().rawPtBuf()->getPoint(index, pos);
             pos += pointSize;
         }
 
@@ -141,7 +140,7 @@ void GreyWriter::write(S3Info s3Info, std::string dir) const
             // Perform compression for this cluster.
             pdal::LazPerfCompressor<CompressionStream> compressor(
                     compressionStream,
-                    pointBuffer.dimTypes());
+                    m_pointBuffer.dimTypes());
 
             compressor.compress(
                     reinterpret_cast<char*>(data->data() + sizeof(uint64_t)),
