@@ -8,9 +8,9 @@
 #include <pdal/Dimension.hpp>
 
 #include "http/s3.hpp"
+#include "types/bbox.hpp"
 #include "types/point.hpp"
 
-class BBox;
 class RasterMeta;
 class Schema;
 class StemNode;
@@ -109,6 +109,7 @@ public:
 private:
     const std::string m_pipelineId;
     const std::size_t m_overflowDepth;
+    const BBox m_bbox;
 
     // Must be this order.
     pdal::PointContext m_pointContext;

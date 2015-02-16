@@ -18,24 +18,20 @@ namespace
     Node* create(
             std::vector<char>* basePoints,
             std::size_t pointSize,
-            const BBox& bbox,
             std::size_t overflowDepth,
-            std::size_t depth,
-            uint64_t id)
+            std::size_t depth)
     {
         if (depth < overflowDepth)
         {
             return new StemNode(
                     basePoints,
                     pointSize,
-                    bbox,
                     overflowDepth,
-                    depth,
-                    id);
+                    depth);
         }
         else if (depth == overflowDepth)
         {
-            return new LeafNode(bbox, id);
+            return new LeafNode();
         }
         else
         {
@@ -50,43 +46,17 @@ namespace
 StemNode::StemNode(
         std::vector<char>* base,
         const std::size_t pointSize,
-        const BBox& bbox,
         std::size_t overflow,
-        std::size_t depth,
-        const uint64_t id)
-    : Node(bbox, id)
+        std::size_t depth)
+    : Node()
     , point(0)
     , offset(base->size())
 {
     base->resize(base->size() + pointSize);
-    nw.reset(create(
-                base,
-                pointSize,
-                bbox.getNw(),
-                overflow,
-                depth + 1,
-                (id << 2) | nwFlag));
-    ne.reset(create(
-                base,
-                pointSize,
-                bbox.getNe(),
-                overflow,
-                depth + 1,
-                (id << 2) | neFlag));
-    sw.reset(create(
-                base,
-                pointSize,
-                bbox.getSw(),
-                overflow,
-                depth + 1,
-                (id << 2) | swFlag));
-    se.reset(create(
-                base,
-                pointSize,
-                bbox.getSe(),
-                overflow,
-                depth + 1,
-                (id << 2) | seFlag));
+    nw.reset(create(base, pointSize, overflow, depth + 1));
+    ne.reset(create(base, pointSize, overflow, depth + 1));
+    sw.reset(create(base, pointSize, overflow, depth + 1));
+    se.reset(create(base, pointSize, overflow, depth + 1));
 }
 
 StemNode::~StemNode()
@@ -94,7 +64,11 @@ StemNode::~StemNode()
     if (point.load()) delete point.load();
 }
 
-LeafNode* StemNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
+LeafNode* StemNode::addPoint(
+        BBox bbox,
+        uint64_t id,
+        std::vector<char>* base,
+        PointInfo** toAddPtr)
 {
     PointInfo* toAdd(*toAddPtr);
     if (point.load())
@@ -127,26 +101,27 @@ LeafNode* StemNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
             }
         }
 
+        id <<= 2;
         if (toAdd->point->x < mid.x)
         {
             if (toAdd->point->y < mid.y)
             {
-                return sw->addPoint(base, &toAdd);
+                return sw->addPoint(bbox.getSw(), id | swFlag, base, &toAdd);
             }
             else
             {
-                return nw->addPoint(base, &toAdd);
+                return nw->addPoint(bbox.getNw(), id | nwFlag, base, &toAdd);
             }
         }
         else
         {
             if (toAdd->point->y < mid.y)
             {
-                return se->addPoint(base, &toAdd);
+                return se->addPoint(bbox.getSe(), id | seFlag, base, &toAdd);
             }
             else
             {
-                return ne->addPoint(base, &toAdd);
+                return ne->addPoint(bbox.getNe(), id | neFlag, base, &toAdd);
             }
         }
     }
@@ -164,7 +139,7 @@ LeafNode* StemNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
             // Someone beat us here, call again to enter the other branch.
             // Be sure to unlock our mutex first.
             lock.unlock();
-            return addPoint(base, &toAdd);
+            return addPoint(bbox, id, base, &toAdd);
         }
     }
 
@@ -172,6 +147,8 @@ LeafNode* StemNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
 }
 
 void StemNode::getPoints(
+        BBox bbox,
+        uint64_t id,
         const pdal::PointContextRef pointContext,
         const std::string& pipelineId,
         SleepyCache& cache,
@@ -190,7 +167,10 @@ void StemNode::getPoints(
 
         if (++curDepth < depthEnd || !depthEnd)
         {
+            id <<= 2;
             nw->getPoints(
+                    bbox,
+                    id | nwFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -199,6 +179,8 @@ void StemNode::getPoints(
                     depthEnd,
                     curDepth);
             ne->getPoints(
+                    bbox,
+                    id | neFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -207,6 +189,8 @@ void StemNode::getPoints(
                     depthEnd,
                     curDepth);
             se->getPoints(
+                    bbox,
+                    id | seFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -215,6 +199,8 @@ void StemNode::getPoints(
                     depthEnd,
                     curDepth);
             sw->getPoints(
+                    bbox,
+                    id | swFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -227,6 +213,8 @@ void StemNode::getPoints(
 }
 
 void StemNode::getPoints(
+        BBox bbox,
+        uint64_t id,
         const pdal::PointContextRef pointContext,
         const std::string& pipelineId,
         SleepyCache& cache,
@@ -250,7 +238,10 @@ void StemNode::getPoints(
 
         if (++depth < depthEnd || !depthEnd)
         {
+            id <<= 2;
             nw->getPoints(
+                    bbox,
+                    id | nwFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -260,6 +251,8 @@ void StemNode::getPoints(
                     depthEnd,
                     depth);
             ne->getPoints(
+                    bbox,
+                    id | neFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -269,6 +262,8 @@ void StemNode::getPoints(
                     depthEnd,
                     depth);
             se->getPoints(
+                    bbox,
+                    id | seFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -278,6 +273,8 @@ void StemNode::getPoints(
                     depthEnd,
                     depth);
             sw->getPoints(
+                    bbox,
+                    id | swFlag,
                     pointContext,
                     pipelineId,
                     cache,
@@ -290,15 +287,19 @@ void StemNode::getPoints(
     }
 }
 
-LeafNode::LeafNode(const BBox& bbox, uint64_t id)
-    : Node(bbox, id)
+LeafNode::LeafNode()
+    : Node()
     , overflow()
 { }
 
 LeafNode::~LeafNode()
 { }
 
-LeafNode* LeafNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
+LeafNode* LeafNode::addPoint(
+        BBox bbox,
+        uint64_t id,
+        std::vector<char>* base,
+        PointInfo** toAddPtr)
 {
     PointInfo* toAdd(*toAddPtr);
 
@@ -315,6 +316,8 @@ void LeafNode::save(Origin origin)
 }
 
 void LeafNode::getPoints(
+        BBox bbox,
+        uint64_t id,
         const pdal::PointContextRef pointContext,
         const std::string& pipelineId,
         SleepyCache& cache,
@@ -327,6 +330,8 @@ void LeafNode::getPoints(
 }
 
 void LeafNode::getPoints(
+        BBox bbox,
+        uint64_t id,
         const pdal::PointContextRef pointContext,
         const std::string& pipelineId,
         SleepyCache& cache,
