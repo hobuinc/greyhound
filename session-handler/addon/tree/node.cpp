@@ -293,7 +293,6 @@ void StemNode::getPoints(
 LeafNode::LeafNode(const BBox& bbox, uint64_t id)
     : Node(bbox, id)
     , overflow()
-    , quadIndex()
 { }
 
 LeafNode::~LeafNode()
@@ -303,93 +302,16 @@ LeafNode* LeafNode::addPoint(std::vector<char>* base, PointInfo** toAddPtr)
 {
     PointInfo* toAdd(*toAddPtr);
 
-    std::lock_guard<std::mutex> lock(mutex);
-    if (!overflow)
-    {
-        overflow.reset(new std::vector<char>());
-    }
-
-    overflow->insert(overflow->end(), toAdd->bytes.begin(), toAdd->bytes.end());
-
     delete toAdd->point;
     delete toAdd;
 
     return this;
 }
 
-void LeafNode::save(
-        const std::string& pipelineId,
-        const pdal::PointContextRef pointContext)
+void LeafNode::save(Origin origin)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    if (!overflow) return;
-
-    const std::string path(
-            diskPath + "/" + pipelineId + "/" + std::to_string(id));
-
-    std::ofstream dataStream;
-    dataStream.open(
-            path,
-            std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-    if (!dataStream.good()) return;
-
-    const uint64_t uncompressedSize(overflow->size());
-    std::shared_ptr<std::vector<char>> compressed(
-            compress(*overflow.get(), pointContext));
-    const uint64_t compressedSize(compressed->size());
-
-    dataStream.write(
-            reinterpret_cast<const char*>(&uncompressedSize),
-            sizeof(uint64_t));
-    dataStream.write(
-            reinterpret_cast<const char*>(&compressedSize),
-            sizeof(uint64_t));
-    dataStream.write(compressed->data(), compressed->size());
-    dataStream.close();
-
-    overflow.reset();
-}
-
-std::shared_ptr<std::vector<char>> LeafNode::compress(
-        std::vector<char>& uncompressed,
-        const pdal::PointContextRef pointContext) const
-{
-    CompressionStream compressionStream;
-    pdal::LazPerfCompressor<CompressionStream> compressor(
-            compressionStream,
-            pointContext.dimTypes());
-
-    compressor.compress(uncompressed.data(), uncompressed.size());
-    compressor.done();
-
-    std::shared_ptr<std::vector<char>> compressed(
-            new std::vector<char>(compressionStream.data().size()));
-
-    std::memcpy(
-            compressed->data(),
-            compressionStream.data().data(),
-            compressed->size());
-
-    return compressed;
-}
-
-std::shared_ptr<std::vector<char>> LeafNode::decompress(
-        const std::vector<char>& compressed,
-        const std::size_t uncompressedSize,
-        const pdal::PointContextRef pointContext) const
-{
-    CompressionStream compressionStream(compressed);
-
-    pdal::LazPerfDecompressor<CompressionStream> decompressor(
-            compressionStream,
-            pointContext.dimTypes());
-
-    std::shared_ptr<std::vector<char>> uncompressed(
-            new std::vector<char>(uncompressedSize));
-
-    decompressor.decompress(uncompressed->data(), uncompressedSize);
-
-    return uncompressed;
+    overflow.push_back(origin);
 }
 
 void LeafNode::getPoints(
@@ -401,20 +323,7 @@ void LeafNode::getPoints(
         std::size_t depthEnd,
         std::size_t curDepth)
 {
-    if (!build(pointContext, pipelineId, curDepth))
-    {
-        return;
-    }
-
-    quadIndex->getPoints(depthBegin, depthEnd);
-
-    const std::size_t end(overflow->size() / pointContext.pointSize());
-    for (std::size_t i(0); i < end; ++i)
-    {
-        results.push_back(std::make_pair(id, i));
-    }
-
-    cache.insert(id, overflow);
+    return;
 }
 
 void LeafNode::getPoints(
@@ -427,108 +336,6 @@ void LeafNode::getPoints(
         std::size_t depthEnd,
         std::size_t curDepth)
 {
-    if (
-            !query.overlaps(bbox) ||
-            !build(pointContext, pipelineId, curDepth))
-    {
-        return;
-    }
-
-    std::vector<std::size_t> indexList(quadIndex->getPoints(
-            query.min().x,
-            query.min().y,
-            query.max().x,
-            query.max().y,
-            depthBegin,
-            depthEnd));
-
-    for (std::size_t i(0); i < indexList.size(); ++i)
-    {
-        results.push_back(std::make_pair(id, indexList[i]));
-    }
-
-    cache.insert(id, overflow);
-}
-
-bool LeafNode::build(
-        const pdal::PointContextRef pointContext,
-        const std::string& pipelineId,
-        std::size_t curDepth)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    if (overflow) return true;
-
-    const std::string path(
-            diskPath + "/" + pipelineId + "/" + std::to_string(id));
-
-    std::ifstream dataStream;
-    dataStream.open(path, std::ifstream::in | std::ifstream::binary);
-    if (!dataStream.good()) return false;
-
-    uint64_t uncompressedSize(0);
-    uint64_t compressedSize(0);
-    overflow.reset(new std::vector<char>());
-
-    do
-    {
-        // We need to read past the end to get the eof bit set, if applicable.
-        dataStream.read(
-                reinterpret_cast<char*>(&uncompressedSize),
-                sizeof(uint64_t));
-
-        if (!dataStream.eof())
-        {
-            dataStream.read(
-                    reinterpret_cast<char*>(&compressedSize),
-                    sizeof(uint64_t));
-
-            std::vector<char> compressed(compressedSize);
-            dataStream.read(compressed.data(), compressed.size());
-
-            std::shared_ptr<std::vector<char>> points(
-                    decompress(
-                        compressed,
-                        uncompressedSize,
-                        pointContext));
-
-            std::cout << "    Inserting " << points->size() << std::endl;
-            overflow->insert(overflow->end(), points->begin(), points->end());
-        }
-    } while (!dataStream.eof());
-
-    dataStream.close();
-    std::cout << "File read" << std::endl;
-
-    const std::size_t pointSize(pointContext.pointSize());
-    const std::size_t numPoints(overflow->size() / pointSize);
-    std::vector<std::shared_ptr<pdal::QuadPointRef>> pointList(numPoints);
-
-    double x(0);
-    double y(0);
-
-    for (std::size_t i(0); i < numPoints; ++i)
-    {
-        std::memcpy(
-                &x,
-                overflow->data() + i * pointSize,
-                sizeof(double));
-        std::memcpy(
-                &y,
-                overflow->data() + i * pointSize + sizeof(double),
-                sizeof(double));
-
-        pointList[i].reset(new pdal::QuadPointRef(pdal::Point(x, y), i));
-    }
-
-    quadIndex.reset(
-            new pdal::QuadIndex(
-                pointList,
-                bbox.min().x,
-                bbox.min().y,
-                bbox.max().x,
-                bbox.max().y,
-                curDepth));
-
-    return true;
+    return;
 }
 

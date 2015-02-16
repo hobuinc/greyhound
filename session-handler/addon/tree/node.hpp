@@ -131,26 +131,9 @@ public:
             std::size_t depthEnd,
             std::size_t curDepth = 0);
 
-    void save(
-            const std::string& pipelineId,
-            const pdal::PointContextRef pointContext);
+    void save(Origin origin);
 
 private:
-    bool build(
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            std::size_t curDepth);
-
-    std::shared_ptr<std::vector<char>> compress(
-            std::vector<char>& uncompressed,
-            const pdal::PointContextRef pointContext) const;
-
-    std::shared_ptr<std::vector<char>> decompress(
-            const std::vector<char>& compressed,
-            std::size_t uncompressedSize,
-            const pdal::PointContextRef pointContext) const;
-
-    std::shared_ptr<std::vector<char>> overflow;
-    std::unique_ptr<pdal::QuadIndex> quadIndex;
+    std::vector<Origin> overflow;
 };
 
