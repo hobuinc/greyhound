@@ -24,12 +24,18 @@ class S3;
 class Node
 {
 public:
-    Node(const BBox& bbox, uint64_t id) : bbox(bbox), id(id) { }
+    Node() { }
     virtual ~Node() { }
 
-    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd) = 0;
+    virtual LeafNode* addPoint(
+            BBox bbox,
+            uint64_t id,
+            std::vector<char>* base,
+            PointInfo** toAdd) = 0;
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,
@@ -39,6 +45,8 @@ public:
             std::size_t curDepth = 0) = 0;
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,
@@ -47,9 +55,6 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd,
             std::size_t curDepth = 0) = 0;
-
-    const BBox bbox;
-    const uint64_t id;
 
 protected:
     std::mutex mutex;
@@ -66,15 +71,19 @@ public:
     StemNode(
             std::vector<char>* basePoints,
             std::size_t pointSize,
-            const BBox& bbox,
             std::size_t overflowDepth,
-            std::size_t curDepth = 0,
-            uint64_t id = baseId);
+            std::size_t curDepth = 0);
     ~StemNode();
 
-    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd);
+    virtual LeafNode* addPoint(
+            BBox bbox,
+            uint64_t id,
+            std::vector<char>* base,
+            PointInfo** toAdd);
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,
@@ -84,6 +93,8 @@ public:
             std::size_t curDepth = 0);
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,
@@ -107,12 +118,18 @@ private:
 class LeafNode : public Node
 {
 public:
-    LeafNode(const BBox& bbox, uint64_t id);
+    LeafNode();
     ~LeafNode();
 
-    virtual LeafNode* addPoint(std::vector<char>* base, PointInfo** toAdd);
+    virtual LeafNode* addPoint(
+            BBox bbox,
+            uint64_t id,
+            std::vector<char>* base,
+            PointInfo** toAdd);
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,
@@ -122,6 +139,8 @@ public:
             std::size_t curDepth = 0);
 
     virtual void getPoints(
+            BBox bbox,
+            uint64_t id,
             const pdal::PointContextRef pointContext,
             const std::string& pipelineId,
             SleepyCache& cache,

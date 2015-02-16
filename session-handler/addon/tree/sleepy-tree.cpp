@@ -86,6 +86,7 @@ SleepyTree::SleepyTree(
         std::size_t overflowDepth)
     : m_pipelineId(pipelineId)
     , m_overflowDepth(overflowDepth)
+    , m_bbox(bbox)
     , m_pointContext(initPointContext(schema))
     , m_originDim(m_pointContext.assignDim(
                 "OriginId",
@@ -95,7 +96,6 @@ SleepyTree::SleepyTree(
     , m_tree(new StemNode(
                 m_basePoints.get(),
                 m_pointContext.pointSize(),
-                bbox.encapsulate(),
                 m_overflowDepth))
     , m_s3(s3Info)
     , m_numPoints(0)
@@ -117,7 +117,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
         point.x = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i);
         point.y = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
-        if (m_tree->bbox.contains(point))
+        if (m_bbox.contains(point))
         {
             PointInfo* pointInfo(
                     new PointInfo(
@@ -128,7 +128,11 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
                         origin));
 
             ++m_numPoints;
-            leaf = m_tree->addPoint(m_basePoints.get(), &pointInfo);
+            leaf = m_tree->addPoint(
+                    m_bbox,
+                    baseId,
+                    m_basePoints.get(),
+                    &pointInfo);
 
             if (leaf)
             {
@@ -190,7 +194,7 @@ void SleepyTree::load()
 
 const BBox& SleepyTree::getBounds() const
 {
-    return m_tree->bbox;
+    return m_bbox;
 }
 
 MultiResults SleepyTree::getPoints(
@@ -199,6 +203,8 @@ MultiResults SleepyTree::getPoints(
 {
     MultiResults results;
     m_tree->getPoints(
+            m_bbox,
+            baseId,
             m_pointContext,
             m_pipelineId,
             m_cache,
@@ -216,6 +222,8 @@ MultiResults SleepyTree::getPoints(
 {
     MultiResults results;
     m_tree->getPoints(
+            m_bbox,
+            baseId,
             m_pointContext,
             m_pipelineId,
             m_cache,
@@ -235,5 +243,10 @@ const pdal::PointContext& SleepyTree::pointContext() const
 std::shared_ptr<std::vector<char>> SleepyTree::data(uint64_t id)
 {
     return m_cache.data(id);
+}
+
+std::size_t SleepyTree::numPoints() const
+{
+    return m_numPoints;
 }
 
