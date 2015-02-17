@@ -35,8 +35,7 @@ void MultiReadQuery::readPoint(
     // TODO
     if (rasterize) throw std::runtime_error("No raster for multi yet.");
 
-    const std::size_t pointOffset(
-            m_multiResults[m_index].second * pointContext.pointSize());
+    const std::size_t pointOffset(m_multiResults[m_index].second);
 
     std::vector<char> bytes(8);
 

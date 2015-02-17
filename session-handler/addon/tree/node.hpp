@@ -12,147 +12,143 @@
 #include "types/bbox.hpp"
 #include "types/point.hpp"
 
-namespace pdal
+// A copy-constructible and assignable atomic wrapper for use in a vector.
+template <typename T>
+struct ElasticAtomic
 {
-    class QuadIndex;
-}
+    ElasticAtomic()
+        : atom()
+    { }
 
-class LeafNode;
-class PutCollector;
-class S3;
+    ElasticAtomic(const std::atomic<T>& other)
+        : atom(other.load())
+    { }
 
-class Node
-{
-public:
-    Node() { }
-    virtual ~Node() { }
+    ElasticAtomic(const ElasticAtomic& other)
+        : atom(other.atom.load())
+    { }
 
-    virtual LeafNode* addPoint(
-            BBox bbox,
-            uint64_t id,
-            std::vector<char>* base,
-            PointInfo** toAdd) = 0;
+    ElasticAtomic& operator=(const ElasticAtomic& other)
+    {
+        atom.store(other.atom.load());
+        return *this;
+    }
 
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
-            MultiResults& results,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0) = 0;
-
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
-            MultiResults& results,
-            const BBox& query,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0) = 0;
-
-protected:
-    std::mutex mutex;
-
-private:
-    // Non-copyable.
-    Node(const Node&);
-    Node& operator=(const Node&);
+    std::atomic<T> atom;
 };
 
-class StemNode : public Node
+// Maintains the state of the current point as it traverses the virtual tree.
+class Roller
 {
 public:
-    StemNode(
-            std::vector<char>* basePoints,
+    Roller(const BBox& bbox);
+    Roller(const Roller& other);
+
+    void magnify(const Point* point);
+    std::size_t depth() const;
+    uint64_t pos() const;
+    const BBox& bbox() const;
+
+    void goNw();
+    void goNe();
+    void goSw();
+    void goSe();
+
+    Roller getNw() const;
+    Roller getNe() const;
+    Roller getSw() const;
+    Roller getSe() const;
+
+    enum Dir
+    {
+        nw = 0,
+        ne = 1,
+        sw = 2,
+        se = 3
+    };
+
+private:
+    uint64_t m_pos;
+    BBox m_bbox;
+
+    std::size_t m_depth;
+
+    void levelUp(Dir dir);
+};
+
+// Maintains mapping to house the data belonging to each virtual node.
+class Registry
+{
+public:
+    Registry(
             std::size_t pointSize,
-            std::size_t overflowDepth,
-            std::size_t curDepth = 0);
-    ~StemNode();
+            std::size_t baseDepth = 12, // TODO - Set.
+            std::size_t flatDepth = 12,
+            std::size_t deadDepth = 12);
+    ~Registry();
 
-    virtual LeafNode* addPoint(
-            BBox bbox,
-            uint64_t id,
-            std::vector<char>* base,
-            PointInfo** toAdd);
+    void put(PointInfo** toAddPtr, Roller& roller);
 
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
+    void getPoints(
+            const Roller& roller,
             MultiResults& results,
             std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0);
+            std::size_t depthEnd);
 
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
+    void getPoints(
+            const Roller& roller,
             MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0);
+            std::size_t depthEnd);
+
+    std::shared_ptr<std::vector<char>> baseData() { return m_baseData; }
 
 private:
-    std::atomic<const Point*> point;
+    const std::size_t m_pointSize;
 
-    const std::size_t offset;
+    const std::size_t m_baseDepth;
+    const std::size_t m_flatDepth;
+    const std::size_t m_deadDepth;
 
-    std::unique_ptr<Node> nw;
-    std::unique_ptr<Node> ne;
-    std::unique_ptr<Node> sw;
-    std::unique_ptr<Node> se;
+    const std::size_t m_baseOffset;
+    const std::size_t m_flatOffset;
+    const std::size_t m_deadOffset;
+
+    // TODO Real structures.  These are testing only.
+    std::vector<ElasticAtomic<const Point*>> m_basePoints;
+    std::shared_ptr<std::vector<char>> m_baseData;
+    std::vector<std::mutex> m_baseLocks;
 };
 
-class LeafNode : public Node
+class Sleeper
 {
 public:
-    LeafNode();
-    ~LeafNode();
+    Sleeper(const BBox& bbox, std::size_t pointSize);
 
-    virtual LeafNode* addPoint(
-            BBox bbox,
-            uint64_t id,
-            std::vector<char>* base,
-            PointInfo** toAdd);
+    void addPoint(PointInfo** toAddPtr);
 
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
+    void getPoints(
             MultiResults& results,
             std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0);
+            std::size_t depthEnd);
 
-    virtual void getPoints(
-            BBox bbox,
-            uint64_t id,
-            const pdal::PointContextRef pointContext,
-            const std::string& pipelineId,
-            SleepyCache& cache,
+    void getPoints(
             MultiResults& results,
             const BBox& query,
             std::size_t depthBegin,
-            std::size_t depthEnd,
-            std::size_t curDepth = 0);
+            std::size_t depthEnd);
 
-    void save(Origin origin);
+    std::shared_ptr<std::vector<char>> baseData()
+    {
+        return m_registry.baseData();
+    }
+
+    BBox bbox() const;
 
 private:
-    std::vector<Origin> overflow;
+    const BBox m_bbox;
+
+    Registry m_registry;
 };
 

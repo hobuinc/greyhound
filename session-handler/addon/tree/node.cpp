@@ -14,333 +14,330 @@
 
 namespace
 {
-    // Factory method used during construction.
-    Node* create(
-            std::vector<char>* basePoints,
-            std::size_t pointSize,
-            std::size_t overflowDepth,
-            std::size_t depth)
+    const std::size_t dimensions(2);
+
+    std::size_t getOffset(std::size_t depth)
     {
-        if (depth < overflowDepth)
+        if (depth == 0) return 0;
+
+        std::size_t offset(1);
+        std::size_t factor(1 << dimensions);
+        for (std::size_t i(0); i < depth; ++i)
         {
-            return new StemNode(
-                    basePoints,
-                    pointSize,
-                    overflowDepth,
-                    depth);
+            offset *= factor;
         }
-        else if (depth == overflowDepth)
-        {
-            return new LeafNode();
-        }
-        else
-        {
-            throw std::runtime_error("Invalid factory parameters!");
-        }
+
+        return offset;
     }
-
-    // TODO
-    const std::string diskPath("/var/greyhound/serial");
 }
 
-StemNode::StemNode(
-        std::vector<char>* base,
-        const std::size_t pointSize,
-        std::size_t overflow,
-        std::size_t depth)
-    : Node()
-    , point(0)
-    , offset(base->size())
+Roller::Roller(const BBox& bbox)
+    : m_pos(0)
+    , m_bbox(bbox)
+    , m_depth(0)
+{ }
+
+Roller::Roller(const Roller& other)
+    : m_pos(other.m_pos)
+    , m_bbox(other.m_bbox)
+    , m_depth(other.m_depth)
+{ }
+
+void Roller::magnify(const Point* point)
 {
-    base->resize(base->size() + pointSize);
-    nw.reset(create(base, pointSize, overflow, depth + 1));
-    ne.reset(create(base, pointSize, overflow, depth + 1));
-    sw.reset(create(base, pointSize, overflow, depth + 1));
-    se.reset(create(base, pointSize, overflow, depth + 1));
+    const Point mid(m_bbox.mid());
+
+    if (point->x < mid.x)
+        if (point->y < mid.y)
+            goSw();
+        else
+            goNw();
+    else
+        if (point->y < mid.y)
+            goSe();
+        else
+            goNe();
 }
 
-StemNode::~StemNode()
+std::size_t Roller::depth() const
 {
-    if (point.load()) delete point.load();
+    return m_depth;
 }
 
-LeafNode* StemNode::addPoint(
-        BBox bbox,
-        uint64_t id,
-        std::vector<char>* base,
-        PointInfo** toAddPtr)
+uint64_t Roller::pos() const
 {
+    return m_pos;
+}
+
+const BBox& Roller::bbox() const
+{
+    return m_bbox;
+}
+
+void Roller::goNw()
+{
+    levelUp(Dir::nw);
+    m_bbox = m_bbox.getNw();
+}
+
+void Roller::goNe()
+{
+    levelUp(Dir::ne);
+    m_bbox = m_bbox.getNe();
+}
+
+void Roller::goSw()
+{
+    levelUp(Dir::sw);
+    m_bbox = m_bbox.getSw();
+}
+
+void Roller::goSe()
+{
+    levelUp(Dir::se);
+    m_bbox = m_bbox.getSe();
+}
+
+void Roller::levelUp(const Dir dir)
+{
+    m_pos = (m_pos << dimensions) + 1 + dir;
+    ++m_depth;
+}
+
+Roller Roller::getNw() const
+{
+    Roller roller(*this);
+    roller.goNw();
+    return roller;
+}
+
+Roller Roller::getNe() const
+{
+    Roller roller(*this);
+    roller.goNe();
+    return roller;
+}
+
+Roller Roller::getSw() const
+{
+    Roller roller(*this);
+    roller.goSw();
+    return roller;
+}
+
+Roller Roller::getSe() const
+{
+    Roller roller(*this);
+    roller.goSe();
+    return roller;
+}
+
+
+
+
+Registry::Registry(
+        std::size_t pointSize,
+        std::size_t baseDepth,
+        std::size_t flatDepth,
+        std::size_t deadDepth)
+    : m_pointSize(pointSize)
+    , m_baseDepth(baseDepth)
+    , m_flatDepth(flatDepth)
+    , m_deadDepth(deadDepth)
+    , m_baseOffset(getOffset(baseDepth))
+    , m_flatOffset(getOffset(flatDepth))
+    , m_deadOffset(getOffset(deadDepth))
+    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
+    , m_baseData(new std::vector<char>(m_baseOffset * pointSize))
+    , m_baseLocks(m_baseOffset)
+{
+    if (baseDepth > flatDepth || flatDepth > deadDepth)
+    {
+        throw std::runtime_error("Invalid registry params");
+    }
+}
+
+Registry::~Registry()
+{
+    for (auto& p : m_basePoints)
+    {
+        if (p.atom.load()) delete p.atom.load();
+    }
+}
+
+void Registry::put(
+        PointInfo** toAddPtr,
+        Roller& roller)
+{
+    bool done(false);
+
     PointInfo* toAdd(*toAddPtr);
-    if (point.load())
+
+    if (roller.depth() < m_baseDepth)
     {
-        const Point mid(bbox.mid());
-        if (toAdd->point->sqDist(mid) < point.load()->sqDist(mid))
+        const std::size_t index(roller.pos());
+        auto& myPoint(m_basePoints[index].atom);
+
+        if (myPoint.load())
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            const Point* curPoint(point.load());
-
-            // Reload the reference point now that we've acquired the lock.
-            if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
+            const Point mid(roller.bbox().mid());
+            if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
             {
-                // Pull out the old stored value and store the heap-allocated
-                // Point that was in our atomic member, so we can overwrite
-                // that with the new one.
-                PointInfo* old(
-                        new PointInfo(
-                            curPoint,
-                            base->data() + offset,
-                            toAdd->bytes.size()));
+                std::lock_guard<std::mutex> lock(m_baseLocks[index]);
+                const Point* curPoint(myPoint.load());
 
-                // Store this point in the base data store.
-                toAdd->write(base->data() + offset);
-                point.store(toAdd->point);
-                delete toAdd;
+                // Reload the reference point now that we've acquired the lock.
+                if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
+                {
+                    // Pull out the old stored value and store the Point that
+                    // was in our atomic member, so we can overwrite that with
+                    // the new one.
+                    PointInfo* old(
+                            new PointInfo(
+                                curPoint,
+                                m_baseData->data() + index * m_pointSize,
+                                toAdd->bytes.size()));
 
-                // Send our old stored value downstream.
-                toAdd = old;
-            }
-        }
+                    // Store this point in the base data store.
+                    toAdd->write(m_baseData->data() + index * m_pointSize);
+                    myPoint.store(toAdd->point);
+                    delete toAdd;
 
-        id <<= 2;
-        if (toAdd->point->x < mid.x)
-        {
-            if (toAdd->point->y < mid.y)
-            {
-                return sw->addPoint(bbox.getSw(), id | swFlag, base, &toAdd);
-            }
-            else
-            {
-                return nw->addPoint(bbox.getNw(), id | nwFlag, base, &toAdd);
+                    // Send our old stored value downstream.
+                    toAdd = old;
+                }
             }
         }
         else
         {
-            if (toAdd->point->y < mid.y)
+            std::unique_lock<std::mutex> lock(m_baseLocks[index]);
+            if (!myPoint.load())
             {
-                return se->addPoint(bbox.getSe(), id | seFlag, base, &toAdd);
+                toAdd->write(m_baseData->data() + index * m_pointSize);
+                myPoint.store(toAdd->point);
+                delete toAdd;
+                done = true;
             }
             else
             {
-                return ne->addPoint(bbox.getNe(), id | neFlag, base, &toAdd);
+                std::cout << "Averting race condition." << std::endl;
+
+                // Someone beat us here, call again to enter the other branch.
+                // Be sure to unlock our mutex first.
+                lock.unlock();
+                put(&toAdd, roller);
             }
         }
     }
+    else if (roller.depth() < m_flatDepth) { /* TODO */ }
+    else if (roller.depth() < m_deadDepth) { /* TODO */ }
     else
     {
-        std::unique_lock<std::mutex> lock(mutex);
-        if (!point.load())
-        {
-            toAdd->write(base->data() + offset);
-            point.store(toAdd->point);
-            delete toAdd;
-        }
-        else
-        {
-            // Someone beat us here, call again to enter the other branch.
-            // Be sure to unlock our mutex first.
-            lock.unlock();
-            return addPoint(bbox, id, base, &toAdd);
-        }
+        delete toAdd->point;
+        delete toAdd;
+
+        done = true;
     }
 
-    return 0;
-}
-
-void StemNode::getPoints(
-        BBox bbox,
-        uint64_t id,
-        const pdal::PointContextRef pointContext,
-        const std::string& pipelineId,
-        SleepyCache& cache,
-        MultiResults& results,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        std::size_t curDepth)
-{
-    if (point.load())
+    if (!done)
     {
-        if (curDepth >= depthBegin && (curDepth < depthEnd || !depthEnd))
-        {
-            results.push_back(
-                    std::make_pair(0, offset / pointContext.pointSize()));
-        }
-
-        if (++curDepth < depthEnd || !depthEnd)
-        {
-            id <<= 2;
-            nw->getPoints(
-                    bbox,
-                    id | nwFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    depthBegin,
-                    depthEnd,
-                    curDepth);
-            ne->getPoints(
-                    bbox,
-                    id | neFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    depthBegin,
-                    depthEnd,
-                    curDepth);
-            se->getPoints(
-                    bbox,
-                    id | seFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    depthBegin,
-                    depthEnd,
-                    curDepth);
-            sw->getPoints(
-                    bbox,
-                    id | swFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    depthBegin,
-                    depthEnd,
-                    curDepth);
-        }
+        roller.magnify(toAdd->point);
+        put(&toAdd, roller);
     }
 }
 
-void StemNode::getPoints(
-        BBox bbox,
-        uint64_t id,
-        const pdal::PointContextRef pointContext,
-        const std::string& pipelineId,
-        SleepyCache& cache,
+void Registry::getPoints(
+        const Roller& roller,
         MultiResults& results,
-        const BBox& query,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        std::size_t depth)
+        std::size_t depthBegin,
+        std::size_t depthEnd)
 {
-    const Point* p(point.load());
-    if (p && query.overlaps(bbox))
+    auto& myPoint(m_basePoints[roller.pos()].atom);
+
+    if (myPoint.load())
     {
         if (
-                query.contains(*p) &&
-                depth >= depthBegin &&
-                (depth < depthEnd || !depthEnd))
+                (roller.depth() >= depthBegin) &&
+                (roller.depth() < depthEnd || !depthEnd))
         {
-            results.push_back(
-                    std::make_pair(0, offset / pointContext.pointSize()));
+            results.push_back(std::make_pair(0, roller.pos() * m_pointSize));
         }
 
-        if (++depth < depthEnd || !depthEnd)
+        if (roller.depth() + 1 < depthEnd || !depthEnd)
         {
-            id <<= 2;
-            nw->getPoints(
-                    bbox,
-                    id | nwFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    query,
-                    depthBegin,
-                    depthEnd,
-                    depth);
-            ne->getPoints(
-                    bbox,
-                    id | neFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    query,
-                    depthBegin,
-                    depthEnd,
-                    depth);
-            se->getPoints(
-                    bbox,
-                    id | seFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    query,
-                    depthBegin,
-                    depthEnd,
-                    depth);
-            sw->getPoints(
-                    bbox,
-                    id | swFlag,
-                    pointContext,
-                    pipelineId,
-                    cache,
-                    results,
-                    query,
-                    depthBegin,
-                    depthEnd,
-                    depth);
+            getPoints(roller.getNw(), results, depthBegin, depthEnd);
+            getPoints(roller.getNe(), results, depthBegin, depthEnd);
+            getPoints(roller.getSw(), results, depthBegin, depthEnd);
+            getPoints(roller.getSe(), results, depthBegin, depthEnd);
         }
     }
 }
 
-LeafNode::LeafNode()
-    : Node()
-    , overflow()
-{ }
-
-LeafNode::~LeafNode()
-{ }
-
-LeafNode* LeafNode::addPoint(
-        BBox bbox,
-        uint64_t id,
-        std::vector<char>* base,
-        PointInfo** toAddPtr)
-{
-    PointInfo* toAdd(*toAddPtr);
-
-    delete toAdd->point;
-    delete toAdd;
-
-    return this;
-}
-
-void LeafNode::save(Origin origin)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    overflow.push_back(origin);
-}
-
-void LeafNode::getPoints(
-        BBox bbox,
-        uint64_t id,
-        const pdal::PointContextRef pointContext,
-        const std::string& pipelineId,
-        SleepyCache& cache,
-        MultiResults& results,
-        std::size_t depthBegin,
-        std::size_t depthEnd,
-        std::size_t curDepth)
-{
-    return;
-}
-
-void LeafNode::getPoints(
-        BBox bbox,
-        uint64_t id,
-        const pdal::PointContextRef pointContext,
-        const std::string& pipelineId,
-        SleepyCache& cache,
+void Registry::getPoints(
+        const Roller& roller,
         MultiResults& results,
         const BBox& query,
         std::size_t depthBegin,
-        std::size_t depthEnd,
-        std::size_t curDepth)
+        std::size_t depthEnd)
 {
-    return;
+    if (!roller.bbox().overlaps(query)) return;
+
+    auto& myPoint(m_basePoints[roller.pos()].atom);
+    if (myPoint.load())
+    {
+        if (
+                (roller.depth() >= depthBegin) &&
+                (roller.depth() < depthEnd || !depthEnd))
+        {
+            results.push_back(std::make_pair(0, roller.pos() * m_pointSize));
+        }
+
+        if (roller.depth() + 1 < depthEnd || !depthEnd)
+        {
+            getPoints(roller.getNw(), results, depthBegin, depthEnd);
+            getPoints(roller.getNe(), results, depthBegin, depthEnd);
+            getPoints(roller.getSw(), results, depthBegin, depthEnd);
+            getPoints(roller.getSe(), results, depthBegin, depthEnd);
+        }
+    }
+}
+
+
+
+
+
+Sleeper::Sleeper(const BBox& bbox, const std::size_t pointSize)
+    : m_bbox(bbox)
+    , m_registry(pointSize)
+{ }
+
+void Sleeper::addPoint(PointInfo** toAddPtr)
+{
+    Roller roller(m_bbox);
+    m_registry.put(toAddPtr, roller);
+}
+
+void Sleeper::getPoints(
+        MultiResults& results,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    Roller roller(m_bbox);
+    m_registry.getPoints(roller, results, depthBegin, depthEnd);
+}
+
+void Sleeper::getPoints(
+        MultiResults& results,
+        const BBox& query,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    Roller roller(m_bbox);
+    m_registry.getPoints(roller, results, query, depthBegin, depthEnd);
+}
+
+BBox Sleeper::bbox() const
+{
+    return m_bbox;
 }
 
