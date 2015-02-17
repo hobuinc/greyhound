@@ -27,7 +27,7 @@ public:
     void add(const std::string& filename, Origin origin);
 
     // Must be called before destruction.
-    void done();
+    void gather();
 
 private:
     S3 m_s3;

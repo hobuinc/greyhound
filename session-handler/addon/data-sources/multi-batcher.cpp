@@ -180,7 +180,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
     });
 }
 
-void MultiBatcher::done()
+void MultiBatcher::gather()
 {
     std::thread t([this]() {
         std::unique_lock<std::mutex> lock(m_mutex);

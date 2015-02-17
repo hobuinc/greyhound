@@ -133,9 +133,13 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
     }
 }
 
-void SleepyTree::save()
+void SleepyTree::save(std::string path)
 {
-    std::string path(diskPath + "/" + m_pipelineId + "/0");
+    if (!path.size())
+    {
+        path = diskPath + "/" + m_pipelineId + "/0";
+    }
+
     std::ofstream dataStream;
     dataStream.open(
             path,

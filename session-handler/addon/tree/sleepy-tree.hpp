@@ -78,7 +78,7 @@ public:
     void insert(const pdal::PointBuffer* pointBuffer, Origin origin);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
-    void save();
+    void save(std::string path = "");
 
     // Awaken the tree so more pipelines may be added.  After a load(), no
     // queries should be made until save() is subsequently called.
