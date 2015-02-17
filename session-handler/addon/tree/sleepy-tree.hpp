@@ -13,7 +13,7 @@
 
 class RasterMeta;
 class Schema;
-class StemNode;
+class Sleeper;
 
 typedef uint64_t Origin;
 typedef std::vector<std::pair<uint64_t, std::size_t>> MultiResults;
@@ -35,6 +35,7 @@ struct PointInfo
     std::vector<char> bytes;
 };
 
+/*
 class SleepyCache
 {
 public:
@@ -61,6 +62,7 @@ private:
     std::mutex mutex;
     std::map<uint64_t, std::shared_ptr<std::vector<char>>> cache;
 };
+*/
 
 class SleepyTree
 {
@@ -68,9 +70,7 @@ public:
     SleepyTree(
             const std::string& pipelineId,
             const BBox& bbox,
-            const Schema& schema,
-            const S3Info& s3Info,
-            std::size_t overflowDepth = 12);
+            const Schema& schema);
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
@@ -108,19 +108,15 @@ public:
 
 private:
     const std::string m_pipelineId;
-    const std::size_t m_overflowDepth;
     const BBox m_bbox;
 
     // Must be this order.
     pdal::PointContext m_pointContext;
     pdal::Dimension::Id::Enum m_originDim;
-    //std::unique_ptr<pdal::PointBuffer> m_basePointBuffer;
-    std::shared_ptr<std::vector<char>> m_basePoints;
-    SleepyCache m_cache;
-    std::unique_ptr<StemNode> m_tree;
 
-    S3 m_s3;
     std::size_t m_numPoints;
+
+    std::unique_ptr<Sleeper> m_tree;
 
     SleepyTree(const SleepyTree&);
     SleepyTree& operator=(const SleepyTree&);

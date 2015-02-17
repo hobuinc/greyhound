@@ -4,6 +4,15 @@
         {
             'target_name': 'pdalBindings',
             'sources': [
+                './addon/tree/node.cpp',
+
+
+
+
+
+
+
+
                 './addon/buffer-pool.cpp',
                 './addon/compression-stream.cpp',
                 './addon/once.cpp',
@@ -40,7 +49,6 @@
 
                 './addon/types/bbox.cpp',
 
-                './addon/tree/node.cpp',
                 './addon/tree/sleepy-tree.cpp'
             ],
             'include_dirs': [

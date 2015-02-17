@@ -24,7 +24,7 @@ MultiDataSource::MultiDataSource(
         const Schema& schema,
         const BBox& bbox,
         const S3Info& s3Info)
-    : m_sleepyTree(new SleepyTree(pipelineId, bbox, schema, s3Info, 12))
+    : m_sleepyTree(new SleepyTree(pipelineId, bbox, schema))
 {
     MultiBatcher batcher(s3Info, pipelineId, numBatches, m_sleepyTree);
     const auto start(std::chrono::high_resolution_clock::now());
