@@ -190,7 +190,5 @@ void MultiBatcher::done()
     });
 
     t.join();
-
-    m_sleepyTree->save();
 }
 

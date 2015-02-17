@@ -85,6 +85,12 @@ public:
             std::size_t baseDepth = 12, // TODO - Set.
             std::size_t flatDepth = 12,
             std::size_t deadDepth = 12);
+    Registry(
+            std::size_t pointSize,
+            std::shared_ptr<std::vector<char>> data,
+            std::size_t baseDepth = 12, // TODO - Set.
+            std::size_t flatDepth = 12,
+            std::size_t deadDepth = 12);
     ~Registry();
 
     void put(PointInfo** toAddPtr, Roller& roller);
@@ -125,6 +131,10 @@ class Sleeper
 {
 public:
     Sleeper(const BBox& bbox, std::size_t pointSize);
+    Sleeper(
+            const BBox& bbox,
+            std::size_t pointSize,
+            std::shared_ptr<std::vector<char>> data);
 
     void addPoint(PointInfo** toAddPtr);
 

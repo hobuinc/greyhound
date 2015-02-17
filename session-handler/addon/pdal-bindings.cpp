@@ -264,7 +264,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     {
         paths.push_back(*v8::String::Utf8Value(args[1]->ToString()));
     }
-    else if (args[1]->IsArray() || args[5]->IsArray())
+    else if (args[1]->IsArray() && args[5]->IsArray())
     {
         const Local<Array> b(Array::Cast(*args[5]));
         if (b->Length() != 4)
@@ -301,10 +301,6 @@ Handle<Value> PdalBindings::create(const Arguments& args)
             }
         }
     }
-    else
-    {
-        errMsg = "Invalid 'create' specification";
-    }
 
     if (errMsg.size())
     {
@@ -312,7 +308,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    const bool serialCompress   (args[2]->BooleanValue());
+    const bool serialCompress(args[2]->BooleanValue());
     const S3Info s3Info(parseS3Info(args[3]));
     const std::vector<std::string> diskPaths(parsePathList(args[4]));
     const BBox bbox(min, max);
