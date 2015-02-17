@@ -148,12 +148,55 @@ Registry::Registry(
     , m_flatOffset(getOffset(flatDepth))
     , m_deadOffset(getOffset(deadDepth))
     , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
-    , m_baseData(new std::vector<char>(m_baseOffset * pointSize))
+    , m_baseData(new std::vector<char>(m_baseOffset * pointSize, 0))
     , m_baseLocks(m_baseOffset)
 {
     if (baseDepth > flatDepth || flatDepth > deadDepth)
     {
         throw std::runtime_error("Invalid registry params");
+    }
+}
+
+Registry::Registry(
+        std::size_t pointSize,
+        std::shared_ptr<std::vector<char>> data,
+        std::size_t baseDepth,
+        std::size_t flatDepth,
+        std::size_t deadDepth)
+    : m_pointSize(pointSize)
+    , m_baseDepth(baseDepth)
+    , m_flatDepth(flatDepth)
+    , m_deadDepth(deadDepth)
+    , m_baseOffset(getOffset(baseDepth))
+    , m_flatOffset(getOffset(flatDepth))
+    , m_deadOffset(getOffset(deadDepth))
+    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
+    , m_baseData(data)
+    , m_baseLocks(m_baseOffset)
+{
+    if (baseDepth > flatDepth || flatDepth > deadDepth)
+    {
+        throw std::runtime_error("Invalid registry params");
+    }
+
+    double x(0);
+    double y(0);
+
+    for (std::size_t i(0); i < m_baseData->size() / m_pointSize; ++i)
+    {
+        std::memcpy(
+                reinterpret_cast<char*>(&x),
+                m_baseData->data() + m_pointSize * i,
+                sizeof(double));
+        std::memcpy(
+                reinterpret_cast<char*>(&y),
+                m_baseData->data() + m_pointSize * i,
+                sizeof(double));
+
+        if (x != 0 && y != 0)
+        {
+            m_basePoints[i].atom.store(new Point(x, y));
+        }
     }
 }
 
@@ -309,6 +352,14 @@ void Registry::getPoints(
 Sleeper::Sleeper(const BBox& bbox, const std::size_t pointSize)
     : m_bbox(bbox)
     , m_registry(pointSize)
+{ }
+
+Sleeper::Sleeper(
+        const BBox& bbox,
+        const std::size_t pointSize,
+        std::shared_ptr<std::vector<char>> data)
+    : m_bbox(bbox)
+    , m_registry(pointSize, data)
 { }
 
 void Sleeper::addPoint(PointInfo** toAddPtr)

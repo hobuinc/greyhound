@@ -24,22 +24,36 @@ MultiDataSource::MultiDataSource(
         const Schema& schema,
         const BBox& bbox,
         const S3Info& s3Info)
-    : m_sleepyTree(new SleepyTree(pipelineId, bbox, schema))
 {
-    MultiBatcher batcher(s3Info, pipelineId, numBatches, m_sleepyTree);
-    const auto start(std::chrono::high_resolution_clock::now());
-    for (std::size_t i(0); i < paths.size(); ++i)
+    if (
+            bbox.min().x == 0 && bbox.min().y == 0 &&
+            bbox.max().x == 0 && bbox.min().y == 0)
     {
-        batcher.add(paths[i], i);
+        std::cout << "Making tree " << pipelineId << std::endl;
+        // Default bbox means we should try to awaken a serialized source.
+        m_sleepyTree.reset(new SleepyTree(pipelineId));
     }
+    else
+    {
+        m_sleepyTree.reset(new SleepyTree(pipelineId, bbox, schema));
 
-    batcher.done();
-    const auto end(std::chrono::high_resolution_clock::now());
-    const std::chrono::duration<double> d(end - start);
-    std::cout << "Multi " << pipelineId << " complete - took " <<
-            std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
-            " seconds" <<
-            std::endl;
+        MultiBatcher batcher(s3Info, pipelineId, numBatches, m_sleepyTree);
+        const auto start(std::chrono::high_resolution_clock::now());
+        for (std::size_t i(0); i < paths.size(); ++i)
+        {
+            batcher.add(paths[i], i);
+        }
+
+        batcher.done();
+        const auto end(std::chrono::high_resolution_clock::now());
+        const std::chrono::duration<double> d(end - start);
+        std::cout << "Multi " << pipelineId << " complete - took " <<
+                std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
+                " seconds" <<
+                std::endl;
+
+        m_sleepyTree->save();
+    }
 }
 
 std::size_t MultiDataSource::getNumPoints() const

@@ -71,6 +71,7 @@ public:
             const std::string& pipelineId,
             const BBox& bbox,
             const Schema& schema);
+    SleepyTree(const std::string& pipelineId);
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
@@ -108,7 +109,7 @@ public:
 
 private:
     const std::string m_pipelineId;
-    const BBox m_bbox;
+    std::unique_ptr<BBox> m_bbox;
 
     // Must be this order.
     pdal::PointContext m_pointContext;
