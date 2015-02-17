@@ -16,6 +16,7 @@
 namespace
 {
     const std::size_t numBatches(2);
+    const std::size_t restorePoint(4);
 }
 
 MultiDataSource::MultiDataSource(
@@ -42,9 +43,32 @@ MultiDataSource::MultiDataSource(
         for (std::size_t i(0); i < paths.size(); ++i)
         {
             batcher.add(paths[i], i);
+
+            if ((i + 1) % restorePoint == 0)
+            {
+                std::cout <<
+                    "Gathering responses for restore point at " <<
+                    i + 1 << " / " << paths.size() <<
+                    std::endl;
+                batcher.gather();
+                std::cout << "Creating restore" << std::endl;
+
+                // TODO Hardcoded path.
+                std::ofstream dataStream;
+                dataStream.open(
+                        "/var/greyhound/serial/" + pipelineId + "/restore-info",
+                        std::ofstream::out | std::ofstream::trunc);
+                std::string info(std::to_string(i) + "," + paths[i]);
+                dataStream.write(info.data(), info.size());
+                dataStream.close();
+
+                m_sleepyTree->save(
+                        "/var/greyhound/serial/" + pipelineId + "/restore");
+                std::cout << "Restore point created" << std::endl;
+            }
         }
 
-        batcher.done();
+        batcher.gather();
         const auto end(std::chrono::high_resolution_clock::now());
         const std::chrono::duration<double> d(end - start);
         std::cout << "Multi " << pipelineId << " complete - took " <<
