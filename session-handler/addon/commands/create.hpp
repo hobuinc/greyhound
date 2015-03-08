@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <entwine/types/bbox.hpp>
+
 #include "commands/background.hpp"
 #include "types/serial-paths.hpp"
 
@@ -14,7 +16,7 @@ struct CreateData : public Background
             std::shared_ptr<PdalSession> pdalSession,
             std::string pipelineId,
             const std::vector<std::string>& paths,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             bool serialCompress,
             SerialPaths serialPaths,
             v8::Persistent<v8::Function> callback)
@@ -37,7 +39,7 @@ struct CreateData : public Background
     const std::shared_ptr<PdalSession> pdalSession;
     const std::string pipelineId;
     const std::vector<std::string> paths;
-    const BBox bbox;
+    const entwine::BBox bbox;
     const bool serialCompress;
     const SerialPaths serialPaths;
 

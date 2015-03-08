@@ -2,6 +2,8 @@
 
 #include <pdal/PointBuffer.hpp>
 #include <pdal/PointContext.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "buffer-pool.hpp"
 #include "data-sources/standard-arbiter.hpp"
@@ -47,8 +49,8 @@ void PdalSession::initialize(
 void PdalSession::initialize(
         const std::string& pipelineId,
         const std::vector<std::string>& paths,
-        const Schema& schema,
-        const BBox& bbox,
+        const entwine::Schema& schema,
+        const entwine::BBox& bbox,
         const bool serialCompress,
         const SerialPaths& serialPaths)
 {
@@ -132,7 +134,7 @@ void PdalSession::serialize(const SerialPaths& serialPaths)
 }
 
 std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t start,
         std::size_t count)
@@ -142,9 +144,9 @@ std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -153,7 +155,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -163,7 +165,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
@@ -173,7 +175,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         const RasterMeta& rasterMeta)
 {
@@ -182,7 +184,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool is3d,
         double radius,

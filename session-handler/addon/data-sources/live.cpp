@@ -14,6 +14,9 @@
 #include <pdal/QuadIndex.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/XMLSchema.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "read-queries/live.hpp"
 #include "read-queries/unindexed.hpp"
@@ -22,7 +25,6 @@
 #include "tree/sleepy-tree.hpp"
 #include "types/raster-meta.hpp"
 #include "types/serial-paths.hpp"
-#include "types/bbox.hpp"
 #include "live.hpp"
 
 LiveDataSource::LiveDataSource(
@@ -142,15 +144,14 @@ void LiveDataSource::serialize(
         m_pdalIndex->ensureIndex(PdalIndex::QuadIndex, m_pointBuffer);
         const pdal::QuadIndex& quadIndex(m_pdalIndex->quadIndex());
 
-        Point min, max;
+        entwine::Point min, max;
         quadIndex.getBounds(min.x, min.y, max.x, max.y);
 
         // Data storage.
         GreyMeta meta;
         meta.version = greyVersion;
         meta.pointContextXml = writer.xml();
-        meta.bbox.min(min);
-        meta.bbox.max(max);
+        meta.bbox.set(min, max);
         meta.numPoints = getNumPoints();
         meta.schema = getSchema();
         meta.compressed = compressed;
@@ -207,7 +208,7 @@ void LiveDataSource::serialize(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::queryUnindexed(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         const std::size_t start,
         std::size_t count)
@@ -226,9 +227,9 @@ std::shared_ptr<ReadQuery> LiveDataSource::queryUnindexed(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -253,7 +254,7 @@ std::shared_ptr<ReadQuery> LiveDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -275,7 +276,7 @@ std::shared_ptr<ReadQuery> LiveDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         const std::size_t rasterize,
         RasterMeta& rasterMeta)
@@ -302,7 +303,7 @@ std::shared_ptr<ReadQuery> LiveDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         const RasterMeta& rasterMeta)
 {
@@ -327,7 +328,7 @@ std::shared_ptr<ReadQuery> LiveDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> LiveDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         const bool is3d,
         const double radius,

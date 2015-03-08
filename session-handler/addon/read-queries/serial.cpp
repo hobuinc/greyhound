@@ -1,11 +1,13 @@
 #include <algorithm>
 #include <limits>
 
-#include "types/schema.hpp"
+#include <entwine/types/schema.hpp>
+
+#include "util/schema.hpp"
 #include "serial.hpp"
 
 SerialReadQuery::SerialReadQuery(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool rasterize,
         GreyQuery greyQuery)
@@ -15,7 +17,7 @@ SerialReadQuery::SerialReadQuery(
 
 void SerialReadQuery::readPoint(
         uint8_t* pos,
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool rasterize) const
 {
     QueryIndex queryIndex(m_greyQuery.queryIndex(m_index));
@@ -29,9 +31,9 @@ void SerialReadQuery::readPoint(
             ++pos;
         }
 
-        for (const auto& dim : schema.dims)
+        for (const auto& dim : schema.dims())
         {
-            if (schema.use(dim, rasterize))
+            if (Util::use(dim, rasterize))
             {
                 pos += readDim(
                         pos,

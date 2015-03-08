@@ -1,6 +1,7 @@
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
+
 #include "read-queries/base.hpp"
-#include "types/bbox.hpp"
-#include "types/schema.hpp"
 #include "base.hpp"
 
 std::vector<std::size_t> DataSource::getFills() const
@@ -9,7 +10,7 @@ std::vector<std::size_t> DataSource::getFills() const
 }
 
 std::shared_ptr<ReadQuery> DataSource::queryUnindexed(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t start,
         std::size_t count)
@@ -18,9 +19,9 @@ std::shared_ptr<ReadQuery> DataSource::queryUnindexed(
 }
 
 std::shared_ptr<ReadQuery> DataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -28,7 +29,7 @@ std::shared_ptr<ReadQuery> DataSource::query(
 }
 
 std::shared_ptr<ReadQuery> DataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -37,7 +38,7 @@ std::shared_ptr<ReadQuery> DataSource::query(
 }
 
 std::shared_ptr<ReadQuery> DataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
@@ -46,7 +47,7 @@ std::shared_ptr<ReadQuery> DataSource::query(
 }
 
 std::shared_ptr<ReadQuery> DataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         const RasterMeta& rasterMeta)
 {
@@ -54,7 +55,7 @@ std::shared_ptr<ReadQuery> DataSource::query(
 }
 
 std::shared_ptr<ReadQuery> DataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool is3d,
         double radius,

@@ -11,13 +11,16 @@ namespace pdal
     class PointBuffer;
 }
 
-class Schema;
+namespace entwine
+{
+    class Schema;
+}
 
 class LiveReadQuery : public ReadQuery
 {
 public:
     LiveReadQuery(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool rasterize,
             std::shared_ptr<pdal::PointBuffer> pointBuffer,
@@ -35,7 +38,7 @@ private:
 
     virtual void readPoint(
             uint8_t* pos,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool rasterize) const;
 };
 

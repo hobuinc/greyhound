@@ -4,18 +4,8 @@
         {
             'target_name': 'pdalBindings',
             'sources': [
-                './addon/tree/node.cpp',
-
-
-
-
-
-
-
-
                 './addon/buffer-pool.cpp',
                 './addon/compression-stream.cpp',
-                './addon/once.cpp',
                 './addon/pdal-bindings.cpp',
                 './addon/pdal-index.cpp',
                 './addon/pdal-session.cpp',
@@ -47,9 +37,10 @@
 
                 './addon/third/jsoncpp.cpp',
 
-                './addon/types/bbox.cpp',
+                './addon/tree/sleepy-tree.cpp',
+                './addon/tree/node.cpp',
 
-                './addon/tree/sleepy-tree.cpp'
+                './addon/util/once.cpp'
             ],
             'include_dirs': [
                 './addon',
@@ -70,6 +61,7 @@
             'link_settings': {
                 'libraries': [
                     '-lpdalcpp',
+                    '-lentwine',
                     '-lpthread',
                     '-lsqlite3',
                     '-lcurl',

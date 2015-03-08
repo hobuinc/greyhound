@@ -1,7 +1,9 @@
 #include <iostream>
 
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
+
 #include "read-queries/base.hpp"
-#include "types/schema.hpp"
 #include "standard-arbiter.hpp"
 
 StandardArbiter::StandardArbiter(
@@ -130,7 +132,7 @@ std::vector<std::size_t> StandardArbiter::getFills() const
 }
 
 std::shared_ptr<ReadQuery> StandardArbiter::queryUnindexed(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t start,
         std::size_t count)
@@ -150,9 +152,9 @@ std::shared_ptr<ReadQuery> StandardArbiter::queryUnindexed(
 }
 
 std::shared_ptr<ReadQuery> StandardArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -197,9 +199,8 @@ std::shared_ptr<ReadQuery> StandardArbiter::query(
     }
 }
 
-
 std::shared_ptr<ReadQuery> StandardArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -243,7 +244,7 @@ std::shared_ptr<ReadQuery> StandardArbiter::query(
 
 
 std::shared_ptr<ReadQuery> StandardArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
@@ -286,7 +287,7 @@ std::shared_ptr<ReadQuery> StandardArbiter::query(
 }
 
 std::shared_ptr<ReadQuery> StandardArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         const RasterMeta& rasterMeta)
 {
@@ -304,7 +305,7 @@ std::shared_ptr<ReadQuery> StandardArbiter::query(
 }
 
 std::shared_ptr<ReadQuery> StandardArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool is3d,
         double radius,

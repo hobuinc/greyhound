@@ -3,13 +3,16 @@
 #include "read-queries/base.hpp"
 #include "tree/sleepy-tree.hpp"
 
-class Schema;
+namespace entwine
+{
+    class Schema;
+}
 
 class MultiReadQuery : public ReadQuery
 {
 public:
     MultiReadQuery(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool rasterize,
             std::shared_ptr<SleepyTree> sleepyTree,
@@ -26,7 +29,7 @@ private:
 
     virtual void readPoint(
             uint8_t* pos,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool rasterize) const;
 };
 

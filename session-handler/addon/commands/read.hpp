@@ -9,10 +9,10 @@
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
 
-#include "types/bbox.hpp"
 #include "types/raster-meta.hpp"
-#include "types/schema.hpp"
 #include "commands/background.hpp"
 
 void errorCallback(
@@ -34,7 +34,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            const Schema& schema,
+            const entwine::Schema& schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
     virtual ~ReadCommand();
@@ -75,7 +75,7 @@ protected:
     const std::string m_host;
     const std::size_t m_port;
     const bool m_compress;
-    const Schema m_schema;
+    const entwine::Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
 
@@ -86,7 +86,7 @@ protected:
     std::string m_errMsg;
 
 private:
-    Schema schemaOrDefault(Schema reqSchema);
+    entwine::Schema schemaOrDefault(entwine::Schema reqSchema);
 };
 
 class ReadCommandUnindexed : public ReadCommand
@@ -99,7 +99,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             std::size_t start,
             std::size_t count,
             v8::Persistent<v8::Function> queryCallback,
@@ -122,7 +122,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             bool is3d,
             double radius,
             double x,
@@ -151,7 +151,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> queryCallback,
@@ -174,8 +174,8 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
-            BBox bbox,
+            entwine::Schema schema,
+            entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> queryCallback,
@@ -184,7 +184,7 @@ public:
 private:
     virtual void query();
 
-    const BBox m_bbox;
+    const entwine::BBox m_bbox;
 };
 
 class ReadCommandRastered : public ReadCommand
@@ -197,7 +197,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
@@ -208,7 +208,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             RasterMeta rasterMeta,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
@@ -234,7 +234,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            Schema schema,
+            entwine::Schema schema,
             std::size_t level,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);

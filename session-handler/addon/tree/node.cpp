@@ -3,11 +3,11 @@
 #include <limits>
 #include <thread>
 
-#include <pdal/Charbuf.hpp>
 #include <pdal/Compression.hpp>
 #include <pdal/PointBuffer.hpp>
 #include <pdal/PointContext.hpp>
 #include <pdal/QuadIndex.hpp>
+#include <entwine/types/point.hpp>
 
 #include "compression-stream.hpp"
 #include "node.hpp"
@@ -18,20 +18,18 @@ namespace
 
     std::size_t getOffset(std::size_t depth)
     {
-        if (depth == 0) return 0;
+        std::size_t offset(0);
 
-        std::size_t offset(1);
-        std::size_t factor(1 << dimensions);
         for (std::size_t i(0); i < depth; ++i)
         {
-            offset *= factor;
+            offset = (offset << dimensions) + 1;
         }
 
         return offset;
     }
 }
 
-Roller::Roller(const BBox& bbox)
+Roller::Roller(const entwine::BBox& bbox)
     : m_pos(0)
     , m_bbox(bbox)
     , m_depth(0)
@@ -43,9 +41,9 @@ Roller::Roller(const Roller& other)
     , m_depth(other.m_depth)
 { }
 
-void Roller::magnify(const Point* point)
+void Roller::magnify(const entwine::Point* point)
 {
-    const Point mid(m_bbox.mid());
+    const entwine::Point mid(m_bbox.mid());
 
     if (point->x < mid.x)
         if (point->y < mid.y)
@@ -69,7 +67,7 @@ uint64_t Roller::pos() const
     return m_pos;
 }
 
-const BBox& Roller::bbox() const
+const entwine::BBox& Roller::bbox() const
 {
     return m_bbox;
 }
@@ -147,7 +145,7 @@ Registry::Registry(
     , m_baseOffset(getOffset(baseDepth))
     , m_flatOffset(getOffset(flatDepth))
     , m_deadOffset(getOffset(deadDepth))
-    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
+    , m_basePoints(m_baseOffset, std::atomic<const entwine::Point*>(0))
     , m_baseData(new std::vector<char>(m_baseOffset * pointSize, 0))
     , m_baseLocks(m_baseOffset)
 {
@@ -170,7 +168,7 @@ Registry::Registry(
     , m_baseOffset(getOffset(baseDepth))
     , m_flatOffset(getOffset(flatDepth))
     , m_deadOffset(getOffset(deadDepth))
-    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
+    , m_basePoints(m_baseOffset, std::atomic<const entwine::Point*>(0))
     , m_baseData(data)
     , m_baseLocks(m_baseOffset)
 {
@@ -195,7 +193,7 @@ Registry::Registry(
 
         if (x != 0 && y != 0)
         {
-            m_basePoints[i].atom.store(new Point(x, y));
+            m_basePoints[i].atom.store(new entwine::Point(x, y));
         }
     }
 }
@@ -223,11 +221,11 @@ void Registry::put(
 
         if (myPoint.load())
         {
-            const Point mid(roller.bbox().mid());
+            const entwine::Point mid(roller.bbox().mid());
             if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
             {
                 std::lock_guard<std::mutex> lock(m_baseLocks[index]);
-                const Point* curPoint(myPoint.load());
+                const entwine::Point* curPoint(myPoint.load());
 
                 // Reload the reference point now that we've acquired the lock.
                 if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
@@ -319,7 +317,7 @@ void Registry::getPoints(
 void Registry::getPoints(
         const Roller& roller,
         MultiResults& results,
-        const BBox& query,
+        const entwine::BBox& query,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -349,13 +347,13 @@ void Registry::getPoints(
 
 
 
-Sleeper::Sleeper(const BBox& bbox, const std::size_t pointSize)
+Sleeper::Sleeper(const entwine::BBox& bbox, const std::size_t pointSize)
     : m_bbox(bbox)
     , m_registry(pointSize)
 { }
 
 Sleeper::Sleeper(
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         const std::size_t pointSize,
         std::shared_ptr<std::vector<char>> data)
     : m_bbox(bbox)
@@ -379,7 +377,7 @@ void Sleeper::getPoints(
 
 void Sleeper::getPoints(
         MultiResults& results,
-        const BBox& query,
+        const entwine::BBox& query,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -387,7 +385,7 @@ void Sleeper::getPoints(
     m_registry.getPoints(roller, results, query, depthBegin, depthEnd);
 }
 
-BBox Sleeper::bbox() const
+entwine::BBox Sleeper::bbox() const
 {
     return m_bbox;
 }

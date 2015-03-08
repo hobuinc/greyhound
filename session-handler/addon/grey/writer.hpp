@@ -8,6 +8,11 @@
 #include "grey/common.hpp"
 #include "http/s3.hpp"
 
+namespace entwine
+{
+    class BBox;
+}
+
 class GreyWriter
 {
 public:
@@ -34,12 +39,12 @@ private:
 
     void build(
             std::map<uint64_t, std::vector<std::size_t>>& results,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t level,
             uint64_t id) const;
 
     std::vector<std::size_t> getPoints(
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t level) const;
 };
 

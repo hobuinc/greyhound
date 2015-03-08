@@ -6,6 +6,8 @@
 #include <pdal/PointContext.hpp>
 #include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "tree/sleepy-tree.hpp"
 #include "data-sources/multi.hpp"
@@ -16,14 +18,14 @@
 namespace
 {
     const std::size_t numBatches(2);
-    const std::size_t restorePoint(4);
+    const std::size_t restorePoint(1000);
 }
 
 MultiDataSource::MultiDataSource(
         const std::string& pipelineId,
         const std::vector<std::string>& paths,
-        const Schema& schema,
-        const BBox& bbox,
+        const entwine::Schema& schema,
+        const entwine::BBox& bbox,
         const S3Info& s3Info)
 {
     if (
@@ -110,9 +112,9 @@ std::vector<std::size_t> MultiDataSource::getFills() const
 }
 
 std::shared_ptr<ReadQuery> MultiDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -127,7 +129,7 @@ std::shared_ptr<ReadQuery> MultiDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> MultiDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         std::size_t depthBegin,
         std::size_t depthEnd)

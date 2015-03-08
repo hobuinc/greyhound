@@ -6,7 +6,7 @@ bool Arbiter::serialize()
 }
 
 std::shared_ptr<ReadQuery> Arbiter::queryUnindexed(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t start,
         std::size_t count)
@@ -15,9 +15,9 @@ std::shared_ptr<ReadQuery> Arbiter::queryUnindexed(
 }
 
 std::shared_ptr<ReadQuery> Arbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -25,7 +25,7 @@ std::shared_ptr<ReadQuery> Arbiter::query(
 }
 
 std::shared_ptr<ReadQuery> Arbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -34,7 +34,7 @@ std::shared_ptr<ReadQuery> Arbiter::query(
 }
 
 std::shared_ptr<ReadQuery> Arbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
@@ -43,7 +43,7 @@ std::shared_ptr<ReadQuery> Arbiter::query(
 }
 
 std::shared_ptr<ReadQuery> Arbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         const RasterMeta& rasterMeta)
 {
@@ -51,7 +51,7 @@ std::shared_ptr<ReadQuery> Arbiter::query(
 }
 
 std::shared_ptr<ReadQuery> Arbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool is3d,
         double radius,

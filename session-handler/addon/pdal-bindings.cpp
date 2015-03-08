@@ -4,14 +4,17 @@
 #include <node_buffer.h>
 #include <curl/curl.h>
 #include <openssl/crypto.h>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/dim-info.hpp>
+#include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "buffer-pool.hpp"
-#include "once.hpp"
 #include "pdal-session.hpp"
 #include "commands/create.hpp"
 #include "commands/read.hpp"
 #include "commands/serialize.hpp"
-#include "types/bbox.hpp"
+#include "util/once.hpp"
 
 #include "pdal-bindings.hpp"
 
@@ -256,7 +259,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
             Persistent<Function>::New(Local<Function>::Cast(
                     args[6])));
 
-    Point min, max;
+    entwine::Point min, max;
     const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
     std::vector<std::string> paths;
 
@@ -311,7 +314,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     const bool serialCompress(args[2]->BooleanValue());
     const S3Info s3Info(parseS3Info(args[3]));
     const std::vector<std::string> diskPaths(parsePathList(args[4]));
-    const BBox bbox(min, max);
+    const entwine::BBox bbox(min, max);
 
     const SerialPaths serialPaths(s3Info, diskPaths);
 
@@ -346,8 +349,8 @@ Handle<Value> PdalBindings::create(const Arguments& args)
                 else
                 {
                     // TODO Set schema.
-                    std::vector<DimInfo> dimInfo;
-                    Schema schema(dimInfo);
+                    std::vector<entwine::DimInfo> dimInfo;
+                    entwine::Schema schema(dimInfo);
                     createData->pdalSession->initialize(
                         createData->pipelineId,
                         createData->paths,

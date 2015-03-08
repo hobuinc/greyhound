@@ -9,25 +9,25 @@ var WebSocket = require('ws'),
     ;
 
 var run = function() {
-	var ws = new WebSocket('ws://localhost:8080/');
+    var ws = new WebSocket('ws://localhost:8080/');
 
-	// Helper method to send json objects.
-	var send = function(obj) {
-		ws.send(JSON.stringify(obj));
-	}
+    // Helper method to send json objects.
+    var send = function(obj) {
+        ws.send(JSON.stringify(obj));
+    }
 
-	ws.on('open', function() {
-		// As soon as the socket opens, send command to create a session.
-		send({
-			command: 'serialize',
+    ws.on('open', function() {
+        // As soon as the socket opens, send command to create a session.
+        send({
+            command: 'serialize',
             pipeline: pipelineId
-		});
-	});
+        });
+    });
 
-	var count = 0, chunks = 0, toRead = 0;
-	var session = null;
+    var count = 0, chunks = 0, toRead = 0;
+    var session = null;
 
-	ws.on('message', function(data, flags) {
+    ws.on('message', function(data, flags) {
         var obj = JSON.parse(data);
         console.log('Got back:', obj);
 
@@ -38,7 +38,7 @@ var run = function() {
             console.log('ERROR');
             process.exit(1);
         }
-	});
+    });
 }
 
 process.nextTick(run);

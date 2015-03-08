@@ -2,13 +2,16 @@
 
 #include "read-queries/base.hpp"
 
-class Schema;
+namespace entwine
+{
+    class Schema;
+}
 
 class SerialReadQuery : public ReadQuery
 {
 public:
     SerialReadQuery(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool rasterize,
             GreyQuery greyQuery);
@@ -22,7 +25,7 @@ private:
 
     virtual void readPoint(
             uint8_t* pos,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool rasterize) const;
 };
 

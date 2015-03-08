@@ -1,6 +1,8 @@
 #include <pdal/PointBuffer.hpp>
 #include <pdal/QuadIndex.hpp>
 #include <pdal/Compression.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/point.hpp>
 
 #include <json/json.h>
 
@@ -357,14 +359,14 @@ void GreyWriter::writeData(
 
 void GreyWriter::build(
         std::map<uint64_t, std::vector<std::size_t>>& results,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t level,
         uint64_t id) const
 {
-    const BBox nwBounds(bbox.getNw());
-    const BBox neBounds(bbox.getNe());
-    const BBox swBounds(bbox.getSw());
-    const BBox seBounds(bbox.getSe());
+    const entwine::BBox nwBounds(bbox.getNw());
+    const entwine::BBox neBounds(bbox.getNe());
+    const entwine::BBox swBounds(bbox.getSw());
+    const entwine::BBox seBounds(bbox.getSe());
 
     id <<= 2;
     const uint64_t nwId(id | nwFlag);
@@ -392,11 +394,11 @@ void GreyWriter::build(
 }
 
 std::vector<std::size_t> GreyWriter::getPoints(
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t level) const
 {
-    const Point min(bbox.min());
-    const Point max(bbox.max());
+    const entwine::Point min(bbox.min());
+    const entwine::Point max(bbox.max());
 
     return m_quadIndex.getPoints(
             min.x,

@@ -1,10 +1,11 @@
 #include <pdal/PointBuffer.hpp>
 #include <pdal/XMLSchema.hpp>
 #include <pdal/Dimension.hpp>
-#include <pdal/Charbuf.hpp>
 #include <pdal/Utils.hpp>
 #include <pdal/PDALUtils.hpp>
 #include <pdal/Compression.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/point.hpp>
 
 #include "compression-stream.hpp"
 #include "commands/read.hpp"
@@ -20,12 +21,12 @@ namespace
     std::size_t initRaster(
             std::size_t rasterize,
             RasterMeta& rasterMeta,
-            const BBox& bbox)
+            const entwine::BBox& bbox)
     {
         const std::size_t exp(std::pow(2, rasterize));
 
-        const Point min(bbox.min());
-        const Point max(bbox.max());
+        const entwine::Point min(bbox.min());
+        const entwine::Point max(bbox.max());
 
         rasterMeta.xStep =  bbox.width()  / exp;
         rasterMeta.yStep =  bbox.height() / exp;
@@ -85,7 +86,7 @@ GreyQuery GreyReader::query(
 }
 
 GreyQuery GreyReader::query(
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -342,23 +343,23 @@ void GreyReaderSqlite::queryClusters(
                 data = uncompressedData;
             }
 
-            // Construct a pdal::PointBuffer from our binary data.
-            pdal::Charbuf charbuf(
-                    reinterpret_cast<char*>(data.data()),
-                    data.size());
-            std::istream stream(&charbuf);
-
             if (!pointContext().pointSize())
             {
                 throw std::runtime_error("Invalid serial PointContext");
             }
 
+            // Construct a pdal::PointBuffer from our binary data.
             std::shared_ptr<pdal::PointBuffer> pointBuffer(
-                    new pdal::PointBuffer(
-                        stream,
-                        pointContext(),
-                        0,
-                        data.size() / pointContext().pointSize()));
+                    new pdal::PointBuffer(pointContext()));
+
+            for (std::size_t i(0); i < data.size(); ++i)
+            {
+                pointBuffer->setPackedPoint(
+                        pointContext().dimTypes(),
+                        i,
+                        reinterpret_cast<char*>(
+                            data.data() + i * pointContext().pointSize()));
+            }
 
             auto it(nodeInfoMap.find(id));
             if (it != nodeInfoMap.end())
@@ -522,23 +523,23 @@ void GreyReaderS3::queryClusters(
             data = uncompressedData;
         }
 
-        // Construct a pdal::PointBuffer from our binary data.
-        pdal::Charbuf charbuf(
-                reinterpret_cast<char*>(data.data()),
-                data.size());
-        std::istream stream(&charbuf);
-
         if (!pointContext().pointSize())
         {
             throw std::runtime_error("Invalid serial PointContext");
         }
 
+        // Construct a pdal::PointBuffer from our binary data.
         std::shared_ptr<pdal::PointBuffer> pointBuffer(
-                new pdal::PointBuffer(
-                    stream,
-                    pointContext(),
-                    0,
-                    data.size() / pointContext().pointSize()));
+                new pdal::PointBuffer(pointContext()));
+
+        for (std::size_t i(0); i < data.size(); ++i)
+        {
+            pointBuffer->setPackedPoint(
+                    pointContext().dimTypes(),
+                    i,
+                    reinterpret_cast<char*>(
+                        data.data() + i * pointContext().pointSize()));
+        }
 
         auto it(nodeInfoMap.find(id));
         if (it != nodeInfoMap.end())

@@ -4,13 +4,16 @@
 
 #include <pdal/QuadIndex.hpp>
 #include <pdal/Dimension.hpp>
+#include <entwine/types/bbox.hpp>
 
 #include "grey/common.hpp"
 
 class GreyCluster;
 class RasterMeta;
 
-std::size_t getRasterIndex(const Point& p, const RasterMeta& rasterMeta);
+std::size_t getRasterIndex(
+        const entwine::Point& p,
+        const RasterMeta& rasterMeta);
 std::size_t getRasterIndex(
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::size_t index,
@@ -18,7 +21,11 @@ std::size_t getRasterIndex(
 
 struct NodeInfo
 {
-    NodeInfo(const BBox& bbox, std::size_t depth, bool isBase, bool complete);
+    NodeInfo(
+            const entwine::BBox& bbox,
+            std::size_t depth,
+            bool isBase,
+            bool complete);
 
     const bool complete;
     std::shared_ptr<GreyCluster> cluster;
@@ -43,7 +50,7 @@ public:
             std::size_t depthEnd);
     GreyQuery(
             const NodeInfoMap& nodeInfoMap,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
     GreyQuery(
@@ -73,7 +80,7 @@ typedef std::vector<QueryIndex> QueryIndexList;
 class GreyCluster
 {
 public:
-    GreyCluster(std::size_t depth, const BBox& bbox, bool isBase);
+    GreyCluster(std::size_t depth, const entwine::BBox& bbox, bool isBase);
 
     void populate(std::shared_ptr<pdal::PointBuffer> pointBuffer, bool doIndex);
     void index();
@@ -82,7 +89,7 @@ public:
     bool indexed() const;
 
     std::size_t depth() const { return m_depth; }
-    BBox bbox() const { return m_bbox; }
+    entwine::BBox bbox() const { return m_bbox; }
 
     // Read the indexed dataset within the specified depths.  If this cluster
     // is not the base cluster, then this cluster represents a single depth
@@ -97,7 +104,7 @@ public:
     void getIndexList(
             QueryIndexList& queryIndexList,
             uint64_t id,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin = 0,
             std::size_t depthEnd = 0) const;
 
@@ -114,7 +121,7 @@ private:
     std::shared_ptr<pdal::PointBuffer> m_pointBuffer;
     std::shared_ptr<pdal::QuadIndex> m_quadTree;
     const std::size_t m_depth;
-    const BBox m_bbox;
+    const entwine::BBox m_bbox;
     const bool m_isBase;
 };
 
@@ -131,15 +138,15 @@ public:
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
             std::size_t currentLevel,
-            BBox        currentBBox) const;
+            entwine::BBox currentBBox) const;
 
     void find(
             NodeInfoMap& results,
             std::size_t queryLevelBegin,
             std::size_t queryLevelEnd,
-            const BBox& queryBBox,
+            const entwine::BBox& queryBBox,
             std::size_t currentLevel,
-            BBox        currentBBox) const;
+            entwine::BBox currentBBox) const;
 
 private:
     const uint64_t m_id;
@@ -163,11 +170,11 @@ public:
             NodeInfoMap& results,
             std::size_t depthLevelBegin,
             std::size_t depthLevelEnd,
-            BBox queryBBox) const;
+            entwine::BBox queryBBox) const;
 
 private:
     const std::size_t m_base;
-    const BBox m_bbox;
+    const entwine::BBox m_bbox;
 
     const IdTree nw;
     const IdTree ne;

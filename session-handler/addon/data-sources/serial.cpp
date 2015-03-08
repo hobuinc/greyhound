@@ -1,7 +1,9 @@
 #include "serial.hpp"
 
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
+
 #include "read-queries/serial.hpp"
-#include "types/bbox.hpp"
 #include "types/raster-meta.hpp"
 #include "types/serial-paths.hpp"
 
@@ -46,9 +48,9 @@ std::vector<std::size_t> SerialDataSource::getFills() const
 }
 
 std::shared_ptr<ReadQuery> SerialDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -61,7 +63,7 @@ std::shared_ptr<ReadQuery> SerialDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> SerialDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         std::size_t depthBegin,
         std::size_t depthEnd)
@@ -75,7 +77,7 @@ std::shared_ptr<ReadQuery> SerialDataSource::query(
 }
 
 std::shared_ptr<ReadQuery> SerialDataSource::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compressed,
         std::size_t rasterize,
         RasterMeta& rasterMeta)

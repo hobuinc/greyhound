@@ -4,11 +4,13 @@
 #include <string>
 #include <thread>
 
-#include <pdal/Charbuf.hpp>
 #include <pdal/Compression.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/PointBuffer.hpp>
 #include <pdal/Utils.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "compression-stream.hpp"
 #include "http/collector.hpp"
@@ -23,6 +25,7 @@ namespace
         pointContext.registerDim(pdal::Dimension::Id::X);
         pointContext.registerDim(pdal::Dimension::Id::Y);
         pointContext.registerDim(pdal::Dimension::Id::Z);
+        /*
         pointContext.registerDim(pdal::Dimension::Id::ScanAngleRank);
         pointContext.registerDim(pdal::Dimension::Id::Intensity);
         pointContext.registerDim(pdal::Dimension::Id::PointSourceId);
@@ -30,6 +33,7 @@ namespace
         pointContext.registerDim(pdal::Dimension::Id::NumberOfReturns);
         pointContext.registerDim(pdal::Dimension::Id::ScanDirectionFlag);
         pointContext.registerDim(pdal::Dimension::Id::Classification);
+        */
         return pointContext;
     }
 
@@ -43,7 +47,7 @@ PointInfo::PointInfo(
         const std::size_t index,
         const pdal::Dimension::Id::Enum originDim,
         const Origin origin)
-    : point(new Point(
+    : point(new entwine::Point(
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index)))
     , bytes(pointBuffer->pointSize())
@@ -66,7 +70,9 @@ PointInfo::PointInfo(
     }
 }
 
-PointInfo::PointInfo(const Point* point, char* pos, const std::size_t len)
+PointInfo::PointInfo(
+        const entwine::Point* point,
+        char* pos, const std::size_t len)
     : point(point)
     , bytes(len)
 {
@@ -80,10 +86,10 @@ void PointInfo::write(char* pos)
 
 SleepyTree::SleepyTree(
         const std::string& pipelineId,
-        const BBox& bbox,
-        const Schema& schema)
+        const entwine::BBox& bbox,
+        const entwine::Schema& schema)
     : m_pipelineId(pipelineId)
-    , m_bbox(new BBox(bbox))
+    , m_bbox(new entwine::BBox(bbox))
     , m_pointContext(initPointContext())
     , m_originDim(m_pointContext.assignDim(
                 "OriginId",
@@ -110,7 +116,7 @@ SleepyTree::~SleepyTree()
 
 void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 {
-    Point point;
+    entwine::Point point;
 
     for (std::size_t i = 0; i < pointBuffer->size(); ++i)
     {
@@ -202,7 +208,10 @@ void SleepyTree::load()
     dataStream.read(reinterpret_cast<char*>(&yMin), sizeof(double));
     dataStream.read(reinterpret_cast<char*>(&xMax), sizeof(double));
     dataStream.read(reinterpret_cast<char*>(&yMax), sizeof(double));
-    m_bbox.reset(new BBox(Point(xMin, yMin), Point(xMax, yMax)));
+    m_bbox.reset(
+            new entwine::BBox(
+                entwine::Point(xMin, yMin),
+                entwine::Point(xMax, yMax)));
 
     uint64_t uncSize(0), cmpSize(0);
     dataStream.read(reinterpret_cast<char*>(&uncSize), sizeof(uint64_t));
@@ -228,7 +237,7 @@ void SleepyTree::load()
                 uncompressed));
 }
 
-const BBox& SleepyTree::getBounds() const
+const entwine::BBox& SleepyTree::getBounds() const
 {
     return *m_bbox.get();
 }
@@ -247,7 +256,7 @@ MultiResults SleepyTree::getPoints(
 }
 
 MultiResults SleepyTree::getPoints(
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {

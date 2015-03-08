@@ -8,11 +8,15 @@
 #include <pdal/Dimension.hpp>
 
 #include "http/s3.hpp"
-#include "types/bbox.hpp"
-#include "types/point.hpp"
+
+namespace entwine
+{
+    class BBox;
+    class Point;
+    class Schema;
+}
 
 class RasterMeta;
-class Schema;
 class Sleeper;
 
 typedef uint64_t Origin;
@@ -27,11 +31,11 @@ struct PointInfo
             pdal::Dimension::Id::Enum originDim,
             Origin origin);
 
-    PointInfo(const Point* point, char* pos, std::size_t len);
+    PointInfo(const entwine::Point* point, char* pos, std::size_t len);
 
     void write(char* pos);
 
-    const Point* point;
+    const entwine::Point* point;
     std::vector<char> bytes;
 };
 
@@ -69,8 +73,8 @@ class SleepyTree
 public:
     SleepyTree(
             const std::string& pipelineId,
-            const BBox& bbox,
-            const Schema& schema);
+            const entwine::BBox& bbox,
+            const entwine::Schema& schema);
     SleepyTree(const std::string& pipelineId);
     ~SleepyTree();
 
@@ -85,7 +89,7 @@ public:
     void load();
 
     // Get bounds of the quad tree.
-    const BBox& getBounds() const;
+    const entwine::BBox& getBounds() const;
 
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
@@ -98,7 +102,7 @@ public:
     // A depthEnd value of zero will return all points within the query range
     // that have a tree level >= depthBegin.
     MultiResults getPoints(
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -109,7 +113,7 @@ public:
 
 private:
     const std::string m_pipelineId;
-    std::unique_ptr<BBox> m_bbox;
+    std::unique_ptr<entwine::BBox> m_bbox;
 
     // Must be this order.
     pdal::PointContext m_pointContext;

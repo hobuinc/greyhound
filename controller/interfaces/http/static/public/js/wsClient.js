@@ -90,7 +90,7 @@
 
                 if (msg.command === "stats") {
                     stats = msg.stats;
-                    console.log(stats.stages['filters.stats']);
+                    // console.log(stats.stages['filters.stats']);
 
                     if (msg.status === 0)
                         return cb(new Error(
@@ -120,6 +120,7 @@
                             "type": "floating",
                             "size": "4"
                         },
+                        /*
                         {
                             "name": "Intensity",
                             "type": "unsigned",
@@ -140,6 +141,7 @@
                             "type": "unsigned",
                             "size": "2"
                         },
+                        */
                     ];
 
                     // This is in response to our create request.  Now request

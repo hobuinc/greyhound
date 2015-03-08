@@ -12,6 +12,11 @@
 #include "grey/reader-types.hpp"
 #include "grey/common.hpp"
 
+namespace entwine
+{
+    class BBox;
+}
+
 class RasterMeta;
 class SerialPaths;
 
@@ -30,7 +35,7 @@ public:
     GreyQuery query(std::size_t depthBegin, std::size_t depthEnd);
 
     GreyQuery query(
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 

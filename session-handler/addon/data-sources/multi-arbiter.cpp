@@ -1,3 +1,6 @@
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
+
 #include "data-sources/multi.hpp"
 #include "http/s3.hpp"
 #include "types/serial-paths.hpp"
@@ -6,8 +9,8 @@
 MultiArbiter::MultiArbiter(
         const std::string& pipelineId,
         const std::vector<std::string>& paths,
-        const Schema& schema,
-        const BBox& bbox,
+        const entwine::Schema& schema,
+        const entwine::BBox& bbox,
         const bool serialCompress,
         const SerialPaths& serialPaths)
     : m_multiDataSource(
@@ -50,9 +53,9 @@ const pdal::PointContext& MultiArbiter::pointContext() const
 }
 
 std::shared_ptr<ReadQuery> MultiArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
@@ -65,7 +68,7 @@ std::shared_ptr<ReadQuery> MultiArbiter::query(
 }
 
 std::shared_ptr<ReadQuery> MultiArbiter::query(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
         std::size_t depthEnd)

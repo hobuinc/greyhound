@@ -1,6 +1,10 @@
+#include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
+
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
 #include "read-queries/base.hpp"
+#include "util/schema.hpp"
 
 #include "commands/read.hpp"
 
@@ -74,7 +78,7 @@ ReadCommand::ReadCommand(
         const std::string host,
         const std::size_t port,
         const bool compress,
-        const Schema& schema,
+        const entwine::Schema& schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : m_pdalSession(pdalSession)
@@ -106,7 +110,7 @@ ReadCommand::~ReadCommand()
 
 std::size_t ReadCommand::numBytes() const
 {
-    return numPoints() * m_schema.stride(rasterize());
+    return numPoints() * Util::stride(m_schema, rasterize());
 }
 
 void ReadCommand::cancel(bool cancel)
@@ -186,7 +190,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string host,
         std::size_t port,
         bool compress,
-        Schema schema,
+        entwine::Schema schema,
         std::size_t start,
         std::size_t count,
         v8::Persistent<v8::Function> queryCallback,
@@ -212,7 +216,7 @@ ReadCommandPointRadius::ReadCommandPointRadius(
         std::string host,
         std::size_t port,
         bool compress,
-        Schema schema,
+        entwine::Schema schema,
         bool is3d,
         double radius,
         double x,
@@ -244,7 +248,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::string host,
         std::size_t port,
         bool compress,
-        Schema schema,
+        entwine::Schema schema,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::Persistent<v8::Function> queryCallback,
@@ -270,8 +274,8 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::string host,
         std::size_t port,
         bool compress,
-        Schema schema,
-        BBox bbox,
+        entwine::Schema schema,
+        entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::Persistent<v8::Function> queryCallback,
@@ -298,7 +302,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string host,
         const std::size_t port,
         bool compress,
-        const Schema schema,
+        const entwine::Schema schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
@@ -321,7 +325,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string host,
         const std::size_t port,
         bool compress,
-        const Schema schema,
+        const entwine::Schema schema,
         const RasterMeta rasterMeta,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -345,7 +349,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::string host,
         std::size_t port,
         bool compress,
-        Schema schema,
+        entwine::Schema schema,
         std::size_t level,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -362,27 +366,16 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
     , m_level(level)
 { }
 
-Schema ReadCommand::schemaOrDefault(const Schema reqSchema)
+entwine::Schema ReadCommand::schemaOrDefault(const entwine::Schema reqSchema)
 {
     // If no schema supplied, stream all dimensions in their native format.
-    if (reqSchema.dims.size() > 0)
+    if (reqSchema.dims().size() > 0)
     {
         return reqSchema;
     }
     else
     {
-        std::vector<DimInfo> dims;
-
-        const pdal::PointContext& pointContext(m_pdalSession->pointContext());
-
-        const pdal::Dimension::IdList& idList(pointContext.dims());
-
-        for (const auto& id : idList)
-        {
-            dims.push_back(DimInfo(id, pointContext.dimType(id)));
-        }
-
-        return Schema(dims);
+        return entwine::Schema(m_pdalSession->pointContext());
     }
 }
 
@@ -482,7 +475,8 @@ ReadCommand* ReadCommandFactory::create(
         const std::size_t port(args[1]->Uint32Value());
         const bool compress(args[2]->BooleanValue());
 
-        std::vector<DimInfo> dims;
+
+        std::vector<entwine::DimInfo> dims;
 
         // Unwrap the schema request into native C++ types.
         const Local<Array> schemaArray(Array::Cast(*args[3]));
@@ -502,18 +496,22 @@ ReadCommand* ReadCommandFactory::create(
                 const std::string name(*v8::String::Utf8Value(
                         dimObj->Get(String::New("name"))->ToString()));
 
-                const std::string baseType(*v8::String::Utf8Value(
+                const std::string baseTypeName(*v8::String::Utf8Value(
                         dimObj->Get(String::New("type"))->ToString()));
 
                 const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
                 if (pdalSession->pointContext().hasDim(id))
                 {
-                    dims.push_back(DimInfo(id, getType(baseType, size)));
+                    dims.push_back(
+                            entwine::DimInfo(
+                                name,
+                                baseTypeName,
+                                size));
                 }
             }
         }
 
-        Schema schema(dims);
+        entwine::Schema schema(dims);
 
         // Unindexed read - starting offset and count supplied.
         if (
@@ -601,10 +599,10 @@ ReadCommand* ReadCommandFactory::create(
                     bbox->Get(Integer::New(2))->IsNumber() &&
                     bbox->Get(Integer::New(3))->IsNumber())
                 {
-                    const Point min(
+                    const entwine::Point min(
                             bbox->Get(Integer::New(0))->NumberValue(),
                             bbox->Get(Integer::New(1))->NumberValue());
-                    const Point max(
+                    const entwine::Point max(
                             bbox->Get(Integer::New(2))->NumberValue(),
                             bbox->Get(Integer::New(3))->NumberValue());
 
@@ -618,7 +616,7 @@ ReadCommand* ReadCommandFactory::create(
                                 port,
                                 compress,
                                 schema,
-                                BBox(min, max),
+                                entwine::BBox(min, max),
                                 depthBegin,
                                 depthEnd,
                                 queryCallback,
