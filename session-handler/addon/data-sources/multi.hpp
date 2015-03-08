@@ -10,10 +10,15 @@ namespace pdal
     class PointContext;
 }
 
+namespace entwine
+{
+    class BBox;
+    class Schema;
+}
+
 class ReadQuery;
 class S3Info;
 class SerialPaths;
-class Schema;
 class SleepyTree;
 
 class MultiDataSource : public DataSource
@@ -22,8 +27,8 @@ public:
     MultiDataSource(
             const std::string& pipelineId,
             const std::vector<std::string>& paths,
-            const Schema& schema,
-            const BBox& bbox,
+            const entwine::Schema& schema,
+            const entwine::BBox& bbox,
             const S3Info& s3Info);
 
     virtual std::size_t getNumPoints() const;
@@ -33,14 +38,14 @@ public:
     virtual std::vector<std::size_t> getFills() const;
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             std::size_t depthBegin,
             std::size_t depthEnd);

@@ -1,10 +1,10 @@
 #include <pdal/PointBuffer.hpp>
+#include <entwine/types/schema.hpp>
 
-#include "types/schema.hpp"
 #include "read-queries/unindexed.hpp"
 
 UnindexedReadQuery::UnindexedReadQuery(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         std::shared_ptr<pdal::PointBuffer> pointBuffer,
         std::size_t start,
@@ -25,10 +25,10 @@ UnindexedReadQuery::UnindexedReadQuery(
 
 void UnindexedReadQuery::readPoint(
         uint8_t* pos,
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool) const
 {
-    for (const auto& dim : schema.dims)
+    for (const auto& dim : schema.dims())
     {
         pos += readDim(pos, m_pointBuffer.get(), dim, m_index);
     }

@@ -1,5 +1,7 @@
 #include <pdal/QuadIndex.hpp>
 #include <pdal/PointBuffer.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/point.hpp>
 
 #include "types/raster-meta.hpp"
 #include "reader-types.hpp"
@@ -7,9 +9,18 @@
 namespace
 {
     const std::size_t invalidIndex(std::numeric_limits<std::size_t>::max());
+
+    bool contains(const entwine::BBox& bbox, const entwine::BBox& other)
+    {
+        return
+            bbox.min().x <= other.min().x && bbox.max().x >= other.max().x &&
+            bbox.min().y <= other.min().y && bbox.max().y >= other.max().y;
+    }
 }
 
-std::size_t getRasterIndex(const Point& p, const RasterMeta& rasterMeta)
+std::size_t getRasterIndex(
+        const entwine::Point& p,
+        const RasterMeta& rasterMeta)
 {
     const std::size_t xOffset(pdal::Utils::sround(
             (p.x - rasterMeta.xBegin) / rasterMeta.xStep));
@@ -27,14 +38,14 @@ std::size_t getRasterIndex(
         std::size_t index,
         const RasterMeta& rasterMeta)
 {
-    const Point p(
+    const entwine::Point p(
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index));
     return getRasterIndex(p, rasterMeta);
 }
 
 NodeInfo::NodeInfo(
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depth,
         bool isBase,
         bool complete)
@@ -71,7 +82,7 @@ GreyQuery::GreyQuery(
 
 GreyQuery::GreyQuery(
         const NodeInfoMap& nodeInfoMap,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
     : m_clusters()
@@ -168,11 +179,11 @@ IdTree::IdTree(
 }
 
 void IdTree::find(
-        NodeInfoMap& results,
-        const std::size_t queryLevelBegin,
-        const std::size_t queryLevelEnd,
-        const std::size_t currentLevel,
-        const BBox        currentBBox) const
+        NodeInfoMap&            results,
+        const std::size_t       queryLevelBegin,
+        const std::size_t       queryLevelEnd,
+        const std::size_t       currentLevel,
+        const entwine::BBox     currentBBox) const
 {
     if (currentLevel >= queryLevelBegin && currentLevel < queryLevelEnd)
     {
@@ -219,12 +230,12 @@ void IdTree::find(
 }
 
 void IdTree::find(
-        NodeInfoMap& results,
-        const std::size_t   queryLevelBegin,
-        const std::size_t   queryLevelEnd,
-        const BBox&         queryBBox,
-        const std::size_t   currentLevel,
-        const BBox          currentBBox) const
+        NodeInfoMap&            results,
+        const std::size_t       queryLevelBegin,
+        const std::size_t       queryLevelEnd,
+        const entwine::BBox&    queryBBox,
+        const std::size_t       currentLevel,
+        const entwine::BBox     currentBBox) const
 {
     if (queryBBox.overlaps(currentBBox))
     {
@@ -237,7 +248,7 @@ void IdTree::find(
                             currentBBox,
                             currentLevel,
                             m_id == baseId,
-                            queryBBox.contains(currentBBox))));
+                            contains(queryBBox, currentBBox))));
         }
 
         std::size_t nextLevel(currentLevel + 1);
@@ -341,7 +352,7 @@ void IdIndex::find(
         NodeInfoMap& results,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        BBox queryBBox) const
+        entwine::BBox queryBBox) const
 {
     if (depthBegin >= depthEnd) return;
 
@@ -387,7 +398,10 @@ void IdIndex::find(
     }
 }
 
-GreyCluster::GreyCluster(std::size_t depth, const BBox& bbox, bool isBase)
+GreyCluster::GreyCluster(
+        std::size_t depth,
+        const entwine::BBox& bbox,
+        bool isBase)
     : m_pointBuffer(0)
     , m_quadTree(0)
     , m_depth(depth)
@@ -411,8 +425,8 @@ void GreyCluster::index()
 {
     if (!m_quadTree)
     {
-        const Point min(m_bbox.min());
-        const Point max(m_bbox.max());
+        const entwine::Point min(m_bbox.min());
+        const entwine::Point max(m_bbox.max());
 
         m_quadTree.reset(
                 new pdal::QuadIndex(
@@ -474,7 +488,7 @@ void GreyCluster::getIndexList(
 void GreyCluster::getIndexList(
         QueryIndexList& queryIndexList,
         uint64_t id,
-        const BBox& bbox,
+        const entwine::BBox& bbox,
         std::size_t depthBegin,
         std::size_t depthEnd) const
 {
@@ -488,8 +502,8 @@ void GreyCluster::getIndexList(
 
     if (m_quadTree)
     {
-        const Point min(bbox.min());
-        const Point max(bbox.max());
+        const entwine::Point min(bbox.min());
+        const entwine::Point max(bbox.max());
 
         const std::vector<std::size_t> indexList(
                 m_quadTree->getPoints(

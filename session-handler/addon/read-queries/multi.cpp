@@ -1,10 +1,11 @@
 #include <pdal/PointContext.hpp>
+#include <entwine/types/schema.hpp>
 
+#include "util/schema.hpp"
 #include "read-queries/multi.hpp"
-#include "types/schema.hpp"
 
 MultiReadQuery::MultiReadQuery(
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool compress,
         bool rasterize,
         std::shared_ptr<SleepyTree> sleepyTree,
@@ -24,7 +25,7 @@ MultiReadQuery::MultiReadQuery(
 
 void MultiReadQuery::readPoint(
         uint8_t* pos,
-        const Schema& schema,
+        const entwine::Schema& schema,
         bool rasterize) const
 {
     std::shared_ptr<std::vector<char>> data(
@@ -39,12 +40,12 @@ void MultiReadQuery::readPoint(
 
     std::vector<char> bytes(8);
 
-    for (const auto& dim : schema.dims)
+    for (const auto& dim : schema.dims())
     {
-        if (schema.use(dim, rasterize) && pointContext.hasDim(dim.id))
+        if (Util::use(dim, rasterize) && pointContext.hasDim(dim.id()))
         {
-            const std::size_t dimOffset(pointContext.dimOffset(dim.id));
-            const std::size_t nativeSize(pointContext.dimSize(dim.id));
+            const std::size_t dimOffset(pointContext.dimOffset(dim.id()));
+            const std::size_t nativeSize(pointContext.dimSize(dim.id()));
 
             std::memcpy(
                     bytes.data(),
@@ -52,7 +53,7 @@ void MultiReadQuery::readPoint(
                     nativeSize);
 
             using namespace pdal::Dimension;
-            const BaseType::Enum baseType(base(dim.type));
+            const BaseType::Enum baseType(base(dim.type()));
             const std::size_t dimSize(dim.size());
 
             if (baseType == BaseType::Floating)

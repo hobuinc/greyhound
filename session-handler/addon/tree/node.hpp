@@ -7,10 +7,15 @@
 #include <mutex>
 #include <map>
 
+#include <entwine/types/bbox.hpp>
+
 #include "sleepy-tree.hpp"
 #include "grey/common.hpp"
-#include "types/bbox.hpp"
-#include "types/point.hpp"
+
+namespace entwine
+{
+    struct Point;
+}
 
 // A copy-constructible and assignable atomic wrapper for use in a vector.
 template <typename T>
@@ -41,13 +46,13 @@ struct ElasticAtomic
 class Roller
 {
 public:
-    Roller(const BBox& bbox);
+    Roller(const entwine::BBox& bbox);
     Roller(const Roller& other);
 
-    void magnify(const Point* point);
+    void magnify(const entwine::Point* point);
     std::size_t depth() const;
     uint64_t pos() const;
-    const BBox& bbox() const;
+    const entwine::BBox& bbox() const;
 
     void goNw();
     void goNe();
@@ -69,7 +74,7 @@ public:
 
 private:
     uint64_t m_pos;
-    BBox m_bbox;
+    entwine::BBox m_bbox;
 
     std::size_t m_depth;
 
@@ -104,7 +109,7 @@ public:
     void getPoints(
             const Roller& roller,
             MultiResults& results,
-            const BBox& query,
+            const entwine::BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -122,7 +127,7 @@ private:
     const std::size_t m_deadOffset;
 
     // TODO Real structures.  These are testing only.
-    std::vector<ElasticAtomic<const Point*>> m_basePoints;
+    std::vector<ElasticAtomic<const entwine::Point*>> m_basePoints;
     std::shared_ptr<std::vector<char>> m_baseData;
     std::vector<std::mutex> m_baseLocks;
 };
@@ -130,9 +135,9 @@ private:
 class Sleeper
 {
 public:
-    Sleeper(const BBox& bbox, std::size_t pointSize);
+    Sleeper(const entwine::BBox& bbox, std::size_t pointSize);
     Sleeper(
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t pointSize,
             std::shared_ptr<std::vector<char>> data);
 
@@ -145,7 +150,7 @@ public:
 
     void getPoints(
             MultiResults& results,
-            const BBox& query,
+            const entwine::BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -154,10 +159,10 @@ public:
         return m_registry.baseData();
     }
 
-    BBox bbox() const;
+    entwine::BBox bbox() const;
 
 private:
-    const BBox m_bbox;
+    const entwine::BBox m_bbox;
 
     Registry m_registry;
 };

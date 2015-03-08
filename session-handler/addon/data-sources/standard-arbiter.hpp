@@ -7,6 +7,12 @@
 #include "types/serial-paths.hpp"
 #include "arbiter.hpp"
 
+namespace enwtine
+{
+    class BBox;
+    class Schema;
+}
+
 class StandardArbiter : public Arbiter
 {
 public:
@@ -27,37 +33,37 @@ public:
     virtual const pdal::PointContext& pointContext() const;
 
     virtual std::shared_ptr<ReadQuery> queryUnindexed(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t start,
             std::size_t count);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             const RasterMeta& rasterMeta);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool is3d,
             double radius,

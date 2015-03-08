@@ -13,16 +13,20 @@ namespace pdal
     class PointBuffer;
 }
 
-class Schema;
+namespace entwine
+{
+    class Schema;
+    class DimInfo;
+}
+
 class ItcBuffer;
-class DimInfo;
 
 class ReadQuery
 {
 public:
     ReadQuery(
             pdal::DimTypeList dimTypes,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool rasterize,
             std::size_t index = 0);
@@ -42,21 +46,21 @@ protected:
     std::size_t readDim(
             uint8_t* buffer,
             const pdal::PointBuffer* pointBuffer,
-            const DimInfo& dim,
+            const entwine::DimInfo& dim,
             const std::size_t index) const;
 
     CompressionStream m_compressionStream;
     std::shared_ptr<pdal::LazPerfCompressor<CompressionStream>> m_compressor;
     std::size_t m_compressionOffset;
 
-    const Schema& m_schema;
+    const entwine::Schema& m_schema;
     const bool m_rasterize;
     std::size_t m_index;
 
 private:
     virtual void readPoint(
             uint8_t* pos,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool rasterize) const = 0;
 
     virtual bool eof() const = 0;

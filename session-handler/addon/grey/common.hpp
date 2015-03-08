@@ -3,9 +3,10 @@
 #include <cstdint>
 #include <vector>
 
+#include <entwine/types/bbox.hpp>
+
 #include "json/json.h"
 
-#include "types/bbox.hpp"
 
 static const std::string greyVersion("0.0.1a");
 
@@ -23,7 +24,7 @@ struct GreyMeta
     std::size_t base;
     std::size_t cutoff;
     std::string pointContextXml;
-    BBox bbox;
+    entwine::BBox bbox;
     std::size_t numPoints;
     std::string schema;
     bool compressed;
@@ -49,7 +50,7 @@ struct GreyMeta
         : version           (json["version"].asString())
         , base              (json["base"].asUInt64())
         , pointContextXml   (json["pointContextXml"].asString())
-        , bbox              (BBox::fromJson(json["bbox"]))
+        , bbox              (entwine::BBox::fromJson(json["bbox"]))
         , numPoints         (json["numPoints"].asUInt64())
         , schema            (json["schema"].asString())
         , compressed        (json["compressed"].asBool())

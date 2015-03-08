@@ -11,11 +11,15 @@ namespace pdal
     class PointContext;
 }
 
-class BBox;
+namespace entwine
+{
+    class BBox;
+    class Schema;
+}
+
 class MultiDataSource;
 class RasterMeta;
 class ReadQuery;
-class Schema;
 class SerialPaths;
 
 class MultiArbiter : public Arbiter
@@ -24,8 +28,8 @@ public:
     MultiArbiter(
             const std::string& pipelineId,
             const std::vector<std::string>& paths,
-            const Schema& schema,
-            const BBox& bbox,
+            const entwine::Schema& schema,
+            const entwine::BBox& bbox,
             const bool serialCompress,
             const SerialPaths& serialPaths);
     ~MultiArbiter() { }
@@ -39,14 +43,14 @@ public:
     virtual const pdal::PointContext& pointContext() const;
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t depthBegin,
             std::size_t depthEnd);

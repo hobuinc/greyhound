@@ -4,19 +4,22 @@
 #include <memory>
 #include <vector>
 
-#include "once.hpp"
-#include "types/bbox.hpp"
 #include "data-sources/arbiter.hpp"
+#include "util/once.hpp"
 
 namespace pdal
 {
     class PointContext;
 }
 
-class BBox;
+namespace entwine
+{
+    class BBox;
+    class Schema;
+}
+
 class RasterMeta;
 class ReadQuery;
-class Schema;
 class SerialPaths;
 
 class PdalSession
@@ -34,8 +37,8 @@ public:
     void initialize(
             const std::string& pipelineId,
             const std::vector<std::string>& paths,
-            const Schema& schema,
-            const BBox& bbox,
+            const entwine::Schema& schema,
+            const entwine::BBox& bbox,
             bool serialCompress,
             const SerialPaths& serialPaths);
 
@@ -51,7 +54,7 @@ public:
 
     // Read un-indexed data with an offset and a count.
     std::shared_ptr<ReadQuery> queryUnindexed(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t start,
             std::size_t count);
@@ -59,35 +62,35 @@ public:
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
     std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with min/max tree depths to search.
     std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     // Read quad-tree indexed data with depth level for rasterization.
     std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     // Read a bounded set of points into a raster of pre-determined resolution.
     std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             const RasterMeta& rasterMeta);
 
     // Perform KD-indexed query of point + radius.
     std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             bool is3d,
             double radius,

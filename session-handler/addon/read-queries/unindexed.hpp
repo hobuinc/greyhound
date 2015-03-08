@@ -7,13 +7,16 @@ namespace pdal
     class PointBuffer;
 }
 
-class Schema;
+namespace entwine
+{
+    class Schema;
+}
 
 class UnindexedReadQuery : public ReadQuery
 {
 public:
     UnindexedReadQuery(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compress,
             std::shared_ptr<pdal::PointBuffer> pointBuffer,
             std::size_t start,
@@ -30,7 +33,7 @@ private:
 
     virtual void readPoint(
             uint8_t* pos,
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool rasterize) const;
 };
 

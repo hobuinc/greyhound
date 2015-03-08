@@ -174,6 +174,7 @@
             var x = asDataView.getFloat32(offset, true); offset += 4;
             var y = asDataView.getFloat32(offset, true); offset += 4;
             var z = asDataView.getFloat32(offset, true); offset += 4;
+            var holdZ = z;
 
             var intensity = 1.0;
             if(!nointensity) {
@@ -208,9 +209,9 @@
 
             intensity = 1.0;
 
-            colors[ 3*i ]     = intensity * r / 255.0;
-            colors[ 3*i + 1 ] = intensity * g / 255.0;
-            colors[ 3*i + 2 ] = intensity * b / 255.0;
+            colors[ 3*i ]     = 1;
+            colors[ 3*i + 1 ] = 0;
+            colors[ 3*i + 2 ] = 1;
         }
 
         geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -244,6 +245,10 @@
         var triangles = 0;
         var holes = 0;
 
+        var zMin =  Number.MAX_VALUE;
+        var zMax = -Number.MAX_VALUE;
+        var z;
+
         for (var yBase = 0; yBase < meta.yNum - 1; ++yBase) {
             for (var xBase = 0; xBase < meta.xNum - 1; ++xBase) {
                 allCornersPresent = true;
@@ -269,19 +274,28 @@
             }
         }
 
+        for (var yBase = 0; yBase < meta.yNum; ++yBase) {
+            for (var xBase = 0; xBase < meta.xNum; ++xBase) {
+                if (asDataView.getUint8(pointBase, true) == 1) {
+                    var pointBase = recordSize * (yBase * meta.xNum + xBase);
+                    if (asDataView.getUint8(pointBase, true)) {
+                        z = asDataView.getFloat32(pointBase + 1);
+                        if (z < zMin) zMin = z;
+                        if (z > zMax) zMax = z;
+                    }
+                }
+            }
+        }
+
         console.log('Meta: ', meta);
         console.log('Holes: ', holes);
         console.log('Hole%: ', holes / (meta.xNum * meta.yNum));
 
         var xMax = meta.xBegin + meta.xStep * meta.xNum;
         var yMax = meta.yBegin + meta.yStep * meta.yNum;
-        var zMax = parseFloat(
-                stats.stages['filters.stats'].statistic[2].maximum);
 
         var xMin = meta.xBegin;
         var yMin = meta.yBegin;
-        var zMin = parseFloat(
-                stats.stages['filters.stats'].statistic[2].minimum);
 
         var maxBound = Math.max(
                 xMax - xMin,
@@ -449,27 +463,27 @@
                     normals[pos + 16] = ny1;
                     normals[pos + 17] = nz1;
 
-                    colors[pos + 0] = rA / 255.0;
+                    colors[pos + 0] = 255 / 255.0;
                     colors[pos + 1] = gA / 255.0;
                     colors[pos + 2] = bA / 255.0;
 
-                    colors[pos + 3] = rB / 255.0;
+                    colors[pos + 3] = 255 / 255.0;
                     colors[pos + 4] = gB / 255.0;
                     colors[pos + 5] = bB / 255.0;
 
-                    colors[pos + 6] = rC / 255.0;
+                    colors[pos + 6] = 255 / 255.0;
                     colors[pos + 7] = gC / 255.0;
                     colors[pos + 8] = bC / 255.0;
 
-                    colors[pos + 9 ] = rB / 255.0;
+                    colors[pos + 9 ] = 255 / 255.0;
                     colors[pos + 10] = gB / 255.0;
                     colors[pos + 11] = bB / 255.0;
 
-                    colors[pos + 12] = rD / 255.0;
+                    colors[pos + 12] = 255 / 255.0;
                     colors[pos + 13] = gD / 255.0;
                     colors[pos + 14] = bD / 255.0;
 
-                    colors[pos + 15] = rC / 255.0;
+                    colors[pos + 15] = 255 / 255.0;
                     colors[pos + 16] = gC / 255.0;
                     colors[pos + 17] = bC / 255.0;
 

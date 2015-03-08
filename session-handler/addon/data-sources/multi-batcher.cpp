@@ -126,6 +126,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
                 readerOptions->add(pdal::Option("filename", localPath));
                 reader->setOptions(*readerOptions.get());
 
+                /*
                 reader->setSpatialReference(
                         pdal::SpatialReference("EPSG:26915"));
 
@@ -145,6 +146,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
                             pdal::SpatialReference("EPSG:3857")));
 
                 pipelineManager->getStage()->setOptions(srsOptions);
+                */
 
                 // Get and insert the buffer of reprojected points.
                 pipelineManager->execute();

@@ -5,16 +5,20 @@
 
 #include <pdal/PipelineManager.hpp>
 
-#include "once.hpp"
 #include "pdal-index.hpp"
 #include "data-sources/base.hpp"
+#include "util/once.hpp"
 
-class BBox;
+namespace entwine
+{
+    class BBox;
+    class Schema;
+}
+
 class PdalIndex;
 class RasterMeta;
 class ReadQuery;
 class SerialPaths;
-class Schema;
 
 class LiveDataSource : DataSource
 {
@@ -33,37 +37,37 @@ public:
     virtual std::vector<std::size_t> getFills() const;
 
     virtual std::shared_ptr<ReadQuery> queryUnindexed(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             std::size_t start,
             std::size_t count);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
-            const BBox& bbox,
+            const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             const RasterMeta& rasterMeta);
 
     virtual std::shared_ptr<ReadQuery> query(
-            const Schema& schema,
+            const entwine::Schema& schema,
             bool compressed,
             bool is3d,
             double radius,

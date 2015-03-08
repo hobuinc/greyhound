@@ -3,7 +3,7 @@
 #include <pdal/KDIndex.hpp>
 #include <pdal/QuadIndex.hpp>
 
-#include "once.hpp"
+#include "util/once.hpp"
 
 // This is a convenience class that maintains the various index types that
 // exist in a PDAL session.
