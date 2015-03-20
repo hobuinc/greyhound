@@ -32,13 +32,13 @@ public:
     // Append vector onto this buffer.  If current size plus the size of the
     // incoming bytes is greater than the max capacity, std::runtime_error is
     // thrown.
-    std::size_t push(const uint8_t* data, std::size_t size);
+    std::size_t push(const char* data, std::size_t size);
 
     std::size_t size() const;
     void resize(std::size_t);
 
-    const std::vector<uint8_t>& vecRef() const { return m_buffer; }
-    uint8_t* data();
+    const std::vector<char>& vecRef() const { return m_buffer; }
+    char* data();
 
 private:
     ItcBuffer(std::size_t id, std::size_t capacity);
@@ -49,7 +49,7 @@ private:
     std::size_t id() const { return m_id; }
 
     const std::size_t m_maxCapacity;
-    std::vector<uint8_t> m_buffer;
+    std::vector<char> m_buffer;
     const std::size_t m_id;
 
     std::mutex m_mutex;

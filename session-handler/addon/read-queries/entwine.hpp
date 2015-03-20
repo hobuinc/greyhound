@@ -1,34 +1,33 @@
 #pragma once
 
 #include "read-queries/base.hpp"
-#include "tree/sleepy-tree.hpp"
 
 namespace entwine
 {
     class Schema;
+    class SleepyTree;
 }
 
-class MultiReadQuery : public ReadQuery
+class EntwineReadQuery : public ReadQuery
 {
 public:
-    MultiReadQuery(
+    EntwineReadQuery(
             const entwine::Schema& schema,
             bool compress,
             bool rasterize,
-            std::shared_ptr<SleepyTree> sleepyTree,
-            MultiResults multiResults);
+            entwine::SleepyTree& sleepyTree,
+            const std::vector<std::size_t>& ids);
 
     virtual bool eof() const;
 
     virtual std::size_t numPoints() const;
 
 private:
-    std::shared_ptr<SleepyTree> m_sleepyTree;
-    MultiResults m_multiResults;
-    std::size_t m_offset;
+    entwine::SleepyTree& m_sleepyTree;
+    std::vector<std::size_t> m_ids;
 
     virtual void readPoint(
-            uint8_t* pos,
+            char* pos,
             const entwine::Schema& schema,
             bool rasterize) const;
 };
