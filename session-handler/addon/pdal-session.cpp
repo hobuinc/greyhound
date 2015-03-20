@@ -1,19 +1,21 @@
 #include <iostream>
 
-#include <pdal/PointBuffer.hpp>
-#include <pdal/PointContext.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/tree/multi-batcher.hpp>
+#include <entwine/tree/sleepy-tree.hpp>
 
 #include "buffer-pool.hpp"
-#include "data-sources/standard-arbiter.hpp"
-#include "data-sources/multi-arbiter.hpp"
-#include "read-queries/base.hpp"
+#include "read-queries/entwine.hpp"
+#include "types/serial-paths.hpp"
 #include "pdal-session.hpp"
 
 PdalSession::PdalSession()
     : m_initOnce()
-    , m_arbiter()
+    , m_tree()
+{ }
+
+PdalSession::~PdalSession()
 { }
 
 void PdalSession::initialize(
@@ -22,28 +24,6 @@ void PdalSession::initialize(
         const bool serialCompress,
         const SerialPaths& serialPaths)
 {
-    m_initOnce.ensure([
-            this,
-            &pipelineId,
-            &filename,
-            serialCompress,
-            &serialPaths]()
-    {
-        try
-        {
-            m_arbiter.reset(new StandardArbiter(
-                    pipelineId,
-                    filename,
-                    serialCompress,
-                    serialPaths));
-        }
-        catch (...)
-        {
-            m_arbiter.reset();
-            throw std::runtime_error(
-                    "Caught exception in standard init - " + pipelineId);
-        }
-    });
 }
 
 void PdalSession::initialize(
@@ -64,33 +44,67 @@ void PdalSession::initialize(
             serialCompress,
             &serialPaths]()
     {
-        if (!serialPaths.s3Info.exists)
-        {
-            throw std::runtime_error(
-                "No S3 credentials supplied - required for multi-pipeline");
-        }
-
-        if (!serialCompress)
-        {
-            std::cout <<
-                "Configuration said no serial compression - " <<
-                "ignoring for multi-pipeline and compressing anyway." <<
-                std::endl;
-        }
-
         try
         {
-            m_arbiter.reset(new MultiArbiter(
-                    pipelineId,
-                    paths,
-                    schema,
-                    bbox,
-                    serialCompress,
-                    serialPaths));
+            if (
+                    bbox.min().x == 0 && bbox.min().y == 0 &&
+                    bbox.max().x == 0 && bbox.min().y == 0)
+            {
+                /*
+                std::cout << "Making tree " << pipelineId << std::endl;
+                // Default bbox means we should try to awaken a serialized source.
+                m_sleepyTree.reset(new entwine::SleepyTree(pipelineId));
+                */
+            }
+            else
+            {
+                // TODO Many hard-codes.
+                m_tree.reset(
+                        new entwine::SleepyTree(
+                            "/var/greyhound/serial/" + pipelineId,  // TODO Path.
+                            bbox,
+                            schema,
+                            2,
+                            12,
+                            12,
+                            12,
+                            false));
+                /*
+            const S3Info& s3Info,
+            SleepyTree& sleepyTree,
+            std::size_t numThreads,
+            std::size_t pointBatchSize = 0,
+            std::size_t snapshot = 0);
+*/
+                entwine::MultiBatcher batcher(
+                        serialPaths.s3Info,
+                        *m_tree.get(),
+                        32); // numThreads TODO
+
+                const auto start(std::chrono::high_resolution_clock::now());
+                for (const auto& path : paths)
+                {
+                    batcher.add(path);
+                }
+
+                batcher.gather();
+                const auto end(std::chrono::high_resolution_clock::now());
+                const std::chrono::duration<double> d(end - start);
+                const auto time(
+                        std::chrono::duration_cast<std::chrono::seconds>
+                            (d).count());
+
+                std::cout << "Multi " << pipelineId << " complete - took " <<
+                        time <<
+                        " seconds" <<
+                        std::endl;
+
+                m_tree->save();
+            }
         }
         catch (...)
         {
-            m_arbiter.reset();
+            m_tree.reset();
             throw std::runtime_error(
                     "Caught exception in multi init - " + pipelineId);
         }
@@ -100,37 +114,36 @@ void PdalSession::initialize(
 std::size_t PdalSession::getNumPoints()
 {
     check();
-    return m_arbiter->getNumPoints();
+    return m_tree->numPoints();
 }
 
-std::string PdalSession::getSchema()
+std::string PdalSession::getSchemaString()
 {
     check();
-    return m_arbiter->getSchema();
+    return "";
 }
 
 std::string PdalSession::getStats()
 {
     check();
-    return m_arbiter->getStats();
+    return "{ }";
 }
 
 std::string PdalSession::getSrs()
 {
     check();
-    return m_arbiter->getSrs();
+    return "";
 }
 
 std::vector<std::size_t> PdalSession::getFills()
 {
     check();
-    return m_arbiter->getFills();
+    return std::vector<std::size_t>();
 }
 
 void PdalSession::serialize(const SerialPaths& serialPaths)
 {
     check();
-    m_arbiter->serialize();
 }
 
 std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
@@ -139,8 +152,9 @@ std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
         std::size_t start,
         std::size_t count)
 {
+    // TODO
     check();
-    return m_arbiter->queryUnindexed(schema, compress, start, count);
+    return std::shared_ptr<ReadQuery>();
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
@@ -151,7 +165,15 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthEnd)
 {
     check();
-    return m_arbiter->query(schema, compress, bbox, depthBegin, depthEnd);
+    std::vector<std::size_t> results(m_tree->query(bbox, depthBegin, depthEnd));
+
+    return std::shared_ptr<ReadQuery>(
+            new EntwineReadQuery(
+                schema,
+                compress,
+                false,
+                *m_tree.get(),
+                results));
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
@@ -161,7 +183,14 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthEnd)
 {
     check();
-    return m_arbiter->query(schema, compress, depthBegin, depthEnd);
+    std::vector<std::size_t> results(m_tree->query(depthBegin, depthEnd));
+    return std::shared_ptr<ReadQuery>(
+            new EntwineReadQuery(
+                schema,
+                compress,
+                false,
+                *m_tree.get(),
+                results));
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
@@ -170,8 +199,9 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
+    // TODO
     check();
-    return m_arbiter->query(schema, compress, rasterize, rasterMeta);
+    return std::shared_ptr<ReadQuery>();
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(
@@ -179,27 +209,14 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         bool compress,
         const RasterMeta& rasterMeta)
 {
+    // TODO
     check();
-    return m_arbiter->query(schema, compress, rasterMeta);
+    return std::shared_ptr<ReadQuery>();
 }
 
-std::shared_ptr<ReadQuery> PdalSession::query(
-        const entwine::Schema& schema,
-        bool compress,
-        bool is3d,
-        double radius,
-        double x,
-        double y,
-        double z)
+const entwine::Schema& PdalSession::schema() const
 {
-    check();
-    return m_arbiter->query(schema, compress, is3d, radius, x, y, z);
-}
-
-const pdal::PointContext& PdalSession::pointContext()
-{
-    check();
-    return m_arbiter->pointContext();
+    return m_tree->schema();
 }
 
 void PdalSession::check()

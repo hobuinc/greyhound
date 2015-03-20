@@ -5,21 +5,16 @@
 
 #include "data-sources/base.hpp"
 
-namespace pdal
-{
-    class PointContext;
-}
-
 namespace entwine
 {
     class BBox;
+    class S3Info;
     class Schema;
+    class SleepyTree;
 }
 
 class ReadQuery;
-class S3Info;
 class SerialPaths;
-class SleepyTree;
 
 class MultiDataSource : public DataSource
 {
@@ -29,7 +24,7 @@ public:
             const std::vector<std::string>& paths,
             const entwine::Schema& schema,
             const entwine::BBox& bbox,
-            const S3Info& s3Info);
+            const entwine::S3Info& s3Info);
 
     virtual std::size_t getNumPoints() const;
     virtual std::string getSchema() const;
@@ -50,9 +45,7 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    const pdal::PointContext& pointContext() const;
-
 private:
-    std::shared_ptr<SleepyTree> m_sleepyTree;
+    std::shared_ptr<entwine::SleepyTree> m_sleepyTree;
 };
 

@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 
-#include "data-sources/arbiter.hpp"
 #include "util/once.hpp"
 
 namespace pdal
@@ -16,6 +15,7 @@ namespace entwine
 {
     class BBox;
     class Schema;
+    class SleepyTree;
 }
 
 class RasterMeta;
@@ -26,7 +26,7 @@ class PdalSession
 {
 public:
     PdalSession();
-    ~PdalSession() { }
+    ~PdalSession();
 
     void initialize(
             const std::string& pipelineId,
@@ -44,7 +44,7 @@ public:
 
     // Queries.
     std::size_t getNumPoints();
-    std::string getSchema();
+    std::string getSchemaString();
     std::string getStats();
     std::string getSrs();
     std::vector<std::size_t> getFills();
@@ -88,24 +88,14 @@ public:
             bool compress,
             const RasterMeta& rasterMeta);
 
-    // Perform KD-indexed query of point + radius.
-    std::shared_ptr<ReadQuery> query(
-            const entwine::Schema& schema,
-            bool compress,
-            bool is3d,
-            double radius,
-            double x,
-            double y,
-            double z);
-
-    const pdal::PointContext& pointContext();
+    const entwine::Schema& schema() const;
 
 private:
     // Make sure we are successfully initialized.
     void check();
 
     Once m_initOnce;
-    std::unique_ptr<Arbiter> m_arbiter;
+    std::unique_ptr<entwine::SleepyTree> m_tree;
 
     // Disallow copy/assignment.
     PdalSession(const PdalSession&);

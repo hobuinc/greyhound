@@ -1,4 +1,3 @@
-#include <pdal/PointBuffer.hpp>
 #include <entwine/types/schema.hpp>
 
 #include "buffer-pool.hpp"
@@ -9,7 +8,6 @@
 namespace
 {
     pdal::DimTypeList pruneDims(
-            pdal::DimTypeList input,
             const entwine::Schema& schema,
             bool rasterize)
     {
@@ -28,7 +26,6 @@ namespace
 }
 
 ReadQuery::ReadQuery(
-        pdal::DimTypeList dimTypes,
         const entwine::Schema& schema,
         const bool compress,
         const bool rasterize,
@@ -36,9 +33,9 @@ ReadQuery::ReadQuery(
     : m_compressionStream()
     , m_compressor(
             compress ?
-                new pdal::LazPerfCompressor<CompressionStream>(
+                new pdal::LazPerfCompressor<entwine::CompressionStream>(
                     m_compressionStream,
-                    pruneDims(dimTypes, schema, rasterize)) :
+                    pruneDims(schema, rasterize)) :
                 0)
     , m_compressionOffset(0)
     , m_schema(schema)
@@ -62,8 +59,8 @@ void ReadQuery::read(
     {
         buffer->resize(0);
         const std::size_t pointSize(Util::stride(m_schema, rasterize));
-        std::vector<uint8_t> point(pointSize);
-        uint8_t* pos(0);
+        std::vector<char> point(pointSize);
+        char* pos(0);
 
         const bool doCompress(compress());
 
@@ -115,18 +112,8 @@ void ReadQuery::read(
     }
 }
 
-std::size_t ReadQuery::readDim(
-        uint8_t* buffer,
-        const pdal::PointBuffer* pointBuffer,
-        const entwine::DimInfo& dim,
-        const std::size_t index) const
+std::size_t ReadQuery::index() const
 {
-    pointBuffer->getField(
-            reinterpret_cast<char*>(buffer),
-            dim.id(),
-            dim.type(),
-            index);
-
-    return dim.size();
+    return m_index;
 }
 

@@ -1,5 +1,4 @@
 #include <entwine/types/point.hpp>
-#include <entwine/types/schema.hpp>
 
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
@@ -108,6 +107,19 @@ ReadCommand::~ReadCommand()
     }
 }
 
+entwine::Schema ReadCommand::schemaOrDefault(const entwine::Schema reqSchema)
+{
+    // If no schema supplied, stream all dimensions in their native format.
+    if (reqSchema.dims().size() > 0)
+    {
+        return reqSchema;
+    }
+    else
+    {
+        return entwine::Schema(m_pdalSession->schema());
+    }
+}
+
 std::size_t ReadCommand::numBytes() const
 {
     return numPoints() * Util::stride(m_schema, rasterize());
@@ -207,38 +219,6 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             dataCallback)
     , m_start(start)
     , m_count(count)
-{ }
-
-ReadCommandPointRadius::ReadCommandPointRadius(
-        std::shared_ptr<PdalSession> pdalSession,
-        ItcBufferPool& itcBufferPool,
-        std::string readId,
-        std::string host,
-        std::size_t port,
-        bool compress,
-        entwine::Schema schema,
-        bool is3d,
-        double radius,
-        double x,
-        double y,
-        double z,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
-    : ReadCommand(
-            pdalSession,
-            itcBufferPool,
-            readId,
-            host,
-            port,
-            compress,
-            schema,
-            queryCallback,
-            dataCallback)
-    , m_is3d(is3d)
-    , m_radius(radius)
-    , m_x(x)
-    , m_y(y)
-    , m_z(z)
 { }
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
@@ -366,19 +346,6 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
     , m_level(level)
 { }
 
-entwine::Schema ReadCommand::schemaOrDefault(const entwine::Schema reqSchema)
-{
-    // If no schema supplied, stream all dimensions in their native format.
-    if (reqSchema.dims().size() > 0)
-    {
-        return reqSchema;
-    }
-    else
-    {
-        return entwine::Schema(m_pdalSession->pointContext());
-    }
-}
-
 void ReadCommandUnindexed::query()
 {
     m_readQuery = m_pdalSession->queryUnindexed(
@@ -422,18 +389,6 @@ void ReadCommandQuadLevel::query()
             m_compress,
             m_level,
             m_rasterMeta);
-}
-
-void ReadCommandPointRadius::query()
-{
-    m_readQuery = m_pdalSession->query(
-            m_schema,
-            m_compress,
-            m_is3d,
-            m_radius,
-            m_x,
-            m_y,
-            m_z);
 }
 
 ReadCommand* ReadCommandFactory::create(
@@ -500,7 +455,7 @@ ReadCommand* ReadCommandFactory::create(
                         dimObj->Get(String::New("type"))->ToString()));
 
                 const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-                if (pdalSession->pointContext().hasDim(id))
+                if (pdalSession->schema().pdalLayout()->hasDim(id))
                 {
                     dims.push_back(
                             entwine::DimInfo(
@@ -543,37 +498,6 @@ ReadCommand* ReadCommandFactory::create(
                         queryCallback,
                         "Invalid 'start' in 'read' request");
             }
-        }
-        // KD-indexed read - point/radius supplied.
-        else if (
-            args.Length() == 11 &&
-            isDefined(args[4]) && args[4]->IsBoolean() &&
-            isDefined(args[5]) && args[5]->IsNumber() &&
-            isDefined(args[6]) && args[6]->IsNumber() &&
-            isDefined(args[7]) && args[7]->IsNumber() &&
-            isDefined(args[8]) && args[8]->IsNumber())
-        {
-            const bool is3d(args[4]->BooleanValue());
-            const double radius(args[5]->NumberValue());
-            const double x(args[6]->NumberValue());
-            const double y(args[7]->NumberValue());
-            const double z(args[8]->NumberValue());
-
-            readCommand = new ReadCommandPointRadius(
-                    pdalSession,
-                    itcBufferPool,
-                    readId,
-                    host,
-                    port,
-                    compress,
-                    schema,
-                    is3d,
-                    radius,
-                    x,
-                    y,
-                    z,
-                    queryCallback,
-                    dataCallback);
         }
         // Quad index query, bounded and unbounded.
         else if (

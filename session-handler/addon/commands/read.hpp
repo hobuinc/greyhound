@@ -8,7 +8,6 @@
 #include <node.h>
 
 #include <pdal/Dimension.hpp>
-#include <pdal/PointContext.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 
@@ -110,35 +109,6 @@ private:
 
     const std::size_t m_start;
     const std::size_t m_count;
-};
-
-class ReadCommandPointRadius : public ReadCommand
-{
-public:
-    ReadCommandPointRadius(
-            std::shared_ptr<PdalSession> pdalSession,
-            ItcBufferPool& itcBufferPool,
-            std::string readId,
-            std::string host,
-            std::size_t port,
-            bool compress,
-            entwine::Schema schema,
-            bool is3d,
-            double radius,
-            double x,
-            double y,
-            double z,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
-
-private:
-    virtual void query();
-
-    const bool m_is3d;
-    const double m_radius;
-    const double m_x;
-    const double m_y;
-    const double m_z;
 };
 
 class ReadCommandQuadIndex : public ReadCommand

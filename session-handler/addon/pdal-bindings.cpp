@@ -76,9 +76,9 @@ namespace
         return paths;
     }
 
-    S3Info parseS3Info(const v8::Local<v8::Value>& rawArg)
+    entwine::S3Info parseS3Info(const v8::Local<v8::Value>& rawArg)
     {
-        S3Info info;
+        entwine::S3Info info;
         if (!rawArg->IsUndefined() && rawArg->IsArray())
         {
             Local<Array> rawArray(Array::Cast(*rawArg));
@@ -103,7 +103,7 @@ namespace
                 const std::string hidden(
                         *v8::String::Utf8Value(rawHidden->ToString()));
 
-                return S3Info(url, bucket, access, hidden);
+                return entwine::S3Info(url, bucket, access, hidden);
             }
         }
 
@@ -312,7 +312,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     }
 
     const bool serialCompress(args[2]->BooleanValue());
-    const S3Info s3Info(parseS3Info(args[3]));
+    const entwine::S3Info s3Info(parseS3Info(args[3]));
     const std::vector<std::string> diskPaths(parsePathList(args[4]));
     const entwine::BBox bbox(min, max);
 
@@ -409,7 +409,7 @@ Handle<Value> PdalBindings::getSchema(const Arguments& args)
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
-    const std::string schema(obj->m_pdalSession->getSchema());
+    const std::string schema(obj->m_pdalSession->getSchemaString());
 
     return scope.Close(String::New(schema.data(), schema.size()));
 }
@@ -471,7 +471,7 @@ Handle<Value> PdalBindings::serialize(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    const S3Info s3Info(parseS3Info(args[0]));
+    const entwine::S3Info s3Info(parseS3Info(args[0]));
     const std::vector<std::string> diskPaths(parsePathList(args[1]));
 
     SerialPaths paths(s3Info, diskPaths);
@@ -659,8 +659,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     {
                         Local<Value>::New(Null()), // err
                         Local<Value>::New(node::Buffer::New(
-                                reinterpret_cast<const char*>(
-                                    readCommand->getBuffer()->data()),
+                                readCommand->getBuffer()->data(),
                                 readCommand->getBuffer()->size())->handle_),
                         Local<Value>::New(Number::New(readCommand->done()))
                     };

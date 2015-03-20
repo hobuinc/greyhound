@@ -25,7 +25,7 @@ void ItcBuffer::flush()
     m_cv.notify_all();
 }
 
-std::size_t ItcBuffer::push(const uint8_t* data, const std::size_t size)
+std::size_t ItcBuffer::push(const char* data, const std::size_t size)
 {
     if (m_buffer.size() + size > m_maxCapacity)
     {
@@ -54,7 +54,7 @@ void ItcBuffer::resize(std::size_t size)
     m_buffer.resize(size);
 }
 
-uint8_t* ItcBuffer::data()
+char* ItcBuffer::data()
 {
     return m_buffer.data();
 }
