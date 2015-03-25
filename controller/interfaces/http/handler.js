@@ -115,11 +115,6 @@ if (
     }
 
     var registerCommands = function(controller, app) {
-        app.post('/put', function(req, res) {
-            var params = req.query;
-            controller.put(params.path, params.bbox, cb);
-        });
-
         app.get('/pipeline/:pipeline/numPoints', function(req, res) {
             controller.numPoints(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'numPoints'));

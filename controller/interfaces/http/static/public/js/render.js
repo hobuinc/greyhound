@@ -5,15 +5,12 @@
 (function(w) {
     "use strict";
 
-    if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+    if (!Detector.webgl) Detector.addGetWebGLMessage();
 
-    var container, stats;
-    var camera, controls, scene, renderer;
+    var container, camera, controls, scene, renderer;
 
-    var cross;
-
-    w.renderPoints = function(data, count, meta, stats, status_cb) {
-        init(data, count, meta, stats);
+    w.renderPoints = function(data, count, meta, status_cb) {
+        init(data, count, meta);
         animate();
 
         if(status_cb) {
@@ -66,7 +63,7 @@
         return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
-    function init(data, count, meta, stats) {
+    function init(data, count, meta) {
         // Set up
         camera = new THREE.PerspectiveCamera(60,
             window.innerWidth / window.innerHeight, 1, 10000);
@@ -97,7 +94,7 @@
             initPoints(data, count);
         }
         else {
-            tris = initRaster(data, count, meta, stats);
+            tris = initRaster(data, count, meta);
         }
 
         // Render
@@ -237,7 +234,7 @@
         return recordSize * (yIndex * meta.xNum + xIndex) + 1;
     }
 
-    function initRaster(data, count, meta, stats) {
+    function initRaster(data, count, meta) {
         var geometry = new THREE.BufferGeometry();
         var asDataView = new DataView(data.buffer);
         var recordSize = 13;

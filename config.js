@@ -56,42 +56,17 @@ config.sh = {
     // If not supplied, S3 capabilities will be disabled.
     aws: awsCredentials,
 
-    // Specify whether Greyhound can serialize indexed pipelines to disk or
-    // to AWS S3 (if credentials are supplied) for shorter creation times and
-    // less RAM usage.
-    //
-    // If set to true and AWS credentials are supplied, pipelines will be
-    // serialized to S3 instead of the local filesystem.
-    serialAllowed: true,
-
-    // If serialAllowed is true, these paths will be used for serialization.
-    // Rules:
-    //      For reading:
-    //        - Search these paths, in order, for a serialized Greyhound file.
-    //        - If '/var/greyhound/serial' does not exist in this list, search
-    //          there if no matches were found in this list.
-    //
-    //      For writing:
-    //        - If this list is populated, try to use the first entry as the
-    //          writing location.  If this list is empty or the first location
-    //          could not be validated or created, try to use
-    //          '/var/greyhound/serial'.  If neither of these locations works,
-    //          serialization will be disabled completely.
-    //        - Although Greyhound will only write to the first entry or the
-    //          default, Greyhound will check all listed directories for the
-    //          presence of a pipeline that is requested to be serialized.
-    //          The pipeline will not be written again if it exists in any
-    //          of the listed directories.
-    serialPaths: [
-        // '/var/greyhound/serial',
+    // Where to find unindex pointcloud source files.  If supplied, the AWS
+    // remote path will be searched first.
+    inputs: [
+        '/vagrant/examples/data/'
     ],
 
-    // If true or omitted, serialized pipelines will be written with LazPerf
-    // compression.  If false, serialization will be uncompressed.  Previously
-    // compressed/serialized pipelines will be able to be decompressed by
-    // Greyhound regardless of this value, which only governs how data is
-    // written.
-    serialCompress: true,
+    // TODO Allow S3 here.
+    // Directory for Greyhound to serialize its indexed data.
+    //
+    // Default: '/var/greyhound/serial'
+    output: '/var/greyhound/serial',
 
     // If false, component will not run.
     enable: true,

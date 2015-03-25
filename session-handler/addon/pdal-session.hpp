@@ -20,7 +20,7 @@ namespace entwine
 
 class RasterMeta;
 class ReadQuery;
-class SerialPaths;
+class Paths;
 
 class PdalSession
 {
@@ -28,29 +28,15 @@ public:
     PdalSession();
     ~PdalSession();
 
-    void initialize(
-            const std::string& pipelineId,
-            const std::string& filename,
-            bool serialCompress,
-            const SerialPaths& serialPaths);
-
-    void initialize(
-            const std::string& pipelineId,
-            const std::vector<std::string>& paths,
-            const entwine::Schema& schema,
-            const entwine::BBox& bbox,
-            bool serialCompress,
-            const SerialPaths& serialPaths);
+    // Returns true if initialization was successful.  If false, this session
+    // should not be used.
+    bool initialize(const std::string& name, const Paths& paths);
 
     // Queries.
     std::size_t getNumPoints();
     std::string getSchemaString();
     std::string getStats();
     std::string getSrs();
-    std::vector<std::size_t> getFills();
-
-    // Write to disk.
-    void serialize(const SerialPaths& serialPaths);
 
     // Read un-indexed data with an offset and a count.
     std::shared_ptr<ReadQuery> queryUnindexed(
@@ -91,11 +77,18 @@ public:
     const entwine::Schema& schema() const;
 
 private:
-    // Make sure we are successfully initialized.
-    void check();
+    bool sourced() const { return m_source.size(); }    // Have data source?
+    bool indexed() const { return !!m_tree; }           // Have index?
+
+    bool resolveSource();
+    bool resolveIndex();
 
     Once m_initOnce;
+    std::string m_source;
     std::unique_ptr<entwine::SleepyTree> m_tree;
+
+    std::string m_name;
+    std::unique_ptr<Paths> m_paths;
 
     // Disallow copy/assignment.
     PdalSession(const PdalSession&);

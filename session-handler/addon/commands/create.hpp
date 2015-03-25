@@ -6,7 +6,7 @@
 #include <entwine/types/bbox.hpp>
 
 #include "commands/background.hpp"
-#include "types/serial-paths.hpp"
+#include "types/paths.hpp"
 
 class PdalSession;
 
@@ -14,19 +14,12 @@ struct CreateData : public Background
 {
     CreateData(
             std::shared_ptr<PdalSession> pdalSession,
-            std::string pipelineId,
-            const std::vector<std::string>& paths,
-            const entwine::BBox& bbox,
-            bool serialCompress,
-            SerialPaths serialPaths,
+            std::string name,
+            Paths paths,
             v8::Persistent<v8::Function> callback)
         : pdalSession(pdalSession)
-        , pipelineId(pipelineId)
+        , name(name)
         , paths(paths)
-        , bbox(bbox)
-        , serialCompress(serialCompress)
-        , serialPaths(serialPaths)
-        , errMsg()
         , callback(callback)
     { }
 
@@ -37,14 +30,8 @@ struct CreateData : public Background
 
     // Inputs
     const std::shared_ptr<PdalSession> pdalSession;
-    const std::string pipelineId;
-    const std::vector<std::string> paths;
-    const entwine::BBox bbox;
-    const bool serialCompress;
-    const SerialPaths serialPaths;
-
-    // Outputs
-    std::string errMsg;
+    const std::string name;
+    const Paths paths;
 
     v8::Persistent<v8::Function> callback;
 };

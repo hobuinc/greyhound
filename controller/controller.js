@@ -40,42 +40,6 @@ var
         }
     }
 
-    Controller.prototype.put = function(path, bbox, cb) {
-        if (!cb) {
-            cb = bbox;
-            bbox = null;
-        }
-
-        var multi = false;
-        if (_.isArray(path)) {
-            if (!bbox) return cb('No bbox given for multi spec');
-            else multi = true;
-        }
-
-        var self = this;
-        console.log("controller::put");
-
-        affinity.getDb(function(err, db) {
-            if (err) return cb(err);
-
-            web.post(db, '/put', { path: path }, function(err, res) {
-                if (err) {
-                    return cb(err);
-                }
-                else if (multi) {
-                    // For a multi-pipeline, make sure 'create' gets called
-                    // now so we don't wait for a query to start building.
-                    affinity.get(res.id, bbox, function(err) {
-                        cb(err, { pipelineId: res.id });
-                    });
-                }
-                else {
-                    cb(err, { pipelineId: res.id });
-                }
-            });
-        });
-    }
-
     Controller.prototype.numPoints = function(plId, cb) {
         console.log("controller::numPoints");
         affinity.get(plId, function(err, sessionHandler) {
@@ -105,22 +69,6 @@ var
         affinity.get(plId, function(err, sessionHandler) {
             if (err) return cb(err);
             web.get(sessionHandler, '/srs/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.fills = function(plId, cb) {
-        console.log("controller::fills");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/fills/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.serialize = function(plId, cb) {
-        console.log("controller::serialize");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/serialize/' + plId, cb);
         });
     }
 
@@ -163,10 +111,13 @@ var
             var listener = new Listener(onData, onEnd);
 
             listener.listen(function(address) {
-                _.extend(query, address);
+                var params = {
+                    'address':  address,
+                    'query':    query
+                };
                 var readPath = '/read/' + plId;
 
-                web.post(sh, readPath, query, function(err, res) {
+                web.post(sh, readPath, params, function(err, res) {
                     if (!err && res.readId) {
                         if (!listeners.hasOwnProperty[plId]) {
                             listeners[plId] = { };
