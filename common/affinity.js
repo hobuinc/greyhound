@@ -104,8 +104,12 @@ var web = require('./web'),
             cb = bbox;
             bbox = null;
         }
+
         console.log('Aff get', plId);
         var self = this;
+        // TODO
+        return self.lightestLoad(cb);
+
         if (!plId) return cb('Invalid pipelineId');
 
         redisClient.get(plStore(plId), function(err, sh) {

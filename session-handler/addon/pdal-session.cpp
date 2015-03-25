@@ -1,4 +1,7 @@
+#include <fstream>
 #include <iostream>
+
+#include <glob.h>   // TODO
 
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
@@ -7,143 +10,84 @@
 
 #include "buffer-pool.hpp"
 #include "read-queries/entwine.hpp"
-#include "types/serial-paths.hpp"
+#include "types/paths.hpp"
 #include "pdal-session.hpp"
+
+namespace
+{
+    // TODO Put this somewhere else - platform dependent code.
+    std::vector<std::string> resolve(
+            const std::vector<std::string>& dirs,
+            const std::string& name)
+    {
+        glob_t buffer;
+        for (std::size_t i(0); i < dirs.size(); ++i)
+        {
+            auto flags(GLOB_NOSORT | GLOB_TILDE);
+            if (i) flags |= GLOB_APPEND;
+
+            glob((dirs[i] + "/" + name + "*").c_str(), flags, 0, &buffer);
+        }
+
+        std::vector<std::string> results;
+        for (std::size_t i(0); i < buffer.gl_pathc; ++i)
+        {
+            results.push_back(buffer.gl_pathv[i]);
+        }
+
+        globfree(&buffer);
+
+        return results;
+    }
+}
 
 PdalSession::PdalSession()
     : m_initOnce()
+    , m_source()
     , m_tree()
+    , m_name()
+    , m_paths()
 { }
 
 PdalSession::~PdalSession()
 { }
 
-void PdalSession::initialize(
-        const std::string& pipelineId,
-        const std::string& filename,
-        const bool serialCompress,
-        const SerialPaths& serialPaths)
+bool PdalSession::initialize(const std::string& name, const Paths& paths)
 {
-}
+    std::cout << "Discovering " << name << std::endl;
 
-void PdalSession::initialize(
-        const std::string& pipelineId,
-        const std::vector<std::string>& paths,
-        const entwine::Schema& schema,
-        const entwine::BBox& bbox,
-        const bool serialCompress,
-        const SerialPaths& serialPaths)
-{
-    std::cout << "Init multi" << std::endl;
-    m_initOnce.ensure([
-            this,
-            &pipelineId,
-            &paths,
-            &schema,
-            &bbox,
-            serialCompress,
-            &serialPaths]()
+    m_initOnce.ensure([this, &name, &paths]()
     {
-        try
-        {
-            if (
-                    bbox.min().x == 0 && bbox.min().y == 0 &&
-                    bbox.max().x == 0 && bbox.min().y == 0)
-            {
-                /*
-                std::cout << "Making tree " << pipelineId << std::endl;
-                // Default bbox means we should try to awaken a serialized source.
-                m_sleepyTree.reset(new entwine::SleepyTree(pipelineId));
-                */
-            }
-            else
-            {
-                // TODO Many hard-codes.
-                m_tree.reset(
-                        new entwine::SleepyTree(
-                            "/var/greyhound/serial/" + pipelineId,  // TODO Path.
-                            bbox,
-                            schema,
-                            2,
-                            12,
-                            12,
-                            12,
-                            false));
-                /*
-            const S3Info& s3Info,
-            SleepyTree& sleepyTree,
-            std::size_t numThreads,
-            std::size_t pointBatchSize = 0,
-            std::size_t snapshot = 0);
-*/
-                entwine::MultiBatcher batcher(
-                        serialPaths.s3Info,
-                        *m_tree.get(),
-                        32); // numThreads TODO
+        m_name = name;
+        m_paths.reset(new Paths(paths));
 
-                const auto start(std::chrono::high_resolution_clock::now());
-                for (const auto& path : paths)
-                {
-                    batcher.add(path);
-                }
-
-                batcher.gather();
-                const auto end(std::chrono::high_resolution_clock::now());
-                const std::chrono::duration<double> d(end - start);
-                const auto time(
-                        std::chrono::duration_cast<std::chrono::seconds>
-                            (d).count());
-
-                std::cout << "Multi " << pipelineId << " complete - took " <<
-                        time <<
-                        " seconds" <<
-                        std::endl;
-
-                m_tree->save();
-            }
-        }
-        catch (...)
-        {
-            m_tree.reset();
-            throw std::runtime_error(
-                    "Caught exception in multi init - " + pipelineId);
-        }
+        resolveSource();
+        resolveIndex();
     });
+
+    return (sourced() || indexed());
 }
 
 std::size_t PdalSession::getNumPoints()
 {
-    check();
     return m_tree->numPoints();
 }
 
 std::string PdalSession::getSchemaString()
 {
-    check();
-    return "";
+    // TODO Return the JSON, let the bindings turn it into a JS object.
+    return m_tree->schema().toJson().toStyledString();
 }
 
 std::string PdalSession::getStats()
 {
-    check();
+    // TODO
     return "{ }";
 }
 
 std::string PdalSession::getSrs()
 {
-    check();
     return "";
-}
-
-std::vector<std::size_t> PdalSession::getFills()
-{
-    check();
-    return std::vector<std::size_t>();
-}
-
-void PdalSession::serialize(const SerialPaths& serialPaths)
-{
-    check();
 }
 
 std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
@@ -152,8 +96,9 @@ std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
         std::size_t start,
         std::size_t count)
 {
-    // TODO
-    check();
+    // TODO If sourced() is not true here, attempt to re-resolve a path for
+    // this resource.  Perhaps it was added later.
+    throw std::runtime_error("TODO - PdalSession::queryUnindexed");
     return std::shared_ptr<ReadQuery>();
 }
 
@@ -164,9 +109,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    check();
     std::vector<std::size_t> results(m_tree->query(bbox, depthBegin, depthEnd));
-
     return std::shared_ptr<ReadQuery>(
             new EntwineReadQuery(
                 schema,
@@ -182,7 +125,6 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    check();
     std::vector<std::size_t> results(m_tree->query(depthBegin, depthEnd));
     return std::shared_ptr<ReadQuery>(
             new EntwineReadQuery(
@@ -199,8 +141,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
-    // TODO
-    check();
+    throw std::runtime_error("TODO - PdalSession::query (rastered)");
     return std::shared_ptr<ReadQuery>();
 }
 
@@ -209,8 +150,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         bool compress,
         const RasterMeta& rasterMeta)
 {
-    // TODO
-    check();
+    throw std::runtime_error("TODO - PdalSession::query (rastered)");
     return std::shared_ptr<ReadQuery>();
 }
 
@@ -219,11 +159,42 @@ const entwine::Schema& PdalSession::schema() const
     return m_tree->schema();
 }
 
-void PdalSession::check()
+bool PdalSession::resolveSource()
 {
-    if (m_initOnce.await())
+    if (!sourced())
     {
-        throw std::runtime_error("Not initialized!");
+        const auto sources(resolve(m_paths->inputs, m_name));
+
+        if (sources.size() > 1)
+        {
+            std::cout << "Found competing sources for " << m_name << std::endl;
+            std::cout << "\tUsing: " << sources[0] << std::endl;
+        }
+
+        if (sources.size())
+        {
+            m_source = sources[0];
+        }
     }
+
+    return sourced();
+}
+
+bool PdalSession::resolveIndex()
+{
+    if (!indexed())
+    {
+        try
+        {
+            m_tree.reset(
+                    new entwine::SleepyTree(m_paths->output + "/" + m_name));
+        }
+        catch (...)
+        {
+            m_tree.reset();
+        }
+    }
+
+    return indexed();
 }
 

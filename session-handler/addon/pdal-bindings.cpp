@@ -13,11 +13,11 @@
 #include "pdal-session.hpp"
 #include "commands/create.hpp"
 #include "commands/read.hpp"
-#include "commands/serialize.hpp"
 #include "util/once.hpp"
 
 #include "pdal-bindings.hpp"
 
+// TODO Remove.
 using namespace v8;
 
 namespace
@@ -109,6 +109,27 @@ namespace
 
         return info;
     }
+
+    /*
+    void errorCallback(Persistent<Function> callback, std::string errMsg)
+    {
+        HandleScope scope;
+
+        const unsigned argc = 1;
+        Local<Value> argv[argc] =
+            {
+                Local<Value>::New(String::New(errMsg.data(), errMsg.size()))
+            };
+
+        callback->Call(Context::GetCurrent()->Global(), argc, argv);
+
+        // Dispose of the persistent handle so the callback may be garbage
+        // collected.
+        callback.Dispose();
+
+        scope.Close(Undefined());
+    }
+    */
 }
 
 namespace ghEnv
@@ -209,12 +230,8 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getStats)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
         FunctionTemplate::New(getSrs)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getFills"),
-        FunctionTemplate::New(getFills)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("serialize"),
-        FunctionTemplate::New(serialize)->GetFunction());
 
     constructor = Persistent<Function>::New(tpl->GetFunction());
     exports->Set(String::NewSymbol("PdalBindings"), constructor);
@@ -240,140 +257,85 @@ Handle<Value> PdalBindings::construct(const Arguments& args)
 
 Handle<Value> PdalBindings::create(const Arguments& args)
 {
+    std::cout << "PdalBindings::create" << std::endl;
     HandleScope scope;
+    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+
+    if (args.Length() != 5)
+    {
+        throw std::runtime_error("Wrong number of arguments to create");
+    }
+
+    std::size_t i(0);
+    const auto& nameArg     (args[i++]);
+    const auto& s3Arg       (args[i++]);
+    const auto& inputsArg   (args[i++]);
+    const auto& outputArg   (args[i++]);
+    const auto& cbArg       (args[i++]);
+
     std::string errMsg("");
 
-    if (args[0]->IsUndefined() || !args[0]->IsString())
-        errMsg = "'pipelineId' must be a string - args[0]";
+    if (!nameArg->IsString())
+        errMsg += "\t'name' must be a string";
 
-    if (args[1]->IsUndefined() || (!args[1]->IsString() && !args[1]->IsArray()))
-        errMsg = "'pathData' must be a string or array of strings - args[1]";
+    if (!inputsArg->IsArray())
+        errMsg += "\t'inputs' must be an array of strings";
 
-    if (args[2]->IsUndefined() || !args[2]->IsBoolean())
-        errMsg = "'serialCompress' must be boolean - args[2]";
+    if (!outputArg->IsString())
+        errMsg += "\t'output' must be a string";
 
-    if (args[6]->IsUndefined() || !args[6]->IsFunction())
+    if (!cbArg->IsFunction())
         throw std::runtime_error("Invalid callback supplied to 'create'");
 
     Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(
-                    args[6])));
+            Persistent<Function>::New(Local<Function>::Cast(cbArg)));
 
-    entwine::Point min, max;
-    const std::string pipelineId(*v8::String::Utf8Value(args[0]->ToString()));
-    std::vector<std::string> paths;
+    const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
+    const entwine::S3Info s3Info(parseS3Info(s3Arg));
+    const std::vector<std::string> inputs(parsePathList(inputsArg));
+    const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
 
-    if (args[1]->IsString())
-    {
-        paths.push_back(*v8::String::Utf8Value(args[1]->ToString()));
-    }
-    else if (args[1]->IsArray() && args[5]->IsArray())
-    {
-        const Local<Array> b(Array::Cast(*args[5]));
-        if (b->Length() != 4)
-        {
-            errMsg = "Invalid bbox in multi specification";
-        }
-        else
-        {
-            for (std::size_t i(0); i < b->Length(); ++i)
-            {
-                if (!b->Get(Integer::New(i))->IsNumber())
-                {
-                    errMsg = "Invalid bbox type in multi specification";
-                }
-            }
-        }
-        min.x = b->Get(Integer::New(0))->NumberValue();
-        min.y = b->Get(Integer::New(1))->NumberValue();
-        max.x = b->Get(Integer::New(2))->NumberValue();
-        max.y = b->Get(Integer::New(3))->NumberValue();
-
-        const Local<Array> p(Array::Cast(*args[1]));
-        for (std::size_t i(0); i < p->Length(); ++i)
-        {
-            auto path(p->Get(Integer::New(i)));
-            if (path->IsString())
-            {
-                paths.push_back(*v8::String::Utf8Value(path->ToString()));
-            }
-            else
-            {
-                errMsg = "Invalid path in multi specification";
-                break;
-            }
-        }
-    }
+    const Paths paths(s3Info, inputs, output);
 
     if (errMsg.size())
     {
-        errorCallback(callback, errMsg);
+        Status status(400, errMsg);
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = { status.toObject() };
+
+        callback->Call(Context::GetCurrent()->Global(), argc, argv);
         return scope.Close(Undefined());
     }
 
-    const bool serialCompress(args[2]->BooleanValue());
-    const entwine::S3Info s3Info(parseS3Info(args[3]));
-    const std::vector<std::string> diskPaths(parsePathList(args[4]));
-    const entwine::BBox bbox(min, max);
-
-    const SerialPaths serialPaths(s3Info, diskPaths);
-
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(
-            obj->m_pdalSession,
-            pipelineId,
-            paths,
-            bbox,
-            serialCompress,
-            serialPaths,
-            callback);
+    req->data = new CreateData(obj->m_pdalSession, name, paths, callback);
 
+    std::cout << "Queueing create" << std::endl;
     uv_queue_work(
         uv_default_loop(),
         req,
-        (uv_work_cb)([](uv_work_t *req)->void {
+        (uv_work_cb)([](uv_work_t *req)->void
+        {
             CreateData* createData(static_cast<CreateData*>(req->data));
 
-            createData->safe(createData->errMsg, [createData]()->void {
-                if (createData->paths.size() == 1)
+            createData->safe([createData]()->void
+            {
+                if (!createData->pdalSession->initialize(
+                        createData->name,
+                        createData->paths))
                 {
-                    createData->pdalSession->initialize(
-                        createData->pipelineId,
-                        createData->paths[0],
-                        createData->serialCompress,
-                        createData->serialPaths);
-                }
-                else
-                {
-                    // TODO Set schema.
-                    std::vector<entwine::DimInfo> dimInfo;
-                    entwine::Schema schema(dimInfo);
-                    createData->pdalSession->initialize(
-                        createData->pipelineId,
-                        createData->paths,
-                        schema,
-                        createData->bbox,
-                        createData->serialCompress,
-                        createData->serialPaths);
+                    createData->status.set(404, "Not found");
                 }
             });
         }),
-        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void
+        {
             HandleScope scope;
-
             CreateData* createData(static_cast<CreateData*>(req->data));
 
-            // Output args.
             const unsigned argc = 1;
-            Local<Value> argv[argc] =
-                {
-                    Local<Value>::New(String::New(
-                            createData->errMsg.data(),
-                            createData->errMsg.size()))
-                };
+            Local<Value> argv[argc] = { createData->status.toObject() };
 
             createData->callback->Call(
                 Context::GetCurrent()->Global(), argc, argv);
@@ -409,6 +371,7 @@ Handle<Value> PdalBindings::getSchema(const Arguments& args)
     HandleScope scope;
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
+    // TODO Return object.
     const std::string schema(obj->m_pdalSession->getSchemaString());
 
     return scope.Close(String::New(schema.data(), schema.size()));
@@ -434,98 +397,9 @@ Handle<Value> PdalBindings::getSrs(const Arguments& args)
     return scope.Close(String::New(wkt.data(), wkt.size()));
 }
 
-Handle<Value> PdalBindings::getFills(const Arguments& args)
-{
-    HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
-    const std::vector<std::size_t> fills(obj->m_pdalSession->getFills());
-
-    Local<Array> jsFills = Array::New(fills.size());
-
-    for (std::size_t i(0); i < fills.size(); ++i)
-    {
-        jsFills->Set(i, Integer::New(fills[i]));
-    }
-
-    return scope.Close(jsFills);
-}
-
-Handle<Value> PdalBindings::serialize(const Arguments& args)
-{
-    HandleScope scope;
-
-    std::string errMsg("");
-
-    if (args[2]->IsUndefined() || !args[2]->IsFunction())
-        throw std::runtime_error("Invalid callback supplied to 'serialize'");
-
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(
-                    args[2])));
-
-    if (errMsg.size())
-    {
-        std::cout << "Erroring SERIALIZE" << std::endl;
-        errorCallback(callback, errMsg);
-        return scope.Close(Undefined());
-    }
-
-    const entwine::S3Info s3Info(parseS3Info(args[0]));
-    const std::vector<std::string> diskPaths(parsePathList(args[1]));
-
-    SerialPaths paths(s3Info, diskPaths);
-
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
-
-    // Store everything we'll need to perform initialization.
-    uv_work_t* req(new uv_work_t);
-    req->data = new SerializeData(obj->m_pdalSession, paths, callback);
-
-    std::cout << "Starting serialization task" << std::endl;
-
-    uv_queue_work(
-        uv_default_loop(),
-        req,
-        (uv_work_cb)([](uv_work_t *req)->void {
-            SerializeData* serializeData(
-                reinterpret_cast<SerializeData*>(req->data));
-
-            serializeData->safe(serializeData->errMsg, [serializeData]()->void {
-                serializeData->pdalSession->serialize(serializeData->paths);
-            });
-        }),
-        (uv_after_work_cb)([](uv_work_t* req, int status)->void {
-            HandleScope scope;
-
-            SerializeData* serializeData(
-                reinterpret_cast<SerializeData*>(req->data));
-
-            // Output args.
-            const unsigned argc = 1;
-            Local<Value> argv[argc] =
-                {
-                    Local<Value>::New(String::New(
-                            serializeData->errMsg.data(),
-                            serializeData->errMsg.size()))
-                };
-
-            serializeData->callback->Call(
-                Context::GetCurrent()->Global(), argc, argv);
-
-            delete serializeData;
-            delete req;
-        })
-    );
-
-    return scope.Close(Undefined());
-}
-
 Handle<Value> PdalBindings::read(const Arguments& args)
 {
     HandleScope scope;
-
-    // Provide access to m_pdalSession from within this static function.
     PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
 
     // Call the factory to get the specialized 'read' command based on
@@ -554,27 +428,29 @@ Handle<Value> PdalBindings::read(const Arguments& args)
     uv_queue_work(
         uv_default_loop(),
         readReq,
-        (uv_work_cb)([](uv_work_t* readReq)->void {
-            ReadCommand* readCommand(
-                static_cast<ReadCommand*>(readReq->data));
+        (uv_work_cb)([](uv_work_t* readReq)->void
+        {
+            ReadCommand* readCommand(static_cast<ReadCommand*>(readReq->data));
 
-            readCommand->safe(readCommand->errMsg(), [readCommand]()->void {
+            readCommand->safe([readCommand]()->void {
                 // Run the query.  This will ensure indexing if needed, and
                 // will obtain everything needed to start streaming binary
                 // data to the client.
                 readCommand->run();
             });
         }),
-        (uv_after_work_cb)([](uv_work_t* readReq, int status)->void {
+        (uv_after_work_cb)([](uv_work_t* readReq, int status)->void
+        {
             ReadCommand* readCommand(
                 static_cast<ReadCommand*>(readReq->data));
 
-            if (readCommand->errMsg().size())
+            if (!readCommand->status.ok())
             {
-                std::cout << "Got error callback from run()" << std::endl;
-                errorCallback(
-                    readCommand->queryCallback(),
-                    readCommand->errMsg());
+                const unsigned argc = 1;
+                Local<Value> argv[argc] = { readCommand->status.toObject() };
+
+                readCommand->queryCallback()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
 
                 delete readCommand;
                 return;
@@ -648,7 +524,8 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             uv_async_init(
                 uv_default_loop(),
                 readCommand->async(),
-                ([](uv_async_t* async, int status)->void {
+                ([](uv_async_t* async, int status)->void
+                {
                     HandleScope scope;
 
                     ReadCommand* readCommand(
@@ -679,13 +556,11 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
 
-                    readCommand->safe(
-                        readCommand->errMsg(),
-                        [readCommand]()->void
+                    readCommand->safe([readCommand]()->void
                     {
                         readCommand->acquire();
 
-                        do
+                        while (!readCommand->done())
                         {
                             readCommand->getBuffer()->grab();
                             readCommand->read(maxReadLength);
@@ -697,7 +572,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                             // access in this background work queue.
                             readCommand->async()->data = readCommand;
                             uv_async_send(readCommand->async());
-                        } while (!readCommand->done());
+                        }
 
                         readCommand->getBufferPool().release(
                             readCommand->getBuffer());

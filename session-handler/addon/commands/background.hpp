@@ -1,9 +1,11 @@
 #pragma once
 
+#include "status.hpp"
+
 class Background
 {
 public:
-    void safe(std::string& err, std::function<void()> f)
+    void safe(std::function<void()> f)
     {
         try
         {
@@ -11,16 +13,18 @@ public:
         }
         catch (const std::runtime_error& e)
         {
-            err = e.what();
+            status.set(500, e.what());
         }
         catch (const std::bad_alloc& ba)
         {
-            err = "Caught bad alloc";
+            status.set(500, "Bad alloc");
         }
         catch (...)
         {
-            err = "Unknown error";
+            status.set(500, "Unknown error");
         }
     }
+
+    Status status;
 };
 

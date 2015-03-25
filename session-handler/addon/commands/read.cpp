@@ -93,7 +93,6 @@ ReadCommand::ReadCommand(
     , m_queryCallback(queryCallback)
     , m_dataCallback(dataCallback)
     , m_cancel(false)
-    , m_errMsg()
 { }
 
 ReadCommand::~ReadCommand()
@@ -128,11 +127,6 @@ std::size_t ReadCommand::numBytes() const
 void ReadCommand::cancel(bool cancel)
 {
     m_cancel = cancel;
-}
-
-std::string& ReadCommand::errMsg()
-{
-    return m_errMsg;
 }
 
 std::shared_ptr<ItcBuffer> ReadCommand::getBuffer()

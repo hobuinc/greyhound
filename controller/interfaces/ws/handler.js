@@ -52,10 +52,6 @@ var
     }
 
     var registerCommands = function(controller, commander, ws) {
-        commander.on('put', function(msg, cb) {
-            controller.put(msg.path, msg.bbox, cb);
-        });
-
         commander.on('numPoints', function(msg, cb) {
             controller.numPoints(msg.pipeline, cb);
         });

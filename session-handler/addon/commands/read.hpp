@@ -44,7 +44,6 @@ public:
     void run();
 
     void cancel(bool cancel);
-    std::string& errMsg();
     std::shared_ptr<ItcBuffer> getBuffer();
     ItcBufferPool& getBufferPool();
 
@@ -81,8 +80,6 @@ protected:
     v8::Persistent<v8::Function> m_queryCallback;
     v8::Persistent<v8::Function> m_dataCallback;
     bool m_cancel;
-
-    std::string m_errMsg;
 
 private:
     entwine::Schema schemaOrDefault(entwine::Schema reqSchema);

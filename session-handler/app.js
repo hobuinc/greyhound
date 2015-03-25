@@ -27,59 +27,14 @@ var express = require("express"),
     Affinity = require('../common/affinity').Affinity,
     affinity = new Affinity(disco),
 
-    serialCompress =
-        (config.serialCompress == undefined) ? true : !!config.serialCompress,
-
-    // serialPaths[0] is to be used for writing new serialized entries.
-    // serialPaths[0..n] are to be searched when looking for serialized entries.
-    //
-    // If AWS credentials are specified, then S3 will be used for writing and
-    // serialPaths will be read-only unless S3 is unreachable.
-    serialPaths = (function() {
-        if (!config.serialAllowed) return undefined;
-
-        var paths = [];
-        var defaultSerialPath = '/var/greyhound/serial/';
-
-        var tryCreate = function(dir) {
-            try {
-                mkdirp.sync(dir);
-                serialPath = dir;
-                return true;
-            }
-            catch (err) {
-                console.error('Could not create serial path', dir);
-                return false;
-            }
-        };
-
-        if (config.serialPaths &&
-            config.serialPaths.length &&
-            typeof serialPaths[0] === 'string') {
-
-            if (tryCreate(serialPaths[0])) {
-                paths = serialPaths;
-                paths.push(defaultSerialPath);
-            }
-        }
-
-        if (!paths || !paths.length) {
-            if (tryCreate(defaultSerialPath)) {
-                paths.push(defaultSerialPath);
-            }
-        }
-
-        if (!paths.length) {
-            console.error('Serialization disabled');
-        }
-
-        return paths.length ? paths : undefined;
-    })(),
+    inputs = config.inputs,
+    output = config.output,
 
     aws = (function() {
         var awsCfg = config.aws;
         var info = [];
 
+        // TODO Parse the normal object in the addon.
         if (awsCfg) {
             info.push(awsCfg.url);
             info.push(awsCfg.bucket);
@@ -99,32 +54,53 @@ var express = require("express"),
         return info;
     })();
 
+console.log('Read paths:', inputs);
+console.log('Write path:', output);
 
-console.log('Serial paths:', serialPaths);
-
-// configure express application
 app.use(methodOverride());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 app.use(app.router);
 
-var pipelineIds = { }; // pipelineId -> pdalSession (one to one)
+var pipelineIds = { }; // pipelineId -> session (one to one)
 
-var getSession = function(res, plId, cb) {
-    if (!pipelineIds[plId])
-        res.json(404, { message: 'No such pipeline' });
-
-    cb(pipelineIds[plId]);
+var error = function(res, err) {
+    res.json(err.code, { message: err.message });
 };
 
-var error = function(res) {
-    return function(err) {
-        res.json(500, { message: err.message || 'Unknown error' });
-    };
+var getSession = function(name, cb) {
+    var session;
+
+    if (pipelineIds[name]) {
+        session = pipelineIds[name];
+    }
+    else {
+        session = new PdalSession();
+        pipelineIds[name] = session;
+    }
+
+    // Call every time, even if this name was found in our session mapping, to
+    // ensure that initialization has finished before the session is used.
+    try {
+        console.log('Inputs:', inputs);
+        session.create(name, aws, inputs, output, function(err) {
+            if (err) delete pipelineIds[name];
+
+            console.log('Create is back, err:', err);
+
+            cb(err, session);
+        });
+    }
+    catch (e) {
+        delete pipelineIds[name];
+        console.log('Caught exception in CREATE:', e);
+        cb(e);
+    }
 };
 
 var validateRasterSchema = function(schema) {
+    // TODO Remove X/Y?
     // Schema must have X and Y dimensions, and at least one other dimension.
     var xFound = false, yFound = false, otherFound = false;
     for (var i = 0; i < schema.length; ++i) {
@@ -140,66 +116,19 @@ app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
 });
 
-app.post("/create", function(req, res) {
-    var pipelineId = req.body.pipelineId;
-    var pathData = req.body.pathData;
-    var bbox = req.body.bbox;
-
-    console.log(':session-handler:CREATE', req.body.pipelineId);
-
-    var pdalSession = pipelineIds[pipelineId] || new PdalSession();
-    if (bbox) {
-        mkdirp.sync('/var/greyhound/serial/' + pipelineId);
-        mkdirp.sync('/var/greyhound/tmp/');
-    }
-
-    console.log('Creating...', pipelineId);
-
-    // Make sure to set these outside of the callback so that if another
-    // request for this pipeline comes immediately after this one, it doesn't
-    // create a new PdalSession and clobber our pipelineIds mapping.
-    pipelineIds[pipelineId] = pdalSession;
-
-    // It is safe to call create multiple times on a PdalSession, and it will
-    // only actually be created one time.  Subsequent create calls will come
-    // back immediately if the initial creation is complete, or if the initial
-    // creation is still in progress, then the callback will be executed when
-    // that call completes.
-    pdalSession.create(
-        pipelineId,
-        pathData,
-        serialCompress,
-        aws,
-        serialPaths,
-        bbox,
-        function(err)
-    {
-        if (err) {
-            delete pipelineIds[pipelineId];
-
-            console.log('Error in CREATE:', err);
-            return error(res)(err);
-        }
-        else if (!bbox) {
-            console.log('Successfully finished CREATE:', pipelineId);
-            res.json({ });
-        }
-    });
-
-    if (bbox) res.json({ });
-});
-
 app.get("/numPoints/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
-        res.json({ numPoints: pdalSession.getNumPoints() });
+    getSession(res, req.params.plId, function(err, session) {
+        if (err) return error(res, err);
+
+        res.json({ numPoints: session.getNumPoints() });
     });
 });
 
 app.get("/schema/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
-        var dimensions = JSON.parse(pdalSession.getSchema()).dimensions;
+    getSession(req.params.plId, function(err, session) {
+        if (err) return error(res, err);
+
+        var dimensions = JSON.parse(session.getSchema()).dimensions;
         var schema = undefined;
 
         if (dimensions && _.isArray(dimensions)) {
@@ -225,10 +154,11 @@ app.get("/schema/:plId", function(req, res) {
 });
 
 app.get("/stats/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
+    getSession(req.params.plId, function(err, session) {
+        if (err) return error(res, err);
+
         try {
-            res.json({ stats: JSON.parse(pdalSession.getStats()) });
+            res.json({ stats: JSON.parse(session.getStats()) });
         }
         catch (e) {
             console.log('Invalid stats -', req.params.plId);
@@ -240,70 +170,51 @@ app.get("/stats/:plId", function(req, res) {
 });
 
 app.get("/srs/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
-        res.json({ srs: pdalSession.getSrs() });
-    });
-});
+    getSession(req.params.plId, function(err, session) {
+        if (err) return error(res, err);
 
-app.get("/fills/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
-        res.json({ fills: pdalSession.getFills() });
-    });
-});
-
-app.get("/serialize/:plId", function(req, res) {
-    if (!config.serialAllowed || (!aws && !serialPaths)) {
-        return res.json(400, { message: 'Serialization disabled' });
-    }
-
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
-        pdalSession.serialize(aws, serialPaths, function(err) {
-            if (err) console.log('ERROR during serialization:', err);
-        });
-        res.json({ message: 'Serialization task launched' });
+        res.json({ srs: session.getSrs() });
     });
 });
 
 app.post("/cancel/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
+    getSession(res, req.params.plId, function(err, session) {
+        if (err) return error(res, err);
+
         console.log('Got CANCEL request for session', sessionId);
-        res.json({ 'cancelled': pdalSession.cancel(req.body.readId) });
+        res.json({ 'cancelled': session.cancel(req.body.readId) });
     });
 });
 
 app.post("/read/:plId", function(req, res) {
-    var args = req.body;
+    var address = req.body.address;
+    var query = req.body.query;
 
-    var host = args.host;
-    var port = parseInt(args.port);
-    var compress = !!args.compress;
-    var schema = args.schema || [];
+    var host = address.host;
+    var port = parseInt(address.port);
+    var compress = !!query.compress;
+    var schema = query.schema || [];
 
     console.log("session handler: /read/");
 
     if (!host)
         return res.json(
             400,
-            { message: 'Destination host needs to be specified' });
+            { message: 'Controller host needs to be specified' });
 
     if (!port)
         return res.json(
             400,
-            { message: 'Destination port needs to be specified' });
+            { message: 'Controller port needs to be specified' });
 
-    // Prune our args to simplify the specialization decision tree.
-    delete args.command;
-    delete args.host;
-    delete args.port;
-    if (args.hasOwnProperty('compress')) delete args.compress;
-    if (args.hasOwnProperty('schema')) delete args.schema;
+    // Prune our query to simplify the specialization decision tree.
+    delete query.command;
+    if (query.hasOwnProperty('compress')) delete query.compress;
+    if (query.hasOwnProperty('schema')) delete query.schema;
 
-    getSession(res, req.params.plId, function(pdalSession) {
-        if (!pdalSession) return;
+    getSession(req.params.plId, function(err, session) {
+        if (err) return error(res, err);
+
         console.log('read('+ req.params.plId + ')');
 
         var readHandler = function(
@@ -373,22 +284,24 @@ app.post("/read/:plId", function(req, res) {
         }
 
         if (
-            args.hasOwnProperty('start') ||
-            args.hasOwnProperty('count') ||
-            Object.keys(args).length == 0) {
+            query.hasOwnProperty('start') ||
+            query.hasOwnProperty('count') ||
+            Object.keys(query).length == 0) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
             // host+port+cmd+plId, then use this branch.
             console.log('    Got unindexed read request');
 
-            var start = args.hasOwnProperty('start') ? parseInt(args.start) : 0;
-            var count = args.hasOwnProperty('count') ? parseInt(args.count) : 0;
+            var start =
+                query.hasOwnProperty('start') ? parseInt(query.start) : 0;
+            var count =
+                query.hasOwnProperty('count') ? parseInt(query.count) : 0;
 
             if (start < 0) start = 0;
             if (count < 0) count = 0;
 
-            pdalSession.read(
+            session.read(
                     host,
                     port,
                     compress,
@@ -399,8 +312,8 @@ app.post("/read/:plId", function(req, res) {
                     dataHandler);
         }
         else if (
-            args.hasOwnProperty('bbox') &&
-            args.hasOwnProperty('resolution')) {
+            query.hasOwnProperty('bbox') &&
+            query.hasOwnProperty('resolution')) {
 
             console.log('    Got generic raster read request');
 
@@ -415,17 +328,17 @@ app.post("/read/:plId", function(req, res) {
                     { message: 'Bad schema - must contain X and Y' });
             }
 
-            var bbox = args.bbox;
-            var resolution = args.resolution;
+            var bbox = query.bbox;
+            var resolution = query.resolution;
 
             if (bbox.length != 4 || resolution.length != 2) {
-                console.log('    Bad args in generic raster request', args);
+                console.log('    Bad query in generic raster request', query);
                 return res.json(
                     400,
                     { message: 'Invalid read command - bad params' });
             }
 
-            pdalSession.read(
+            session.read(
                 host,
                 port,
                 compress,
@@ -436,25 +349,25 @@ app.post("/read/:plId", function(req, res) {
                 dataHandler);
         }
         else if (
-            args.hasOwnProperty('bbox') ||
-            args.hasOwnProperty('depthBegin') ||
-            args.hasOwnProperty('depthEnd')) {
+            query.hasOwnProperty('bbox') ||
+            query.hasOwnProperty('depthBegin') ||
+            query.hasOwnProperty('depthEnd')) {
 
             console.log('    Got quad-tree depth range read request');
 
             // Indexed read: quadtree query.
-            var bbox = args.bbox;
+            var bbox = query.bbox;
             var depthBegin =
-                args.hasOwnProperty('depthBegin') ?
-                    parseInt(args.depthBegin) :
+                query.hasOwnProperty('depthBegin') ?
+                    parseInt(query.depthBegin) :
                     0;
 
             var depthEnd =
-                args.hasOwnProperty('depthEnd') ?
-                    parseInt(args.depthEnd) :
+                query.hasOwnProperty('depthEnd') ?
+                    parseInt(query.depthEnd) :
                     0;
 
-            pdalSession.read(
+            session.read(
                     host,
                     port,
                     compress,
@@ -465,8 +378,8 @@ app.post("/read/:plId", function(req, res) {
                     readHandler,
                     dataHandler);
         }
-        else if (args.hasOwnProperty('rasterize')) {
-            var rasterize = parseInt(args.rasterize);
+        else if (query.hasOwnProperty('rasterize')) {
+            var rasterize = parseInt(query.rasterize);
 
             console.log('    Got quad-tree single-level raster read request');
 
@@ -481,7 +394,7 @@ app.post("/read/:plId", function(req, res) {
                     { message: 'Bad schema - must contain X and Y' });
             }
 
-            pdalSession.read(
+            session.read(
                     host,
                     port,
                     compress,
@@ -491,20 +404,20 @@ app.post("/read/:plId", function(req, res) {
                     dataHandler);
         }
         else if (
-            args.hasOwnProperty('radius') &&
-            args.hasOwnProperty('x') &&
-            args.hasOwnProperty('y')) {
+            query.hasOwnProperty('radius') &&
+            query.hasOwnProperty('x') &&
+            query.hasOwnProperty('y')) {
 
             // Indexed read: point + radius query.
             console.log('    Got point-radius read request');
 
-            var is3d = args.hasOwnProperty('z');
-            var radius = parseFloat(args.radius);
-            var x = parseFloat(args.x);
-            var y = parseFloat(args.y);
-            var z = is3d ? parseFloat(args.z) : 0.0;
+            var is3d = query.hasOwnProperty('z');
+            var radius = parseFloat(query.radius);
+            var x = parseFloat(query.x);
+            var y = parseFloat(query.y);
+            var z = is3d ? parseFloat(query.z) : 0.0;
 
-            pdalSession.read(
+            session.read(
                     host,
                     port,
                     compress,
@@ -518,7 +431,7 @@ app.post("/read/:plId", function(req, res) {
                     dataHandler);
         }
         else {
-            console.log('Got bad read request', args);
+            console.log('Got bad read request', query);
             return res.json(
                 400,
                 { message: 'Invalid read command - bad params' });
