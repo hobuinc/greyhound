@@ -5,6 +5,7 @@
 
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/multi-batcher.hpp>
 #include <entwine/tree/sleepy-tree.hpp>
 
@@ -109,13 +110,23 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::vector<std::size_t> results(m_tree->query(bbox, depthBegin, depthEnd));
+    std::unique_ptr<entwine::Clipper> clipper(
+            new entwine::Clipper(*m_tree.get()));
+
+    std::vector<std::size_t> results(
+            m_tree->query(
+                clipper.get(),
+                bbox,
+                depthBegin,
+                depthEnd));
+
     return std::shared_ptr<ReadQuery>(
             new EntwineReadQuery(
                 schema,
                 compress,
                 false,
                 *m_tree.get(),
+                std::move(clipper),
                 results));
 }
 
@@ -125,13 +136,22 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::vector<std::size_t> results(m_tree->query(depthBegin, depthEnd));
+    std::unique_ptr<entwine::Clipper> clipper(
+            new entwine::Clipper(*m_tree.get()));
+
+    std::vector<std::size_t> results(
+            m_tree->query(
+                clipper.get(),
+                depthBegin,
+                depthEnd));
+
     return std::shared_ptr<ReadQuery>(
             new EntwineReadQuery(
                 schema,
                 compress,
                 false,
                 *m_tree.get(),
+                std::move(clipper),
                 results));
 }
 
