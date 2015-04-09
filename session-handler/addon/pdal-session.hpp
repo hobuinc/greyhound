@@ -15,7 +15,7 @@ namespace entwine
 {
     class BBox;
     class Schema;
-    class SleepyTree;
+    class Reader;
 }
 
 class RasterMeta;
@@ -78,14 +78,14 @@ public:
 
 private:
     bool sourced() const { return m_source.size(); }    // Have data source?
-    bool indexed() const { return !!m_tree; }           // Have index?
+    bool indexed() const { return !!m_entwine; }        // Have index?
 
     bool resolveSource();
     bool resolveIndex();
 
     Once m_initOnce;
     std::string m_source;
-    std::unique_ptr<entwine::SleepyTree> m_tree;
+    std::unique_ptr<entwine::Reader> m_entwine;
 
     std::string m_name;
     std::unique_ptr<Paths> m_paths;

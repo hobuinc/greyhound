@@ -1,5 +1,5 @@
 #include <entwine/tree/branches/clipper.hpp>
-#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/tree/reader.hpp>
 #include <entwine/types/schema.hpp>
 
 #include "util/schema.hpp"
@@ -9,12 +9,10 @@ EntwineReadQuery::EntwineReadQuery(
         const entwine::Schema& schema,
         bool compress,
         bool rasterize,
-        entwine::SleepyTree& sleepyTree,
-        std::unique_ptr<entwine::Clipper> clipper,
+        entwine::Reader& entwine,
         const std::vector<std::size_t>& ids)
     : ReadQuery(schema, compress, rasterize)
-    , m_sleepyTree(sleepyTree)
-    , m_clipper(std::move(clipper))
+    , m_entwine(entwine)
     , m_ids(ids)
 { }
 
@@ -26,8 +24,7 @@ void EntwineReadQuery::readPoint(
         const entwine::Schema& schema,
         bool rasterize) const
 {
-    std::vector<char> point(
-            m_sleepyTree.getPointData(m_clipper.get(), m_ids[index()], schema));
+    std::vector<char> point(m_entwine.getPointData(m_ids[index()], schema));
 
     if (point.empty())
     {

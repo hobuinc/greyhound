@@ -82,7 +82,8 @@ protected:
     bool m_cancel;
 
 private:
-    entwine::Schema schemaOrDefault(entwine::Schema reqSchema);
+    std::vector<entwine::DimInfo> schemaOrDefault(
+            const entwine::Schema& reqSchema);
 };
 
 class ReadCommandUnindexed : public ReadCommand
@@ -95,7 +96,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             std::size_t start,
             std::size_t count,
             v8::Persistent<v8::Function> queryCallback,
@@ -118,7 +119,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::Persistent<v8::Function> queryCallback,
@@ -141,7 +142,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
@@ -164,7 +165,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
 
@@ -175,7 +176,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             RasterMeta rasterMeta,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);
@@ -201,7 +202,7 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            entwine::Schema schema,
+            const entwine::Schema& schema,
             std::size_t level,
             v8::Persistent<v8::Function> queryCallback,
             v8::Persistent<v8::Function> dataCallback);

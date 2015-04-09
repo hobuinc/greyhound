@@ -30,16 +30,6 @@ namespace
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
 
-    bool isInteger(const Value& value)
-    {
-        return value.IsInt32() || value.IsUint32();
-    }
-
-    bool isDouble(const Value& value)
-    {
-        return value.IsNumber() && !isInteger(value);
-    }
-
     std::string generateReadId()
     {
         std::string id(readIdSize, '0');
