@@ -5,8 +5,7 @@
 namespace entwine
 {
     class Schema;
-    class SleepyTree;
-    class Clipper;
+    class Reader;
 }
 
 class EntwineReadQuery : public ReadQuery
@@ -16,8 +15,7 @@ public:
             const entwine::Schema& schema,
             bool compress,
             bool rasterize,
-            entwine::SleepyTree& sleepyTree,
-            std::unique_ptr<entwine::Clipper> clipper,
+            entwine::Reader& entwine,
             const std::vector<std::size_t>& ids);
     ~EntwineReadQuery();
 
@@ -26,8 +24,7 @@ public:
     virtual std::size_t numPoints() const;
 
 private:
-    entwine::SleepyTree& m_sleepyTree;
-    std::unique_ptr<entwine::Clipper> m_clipper;
+    entwine::Reader& m_entwine;
     std::vector<std::size_t> m_ids;
 
     virtual void readPoint(

@@ -7,7 +7,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/multi-batcher.hpp>
-#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/tree/reader.hpp>
 
 #include "buffer-pool.hpp"
 #include "read-queries/entwine.hpp"
@@ -45,7 +45,7 @@ namespace
 PdalSession::PdalSession()
     : m_initOnce()
     , m_source()
-    , m_tree()
+    , m_entwine()
     , m_name()
     , m_paths()
 { }
@@ -71,13 +71,13 @@ bool PdalSession::initialize(const std::string& name, const Paths& paths)
 
 std::size_t PdalSession::getNumPoints()
 {
-    return m_tree->numPoints();
+    return m_entwine->numPoints();
 }
 
 std::string PdalSession::getSchemaString()
 {
     // TODO Return the JSON, let the bindings turn it into a JS object.
-    return m_tree->schema().toJson().toStyledString();
+    return m_entwine->schema().toJson().toStyledString();
 }
 
 std::string PdalSession::getStats()
@@ -110,12 +110,8 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::unique_ptr<entwine::Clipper> clipper(
-            new entwine::Clipper(*m_tree.get()));
-
     std::vector<std::size_t> results(
-            m_tree->query(
-                clipper.get(),
+            m_entwine->query(
                 bbox,
                 depthBegin,
                 depthEnd));
@@ -125,8 +121,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
                 schema,
                 compress,
                 false,
-                *m_tree.get(),
-                std::move(clipper),
+                *m_entwine,
                 results));
 }
 
@@ -136,12 +131,8 @@ std::shared_ptr<ReadQuery> PdalSession::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::unique_ptr<entwine::Clipper> clipper(
-            new entwine::Clipper(*m_tree.get()));
-
     std::vector<std::size_t> results(
-            m_tree->query(
-                clipper.get(),
+            m_entwine->query(
                 depthBegin,
                 depthEnd));
 
@@ -150,8 +141,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
                 schema,
                 compress,
                 false,
-                *m_tree.get(),
-                std::move(clipper),
+                *m_entwine,
                 results));
 }
 
@@ -176,7 +166,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
 
 const entwine::Schema& PdalSession::schema() const
 {
-    return m_tree->schema();
+    return m_entwine->schema();
 }
 
 bool PdalSession::resolveSource()
@@ -206,12 +196,19 @@ bool PdalSession::resolveIndex()
     {
         try
         {
-            m_tree.reset(
-                    new entwine::SleepyTree(m_paths->output + "/" + m_name));
+            entwine::S3Info s3Info(
+                m_paths->s3Info.baseAwsUrl,
+                m_name,
+                m_paths->s3Info.awsAccessKeyId,
+                m_paths->s3Info.awsSecretAccessKey);
+
+            std::cout << "Making reader: " << m_name << std::endl;
+            m_entwine.reset(new entwine::Reader(s3Info, 128));
         }
         catch (...)
         {
-            m_tree.reset();
+            std::cout << "Couldn't find index: " << m_name << std::endl;
+            m_entwine.reset();
         }
     }
 

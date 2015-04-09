@@ -1,4 +1,7 @@
+#include <pdal/PointLayout.hpp>
+
 #include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 
 #include "pdal-session.hpp"
 #include "buffer-pool.hpp"
@@ -19,33 +22,6 @@ namespace
     bool isDefined(const Local<Value>& value)
     {
         return !value->IsUndefined();
-    }
-
-    pdal::Dimension::Type::Enum getType(
-            std::string baseTypeName,
-            std::size_t size)
-    {
-        if (baseTypeName == "floating")
-        {
-            if      (size == 4) return pdal::Dimension::Type::Float;
-            else if (size == 8) return pdal::Dimension::Type::Double;
-        }
-        if (baseTypeName == "unsigned")
-        {
-            if      (size == 1) return pdal::Dimension::Type::Unsigned8;
-            else if (size == 2) return pdal::Dimension::Type::Unsigned16;
-            else if (size == 4) return pdal::Dimension::Type::Unsigned32;
-            else if (size == 8) return pdal::Dimension::Type::Unsigned64;
-        }
-        else if (baseTypeName == "signed")
-        {
-            if      (size == 1) return pdal::Dimension::Type::Signed8;
-            else if (size == 2) return pdal::Dimension::Type::Signed16;
-            else if (size == 4) return pdal::Dimension::Type::Signed32;
-            else if (size == 8) return pdal::Dimension::Type::Signed64;
-        }
-
-        throw std::runtime_error("Invalid type specification");
     }
 }
 
@@ -106,16 +82,17 @@ ReadCommand::~ReadCommand()
     }
 }
 
-entwine::Schema ReadCommand::schemaOrDefault(const entwine::Schema reqSchema)
+std::vector<entwine::DimInfo> ReadCommand::schemaOrDefault(
+        const entwine::Schema& reqSchema)
 {
     // If no schema supplied, stream all dimensions in their native format.
     if (reqSchema.dims().size() > 0)
     {
-        return reqSchema;
+        return reqSchema.dims();
     }
     else
     {
-        return entwine::Schema(m_pdalSession->schema());
+        return m_pdalSession->schema().dims();
     }
 }
 
@@ -196,7 +173,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string host,
         std::size_t port,
         bool compress,
-        entwine::Schema schema,
+        const entwine::Schema& schema,
         std::size_t start,
         std::size_t count,
         v8::Persistent<v8::Function> queryCallback,
@@ -222,7 +199,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::string host,
         std::size_t port,
         bool compress,
-        entwine::Schema schema,
+        const entwine::Schema& schema,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::Persistent<v8::Function> queryCallback,
@@ -248,7 +225,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         std::string host,
         std::size_t port,
         bool compress,
-        entwine::Schema schema,
+        const entwine::Schema& schema,
         entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
@@ -276,7 +253,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string host,
         const std::size_t port,
         bool compress,
-        const entwine::Schema schema,
+        const entwine::Schema& schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
@@ -299,7 +276,7 @@ ReadCommandRastered::ReadCommandRastered(
         const std::string host,
         const std::size_t port,
         bool compress,
-        const entwine::Schema schema,
+        const entwine::Schema& schema,
         const RasterMeta rasterMeta,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -323,7 +300,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         std::string host,
         std::size_t port,
         bool compress,
-        entwine::Schema schema,
+        const entwine::Schema& schema,
         std::size_t level,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
@@ -449,7 +426,7 @@ ReadCommand* ReadCommandFactory::create(
                         dimObj->Get(String::New("type"))->ToString()));
 
                 const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-                if (pdalSession->schema().pdalLayout()->hasDim(id))
+                if (pdalSession->schema().pdalLayout().hasDim(id))
                 {
                     dims.push_back(
                             entwine::DimInfo(
