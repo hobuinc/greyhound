@@ -6,7 +6,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/tree/branches/clipper.hpp>
-#include <entwine/tree/multi-batcher.hpp>
 #include <entwine/tree/reader.hpp>
 
 #include "buffer-pool.hpp"
