@@ -14,17 +14,9 @@ greyhound auto
 echo Starting Greyhound!
 greyhound start
 
-# Give Greyhound a few seconds to start up.  We can check the status via Redis
-# manually, but for a programmatic method we will just wait a bit.
+# Give Greyhound a few seconds to start up.
 sleep 5
-
-# Pre-load pipelines.
-/vagrant/examples/cpp/put-pipeline
-/vagrant/examples/cpp/put-pipeline examples/data/half-dome.xml
-
-# Index/serialize pipelines.
-node /vagrant/examples/js/serialize.js
-node /vagrant/examples/js/serialize.js a87d0a50e03a880c75e9f872c925f984
+greyhound status
 
 cd -
 

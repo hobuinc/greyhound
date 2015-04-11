@@ -212,7 +212,7 @@
 
             message("Data download complete, handing over to renderer.");
             try {
-                renderPoints(data, count, meta, stats, message);
+                renderPoints(data, count, meta, message);
             }
             catch(e) {
                 errorOut(e.message);

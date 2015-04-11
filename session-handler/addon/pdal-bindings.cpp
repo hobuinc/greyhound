@@ -550,19 +550,22 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     {
                         readCommand->acquire();
 
-                        while (!readCommand->done())
+                        // Go through this once even if there is no data for
+                        // this query so we close any outstanding sockets.
+                        do
                         {
                             readCommand->getBuffer()->grab();
                             readCommand->read(maxReadLength);
 
                             // A bit strange, but we need to send this via the
-                            // same async token use in the uv_async_init()
+                            // same async token used in the uv_async_init()
                             // call, so it must be a member of ReadCommand
                             // since that object is the only thing we can
                             // access in this background work queue.
                             readCommand->async()->data = readCommand;
                             uv_async_send(readCommand->async());
                         }
+                        while (!readCommand->done());
 
                         readCommand->getBufferPool().release(
                             readCommand->getBuffer());

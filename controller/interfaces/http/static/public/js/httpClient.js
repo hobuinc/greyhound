@@ -150,7 +150,7 @@
         }).done(function(readRes, status, request) {
             var dataBuffer = new Int8Array(readRes);
             var numPoints  =
-                request.getResponseHeader('X-Greyhound-Num-Points');
+                parseInt(request.getResponseHeader('X-Greyhound-Num-Points'));
             var rasterMeta = JSON.parse(
                 request.getResponseHeader('X-Greyhound-Raster-Meta'));
 

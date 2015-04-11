@@ -10,10 +10,14 @@
     var container, camera, controls, scene, renderer;
 
     w.renderPoints = function(data, count, meta, status_cb) {
+        if (count == 0) {
+            throw new Error("No points in query");
+        }
+
         init(data, count, meta);
         animate();
 
-        if(status_cb) {
+        if (status_cb) {
             var vendor =
                 renderer.context.getParameter(renderer.context.VERSION) +
                 ", Provider: " +
