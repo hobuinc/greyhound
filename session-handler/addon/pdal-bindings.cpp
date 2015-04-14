@@ -99,27 +99,6 @@ namespace
 
         return info;
     }
-
-    /*
-    void errorCallback(Persistent<Function> callback, std::string errMsg)
-    {
-        HandleScope scope;
-
-        const unsigned argc = 1;
-        Local<Value> argv[argc] =
-            {
-                Local<Value>::New(String::New(errMsg.data(), errMsg.size()))
-            };
-
-        callback->Call(Context::GetCurrent()->Global(), argc, argv);
-
-        // Dispose of the persistent handle so the callback may be garbage
-        // collected.
-        callback.Dispose();
-
-        scope.Close(Undefined());
-    }
-    */
 }
 
 namespace ghEnv
@@ -436,13 +415,19 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
             if (!readCommand->status.ok())
             {
+                HandleScope scope;
                 const unsigned argc = 1;
                 Local<Value> argv[argc] = { readCommand->status.toObject() };
 
                 readCommand->queryCallback()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
 
+                readCommand->dataCallback()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+
                 delete readCommand;
+                delete readReq;
+                scope.Close(Undefined());
                 return;
             }
 
@@ -521,18 +506,30 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(async->data));
 
-                    const unsigned argc = 3;
-                    Local<Value>argv[argc] =
+                    if (readCommand->status.ok())
                     {
-                        Local<Value>::New(Null()), // err
-                        Local<Value>::New(node::Buffer::New(
-                                readCommand->getBuffer()->data(),
-                                readCommand->getBuffer()->size())->handle_),
-                        Local<Value>::New(Number::New(readCommand->done()))
-                    };
+                        const unsigned argc = 3;
+                        Local<Value>argv[argc] =
+                        {
+                            Local<Value>::New(Null()), // err
+                            Local<Value>::New(node::Buffer::New(
+                                    readCommand->getBuffer()->data(),
+                                    readCommand->getBuffer()->size())->handle_),
+                            Local<Value>::New(Number::New(readCommand->done()))
+                        };
 
-                    readCommand->dataCallback()->Call(
-                        Context::GetCurrent()->Global(), argc, argv);
+                        readCommand->dataCallback()->Call(
+                            Context::GetCurrent()->Global(), argc, argv);
+                    }
+                    else
+                    {
+                        const unsigned argc = 1;
+                        Local<Value> argv[argc] =
+                            { readCommand->status.toObject() };
+
+                        readCommand->dataCallback()->Call(
+                            Context::GetCurrent()->Global(), argc, argv);
+                    }
 
                     readCommand->getBuffer()->flush();
                     scope.Close(Undefined());
@@ -542,7 +539,8 @@ Handle<Value> PdalBindings::read(const Arguments& args)
             uv_queue_work(
                 uv_default_loop(),
                 dataReq,
-                (uv_work_cb)([](uv_work_t* dataReq)->void {
+                (uv_work_cb)([](uv_work_t* dataReq)->void
+                {
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
 
@@ -555,7 +553,18 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                         do
                         {
                             readCommand->getBuffer()->grab();
-                            readCommand->read(maxReadLength);
+                            try
+                            {
+                                readCommand->read(maxReadLength);
+                            }
+                            catch (std::runtime_error& e)
+                            {
+                                readCommand->status.set(500, e.what());
+                            }
+                            catch (...)
+                            {
+                                readCommand->status.set(500, "Error in query");
+                            }
 
                             // A bit strange, but we need to send this via the
                             // same async token used in the uv_async_init()
@@ -565,15 +574,30 @@ Handle<Value> PdalBindings::read(const Arguments& args)
                             readCommand->async()->data = readCommand;
                             uv_async_send(readCommand->async());
                         }
-                        while (!readCommand->done());
+                        while (
+                                !readCommand->done() &&
+                                readCommand->status.ok());
 
                         readCommand->getBufferPool().release(
                             readCommand->getBuffer());
                     });
                 }),
-                (uv_after_work_cb)([](uv_work_t* dataReq, int status)->void {
+                (uv_after_work_cb)([](uv_work_t* dataReq, int status)->void
+                {
                     ReadCommand* readCommand(
                         static_cast<ReadCommand*>(dataReq->data));
+
+                    uv_handle_t* async(
+                        reinterpret_cast<uv_handle_t*>(
+                            readCommand->async()));
+
+                    uv_close_cb closeCallback(
+                        (uv_close_cb)([](uv_handle_t* async)->void
+                        {
+                            delete async;
+                        }));
+
+                    uv_close(async, closeCallback);
 
                     delete dataReq;
                     delete readCommand;
