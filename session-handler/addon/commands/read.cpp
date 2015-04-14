@@ -59,7 +59,7 @@ ReadCommand::ReadCommand(
     : m_pdalSession(pdalSession)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
-    , m_async(new uv_async_t)
+    , m_async(new uv_async_t())
     , m_readId(readId)
     , m_host(host)
     , m_port(port)
@@ -75,11 +75,6 @@ ReadCommand::~ReadCommand()
 {
     m_queryCallback.Dispose();
     m_dataCallback.Dispose();
-
-    if (m_async)
-    {
-        uv_close((uv_handle_t*)m_async, NULL);
-    }
 }
 
 std::vector<entwine::DimInfo> ReadCommand::schemaOrDefault(

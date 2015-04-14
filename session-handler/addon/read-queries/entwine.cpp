@@ -25,12 +25,6 @@ void EntwineReadQuery::readPoint(
         bool rasterize) const
 {
     std::vector<char> point(m_entwine.getPointData(m_ids[index()], schema));
-
-    if (point.empty())
-    {
-        throw std::runtime_error("Got empty point");
-    }
-
     std::memcpy(pos, point.data(), point.size());
 }
 

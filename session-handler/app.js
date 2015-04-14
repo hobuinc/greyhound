@@ -277,10 +277,13 @@ app.post("/read/:plId", function(req, res) {
         });
 
         var dataHandler = function(err, data, done) {
-            if (err) socket.end();
-
-            socket.write(data);
-            if (done) socket.end();
+            if (err) {
+                socket.end();
+            }
+            else {
+                socket.write(data);
+                if (done) socket.end();
+            }
         }
 
         if (
