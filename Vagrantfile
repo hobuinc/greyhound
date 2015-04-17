@@ -24,7 +24,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
             "nitro.sh",
             "hexer.sh",
             "p2g.sh",
-            "soci.sh",
             "laszip.sh",
             "lazperf.sh",
             "pdal.sh"
