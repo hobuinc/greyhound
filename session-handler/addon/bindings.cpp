@@ -69,32 +69,29 @@ namespace
     entwine::S3Info parseS3Info(const v8::Local<v8::Value>& rawArg)
     {
         entwine::S3Info info;
-        if (!rawArg->IsUndefined() && rawArg->IsArray())
+        if (!rawArg->IsUndefined() && rawArg->IsObject())
         {
-            Local<Array> rawArray(Array::Cast(*rawArg));
+            Local<Object> rawObj(Object::Cast(*rawArg));
 
-            if (rawArray->Length() == 4)
-            {
-                const v8::Local<v8::Value>& rawUrl(
-                        rawArray->Get(Integer::New(0)));
-                const v8::Local<v8::Value>& rawBucket(
-                        rawArray->Get(Integer::New(1)));
-                const v8::Local<v8::Value>& rawAccess(
-                        rawArray->Get(Integer::New(2)));
-                const v8::Local<v8::Value>& rawHidden(
-                        rawArray->Get(Integer::New(3)));
+            const v8::Local<v8::Value>& rawUrl(
+                    rawObj->Get(String::NewSymbol("url")));
+            const v8::Local<v8::Value>& rawBucket(
+                    rawObj->Get(String::NewSymbol("bucket")));
+            const v8::Local<v8::Value>& rawAccess(
+                    rawObj->Get(String::NewSymbol("access")));
+            const v8::Local<v8::Value>& rawHidden(
+                    rawObj->Get(String::NewSymbol("hidden")));
 
-                const std::string url(
-                        *v8::String::Utf8Value(rawUrl->ToString()));
-                const std::string bucket(
-                        *v8::String::Utf8Value(rawBucket->ToString()));
-                const std::string access(
-                        *v8::String::Utf8Value(rawAccess->ToString()));
-                const std::string hidden(
-                        *v8::String::Utf8Value(rawHidden->ToString()));
+            const std::string url(
+                    *v8::String::Utf8Value(rawUrl->ToString()));
+            const std::string bucket(
+                    *v8::String::Utf8Value(rawBucket->ToString()));
+            const std::string access(
+                    *v8::String::Utf8Value(rawAccess->ToString()));
+            const std::string hidden(
+                    *v8::String::Utf8Value(rawHidden->ToString()));
 
-                return entwine::S3Info(url, bucket, access, hidden);
-            }
+            return entwine::S3Info(url, bucket, access, hidden);
         }
 
         return info;
@@ -276,7 +273,7 @@ Handle<Value> Bindings::create(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    // Store everything we'll need to perform initialization.
+    // Store everything we'll need to perforasterMeta initialization.
     uv_work_t* req(new uv_work_t);
     req->data = new CreateData(obj->m_session, name, paths, callback);
 
@@ -340,10 +337,33 @@ Handle<Value> Bindings::getSchema(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    // TODO Return object.
-    const std::string schema(obj->m_session->getSchemaString());
+    const entwine::Schema& schema(obj->m_session->schema());
+    const auto& dims(schema.dims());
 
-    return scope.Close(String::New(schema.data(), schema.size()));
+    Local<Array> jsSchema(Array::New(dims.size()));
+
+    for (std::size_t i(0); i < dims.size(); ++i)
+    {
+        const auto& dim(dims[i]);
+
+        Local<Object> jsDim(Object::New());
+
+        jsDim->Set(
+                String::NewSymbol("name"),
+                String::New(dim.name().data(), dim.name().size()));
+
+        jsDim->Set(
+                String::NewSymbol("type"),
+                String::New(dim.typeString().data(), dim.typeString().size()));
+
+        jsDim->Set(
+                String::NewSymbol("size"),
+                Integer::New(dim.size()));
+
+        jsSchema->Set(Integer::New(i), jsDim);
+    }
+
+    return scope.Close(jsSchema);
 }
 
 Handle<Value> Bindings::getStats(const Arguments& args)
@@ -443,6 +463,26 @@ Handle<Value> Bindings::read(const Arguments& args)
                     const RasterMeta rasterMeta(
                             readCommandRastered->rasterMeta());
 
+                    Local<Object> rasterObj(Object::New());
+                    rasterObj->Set(
+                            String::NewSymbol("xBegin"),
+                            Number::New(rasterMeta.xBegin));
+                    rasterObj->Set(
+                            String::NewSymbol("xStep"),
+                            Number::New(rasterMeta.xStep));
+                    rasterObj->Set(
+                            String::NewSymbol("xNum"),
+                            Integer::New(rasterMeta.xNum()));
+                    rasterObj->Set(
+                            String::NewSymbol("yBegin"),
+                            Number::New(rasterMeta.yBegin));
+                    rasterObj->Set(
+                            String::NewSymbol("yStep"),
+                            Number::New(rasterMeta.yStep));
+                    rasterObj->Set(
+                            String::NewSymbol("yNum"),
+                            Integer::New(rasterMeta.yNum()));
+
                     const unsigned argc = 10;
                     Local<Value> argv[argc] =
                     {
@@ -452,18 +492,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                                     readCommand->numPoints())),
                         Local<Value>::New(Integer::New(
                                     readCommand->numBytes())),
-                        Local<Value>::New(Number::New(
-                                    rasterMeta.xBegin)),
-                        Local<Value>::New(Number::New(
-                                    rasterMeta.xStep)),
-                        Local<Value>::New(Integer::New(
-                                    rasterMeta.xNum())),
-                        Local<Value>::New(Number::New(
-                                    rasterMeta.yBegin)),
-                        Local<Value>::New(Number::New(
-                                    rasterMeta.yStep)),
-                        Local<Value>::New(Integer::New(
-                                    rasterMeta.yNum()))
+                        Local<Value>::New(rasterObj)
                     };
 
                     readCommand->queryCallback()->Call(
