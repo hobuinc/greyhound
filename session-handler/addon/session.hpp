@@ -34,7 +34,6 @@ public:
 
     // Queries.
     std::size_t getNumPoints();
-    std::string getSchemaString();
     std::string getStats();
     std::string getSrs();
 

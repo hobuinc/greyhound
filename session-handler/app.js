@@ -1,16 +1,14 @@
-// app.js
-// Main entry point for pdal session delegation
 //
+// Main entry point for Greyhound session delegation.
+//
+
 process.title = 'gh_sh';
-process.on('uncaughtException', function(err) {
-    console.log('Caught at top level: ' + err);
-});
 
 process.on('uncaughtException', function(err) {
     console.log('Caught at top level: ' + err);
 });
 
-var express = require("express"),
+var express = require('express'),
     _ = require('lodash'),
     methodOverride = require('method-override'),
     bodyParser = require('body-parser'),
@@ -27,33 +25,14 @@ var express = require("express"),
 
     inputs = config.inputs,
     output = config.output,
-
-    aws = (function() {
-        var awsCfg = config.aws;
-        var info = [];
-
-        // TODO Parse the normal object in the addon.
-        if (awsCfg) {
-            info.push(awsCfg.url);
-            info.push(awsCfg.bucket);
-            info.push(awsCfg.access);
-            info.push(awsCfg.hidden);
-
-            console.log(
-                'S3 serialization enabled for',
-                awsCfg.url,
-                '/',
-                awsCfg.bucket);
-        }
-        else {
-            console.log('S3 serialization disabled - no credentials supplied');
-        }
-
-        return info;
-    })();
+    aws = config.aws;
 
 console.log('Read paths:', inputs);
 console.log('Write path:', output);
+if (aws)
+    console.log('S3 credentials enabled for', aws.url, aws.bucket);
+else
+    console.log('S3 serialization disabled - no credentials supplied');
 
 app.use(methodOverride());
 app.use(bodyParser.json());
@@ -61,7 +40,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 app.use(app.router);
 
-var pipelineIds = { }; // pipelineId -> session (one to one)
+var resourceIds = { }; // resource name -> session (one to one)
 
 var error = function(res, err) {
     res.json(err.code, { message: err.message });
@@ -70,28 +49,28 @@ var error = function(res, err) {
 var getSession = function(name, cb) {
     var session;
 
-    if (pipelineIds[name]) {
-        session = pipelineIds[name];
+    if (resourceIds[name]) {
+        session = resourceIds[name];
     }
     else {
         session = new Session();
-        pipelineIds[name] = session;
+        resourceIds[name] = session;
     }
 
     // Call every time, even if this name was found in our session mapping, to
     // ensure that initialization has finished before the session is used.
     try {
-        console.log('Inputs:', inputs);
         session.create(name, aws, inputs, output, function(err) {
-            if (err) delete pipelineIds[name];
+            if (err) console.warn(name, 'could not be created');
+            else     console.log (name, 'created');
 
-            console.log('Create is back, err:', err);
+            if (err) delete resourceIds[name];
 
             cb(err, session);
         });
     }
     catch (e) {
-        delete pipelineIds[name];
+        delete resourceIds[name];
         console.log('Caught exception in CREATE:', e);
         cb(e);
     }
@@ -110,7 +89,7 @@ var validateRasterSchema = function(schema) {
     return xFound && yFound && otherFound;
 }
 
-app.get("/", function(req, res) {
+app.get('/', function(req, res) {
     res.status(404).json({ message: 'Invalid service URL' });
 });
 
@@ -120,52 +99,31 @@ app.get('/exists/:resource', function(req, res) {
     });
 });
 
-app.get("/numPoints/:plId", function(req, res) {
-    getSession(req.params.plId, function(err, session) {
+app.get('/numPoints/:resource', function(req, res) {
+    getSession(req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
         res.json({ numPoints: session.getNumPoints() });
     });
 });
 
-app.get("/schema/:plId", function(req, res) {
-    getSession(req.params.plId, function(err, session) {
+app.get('/schema/:resource', function(req, res) {
+    getSession(req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
-        var dimensions = JSON.parse(session.getSchema()).dimensions;
-        var schema = undefined;
-
-        if (dimensions && _.isArray(dimensions)) {
-            schema = new Array(dimensions.length);
-            var dim;
-
-            for (var i = 0; i < schema.length; ++i) {
-                schema[i] = { };
-                dim = dimensions[i];
-
-                if (!dim.name || !dim.type || !dim.size) {
-                    return res.json(400, { message: 'Invalid PDAL schema' });
-                }
-
-                schema[i].name = dim.name;
-                schema[i].type = dim.type;
-                schema[i].size = dim.size;
-            }
-        }
-
-        res.json({ schema: schema });
+        res.json({ schema: session.getSchema() });
     });
 });
 
-app.get("/stats/:plId", function(req, res) {
-    getSession(req.params.plId, function(err, session) {
+app.get('/stats/:resource', function(req, res) {
+    getSession(req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
         try {
             res.json({ stats: JSON.parse(session.getStats()) });
         }
         catch (e) {
-            console.log('Invalid stats -', req.params.plId);
+            console.log('Invalid stats -', req.params.resource);
             return res.json(
                 500,
                 { message: 'Stats could not be parsed' });
@@ -173,16 +131,16 @@ app.get("/stats/:plId", function(req, res) {
     });
 });
 
-app.get("/srs/:plId", function(req, res) {
-    getSession(req.params.plId, function(err, session) {
+app.get('/srs/:resource', function(req, res) {
+    getSession(req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
         res.json({ srs: session.getSrs() });
     });
 });
 
-app.post("/cancel/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(err, session) {
+app.post('/cancel/:resource', function(req, res) {
+    getSession(res, req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
         console.log('Got CANCEL request for session', sessionId);
@@ -190,7 +148,7 @@ app.post("/cancel/:plId", function(req, res) {
     });
 });
 
-app.post("/read/:plId", function(req, res) {
+app.post('/read/:resource', function(req, res) {
     var address = req.body.address;
     var query = req.body.query;
 
@@ -199,7 +157,7 @@ app.post("/read/:plId", function(req, res) {
     var compress = !!query.compress;
     var schema = query.schema || [];
 
-    console.log("session handler: /read/");
+    console.log('session handler: /read/');
 
     if (!host)
         return res.json(
@@ -216,56 +174,32 @@ app.post("/read/:plId", function(req, res) {
     if (query.hasOwnProperty('compress')) delete query.compress;
     if (query.hasOwnProperty('schema')) delete query.schema;
 
-    getSession(req.params.plId, function(err, session) {
+    getSession(req.params.resource, function(err, session) {
         if (err) return error(res, err);
 
-        console.log('read('+ req.params.plId + ')');
+        console.log('read('+ req.params.resource + ')');
 
         var readHandler = function(
             err,
             readId,
             numPoints,
             numBytes,
-            xBegin,
-            xStep,
-            xNum,
-            yBegin,
-            yStep,
-            yNum)
+            rasterMeta)
         {
             if (err) {
                 console.log('Erroring read:', err);
                 return res.json(400, { message: err });
             }
             else {
-                if (xNum && yNum) {
-                    res.json({
-                        readId: readId,
-                        numPoints: numPoints,
-                        numBytes: numBytes,
-                        rasterMeta: {
-                            xBegin: xBegin,
-                            xStep: xStep,
-                            xNum: xNum,
-                            yBegin: yBegin,
-                            yStep: yStep,
-                            yNum: yNum
-                        },
-                        message:
-                            'Request queued for transmission to ' +
-                            host + ':' + port,
-                    });
-                }
-                else {
-                    res.json({
-                        readId: readId,
-                        numPoints: numPoints,
-                        numBytes: numBytes,
-                        message:
-                            'Request queued for transmission to ' +
-                            host + ':' + port,
-                    });
-                }
+                res.json({
+                    readId: readId,
+                    numPoints: numPoints,
+                    numBytes: numBytes,
+                    rasterMeta: rasterMeta,
+                    message:
+                        'Request queued for transmission to ' +
+                        host + ':' + port,
+                });
             }
         };
 
@@ -297,7 +231,7 @@ app.post("/read/:plId", function(req, res) {
 
             // Unindexed read - 'start' and 'count' may be omitted.  If either
             // of them exists, or if the only arguments are
-            // host+port+cmd+plId, then use this branch.
+            // host+port+cmd+resource, then use this branch.
             console.log('    Got unindexed read request');
 
             var start =
@@ -447,8 +381,8 @@ app.post("/read/:plId", function(req, res) {
 });
 
 if (config.enable !== false) {
-    disco.register("sh", config.port, function(err, service) {
-        if (err) return console.log("Failed to start service:", err);
+    disco.register('sh', config.port, function(err, service) {
+        if (err) return console.log('Failed to start service:', err);
 
         var port = service.port;
 

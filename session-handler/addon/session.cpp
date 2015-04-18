@@ -74,12 +74,6 @@ std::size_t Session::getNumPoints()
     return m_entwine->numPoints();
 }
 
-std::string Session::getSchemaString()
-{
-    // TODO Return the JSON, let the bindings turn it into a JS object.
-    return m_entwine->schema().toJson().toStyledString();
-}
-
 std::string Session::getStats()
 {
     // TODO
