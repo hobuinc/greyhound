@@ -1,9 +1,10 @@
+#include "read-queries/entwine.hpp"
+
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/reader.hpp>
 #include <entwine/types/schema.hpp>
 
 #include "util/schema.hpp"
-#include "read-queries/entwine.hpp"
 
 EntwineReadQuery::EntwineReadQuery(
         const entwine::Schema& schema,

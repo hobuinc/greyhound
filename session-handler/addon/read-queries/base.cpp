@@ -1,8 +1,8 @@
+#include "read-queries/base.hpp"
+
 #include <entwine/types/schema.hpp>
 
-#include "buffer-pool.hpp"
-
-#include "read-queries/base.hpp"
+#include "util/buffer-pool.hpp"
 #include "util/schema.hpp"
 
 namespace

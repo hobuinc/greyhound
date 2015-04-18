@@ -3,10 +3,10 @@ var
     console = require('clim')(),
 
     disco = require('../common').disco,
-    web = require('../common/web'),
 
     Affinity = require('./lib/affinity').Affinity,
     Listener = require('./lib/listener').Listener,
+    web = require('./lib/web'),
 
     config = (require('../config').cn || { }),
 
@@ -29,67 +29,59 @@ var
 
     var Controller = function() {
         this.listeners = { }
-
-        var self = this;
-        self.propError = function(cmd, missingProp) {
-            return new Error(
-                    'Missing property "' + missingProp + '" in "' +
-                    cmd + '" command');
-        }
     }
 
-    Controller.prototype.numPoints = function(plId, cb) {
+    Controller.prototype.numPoints = function(resource, cb) {
         console.log("controller::numPoints");
-        affinity.get(plId, function(err, sessionHandler) {
+        affinity.get(resource, function(err, sessionHandler) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/numPoints/' + plId, cb);
+            web.get(sessionHandler, '/numPoints/' + resource, cb);
         });
     }
 
-    Controller.prototype.schema = function(plId, cb) {
+    Controller.prototype.schema = function(resource, cb) {
         console.log("controller::schema");
-        affinity.get(plId, function(err, sessionHandler) {
+        affinity.get(resource, function(err, sessionHandler) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/schema/' + plId, cb);
+            web.get(sessionHandler, '/schema/' + resource, cb);
         });
     }
 
-    Controller.prototype.stats = function(plId, cb) {
+    Controller.prototype.stats = function(resource, cb) {
         console.log("controller::stats");
-        affinity.get(plId, function(err, sessionHandler) {
+        affinity.get(resource, function(err, sessionHandler) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/stats/' + plId, cb);
+            web.get(sessionHandler, '/stats/' + resource, cb);
         });
     }
 
-    Controller.prototype.srs = function(plId, cb) {
+    Controller.prototype.srs = function(resource, cb) {
         console.log("controller::srs");
-        affinity.get(plId, function(err, sessionHandler) {
+        affinity.get(resource, function(err, sessionHandler) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/srs/' + plId, cb);
+            web.get(sessionHandler, '/srs/' + resource, cb);
         });
     }
 
-    Controller.prototype.cancel = function(plId, readId, cb) {
+    Controller.prototype.cancel = function(resource, readId, cb) {
         var self = this;
         console.log("controller::cancel");
-        if (!plId) return cb(self.propError('cancel', 'pipeline'));
-        if (!readId)  return cb(self.propError('cancel', 'readId'));
+        if (!resource || !readId) return cb(new Error('Invalid params'));
 
         var res = { cancelled: false };
         var listeners = self.listeners;
 
-        if (listeners.hasOwnProperty(plId)) {
-            var listener = listeners[plId][readId];
+        if (listeners.hasOwnProperty(resource)) {
+            var listener = listeners[resource][readId];
 
             if (listener) {
                 res.cancelled = true;
                 listener.cancel();
 
-                delete listeners[plId][readId];
+                delete listeners[resource][readId];
 
-                if (Object.keys(listeners[plId]).length == 0) {
-                    delete listeners[plId];
+                if (Object.keys(listeners[resource]).length == 0) {
+                    delete listeners[resource];
                 }
             }
         }
@@ -97,13 +89,13 @@ var
         return cb(null, res);
     }
 
-    Controller.prototype.read = function(plId, query, onInit, onData, onEnd)
+    Controller.prototype.read = function(resource, query, onInit, onData, onEnd)
     {
         var self = this;
         var listeners = self.listeners;
         console.log("controller::read");
 
-        affinity.get(plId, function(err, sh) {
+        affinity.get(resource, function(err, sh) {
             if (err) return onInit(err);
 
             var listener = new Listener(onData, onEnd);
@@ -113,15 +105,15 @@ var
                     'address':  address,
                     'query':    query
                 };
-                var readPath = '/read/' + plId;
+                var readPath = '/read/' + resource;
 
                 web.post(sh, readPath, params, function(err, res) {
                     if (!err && res.readId) {
-                        if (!listeners.hasOwnProperty[plId]) {
-                            listeners[plId] = { };
+                        if (!listeners.hasOwnProperty[resource]) {
+                            listeners[resource] = { };
                         }
 
-                        listeners[plId][res.readId] = listener;
+                        listeners[resource][res.readId] = listener;
                     }
 
                     onInit(err, res);

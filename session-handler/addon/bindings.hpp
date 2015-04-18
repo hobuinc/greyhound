@@ -2,7 +2,7 @@
 
 #include <memory>
 
-class PdalSession;
+class Session;
 class ItcBufferPool;
 
 struct CRYPTO_dynlock_value
@@ -10,14 +10,14 @@ struct CRYPTO_dynlock_value
     std::mutex mutex;
 };
 
-class PdalBindings : public node::ObjectWrap
+class Bindings : public node::ObjectWrap
 {
 public:
     static void init(v8::Handle<v8::Object> exports);
 
 private:
-    PdalBindings();
-    ~PdalBindings();
+    Bindings();
+    ~Bindings();
 
     static v8::Persistent<v8::Function> constructor;
 
@@ -31,7 +31,7 @@ private:
     static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
     static v8::Handle<v8::Value> read(const v8::Arguments& args);
 
-    std::shared_ptr<PdalSession> m_pdalSession;
+    std::shared_ptr<Session> m_session;
     ItcBufferPool& m_itcBufferPool;
 };
 

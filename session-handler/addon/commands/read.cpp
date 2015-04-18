@@ -3,9 +3,9 @@
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
-#include "pdal-session.hpp"
-#include "buffer-pool.hpp"
+#include "session.hpp"
 #include "read-queries/base.hpp"
+#include "util/buffer-pool.hpp"
 #include "util/schema.hpp"
 
 #include "commands/read.hpp"
@@ -25,9 +25,7 @@ namespace
     }
 }
 
-void errorCallback(
-        Persistent<Function> callback,
-        std::string errMsg)
+void errorCallback(Persistent<Function> callback, std::string errMsg)
 {
     HandleScope scope;
 
@@ -47,7 +45,7 @@ void errorCallback(
 }
 
 ReadCommand::ReadCommand(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -56,7 +54,7 @@ ReadCommand::ReadCommand(
         const entwine::Schema& schema,
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
-    : m_pdalSession(pdalSession)
+    : m_session(session)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
     , m_async(new uv_async_t())
@@ -87,7 +85,7 @@ std::vector<entwine::DimInfo> ReadCommand::schemaOrDefault(
     }
     else
     {
-        return m_pdalSession->schema().dims();
+        return m_session->schema().dims();
     }
 }
 
@@ -162,7 +160,7 @@ v8::Persistent<v8::Function> ReadCommand::dataCallback() const
 }
 
 ReadCommandUnindexed::ReadCommandUnindexed(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -174,7 +172,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -188,7 +186,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
 { }
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -200,7 +198,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -214,7 +212,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
 { }
 
 ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -227,7 +225,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandQuadIndex(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -242,7 +240,7 @@ ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
 { }
 
 ReadCommandRastered::ReadCommandRastered(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -252,7 +250,7 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -265,7 +263,7 @@ ReadCommandRastered::ReadCommandRastered(
 { }
 
 ReadCommandRastered::ReadCommandRastered(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const std::string host,
@@ -276,7 +274,7 @@ ReadCommandRastered::ReadCommandRastered(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommand(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -289,7 +287,7 @@ ReadCommandRastered::ReadCommandRastered(
 { }
 
 ReadCommandQuadLevel::ReadCommandQuadLevel(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         std::string host,
@@ -300,7 +298,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
         v8::Persistent<v8::Function> queryCallback,
         v8::Persistent<v8::Function> dataCallback)
     : ReadCommandRastered(
-            pdalSession,
+            session,
             itcBufferPool,
             readId,
             host,
@@ -314,7 +312,7 @@ ReadCommandQuadLevel::ReadCommandQuadLevel(
 
 void ReadCommandUnindexed::query()
 {
-    m_readQuery = m_pdalSession->queryUnindexed(
+    m_readQuery = m_session->queryUnindexed(
             m_schema,
             m_compress,
             m_start,
@@ -323,7 +321,7 @@ void ReadCommandUnindexed::query()
 
 void ReadCommandQuadIndex::query()
 {
-    m_readQuery = m_pdalSession->query(
+    m_readQuery = m_session->query(
             m_schema,
             m_compress,
             m_depthBegin,
@@ -332,7 +330,7 @@ void ReadCommandQuadIndex::query()
 
 void ReadCommandBoundedQuadIndex::query()
 {
-    m_readQuery = m_pdalSession->query(
+    m_readQuery = m_session->query(
             m_schema,
             m_compress,
             m_bbox,
@@ -342,7 +340,7 @@ void ReadCommandBoundedQuadIndex::query()
 
 void ReadCommandRastered::query()
 {
-    m_readQuery = m_pdalSession->query(
+    m_readQuery = m_session->query(
             m_schema,
             m_compress,
             m_rasterMeta);
@@ -350,7 +348,7 @@ void ReadCommandRastered::query()
 
 void ReadCommandQuadLevel::query()
 {
-    m_readQuery = m_pdalSession->query(
+    m_readQuery = m_session->query(
             m_schema,
             m_compress,
             m_level,
@@ -358,7 +356,7 @@ void ReadCommandQuadLevel::query()
 }
 
 ReadCommand* ReadCommandFactory::create(
-        std::shared_ptr<PdalSession> pdalSession,
+        std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const Arguments& args)
@@ -421,7 +419,7 @@ ReadCommand* ReadCommandFactory::create(
                         dimObj->Get(String::New("type"))->ToString()));
 
                 const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-                if (pdalSession->schema().pdalLayout().hasDim(id))
+                if (session->schema().pdalLayout().hasDim(id))
                 {
                     dims.push_back(
                             entwine::DimInfo(
@@ -443,10 +441,10 @@ ReadCommand* ReadCommandFactory::create(
             const std::size_t start(args[4]->Uint32Value());
             const std::size_t count(args[5]->Uint32Value());
 
-            if (start < pdalSession->getNumPoints())
+            if (start < session->getNumPoints())
             {
                 readCommand = new ReadCommandUnindexed(
-                        pdalSession,
+                        session,
                         itcBufferPool,
                         readId,
                         host,
@@ -499,7 +497,7 @@ ReadCommand* ReadCommandFactory::create(
                     if (max.x >= min.x && max.y >= min.y)
                     {
                         readCommand = new ReadCommandBoundedQuadIndex(
-                                pdalSession,
+                                session,
                                 itcBufferPool,
                                 readId,
                                 host,
@@ -526,7 +524,7 @@ ReadCommand* ReadCommandFactory::create(
             {
 
                 readCommand = new ReadCommandQuadIndex(
-                        pdalSession,
+                        session,
                         itcBufferPool,
                         readId,
                         host,
@@ -590,7 +588,7 @@ ReadCommand* ReadCommandFactory::create(
                             yStep);
 
                     readCommand = new ReadCommandRastered(
-                            pdalSession,
+                            session,
                             itcBufferPool,
                             readId,
                             host,
@@ -618,7 +616,7 @@ ReadCommand* ReadCommandFactory::create(
             const std::size_t level(args[4]->Uint32Value());
 
             readCommand = new ReadCommandQuadLevel(
-                    pdalSession,
+                    session,
                     itcBufferPool,
                     readId,
                     host,

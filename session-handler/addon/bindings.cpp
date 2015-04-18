@@ -9,13 +9,13 @@
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
-#include "buffer-pool.hpp"
-#include "pdal-session.hpp"
+#include "session.hpp"
 #include "commands/create.hpp"
 #include "commands/read.hpp"
+#include "util/buffer-pool.hpp"
 #include "util/once.hpp"
 
-#include "pdal-bindings.hpp"
+#include "bindings.hpp"
 
 // TODO Remove.
 using namespace v8;
@@ -156,10 +156,10 @@ namespace ghEnv
     });
 }
 
-Persistent<Function> PdalBindings::constructor;
+Persistent<Function> Bindings::constructor;
 
-PdalBindings::PdalBindings()
-    : m_pdalSession(new PdalSession())
+Bindings::Bindings()
+    : m_session(new Session())
     , m_itcBufferPool(itcBufferPool)
 {
     ghEnv::once.ensure([]()->void {
@@ -174,14 +174,14 @@ PdalBindings::PdalBindings()
     });
 }
 
-PdalBindings::~PdalBindings()
+Bindings::~Bindings()
 { }
 
-void PdalBindings::init(v8::Handle<v8::Object> exports)
+void Bindings::init(v8::Handle<v8::Object> exports)
 {
     // Prepare constructor template
     Local<FunctionTemplate> tpl = FunctionTemplate::New(construct);
-    tpl->SetClassName(String::NewSymbol("PdalBindings"));
+    tpl->SetClassName(String::NewSymbol("Bindings"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     // Prototype
@@ -203,17 +203,17 @@ void PdalBindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(read)->GetFunction());
 
     constructor = Persistent<Function>::New(tpl->GetFunction());
-    exports->Set(String::NewSymbol("PdalBindings"), constructor);
+    exports->Set(String::NewSymbol("Bindings"), constructor);
 }
 
-Handle<Value> PdalBindings::construct(const Arguments& args)
+Handle<Value> Bindings::construct(const Arguments& args)
 {
     HandleScope scope;
 
     if (args.IsConstructCall())
     {
         // Invoked as constructor with 'new'.
-        PdalBindings* obj = new PdalBindings();
+        Bindings* obj = new Bindings();
         obj->Wrap(args.This());
         return args.This();
     }
@@ -224,11 +224,11 @@ Handle<Value> PdalBindings::construct(const Arguments& args)
     }
 }
 
-Handle<Value> PdalBindings::create(const Arguments& args)
+Handle<Value> Bindings::create(const Arguments& args)
 {
-    std::cout << "PdalBindings::create" << std::endl;
+    std::cout << "Bindings::create" << std::endl;
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
     if (args.Length() != 5)
     {
@@ -278,7 +278,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(obj->m_pdalSession, name, paths, callback);
+    req->data = new CreateData(obj->m_session, name, paths, callback);
 
     std::cout << "Queueing create" << std::endl;
     uv_queue_work(
@@ -290,7 +290,7 @@ Handle<Value> PdalBindings::create(const Arguments& args)
 
             createData->safe([createData]()->void
             {
-                if (!createData->pdalSession->initialize(
+                if (!createData->session->initialize(
                         createData->name,
                         createData->paths))
                 {
@@ -317,59 +317,59 @@ Handle<Value> PdalBindings::create(const Arguments& args)
     return scope.Close(Undefined());
 }
 
-Handle<Value> PdalBindings::destroy(const Arguments& args)
+Handle<Value> Bindings::destroy(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    obj->m_pdalSession.reset();
+    obj->m_session.reset();
 
     return scope.Close(Undefined());
 }
 
-Handle<Value> PdalBindings::getNumPoints(const Arguments& args)
+Handle<Value> Bindings::getNumPoints(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    return scope.Close(Integer::New(obj->m_pdalSession->getNumPoints()));
+    return scope.Close(Integer::New(obj->m_session->getNumPoints()));
 }
 
-Handle<Value> PdalBindings::getSchema(const Arguments& args)
+Handle<Value> Bindings::getSchema(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
     // TODO Return object.
-    const std::string schema(obj->m_pdalSession->getSchemaString());
+    const std::string schema(obj->m_session->getSchemaString());
 
     return scope.Close(String::New(schema.data(), schema.size()));
 }
 
-Handle<Value> PdalBindings::getStats(const Arguments& args)
+Handle<Value> Bindings::getStats(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    const std::string stats(obj->m_pdalSession->getStats());
+    const std::string stats(obj->m_session->getStats());
 
     return scope.Close(String::New(stats.data(), stats.size()));
 }
 
-Handle<Value> PdalBindings::getSrs(const Arguments& args)
+Handle<Value> Bindings::getSrs(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    const std::string wkt(obj->m_pdalSession->getSrs());
+    const std::string wkt(obj->m_session->getSrs());
 
     return scope.Close(String::New(wkt.data(), wkt.size()));
 }
 
-Handle<Value> PdalBindings::read(const Arguments& args)
+Handle<Value> Bindings::read(const Arguments& args)
 {
     HandleScope scope;
-    PdalBindings* obj = ObjectWrap::Unwrap<PdalBindings>(args.This());
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
     // Call the factory to get the specialized 'read' command based on
     // the input args.  If there is an error with the input args, this call
@@ -379,7 +379,7 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
     ReadCommand* readCommand(
         ReadCommandFactory::create(
-            obj->m_pdalSession,
+            obj->m_session,
             obj->m_itcBufferPool,
             readId,
             args));
@@ -615,8 +615,8 @@ Handle<Value> PdalBindings::read(const Arguments& args)
 
 void init(Handle<Object> exports)
 {
-    PdalBindings::init(exports);
+    Bindings::init(exports);
 }
 
-NODE_MODULE(pdalBindings, init)
+NODE_MODULE(session, init)
 

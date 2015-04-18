@@ -8,10 +8,11 @@
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/reader.hpp>
 
-#include "buffer-pool.hpp"
 #include "read-queries/entwine.hpp"
 #include "types/paths.hpp"
-#include "pdal-session.hpp"
+#include "util/buffer-pool.hpp"
+
+#include "session.hpp"
 
 namespace
 {
@@ -41,7 +42,7 @@ namespace
     }
 }
 
-PdalSession::PdalSession()
+Session::Session()
     : m_initOnce()
     , m_source()
     , m_entwine()
@@ -49,10 +50,10 @@ PdalSession::PdalSession()
     , m_paths()
 { }
 
-PdalSession::~PdalSession()
+Session::~Session()
 { }
 
-bool PdalSession::initialize(const std::string& name, const Paths& paths)
+bool Session::initialize(const std::string& name, const Paths& paths)
 {
     m_initOnce.ensure([this, &name, &paths]()
     {
@@ -68,42 +69,48 @@ bool PdalSession::initialize(const std::string& name, const Paths& paths)
     return (sourced() || indexed());
 }
 
-std::size_t PdalSession::getNumPoints()
+std::size_t Session::getNumPoints()
 {
     return m_entwine->numPoints();
 }
 
-std::string PdalSession::getSchemaString()
+std::string Session::getSchemaString()
 {
     // TODO Return the JSON, let the bindings turn it into a JS object.
     return m_entwine->schema().toJson().toStyledString();
 }
 
-std::string PdalSession::getStats()
+std::string Session::getStats()
 {
     // TODO
     return "{ }";
 }
 
-std::string PdalSession::getSrs()
+std::string Session::getSrs()
 {
     return "";
 }
 
-std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
+std::shared_ptr<ReadQuery> Session::queryUnindexed(
         const entwine::Schema& schema,
         bool compress,
         std::size_t start,
         std::size_t count)
 {
+    throw std::runtime_error("TODO - Session::queryUnindexed");
+
     if (resolveSource())
     {
-        throw std::runtime_error("TODO - PdalSession::queryUnindexed");
+        // TODO Contents.
+        return std::shared_ptr<ReadQuery>();
+    }
+    else
+    {
         return std::shared_ptr<ReadQuery>();
     }
 }
 
-std::shared_ptr<ReadQuery> PdalSession::query(
+std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         bool compress,
         const entwine::BBox& bbox,
@@ -125,7 +132,7 @@ std::shared_ptr<ReadQuery> PdalSession::query(
                 results));
 }
 
-std::shared_ptr<ReadQuery> PdalSession::query(
+std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         bool compress,
         std::size_t depthBegin,
@@ -145,31 +152,31 @@ std::shared_ptr<ReadQuery> PdalSession::query(
                 results));
 }
 
-std::shared_ptr<ReadQuery> PdalSession::query(
+std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         bool compress,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
 {
-    throw std::runtime_error("TODO - PdalSession::query (rastered)");
+    throw std::runtime_error("TODO - Session::query (rastered)");
     return std::shared_ptr<ReadQuery>();
 }
 
-std::shared_ptr<ReadQuery> PdalSession::query(
+std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         bool compress,
         const RasterMeta& rasterMeta)
 {
-    throw std::runtime_error("TODO - PdalSession::query (rastered)");
+    throw std::runtime_error("TODO - Session::query (rastered)");
     return std::shared_ptr<ReadQuery>();
 }
 
-const entwine::Schema& PdalSession::schema() const
+const entwine::Schema& Session::schema() const
 {
     return m_entwine->schema();
 }
 
-bool PdalSession::resolveSource()
+bool Session::resolveSource()
 {
     if (!sourced())
     {
@@ -190,7 +197,7 @@ bool PdalSession::resolveSource()
     return sourced();
 }
 
-bool PdalSession::resolveIndex()
+bool Session::resolveIndex()
 {
     if (!indexed())
     {

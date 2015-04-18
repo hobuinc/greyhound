@@ -8,16 +8,16 @@
 #include "commands/background.hpp"
 #include "types/paths.hpp"
 
-class PdalSession;
+class Session;
 
 struct CreateData : public Background
 {
     CreateData(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             std::string name,
             Paths paths,
             v8::Persistent<v8::Function> callback)
-        : pdalSession(pdalSession)
+        : session(session)
         , name(name)
         , paths(paths)
         , callback(callback)
@@ -29,7 +29,7 @@ struct CreateData : public Background
     }
 
     // Inputs
-    const std::shared_ptr<PdalSession> pdalSession;
+    const std::shared_ptr<Session> session;
     const std::string name;
     const Paths paths;
 
