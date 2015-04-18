@@ -22,11 +22,11 @@ class RasterMeta;
 class ReadQuery;
 class Paths;
 
-class PdalSession
+class Session
 {
 public:
-    PdalSession();
-    ~PdalSession();
+    Session();
+    ~Session();
 
     // Returns true if initialization was successful.  If false, this session
     // should not be used.
@@ -91,7 +91,7 @@ private:
     std::unique_ptr<Paths> m_paths;
 
     // Disallow copy/assignment.
-    PdalSession(const PdalSession&);
-    PdalSession& operator=(const PdalSession&);
+    Session(const Session&);
+    Session& operator=(const Session&);
 };
 

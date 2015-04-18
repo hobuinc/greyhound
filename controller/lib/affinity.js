@@ -1,4 +1,4 @@
-var web = require('../../common/web'),
+var web = require('./web'),
     console = require('clim')(),
     redis = require('redis'),
     _ = require('lodash'),

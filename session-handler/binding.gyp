@@ -2,17 +2,17 @@
     'targets':
     [
         {
-            'target_name': 'pdalBindings',
+            'target_name': 'session',
             'sources': [
-                './addon/buffer-pool.cpp',
-                './addon/pdal-bindings.cpp',
-                './addon/pdal-session.cpp',
+                './addon/bindings.cpp',
+                './addon/session.cpp',
 
                 './addon/commands/read.cpp',
 
                 './addon/read-queries/base.cpp',
                 './addon/read-queries/entwine.cpp',
 
+                './addon/util/buffer-pool.cpp',
                 './addon/util/once.cpp'
             ],
             'include_dirs': [

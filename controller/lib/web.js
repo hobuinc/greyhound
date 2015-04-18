@@ -82,7 +82,7 @@ var
 		request(reqHandler, 'POST', path, data, cb)
 	};
 
-	var _delete = function(reqHandler, path, data, cb) {
+	var del = function(reqHandler, path, data, cb) {
 		if (_.isFunction(data)) {
 			cb = data;
 			data = null;
@@ -101,6 +101,7 @@ var
 	};
 
 	module.exports.get = get;
-	module.exports._delete = _delete;
+	module.exports.del = del;
 	module.exports.post = post;
 })();
+

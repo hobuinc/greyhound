@@ -23,7 +23,7 @@ var express = require("express"),
     globalConfig = (require('../config').global || { }),
     mkdirp = require('mkdirp'),
 
-    PdalSession = require('./build/Release/pdalBindings').PdalBindings,
+    Session = require('./build/Release/session').Bindings,
 
     inputs = config.inputs,
     output = config.output,
@@ -74,7 +74,7 @@ var getSession = function(name, cb) {
         session = pipelineIds[name];
     }
     else {
-        session = new PdalSession();
+        session = new Session();
         pipelineIds[name] = session;
     }
 
@@ -111,7 +111,7 @@ var validateRasterSchema = function(schema) {
 }
 
 app.get("/", function(req, res) {
-    res.json(404, { message: 'Invalid service URL' });
+    res.status(404).json({ message: 'Invalid service URL' });
 });
 
 app.get('/exists/:resource', function(req, res) {

@@ -21,13 +21,13 @@ void errorCallback(
 class ReadQuery;
 class ItcBufferPool;
 class ItcBuffer;
-class PdalSession;
+class Session;
 
 class ReadCommand : public Background
 {
 public:
     ReadCommand(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -63,7 +63,7 @@ public:
 protected:
     virtual void query() = 0;
 
-    std::shared_ptr<PdalSession> m_pdalSession;
+    std::shared_ptr<Session> m_session;
 
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
@@ -90,7 +90,7 @@ class ReadCommandUnindexed : public ReadCommand
 {
 public:
     ReadCommandUnindexed(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -113,7 +113,7 @@ class ReadCommandQuadIndex : public ReadCommand
 {
 public:
     ReadCommandQuadIndex(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -136,7 +136,7 @@ class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
 {
 public:
     ReadCommandBoundedQuadIndex(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -159,7 +159,7 @@ class ReadCommandRastered : public ReadCommand
 {
 public:
     ReadCommandRastered(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -170,7 +170,7 @@ public:
             v8::Persistent<v8::Function> dataCallback);
 
     ReadCommandRastered(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -196,7 +196,7 @@ class ReadCommandQuadLevel : public ReadCommandRastered
 {
 public:
     ReadCommandQuadLevel(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string host,
@@ -217,7 +217,7 @@ class ReadCommandFactory
 {
 public:
     static ReadCommand* create(
-            std::shared_ptr<PdalSession> pdalSession,
+            std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             const v8::Arguments& args);
