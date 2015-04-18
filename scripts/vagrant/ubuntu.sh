@@ -52,15 +52,6 @@ pkg=(
 
 apt-get install -q -y -V ${pkg[@]}
 
-# Install mongoDB
-echo Installing mongo...
-apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' | \
-    tee /etc/apt/sources.list.d/mongodb.list
-
-apt-get update -qq; apt-get install -q -y mongodb-org
-killall mongod
-
 # Install gems
 gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit node-gyp
 

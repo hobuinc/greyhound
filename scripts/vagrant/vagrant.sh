@@ -6,7 +6,7 @@
 # Install NPM packages, build our pdal-session binary, and build C++ examples.
 cd /vagrant/
 make all
-make install STANDALONE=TRUE
+make install
 
 # Set up auto-relaunch of Greyhound components, and launch them.
 echo Setting up autolaunch

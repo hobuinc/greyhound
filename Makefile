@@ -1,11 +1,9 @@
-STANDALONE?=""
 PROXY?=TRUE
-COMPONENTS = gh_db gh_dist gh_sh gh_cn
+COMPONENTS = gh_dist gh_sh gh_cn
 CREDENTIALS = credentials.js
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = common \
-		   db-handler \
 		   dist-handler \
 		   frontend-proxy \
 		   session-handler \
@@ -14,7 +12,6 @@ SRC_DIRS = common \
 # Directories where we need to run 'npm install'.
 # 'npm install' will also be run at the top level.
 NPM_DIRS = common \
-		   db-handler \
 		   dist-handler \
 		   examples/js \
 		   session-handler \
@@ -61,12 +58,6 @@ install:
 # Copy module launchers.
 	chmod -R 755 scripts/init.d/
 	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
-#
-# Install mongo launcher if standalone mode is specified.
-ifeq ($(STANDALONE),TRUE)
-	@echo Using standalone operation.
-	cp scripts/init.d/gh_mongo /etc/init.d/
-endif
 ifeq ($(PROXY),TRUE)
 	@echo Using frontend proxy
 	cp scripts/init.d/gh_fe /etc/init.d/
@@ -105,7 +96,6 @@ uninstall:
 #
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
-	rm -f /etc/init.d/gh_mongo
 	rm -f /etc/init.d/gh_fe
 #
 # Remove launcher utility.
