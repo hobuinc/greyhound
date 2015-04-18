@@ -54,10 +54,10 @@ PdalSession::~PdalSession()
 
 bool PdalSession::initialize(const std::string& name, const Paths& paths)
 {
-    std::cout << "Discovering " << name << std::endl;
-
     m_initOnce.ensure([this, &name, &paths]()
     {
+        std::cout << "Discovering " << name << std::endl;
+
         m_name = name;
         m_paths.reset(new Paths(paths));
 
@@ -96,10 +96,11 @@ std::shared_ptr<ReadQuery> PdalSession::queryUnindexed(
         std::size_t start,
         std::size_t count)
 {
-    // TODO If sourced() is not true here, attempt to re-resolve a path for
-    // this resource.  Perhaps it was added later.
-    throw std::runtime_error("TODO - PdalSession::queryUnindexed");
-    return std::shared_ptr<ReadQuery>();
+    if (resolveSource())
+    {
+        throw std::runtime_error("TODO - PdalSession::queryUnindexed");
+        return std::shared_ptr<ReadQuery>();
+    }
 }
 
 std::shared_ptr<ReadQuery> PdalSession::query(

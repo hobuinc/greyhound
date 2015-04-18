@@ -24,8 +24,6 @@ var express = require("express"),
     mkdirp = require('mkdirp'),
 
     PdalSession = require('./build/Release/pdalBindings').PdalBindings,
-    Affinity = require('../common/affinity').Affinity,
-    affinity = new Affinity(disco),
 
     inputs = config.inputs,
     output = config.output,
@@ -116,8 +114,14 @@ app.get("/", function(req, res) {
     res.json(404, { message: 'Invalid service URL' });
 });
 
+app.get('/exists/:resource', function(req, res) {
+    getSession(req.params.resource, function(err) {
+        return res.status(err ? 404 : 200).json({ });
+    });
+});
+
 app.get("/numPoints/:plId", function(req, res) {
-    getSession(res, req.params.plId, function(err, session) {
+    getSession(req.params.plId, function(err, session) {
         if (err) return error(res, err);
 
         res.json({ numPoints: session.getNumPoints() });

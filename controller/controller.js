@@ -3,22 +3,20 @@ var
     console = require('clim')(),
 
     disco = require('../common').disco,
-    Affinity = require('../common/affinity').Affinity,
     web = require('../common/web'),
 
+    Affinity = require('./lib/affinity').Affinity,
     Listener = require('./lib/listener').Listener,
 
     config = (require('../config').cn || { }),
 
-    softSessionShareMax = (config.softSessionShareMax || 16),
-    hardSessionShareMax = (config.hardSessionShareMax || 0),
-    pipelineTimeoutMinutes =
+    resourceTimeoutMinutes =
         (function() {
-            if (config.hasOwnProperty('pipelineTimeoutMinutes') &&
-                config.pipelineTimeoutMinutes >= 0) {
+            if (config.hasOwnProperty('resourceTimeoutMinutes') &&
+                config.resourceTimeoutMinutes >= 0) {
 
                 // May be zero to never expire pipelines.
-                return config.pipelineTimeoutMinutes;
+                return config.resourceTimeoutMinutes;
             }
             else {
                 return 30;
