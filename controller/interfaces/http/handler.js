@@ -108,12 +108,6 @@ if (
         return _.extend(response || { }, common);
     }
 
-    var objectify = function(obj, key) {
-        if (obj[key]) {
-            obj[key] = JSON.parse(obj[key]);
-        }
-    }
-
     var registerCommands = function(controller, app) {
         app.get('/pipeline/:pipeline/numPoints', function(req, res) {
             controller.numPoints(req.params.pipeline, function(err, data) {
@@ -163,10 +157,6 @@ if (
 
         app.get('/pipeline/:pipeline/read', function(req, res) {
             var params = req.query;
-
-            objectify(params, 'bbox');
-            objectify(params, 'schema');
-            objectify(params, 'resolution');
 
             controller.read(
                 req.params.pipeline,

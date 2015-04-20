@@ -85,11 +85,9 @@ std::string Session::getSrs()
     return "";
 }
 
-std::shared_ptr<ReadQuery> Session::queryUnindexed(
+std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
-        bool compress,
-        std::size_t start,
-        std::size_t count)
+        const bool compress)
 {
     throw std::runtime_error("TODO - Session::queryUnindexed");
 
@@ -111,55 +109,34 @@ std::shared_ptr<ReadQuery> Session::query(
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::vector<std::size_t> results(
-            m_entwine->query(
-                bbox,
-                depthBegin,
-                depthEnd));
+    if (resolveIndex())
+    {
+        std::vector<std::size_t> results(
+                m_entwine->query(
+                    bbox.exists() ? bbox : m_entwine->bbox(),
+                    depthBegin,
+                    depthEnd));
 
-    return std::shared_ptr<ReadQuery>(
-            new EntwineReadQuery(
-                schema,
-                compress,
-                false,
-                *m_entwine,
-                results));
+        return std::shared_ptr<ReadQuery>(
+                new EntwineReadQuery(
+                    schema,
+                    compress,
+                    false,
+                    *m_entwine,
+                    results));
+    }
+    else
+    {
+        return std::shared_ptr<ReadQuery>();
+    }
 }
 
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         bool compress,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
-{
-    std::vector<std::size_t> results(
-            m_entwine->query(
-                depthBegin,
-                depthEnd));
-
-    return std::shared_ptr<ReadQuery>(
-            new EntwineReadQuery(
-                schema,
-                compress,
-                false,
-                *m_entwine,
-                results));
-}
-
-std::shared_ptr<ReadQuery> Session::query(
-        const entwine::Schema& schema,
-        bool compress,
+        const entwine::BBox& bbox,
         std::size_t rasterize,
         RasterMeta& rasterMeta)
-{
-    throw std::runtime_error("TODO - Session::query (rastered)");
-    return std::shared_ptr<ReadQuery>();
-}
-
-std::shared_ptr<ReadQuery> Session::query(
-        const entwine::Schema& schema,
-        bool compress,
-        const RasterMeta& rasterMeta)
 {
     throw std::runtime_error("TODO - Session::query (rastered)");
     return std::shared_ptr<ReadQuery>();

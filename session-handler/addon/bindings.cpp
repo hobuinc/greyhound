@@ -4,6 +4,9 @@
 #include <node_buffer.h>
 #include <curl/curl.h>
 #include <openssl/crypto.h>
+
+#include <pdal/PointLayout.hpp>
+
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -95,6 +98,47 @@ namespace
         }
 
         return info;
+    }
+
+    entwine::DimList parseDims(
+            v8::Local<v8::Array> schemaArray,
+            const entwine::Schema& sessionSchema)
+    {
+        entwine::DimList dims;
+
+        for (std::size_t i(0); i < schemaArray->Length(); ++i)
+        {
+            Local<Object> dimObj(schemaArray->Get(
+                        Integer::New(i))->ToObject());
+
+            const std::string sizeString(*v8::String::Utf8Value(
+                    dimObj->Get(String::New("size"))->ToString()));
+
+            const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
+
+            if (size)
+            {
+                const std::string name(*v8::String::Utf8Value(
+                        dimObj->Get(String::New("name"))->ToString()));
+
+                const std::string baseTypeName(*v8::String::Utf8Value(
+                        dimObj->Get(String::New("type"))->ToString()));
+
+                const pdal::Dimension::Id::Enum id(
+                        sessionSchema.pdalLayout().findDim(name));
+
+                if (sessionSchema.pdalLayout().hasDim(id))
+                {
+                    dims.push_back(
+                            entwine::DimInfo(
+                                name,
+                                baseTypeName,
+                                size));
+                }
+            }
+        }
+
+        return dims;
     }
 }
 
@@ -256,13 +300,6 @@ Handle<Value> Bindings::create(const Arguments& args)
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(cbArg)));
 
-    const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const entwine::S3Info s3Info(parseS3Info(s3Arg));
-    const std::vector<std::string> inputs(parsePathList(inputsArg));
-    const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
-
-    const Paths paths(s3Info, inputs, output);
-
     if (errMsg.size())
     {
         Status status(400, errMsg);
@@ -272,6 +309,13 @@ Handle<Value> Bindings::create(const Arguments& args)
         callback->Call(Context::GetCurrent()->Global(), argc, argv);
         return scope.Close(Undefined());
     }
+
+    const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
+    const entwine::S3Info s3Info(parseS3Info(s3Arg));
+    const std::vector<std::string> inputs(parsePathList(inputsArg));
+    const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
+
+    const Paths paths(s3Info, inputs, output);
 
     // Store everything we'll need to perforasterMeta initialization.
     uv_work_t* req(new uv_work_t);
@@ -340,6 +384,7 @@ Handle<Value> Bindings::getSchema(const Arguments& args)
     const entwine::Schema& schema(obj->m_session->schema());
     const auto& dims(schema.dims());
 
+    // Convert our entwine::Schema to a JS array.
     Local<Array> jsSchema(Array::New(dims.size()));
 
     for (std::size_t i(0); i < dims.size(); ++i)
@@ -397,15 +442,87 @@ Handle<Value> Bindings::read(const Arguments& args)
     // identified) and return a null ptr.
     const std::string readId(generateReadId());
 
+    std::size_t i(0);
+    const auto& hostArg     (args[i++]);
+    const auto& portArg     (args[i++]);
+    const auto& schemaArg   (args[i++]);
+    const auto& compressArg (args[i++]);
+    const auto& queryArg    (args[i++]);
+    const auto& readCbArg   (args[i++]);
+    const auto& dataCbArg   (args[i++]);
+
+    std::string errMsg("");
+
+    if (!hostArg->IsString())
+        errMsg += "\t'host' must be a string";
+
+    if (!portArg->IsNumber())
+        errMsg += "\t'port' must be a number";
+
+    if (!schemaArg->IsArray())
+        errMsg += "\t'schema' must be a string";
+
+    if (!compressArg->IsBoolean())
+        errMsg += "\t'compress' must be a boolean";
+
+    if (!dataCbArg->IsFunction())
+        errMsg += "\t'dataCb' must be a function";
+
+    if (!readCbArg->IsFunction())
+        throw std::runtime_error("Invalid callback supplied to 'read'");
+
+    entwine::DimList dims;
+
+    const Local<Array> schemaArray(Array::Cast(*schemaArg));
+
+    if (schemaArray->Length())
+    {
+        dims = parseDims(schemaArray, obj->m_session->schema());
+        std::cout << "Dims: " << dims.size() << std::endl;
+        if (!dims.size()) errMsg += "\t'schema' has no valid dimensions";
+    }
+
+    Persistent<Function> readCb(
+            Persistent<Function>::New(Local<Function>::Cast(readCbArg)));
+
+    if (errMsg.size())
+    {
+        Status status(400, errMsg);
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = { status.toObject() };
+
+        readCb->Call(Context::GetCurrent()->Global(), argc, argv);
+        return scope.Close(Undefined());
+    }
+
+    const std::string host(*v8::String::Utf8Value(hostArg->ToString()));
+    const std::size_t port(portArg->Uint32Value());
+    const bool compress(compressArg->BooleanValue());
+    Local<Object> query(queryArg->ToObject());
+
+    Persistent<Function> dataCb(
+            Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
+
     ReadCommand* readCommand(
         ReadCommandFactory::create(
             obj->m_session,
             obj->m_itcBufferPool,
             readId,
-            args));
+            host,
+            port,
+            dims,
+            compress,
+            query,
+            readCb,
+            dataCb));
 
     if (!readCommand)
     {
+        Status status(400, std::string("Invalid read query parameters"));
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = { status.toObject() };
+
+        readCb->Call(Context::GetCurrent()->Global(), argc, argv);
         return scope.Close(Undefined());
     }
 
@@ -439,10 +556,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                 const unsigned argc = 1;
                 Local<Value> argv[argc] = { readCommand->status.toObject() };
 
-                readCommand->queryCallback()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
-
-                readCommand->dataCallback()->Call(
+                readCommand->readCb()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
 
                 delete readCommand;
@@ -495,14 +609,18 @@ Handle<Value> Bindings::read(const Arguments& args)
                         Local<Value>::New(rasterObj)
                     };
 
-                    readCommand->queryCallback()->Call(
+                    readCommand->readCb()->Call(
                         Context::GetCurrent()->Global(), argc, argv);
                 }
                 else
                 {
-                    errorCallback(
-                        readCommand->queryCallback(),
-                        "Invalid ReadCommand");
+                    Status status(500, std::string("Invalid state"));
+
+                    const unsigned argc = 1;
+                    Local<Value> argv[argc] = { status.toObject() };
+
+                    readCommand->readCb()->Call(
+                        Context::GetCurrent()->Global(), argc, argv);
                 }
             }
             else
@@ -518,7 +636,7 @@ Handle<Value> Bindings::read(const Arguments& args)
 
                 // Call the provided callback to return the status of the
                 // data about to be streamed to the remote host.
-                readCommand->queryCallback()->Call(
+                readCommand->readCb()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
             }
 
@@ -547,7 +665,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                             Local<Value>::New(Number::New(readCommand->done()))
                         };
 
-                        readCommand->dataCallback()->Call(
+                        readCommand->dataCb()->Call(
                             Context::GetCurrent()->Global(), argc, argv);
                     }
                     else
@@ -556,7 +674,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                         Local<Value> argv[argc] =
                             { readCommand->status.toObject() };
 
-                        readCommand->dataCallback()->Call(
+                        readCommand->dataCb()->Call(
                             Context::GetCurrent()->Global(), argc, argv);
                     }
 

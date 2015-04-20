@@ -149,37 +149,49 @@ app.post('/cancel/:resource', function(req, res) {
 });
 
 app.post('/read/:resource', function(req, res) {
-    var address = req.body.address;
-    var query = req.body.query;
-
-    var host = address.host;
-    var port = parseInt(address.port);
-    var compress = !!query.compress;
-    var schema = query.schema || [];
-
     console.log('session handler: /read/');
 
-    if (!host)
-        return res.json(
-            400,
-            { message: 'Controller host needs to be specified' });
+    var address = req.body.address;
+    var host = address.host;
+    var port = parseInt(address.port);
 
-    if (!port)
-        return res.json(
-            400,
-            { message: 'Controller port needs to be specified' });
+    var query = req.body.query;
 
-    // Prune our query to simplify the specialization decision tree.
-    delete query.command;
-    if (query.hasOwnProperty('compress')) delete query.compress;
-    if (query.hasOwnProperty('schema')) delete query.schema;
+    var schema = query.schema || '[]';
+    var compress = query.hasOwnProperty('compress') && query.compress;
+
+    // Simplify our query decision tree for later.  Technically these values
+    // are specified via query parameters, but they aren't relevant for
+    // determining which type of 'read' to execute.
+    delete query.schema;
+    delete query.compress;
+
+    if (!host || typeof host !== 'string') {
+        console.log('Invalid host');
+        return res.json(400, { message: 'Invalid host' });
+    }
+
+    if (!port) {
+        console.log('Invalid port');
+        return res.json(400, { message: 'Invalid port' });
+    }
+
+    try {
+        schema = JSON.parse(schema);
+    }
+    catch (e) {
+        return res.json(400, { message: 'Invalid schema' });
+    }
 
     getSession(req.params.resource, function(err, session) {
+        console.log('getSession(', req.params.resource, ') err:', err);
         if (err) return error(res, err);
 
         console.log('read('+ req.params.resource + ')');
 
-        var readHandler = function(
+        var socket;
+
+        var readCb = function(
             err,
             readId,
             numPoints,
@@ -188,9 +200,20 @@ app.post('/read/:resource', function(req, res) {
         {
             if (err) {
                 console.log('Erroring read:', err);
-                return res.json(400, { message: err });
+                return res.json(400, { message: err.message });
             }
             else {
+                // Send the results to the Controller.
+                socket = net.createConnection(port, host);
+                socket.on('close', function() {
+                    console.log('Socket closed');
+                }).on('error', function(err) {
+                    // This is an expected occurence.  A cancel request
+                    // will cause the Controller to forcefully reset
+                    // the connection.
+                    console.log('Socket force-closed:', err);
+                });
+
                 res.json({
                     readId: readId,
                     numPoints: numPoints,
@@ -203,18 +226,7 @@ app.post('/read/:resource', function(req, res) {
             }
         };
 
-        // Send the results to the websocket-handler.
-        var socket = net.createConnection(port, host);
-        socket.on('close', function() {
-            console.log('Socket closed');
-        }).on('error', function(err) {
-            // This is an expected occurence.  A cancel request
-            // will cause the websocket-handler to forcefully reset
-            // the connection.
-            console.log('Socket force-closed:', err);
-        });
-
-        var dataHandler = function(err, data, done) {
+        var dataCb = function(err, data, done) {
             if (err) {
                 socket.end();
             }
@@ -224,159 +236,7 @@ app.post('/read/:resource', function(req, res) {
             }
         }
 
-        if (
-            query.hasOwnProperty('start') ||
-            query.hasOwnProperty('count') ||
-            Object.keys(query).length == 0) {
-
-            // Unindexed read - 'start' and 'count' may be omitted.  If either
-            // of them exists, or if the only arguments are
-            // host+port+cmd+resource, then use this branch.
-            console.log('    Got unindexed read request');
-
-            var start =
-                query.hasOwnProperty('start') ? parseInt(query.start) : 0;
-            var count =
-                query.hasOwnProperty('count') ? parseInt(query.count) : 0;
-
-            if (start < 0) start = 0;
-            if (count < 0) count = 0;
-
-            session.read(
-                    host,
-                    port,
-                    compress,
-                    schema,
-                    start,
-                    count,
-                    readHandler,
-                    dataHandler);
-        }
-        else if (
-            query.hasOwnProperty('bbox') &&
-            query.hasOwnProperty('resolution')) {
-
-            console.log('    Got generic raster read request');
-
-            if (schema.hasOwnProperty('schema') &&
-                !validateRasterSchema(schema)) {
-
-                console.log(
-                        'Invalid schema in raster request', schema);
-
-                return res.json(
-                    400,
-                    { message: 'Bad schema - must contain X and Y' });
-            }
-
-            var bbox = query.bbox;
-            var resolution = query.resolution;
-
-            if (bbox.length != 4 || resolution.length != 2) {
-                console.log('    Bad query in generic raster request', query);
-                return res.json(
-                    400,
-                    { message: 'Invalid read command - bad params' });
-            }
-
-            session.read(
-                host,
-                port,
-                compress,
-                schema,
-                bbox,
-                resolution,
-                readHandler,
-                dataHandler);
-        }
-        else if (
-            query.hasOwnProperty('bbox') ||
-            query.hasOwnProperty('depthBegin') ||
-            query.hasOwnProperty('depthEnd')) {
-
-            console.log('    Got quad-tree depth range read request');
-
-            // Indexed read: quadtree query.
-            var bbox = query.bbox;
-            var depthBegin =
-                query.hasOwnProperty('depthBegin') ?
-                    parseInt(query.depthBegin) :
-                    0;
-
-            var depthEnd =
-                query.hasOwnProperty('depthEnd') ?
-                    parseInt(query.depthEnd) :
-                    0;
-
-            session.read(
-                    host,
-                    port,
-                    compress,
-                    schema,
-                    bbox,
-                    depthBegin,
-                    depthEnd,
-                    readHandler,
-                    dataHandler);
-        }
-        else if (query.hasOwnProperty('rasterize')) {
-            var rasterize = parseInt(query.rasterize);
-
-            console.log('    Got quad-tree single-level raster read request');
-
-            if (schema.hasOwnProperty('schema') &&
-                !validateRasterSchema(schema)) {
-
-                console.log(
-                        'Invalid schema in raster request', schema);
-
-                return res.json(
-                    400,
-                    { message: 'Bad schema - must contain X and Y' });
-            }
-
-            session.read(
-                    host,
-                    port,
-                    compress,
-                    schema,
-                    rasterize,
-                    readHandler,
-                    dataHandler);
-        }
-        else if (
-            query.hasOwnProperty('radius') &&
-            query.hasOwnProperty('x') &&
-            query.hasOwnProperty('y')) {
-
-            // Indexed read: point + radius query.
-            console.log('    Got point-radius read request');
-
-            var is3d = query.hasOwnProperty('z');
-            var radius = parseFloat(query.radius);
-            var x = parseFloat(query.x);
-            var y = parseFloat(query.y);
-            var z = is3d ? parseFloat(query.z) : 0.0;
-
-            session.read(
-                    host,
-                    port,
-                    compress,
-                    schema,
-                    is3d,
-                    radius,
-                    x,
-                    y,
-                    z,
-                    readHandler,
-                    dataHandler);
-        }
-        else {
-            console.log('Got bad read request', query);
-            return res.json(
-                400,
-                { message: 'Invalid read command - bad params' });
-        }
+        session.read(host, port, schema, compress, query, readCb, dataCb);
     });
 });
 
