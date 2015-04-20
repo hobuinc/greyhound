@@ -6,7 +6,7 @@ class Status
 {
 public:
     Status() : m_code(200), m_message() { }
-    Status(int code, std::string& message) : m_code(code), m_message(message)
+    Status(int code, std::string message) : m_code(code), m_message(message)
     { }
 
     void set(int code, const std::string& message)

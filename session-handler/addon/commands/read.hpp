@@ -14,7 +14,7 @@
 #include "types/raster-meta.hpp"
 #include "commands/background.hpp"
 
-void errorCallback(
+void errorCb(
         v8::Persistent<v8::Function> callback,
         std::string errMsg);
 
@@ -33,9 +33,9 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            const entwine::Schema& schema,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
+            entwine::DimList dims,
+            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> dataCb);
     virtual ~ReadCommand();
 
     virtual void read(std::size_t maxNumBytes);
@@ -55,8 +55,8 @@ public:
 
     std::string readId()    const;
     bool        cancel()    const;
-    v8::Persistent<v8::Function> queryCallback() const;
-    v8::Persistent<v8::Function> dataCallback() const;
+    v8::Persistent<v8::Function> readCb() const;
+    v8::Persistent<v8::Function> dataCb() const;
 
     uv_async_t* async() { return m_async; }
 
@@ -77,13 +77,9 @@ protected:
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
 
-    v8::Persistent<v8::Function> m_queryCallback;
-    v8::Persistent<v8::Function> m_dataCallback;
+    v8::Persistent<v8::Function> m_readCb;
+    v8::Persistent<v8::Function> m_dataCb;
     bool m_cancel;
-
-private:
-    std::vector<entwine::DimInfo> schemaOrDefault(
-            const entwine::Schema& reqSchema);
 };
 
 class ReadCommandUnindexed : public ReadCommand
@@ -96,17 +92,12 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            const entwine::Schema& schema,
-            std::size_t start,
-            std::size_t count,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
+            entwine::DimList dims,
+            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> dataCb);
 
 private:
     virtual void query();
-
-    const std::size_t m_start;
-    const std::size_t m_count;
 };
 
 class ReadCommandQuadIndex : public ReadCommand
@@ -119,40 +110,19 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            const entwine::Schema& schema,
+            entwine::DimList dims,
+            entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
+            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> dataCb);
 
 protected:
     virtual void query();
 
+    const entwine::BBox m_bbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
-};
-
-class ReadCommandBoundedQuadIndex : public ReadCommandQuadIndex
-{
-public:
-    ReadCommandBoundedQuadIndex(
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            std::string readId,
-            std::string host,
-            std::size_t port,
-            bool compress,
-            const entwine::Schema& schema,
-            entwine::BBox bbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
-
-private:
-    virtual void query();
-
-    const entwine::BBox m_bbox;
 };
 
 class ReadCommandRastered : public ReadCommand
@@ -165,21 +135,11 @@ public:
             std::string host,
             std::size_t port,
             bool compress,
-            const entwine::Schema& schema,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
-
-    ReadCommandRastered(
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            std::string readId,
-            std::string host,
-            std::size_t port,
-            bool compress,
-            const entwine::Schema& schema,
-            RasterMeta rasterMeta,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
+            entwine::DimList dims,
+            entwine::BBox bbox,
+            std::size_t level,
+            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> dataCb);
 
     virtual void read(std::size_t maxNumBytes);
 
@@ -189,28 +149,9 @@ public:
 protected:
     virtual void query();
 
-    RasterMeta m_rasterMeta;
-};
-
-class ReadCommandQuadLevel : public ReadCommandRastered
-{
-public:
-    ReadCommandQuadLevel(
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            std::string readId,
-            std::string host,
-            std::size_t port,
-            bool compress,
-            const entwine::Schema& schema,
-            std::size_t level,
-            v8::Persistent<v8::Function> queryCallback,
-            v8::Persistent<v8::Function> dataCallback);
-
-private:
-    virtual void query();
-
+    const entwine::BBox m_bbox;
     const std::size_t m_level;
+    RasterMeta m_rasterMeta;
 };
 
 class ReadCommandFactory
@@ -220,6 +161,12 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            const v8::Arguments& args);
+            std::string host,
+            std::size_t port,
+            entwine::DimList dims,
+            bool compress,
+            v8::Local<v8::Object> query,
+            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> dataCb);
 };
 

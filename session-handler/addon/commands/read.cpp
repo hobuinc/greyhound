@@ -1,5 +1,6 @@
 #include <pdal/PointLayout.hpp>
 
+#include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
@@ -14,34 +15,47 @@ using namespace v8;
 
 namespace
 {
-    bool isInteger(const Local<Value>& value)
+    bool isInteger(const v8::Local<v8::Value>& value)
     {
         return value->IsInt32() || value->IsUint32();
     }
 
-    bool isDefined(const Local<Value>& value)
+    bool isDefined(const v8::Local<v8::Value>& value)
     {
         return !value->IsUndefined();
     }
-}
 
-void errorCallback(Persistent<Function> callback, std::string errMsg)
-{
-    HandleScope scope;
+    v8::Local<v8::String> toSymbol(const std::string& str)
+    {
+        return v8::String::NewSymbol(str.c_str());
+    }
 
-    const unsigned argc = 1;
-    Local<Value> argv[argc] =
+    std::size_t isEmpty(v8::Local<v8::Object> object)
+    {
+        return object->GetOwnPropertyNames()->Length() == 0;
+    }
+
+    entwine::BBox parseBBox(const v8::Local<v8::Value>& jsBBox)
+    {
+        entwine::BBox bbox;
+
+        try
         {
-            Local<Value>::New(String::New(errMsg.data(), errMsg.size()))
-        };
+            std::string bboxStr(std::string(
+                        *v8::String::Utf8Value(jsBBox->ToString())));
 
-    callback->Call(Context::GetCurrent()->Global(), argc, argv);
+            Json::Reader reader;
+            Json::Value jsonBBox;
+            reader.parse(bboxStr, jsonBBox, false);
+            bbox = entwine::BBox::fromJson(jsonBBox);
+        }
+        catch (...)
+        {
+            std::cout << "Invalid BBox in query." << std::endl;
+        }
 
-    // Dispose of the persistent handle so the callback may be garbage
-    // collected.
-    callback.Dispose();
-
-    scope.Close(Undefined());
+        return bbox;
+    }
 }
 
 ReadCommand::ReadCommand(
@@ -51,9 +65,9 @@ ReadCommand::ReadCommand(
         const std::string host,
         const std::size_t port,
         const bool compress,
-        const entwine::Schema& schema,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
+        entwine::DimList dims,
+        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> dataCb)
     : m_session(session)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
@@ -62,31 +76,17 @@ ReadCommand::ReadCommand(
     , m_host(host)
     , m_port(port)
     , m_compress(compress)
-    , m_schema(schemaOrDefault(schema))
+    , m_schema(dims)
     , m_numSent(0)
-    , m_queryCallback(queryCallback)
-    , m_dataCallback(dataCallback)
+    , m_readCb(readCb)
+    , m_dataCb(dataCb)
     , m_cancel(false)
 { }
 
 ReadCommand::~ReadCommand()
 {
-    m_queryCallback.Dispose();
-    m_dataCallback.Dispose();
-}
-
-std::vector<entwine::DimInfo> ReadCommand::schemaOrDefault(
-        const entwine::Schema& reqSchema)
-{
-    // If no schema supplied, stream all dimensions in their native format.
-    if (reqSchema.dims().size() > 0)
-    {
-        return reqSchema.dims();
-    }
-    else
-    {
-        return m_session->schema().dims();
-    }
+    m_readCb.Dispose();
+    m_dataCb.Dispose();
 }
 
 std::size_t ReadCommand::numBytes() const
@@ -149,14 +149,14 @@ bool ReadCommand::cancel() const
     return m_cancel;
 }
 
-v8::Persistent<v8::Function> ReadCommand::queryCallback() const
+v8::Persistent<v8::Function> ReadCommand::readCb() const
 {
-    return m_queryCallback;
+    return m_readCb;
 }
 
-v8::Persistent<v8::Function> ReadCommand::dataCallback() const
+v8::Persistent<v8::Function> ReadCommand::dataCb() const
 {
-    return m_dataCallback;
+    return m_dataCb;
 }
 
 ReadCommandUnindexed::ReadCommandUnindexed(
@@ -166,11 +166,9 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string host,
         std::size_t port,
         bool compress,
-        const entwine::Schema& schema,
-        std::size_t start,
-        std::size_t count,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
+        entwine::DimList dims,
+        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
             session,
             itcBufferPool,
@@ -178,11 +176,9 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             host,
             port,
             compress,
-            schema,
-            queryCallback,
-            dataCallback)
-    , m_start(start)
-    , m_count(count)
+            dims,
+            readCb,
+            dataCb)
 { }
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
@@ -192,11 +188,12 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::string host,
         std::size_t port,
         bool compress,
-        const entwine::Schema& schema,
+        entwine::DimList dims,
+        entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
+        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
             session,
             itcBufferPool,
@@ -204,131 +201,46 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             host,
             port,
             compress,
-            schema,
-            queryCallback,
-            dataCallback)
+            dims,
+            readCb,
+            dataCb)
+    , m_bbox(bbox)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
 { }
 
-ReadCommandBoundedQuadIndex::ReadCommandBoundedQuadIndex(
+ReadCommandRastered::ReadCommandRastered(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        std::string readId,
-        std::string host,
-        std::size_t port,
+        const std::string readId,
+        const std::string host,
+        const std::size_t port,
         bool compress,
-        const entwine::Schema& schema,
+        entwine::DimList dims,
         entwine::BBox bbox,
-        std::size_t depthBegin,
-        std::size_t depthEnd,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
-    : ReadCommandQuadIndex(
+        const std::size_t level,
+        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> dataCb)
+    : ReadCommand(
             session,
             itcBufferPool,
             readId,
             host,
             port,
             compress,
-            schema,
-            depthBegin,
-            depthEnd,
-            queryCallback,
-            dataCallback)
+            dims,
+            readCb,
+            dataCb)
     , m_bbox(bbox)
-{ }
-
-ReadCommandRastered::ReadCommandRastered(
-        std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
-        const std::string readId,
-        const std::string host,
-        const std::size_t port,
-        bool compress,
-        const entwine::Schema& schema,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
-    : ReadCommand(
-            session,
-            itcBufferPool,
-            readId,
-            host,
-            port,
-            compress,
-            schema,
-            queryCallback,
-            dataCallback)
-    , m_rasterMeta()
-{ }
-
-ReadCommandRastered::ReadCommandRastered(
-        std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
-        const std::string readId,
-        const std::string host,
-        const std::size_t port,
-        bool compress,
-        const entwine::Schema& schema,
-        const RasterMeta rasterMeta,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
-    : ReadCommand(
-            session,
-            itcBufferPool,
-            readId,
-            host,
-            port,
-            compress,
-            schema,
-            queryCallback,
-            dataCallback)
-    , m_rasterMeta(rasterMeta)
-{ }
-
-ReadCommandQuadLevel::ReadCommandQuadLevel(
-        std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
-        std::string readId,
-        std::string host,
-        std::size_t port,
-        bool compress,
-        const entwine::Schema& schema,
-        std::size_t level,
-        v8::Persistent<v8::Function> queryCallback,
-        v8::Persistent<v8::Function> dataCallback)
-    : ReadCommandRastered(
-            session,
-            itcBufferPool,
-            readId,
-            host,
-            port,
-            compress,
-            schema,
-            queryCallback,
-            dataCallback)
     , m_level(level)
 { }
 
 void ReadCommandUnindexed::query()
 {
-    m_readQuery = m_session->queryUnindexed(
-            m_schema,
-            m_compress,
-            m_start,
-            m_count);
+    m_readQuery = m_session->query(m_schema, m_compress);
 }
 
 void ReadCommandQuadIndex::query()
-{
-    m_readQuery = m_session->query(
-            m_schema,
-            m_compress,
-            m_depthBegin,
-            m_depthEnd);
-}
-
-void ReadCommandBoundedQuadIndex::query()
 {
     m_readQuery = m_session->query(
             m_schema,
@@ -343,14 +255,7 @@ void ReadCommandRastered::query()
     m_readQuery = m_session->query(
             m_schema,
             m_compress,
-            m_rasterMeta);
-}
-
-void ReadCommandQuadLevel::query()
-{
-    m_readQuery = m_session->query(
-            m_schema,
-            m_compress,
+            m_bbox,
             m_level,
             m_rasterMeta);
 }
@@ -358,288 +263,113 @@ void ReadCommandQuadLevel::query()
 ReadCommand* ReadCommandFactory::create(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        const std::string readId,
-        const Arguments& args)
+        std::string readId,
+        std::string host,
+        std::size_t port,
+        entwine::DimList dims,
+        bool compress,
+        v8::Local<v8::Object> query,
+        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> dataCb)
 {
     ReadCommand* readCommand(0);
 
-    const std::size_t numArgs(args.Length());
-
-    if (
-        numArgs < 5 ||
-        !args[numArgs - 2]->IsFunction() ||
-        !args[numArgs - 1]->IsFunction())
+    if (!dims.size())
     {
-        // If no callback is supplied there's nothing we can do here.
-        throw std::runtime_error("Invalid callback supplied to 'read'");
+        dims = session->schema().dims();
     }
 
-    Persistent<Function> queryCallback(
-        Persistent<Function>::New(
-            Local<Function>::Cast(args[numArgs - 2])));
+    const auto depthBeginSymbol(toSymbol("depthBegin"));
+    const auto depthEndSymbol(toSymbol("depthEnd"));
+    const auto rasterizeSymbol(toSymbol("rasterize"));
+    const auto bboxSymbol(toSymbol("bbox"));
 
-    Persistent<Function> dataCallback(
-        Persistent<Function>::New(
-            Local<Function>::Cast(args[numArgs - 1])));
-
-    // Validate host, port, compress, and schemaRequest.
     if (
-        args.Length() > 5 &&
-        isDefined(args[0]) && args[0]->IsString() &&
-        isDefined(args[1]) && isInteger(args[1]) &&
-        isDefined(args[2]) && args[2]->IsBoolean() &&
-        isDefined(args[3]) && args[3]->IsArray())
+            query->HasOwnProperty(depthBeginSymbol) ||
+            query->HasOwnProperty(depthEndSymbol))
     {
-        const std::string host(*v8::String::Utf8Value(args[0]->ToString()));
-        const std::size_t port(args[1]->Uint32Value());
-        const bool compress(args[2]->BooleanValue());
+        const std::size_t depthBegin(
+                query->HasOwnProperty(depthBeginSymbol) ?
+                    query->Get(depthBeginSymbol)->Uint32Value() : 0);
 
+        const std::size_t depthEnd(
+                query->HasOwnProperty(depthEndSymbol) ?
+                    query->Get(depthEndSymbol)->Uint32Value() : 0);
 
-        std::vector<entwine::DimInfo> dims;
+        entwine::BBox bbox;
 
-        // Unwrap the schema request into native C++ types.
-        const Local<Array> schemaArray(Array::Cast(*args[3]));
-
-        for (std::size_t i(0); i < schemaArray->Length(); ++i)
+        if (query->HasOwnProperty(bboxSymbol))
         {
-            Local<Object> dimObj(schemaArray->Get(
-                        Integer::New(i))->ToObject());
-
-            const std::string sizeString(*v8::String::Utf8Value(
-                    dimObj->Get(String::New("size"))->ToString()));
-
-            const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
-
-            if (size)
-            {
-                const std::string name(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("name"))->ToString()));
-
-                const std::string baseTypeName(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("type"))->ToString()));
-
-                const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-                if (session->schema().pdalLayout().hasDim(id))
-                {
-                    dims.push_back(
-                            entwine::DimInfo(
-                                name,
-                                baseTypeName,
-                                size));
-                }
-            }
+            bbox = parseBBox(query->Get(bboxSymbol));
+            if (!bbox.exists()) return readCommand;
         }
 
-        entwine::Schema schema(dims);
+        query->Delete(depthBeginSymbol);
+        query->Delete(depthEndSymbol);
+        query->Delete(bboxSymbol);
 
-        // Unindexed read - starting offset and count supplied.
-        if (
-            args.Length() == 8 &&
-            isDefined(args[4]) && isInteger(args[4]) &&
-            isDefined(args[5]) && isInteger(args[5]))
+        if (isEmpty(query))
         {
-            const std::size_t start(args[4]->Uint32Value());
-            const std::size_t count(args[5]->Uint32Value());
-
-            if (start < session->getNumPoints())
-            {
-                readCommand = new ReadCommandUnindexed(
-                        session,
-                        itcBufferPool,
-                        readId,
-                        host,
-                        port,
-                        compress,
-                        schema,
-                        start,
-                        count,
-                        queryCallback,
-                        dataCallback);
-            }
-            else
-            {
-                errorCallback(
-                        queryCallback,
-                        "Invalid 'start' in 'read' request");
-            }
-        }
-        // Quad index query, bounded and unbounded.
-        else if (
-            args.Length() == 9 &&
-            (
-                (isDefined(args[4]) &&
-                    args[4]->IsArray() &&
-                    Array::Cast(*args[4])->Length() >= 4) ||
-                !isDefined(args[4])
-            ) &&
-            isDefined(args[5]) && isInteger(args[5]) &&
-            isDefined(args[6]) && isInteger(args[6]))
-        {
-            const std::size_t depthBegin(args[5]->Uint32Value());
-            const std::size_t depthEnd(args[6]->Uint32Value());
-
-            if (isDefined(args[4]))
-            {
-                Local<Array> bbox(Array::Cast(*args[4]));
-
-                if (bbox->Get(Integer::New(0))->IsNumber() &&
-                    bbox->Get(Integer::New(1))->IsNumber() &&
-                    bbox->Get(Integer::New(2))->IsNumber() &&
-                    bbox->Get(Integer::New(3))->IsNumber())
-                {
-                    const entwine::Point min(
-                            bbox->Get(Integer::New(0))->NumberValue(),
-                            bbox->Get(Integer::New(1))->NumberValue());
-                    const entwine::Point max(
-                            bbox->Get(Integer::New(2))->NumberValue(),
-                            bbox->Get(Integer::New(3))->NumberValue());
-
-                    if (max.x >= min.x && max.y >= min.y)
-                    {
-                        readCommand = new ReadCommandBoundedQuadIndex(
-                                session,
-                                itcBufferPool,
-                                readId,
-                                host,
-                                port,
-                                compress,
-                                schema,
-                                entwine::BBox(min, max),
-                                depthBegin,
-                                depthEnd,
-                                queryCallback,
-                                dataCallback);
-                    }
-                    else
-                    {
-                        errorCallback(queryCallback, "Invalid coords in query");
-                    }
-                }
-                else
-                {
-                    errorCallback(queryCallback, "Invalid coord types in query");
-                }
-            }
-            else
-            {
-
-                readCommand = new ReadCommandQuadIndex(
-                        session,
-                        itcBufferPool,
-                        readId,
-                        host,
-                        port,
-                        compress,
-                        schema,
-                        depthBegin,
-                        depthEnd,
-                        queryCallback,
-                        dataCallback);
-            }
-
-        }
-        // Custom bounds rasterized query.
-        else if (
-            args.Length() == 8 &&
-            (isDefined(args[4]) &&
-                args[4]->IsArray() &&
-                Array::Cast(*args[4])->Length() >= 4) &&
-            (isDefined(args[5]) &&
-                args[5]->IsArray() &&
-                Array::Cast(*args[5])->Length() == 2))
-        {
-            Local<Array> bbox(Array::Cast(*args[4]));
-            Local<Array> dims(Array::Cast(*args[5]));
-
-            if (bbox->Get(Integer::New(0))->IsNumber() &&
-                bbox->Get(Integer::New(1))->IsNumber() &&
-                bbox->Get(Integer::New(2))->IsNumber() &&
-                bbox->Get(Integer::New(3))->IsNumber() &&
-                isInteger(dims->Get(Integer::New(0))) &&
-                isInteger(dims->Get(Integer::New(1))))
-            {
-                double xMin(
-                        bbox->Get(Integer::New(0))->NumberValue());
-                double yMin(
-                        bbox->Get(Integer::New(1))->NumberValue());
-                double xMax(
-                        bbox->Get(Integer::New(2))->NumberValue());
-                double yMax(
-                        bbox->Get(Integer::New(3))->NumberValue());
-
-                const std::size_t xNum(
-                        dims->Get(Integer::New(0))->Uint32Value());
-                const std::size_t yNum(
-                        dims->Get(Integer::New(1))->Uint32Value());
-
-                if (xMax >= xMin && yMax >= xMin)
-                {
-                    const double xStep(
-                            (xMax - xMin) / static_cast<double>(xNum));
-                    const double yStep(
-                            (yMax - yMin) / static_cast<double>(yNum));
-
-                    const RasterMeta customRasterMeta(
-                            xMin,
-                            xMax,
-                            xStep,
-                            yMin,
-                            yMax,
-                            yStep);
-
-                    readCommand = new ReadCommandRastered(
-                            session,
-                            itcBufferPool,
-                            readId,
-                            host,
-                            port,
-                            compress,
-                            schema,
-                            customRasterMeta,
-                            queryCallback,
-                            dataCallback);
-                }
-                else
-                {
-                    errorCallback(queryCallback, "Invalid coords in query");
-                }
-            }
-            else
-            {
-                errorCallback(queryCallback, "Invalid coord types in query");
-            }
-        }
-        else if (
-            args.Length() == 7 &&
-            isDefined(args[4]) && isInteger(args[4]))
-        {
-            const std::size_t level(args[4]->Uint32Value());
-
-            readCommand = new ReadCommandQuadLevel(
+            readCommand = new ReadCommandQuadIndex(
                     session,
                     itcBufferPool,
                     readId,
                     host,
                     port,
                     compress,
-                    schema,
-                    level,
-                    queryCallback,
-                    dataCallback);
-        }
-        else
-        {
-            errorCallback(queryCallback, "Could not identify 'read' from args");
+                    dims,
+                    bbox,
+                    depthBegin,
+                    depthEnd,
+                    readCb,
+                    dataCb);
         }
     }
-    else
+    else if (query->HasOwnProperty(rasterizeSymbol))
     {
-        errorCallback(
-                queryCallback,
-                "Host, port, and callback must be supplied");
+        const std::size_t rasterize(query->Get(rasterizeSymbol)->Uint32Value());
+
+        entwine::BBox bbox;
+
+        if (query->HasOwnProperty(bboxSymbol))
+        {
+            bbox = parseBBox(query->Get(bboxSymbol));
+            if (!bbox.exists()) return readCommand;
+        }
+
+        query->Delete(rasterizeSymbol);
+        query->Delete(bboxSymbol);
+
+        if (isEmpty(query))
+        {
+            readCommand = new ReadCommandRastered(
+                    session,
+                    itcBufferPool,
+                    readId,
+                    host,
+                    port,
+                    compress,
+                    dims,
+                    bbox,
+                    rasterize,
+                    readCb,
+                    dataCb);
+        }
+    }
+    else if (isEmpty(query))
+    {
+        readCommand = new ReadCommandUnindexed(
+                session,
+                itcBufferPool,
+                readId,
+                host,
+                port,
+                compress,
+                dims,
+                readCb,
+                dataCb);
     }
 
-    //scope.Close(Undefined());
     return readCommand;
 }
 
