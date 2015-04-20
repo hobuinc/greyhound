@@ -214,15 +214,20 @@ app.post('/read/:resource', function(req, res) {
                     console.log('Socket force-closed:', err);
                 });
 
-                res.json({
+                var response({
                     readId: readId,
                     numPoints: numPoints,
                     numBytes: numBytes,
-                    rasterMeta: rasterMeta,
                     message:
                         'Request queued for transmission to ' +
                         host + ':' + port,
-                });
+                };
+
+                if (rasterMeta) {
+                    response.rasterMeta = rasterMeta;
+                }
+
+                res.json(response);
             }
         };
 
