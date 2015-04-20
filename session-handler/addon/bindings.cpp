@@ -140,6 +140,47 @@ namespace
 
         return dims;
     }
+
+    v8::Local<v8::Value> getRasterMeta(ReadCommand* readCommand)
+    {
+        v8::Local<v8::Value> result(Local<Value>::New(Undefined()));
+
+        if (readCommand->rasterize())
+        {
+            ReadCommandRastered* readCommandRastered(
+                    static_cast<ReadCommandRastered*>(readCommand));
+
+            if (!readCommandRastered)
+                throw std::runtime_error("Invalid ReadCommand state");
+
+            const RasterMeta rasterMeta(
+                    readCommandRastered->rasterMeta());
+
+            Local<Object> rasterObj(Object::New());
+            rasterObj->Set(
+                    String::NewSymbol("xBegin"),
+                    Number::New(rasterMeta.xBegin));
+            rasterObj->Set(
+                    String::NewSymbol("xStep"),
+                    Number::New(rasterMeta.xStep));
+            rasterObj->Set(
+                    String::NewSymbol("xNum"),
+                    Integer::New(rasterMeta.xNum()));
+            rasterObj->Set(
+                    String::NewSymbol("yBegin"),
+                    Number::New(rasterMeta.yBegin));
+            rasterObj->Set(
+                    String::NewSymbol("yStep"),
+                    Number::New(rasterMeta.yStep));
+            rasterObj->Set(
+                    String::NewSymbol("yNum"),
+                    Integer::New(rasterMeta.yNum()));
+
+            result = v8::Local<v8::Value>::New(rasterObj);
+        }
+
+        return result;
+    }
 }
 
 namespace ghEnv
@@ -567,75 +608,18 @@ Handle<Value> Bindings::read(const Arguments& args)
 
             const std::string id(readCommand->readId());
 
-            if (readCommand->rasterize())
+            // Call the initial callback.
             {
-                ReadCommandRastered* readCommandRastered(
-                        static_cast<ReadCommandRastered*>(readCommand));
-
-                if (readCommandRastered)
-                {
-                    const RasterMeta rasterMeta(
-                            readCommandRastered->rasterMeta());
-
-                    Local<Object> rasterObj(Object::New());
-                    rasterObj->Set(
-                            String::NewSymbol("xBegin"),
-                            Number::New(rasterMeta.xBegin));
-                    rasterObj->Set(
-                            String::NewSymbol("xStep"),
-                            Number::New(rasterMeta.xStep));
-                    rasterObj->Set(
-                            String::NewSymbol("xNum"),
-                            Integer::New(rasterMeta.xNum()));
-                    rasterObj->Set(
-                            String::NewSymbol("yBegin"),
-                            Number::New(rasterMeta.yBegin));
-                    rasterObj->Set(
-                            String::NewSymbol("yStep"),
-                            Number::New(rasterMeta.yStep));
-                    rasterObj->Set(
-                            String::NewSymbol("yNum"),
-                            Integer::New(rasterMeta.yNum()));
-
-                    const unsigned argc = 10;
-                    Local<Value> argv[argc] =
-                    {
-                        Local<Value>::New(Null()), // err
-                        Local<Value>::New(String::New(id.data(), id.size())),
-                        Local<Value>::New(Integer::New(
-                                    readCommand->numPoints())),
-                        Local<Value>::New(Integer::New(
-                                    readCommand->numBytes())),
-                        Local<Value>::New(rasterObj)
-                    };
-
-                    readCommand->readCb()->Call(
-                        Context::GetCurrent()->Global(), argc, argv);
-                }
-                else
-                {
-                    Status status(500, std::string("Invalid state"));
-
-                    const unsigned argc = 1;
-                    Local<Value> argv[argc] = { status.toObject() };
-
-                    readCommand->readCb()->Call(
-                        Context::GetCurrent()->Global(), argc, argv);
-                }
-            }
-            else
-            {
-                const unsigned argc = 4;
+                const unsigned argc = 5;
                 Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
                     Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes()))
+                    Local<Value>::New(Integer::New(readCommand->numBytes())),
+                    getRasterMeta(readCommand)
                 };
 
-                // Call the provided callback to return the status of the
-                // data about to be streamed to the remote host.
                 readCommand->readCb()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
             }
