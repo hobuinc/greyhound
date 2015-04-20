@@ -519,8 +519,9 @@ Handle<Value> Bindings::read(const Arguments& args)
     if (schemaArray->Length())
     {
         dims = parseDims(schemaArray, obj->m_session->schema());
-        std::cout << "Dims: " << dims.size() << std::endl;
-        if (!dims.size()) errMsg += "\t'schema' has no valid dimensions";
+
+        if (!dims.size())
+            errMsg += "\t'schema' has no valid dimensions";
     }
 
     Persistent<Function> readCb(
@@ -545,17 +546,17 @@ Handle<Value> Bindings::read(const Arguments& args)
             Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
 
     ReadCommand* readCommand(
-        ReadCommandFactory::create(
-            obj->m_session,
-            obj->m_itcBufferPool,
-            readId,
-            host,
-            port,
-            dims,
-            compress,
-            query,
-            readCb,
-            dataCb));
+            ReadCommandFactory::create(
+                obj->m_session,
+                obj->m_itcBufferPool,
+                readId,
+                host,
+                port,
+                dims,
+                compress,
+                query,
+                readCb,
+                dataCb));
 
     if (!readCommand)
     {
