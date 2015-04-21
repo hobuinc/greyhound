@@ -214,7 +214,7 @@ app.post('/read/:resource', function(req, res) {
                     console.log('Socket force-closed:', err);
                 });
 
-                var response({
+                var response = {
                     readId: readId,
                     numPoints: numPoints,
                     numBytes: numBytes,
