@@ -50,7 +50,7 @@ private:
     virtual void readPoint(
             char* pos,
             const entwine::Schema& schema,
-            bool rasterize) const = 0;
+            bool rasterize) = 0;
 
     virtual bool eof() const = 0;
 

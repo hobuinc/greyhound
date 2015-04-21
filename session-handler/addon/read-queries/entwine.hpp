@@ -16,7 +16,7 @@ public:
             bool compress,
             bool rasterize,
             entwine::Reader& entwine,
-            const std::vector<std::size_t>& ids);
+            std::vector<std::size_t> ids);
     ~EntwineReadQuery();
 
     virtual bool eof() const;
@@ -30,6 +30,6 @@ private:
     virtual void readPoint(
             char* pos,
             const entwine::Schema& schema,
-            bool rasterize) const;
+            bool rasterize);
 };
 

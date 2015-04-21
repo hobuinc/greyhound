@@ -3,12 +3,15 @@
 
 #include <glob.h>   // TODO
 
+#include <pdal/StageFactory.hpp>
+
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/reader.hpp>
 
 #include "read-queries/entwine.hpp"
+#include "read-queries/unindexed.hpp"
 #include "types/paths.hpp"
 #include "util/buffer-pool.hpp"
 
@@ -42,8 +45,9 @@ namespace
     }
 }
 
-Session::Session()
-    : m_initOnce()
+Session::Session(const pdal::StageFactory& stageFactory)
+    : m_stageFactory(stageFactory)
+    , m_initOnce()
     , m_source()
     , m_entwine()
     , m_name()
@@ -64,9 +68,15 @@ bool Session::initialize(const std::string& name, const Paths& paths)
 
         resolveSource();
         resolveIndex();
+
+        std::cout << "Source for " << name << ": " <<
+            (sourced() ? "FOUND" : "NOT found") << std::endl;
+
+        std::cout << "Index for " << name << ": " <<
+            (indexed() ? "FOUND" : "NOT found") << std::endl;
     });
 
-    return (sourced() || indexed());
+    return sourced() || indexed();
 }
 
 std::size_t Session::getNumPoints()
@@ -89,12 +99,13 @@ std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const bool compress)
 {
-    throw std::runtime_error("TODO - Session::queryUnindexed");
-
     if (resolveSource())
     {
-        // TODO Contents.
-        return std::shared_ptr<ReadQuery>();
+        return std::shared_ptr<ReadQuery>(
+                new UnindexedReadQuery(
+                    schema,
+                    compress,
+                    *m_source));
     }
     else
     {
@@ -142,54 +153,90 @@ std::shared_ptr<ReadQuery> Session::query(
     return std::shared_ptr<ReadQuery>();
 }
 
-const entwine::Schema& Session::schema() const
+const entwine::Schema& Session::schema()
 {
-    return m_entwine->schema();
+    if (indexed()) return m_entwine->schema();
+    else return m_source->schema();
+}
+
+bool Session::sourced()
+{
+    std::lock_guard<std::mutex> lock(m_sourceMutex);
+    return m_source.get() != 0;
+}
+
+bool Session::indexed()
+{
+    std::lock_guard<std::mutex> lock(m_indexMutex);
+    return m_entwine.get() != 0;
 }
 
 bool Session::resolveSource()
 {
-    if (!sourced())
+    std::lock_guard<std::mutex> lock(m_sourceMutex);
+    if (!m_source)
     {
         const auto sources(resolve(m_paths->inputs, m_name));
 
         if (sources.size() > 1)
         {
             std::cout << "Found competing sources for " << m_name << std::endl;
-            std::cout << "\tUsing: " << sources[0] << std::endl;
         }
 
         if (sources.size())
         {
-            m_source = sources[0];
+            std::size_t i(0);
+
+            while (!m_source && i < sources.size())
+            {
+                const std::string path(sources[i++]);
+                const std::string driver(
+                        m_stageFactory.inferReaderDriver(path));
+
+                if (driver.size())
+                {
+                    try
+                    {
+                        m_source.reset(
+                                new SourceManager(
+                                    m_stageFactory,
+                                    path,
+                                    driver));
+                    }
+                    catch (...)
+                    {
+                        std::cout << "Bad source: " << path << std::endl;
+                        m_source.reset(0);
+                    }
+                }
+            }
         }
     }
 
-    return sourced();
+    return m_source.get() != 0;
 }
 
 bool Session::resolveIndex()
 {
-    if (!indexed())
+    std::lock_guard<std::mutex> lock(m_indexMutex);
+    if (!m_entwine)
     {
         try
         {
             entwine::S3Info s3Info(
-                m_paths->s3Info.baseAwsUrl,
-                m_name,
-                m_paths->s3Info.awsAccessKeyId,
-                m_paths->s3Info.awsSecretAccessKey);
+                    m_paths->s3Info.baseAwsUrl,
+                    m_name,
+                    m_paths->s3Info.awsAccessKeyId,
+                    m_paths->s3Info.awsSecretAccessKey);
 
-            std::cout << "Making reader: " << m_name << std::endl;
             m_entwine.reset(new entwine::Reader(s3Info, 128));
         }
         catch (...)
         {
-            std::cout << "Couldn't find index: " << m_name << std::endl;
             m_entwine.reset();
         }
     }
 
-    return indexed();
+    return m_entwine.get() != 0;
 }
 

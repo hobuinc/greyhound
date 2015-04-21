@@ -11,6 +11,9 @@
 
                 './addon/read-queries/base.cpp',
                 './addon/read-queries/entwine.cpp',
+                './addon/read-queries/unindexed.cpp',
+
+                './addon/types/source-manager.cpp',
 
                 './addon/util/buffer-pool.cpp',
                 './addon/util/once.cpp'

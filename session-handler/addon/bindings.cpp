@@ -6,6 +6,7 @@
 #include <openssl/crypto.h>
 
 #include <pdal/PointLayout.hpp>
+#include <pdal/StageFactory.hpp>
 
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
@@ -28,7 +29,9 @@ namespace
     // TODO Configure.
     const std::size_t numBuffers = 1024;
     const std::size_t maxReadLength = 65536;
-    static ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
+    ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
+
+    std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
@@ -241,7 +244,7 @@ namespace ghEnv
 Persistent<Function> Bindings::constructor;
 
 Bindings::Bindings()
-    : m_session(new Session())
+    : m_session(new Session(*stageFactory))
     , m_itcBufferPool(itcBufferPool)
 {
     ghEnv::once.ensure([]()->void {
@@ -358,11 +361,10 @@ Handle<Value> Bindings::create(const Arguments& args)
 
     const Paths paths(s3Info, inputs, output);
 
-    // Store everything we'll need to perforasterMeta initialization.
+    // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
     req->data = new CreateData(obj->m_session, name, paths, callback);
 
-    std::cout << "Queueing create" << std::endl;
     uv_queue_work(
         uv_default_loop(),
         req,

@@ -4,11 +4,13 @@
 #include <memory>
 #include <vector>
 
+#include "types/source-manager.hpp"
 #include "util/once.hpp"
 
 namespace pdal
 {
     class PointContext;
+    class StageFactory;
 }
 
 namespace entwine
@@ -25,19 +27,18 @@ class Paths;
 class Session
 {
 public:
-    Session();
+    Session(const pdal::StageFactory& stageFactory);
     ~Session();
 
     // Returns true if initialization was successful.  If false, this session
     // should not be used.
     bool initialize(const std::string& name, const Paths& paths);
 
-    // Queries.
     std::size_t getNumPoints();
     std::string getStats();
     std::string getSrs();
 
-    // Read un-indexed data with an offset and a count.
+    // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(
             const entwine::Schema& schema,
             bool compress);
@@ -59,18 +60,23 @@ public:
             std::size_t rasterize,
             RasterMeta& rasterMeta);
 
-    const entwine::Schema& schema() const;
+    const entwine::Schema& schema();
 
 private:
-    bool sourced() const { return m_source.size(); }    // Have data source?
-    bool indexed() const { return !!m_entwine; }        // Have index?
+    bool sourced();
+    bool indexed();
 
     bool resolveSource();
     bool resolveIndex();
 
+    const pdal::StageFactory& m_stageFactory;
+
     Once m_initOnce;
-    std::string m_source;
+    std::unique_ptr<SourceManager> m_source;
     std::unique_ptr<entwine::Reader> m_entwine;
+
+    std::mutex m_sourceMutex;
+    std::mutex m_indexMutex;
 
     std::string m_name;
     std::unique_ptr<Paths> m_paths;
