@@ -81,7 +81,8 @@ bool Session::initialize(const std::string& name, const Paths& paths)
 
 std::size_t Session::getNumPoints()
 {
-    return m_entwine->numPoints();
+    if (indexed()) return m_entwine->numPoints();
+    else return m_source->numPoints();
 }
 
 std::string Session::getStats()
