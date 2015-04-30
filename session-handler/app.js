@@ -158,7 +158,7 @@ app.post('/read/:resource', function(req, res) {
     var query = req.body.query;
 
     var schema = query.schema || [];
-    var compress = query.hasOwnProperty('compress') && query.compress;
+    var compress = query.hasOwnProperty('compress') && !!query.compress;
 
     // Simplify our query decision tree for later.  Technically these values
     // are specified via query parameters, but they aren't relevant for
