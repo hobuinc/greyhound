@@ -10,13 +10,6 @@
 
 var credentials = {
     aws: {
-        // Base URL to access the specified bucket (may specify a region).
-        url:    's3.amazonaws.com',
-
-        // Base bucket name to put/read serialized pointcloud data.
-        bucket: 'my-bucket-name-goes-here',
-
-        // Credentials for the above specified URL/bucket.
         access: 'AwsAccessKeyId-goes-here',
         hidden: 'AwsHiddenAccessKey-goes-here'
     }

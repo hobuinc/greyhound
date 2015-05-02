@@ -25,17 +25,17 @@ config.sh = {
     // If not supplied, S3 capabilities will be disabled.
     aws: awsCredentials,
 
-    // Where to find unindex pointcloud source files.  If supplied, the AWS
-    // remote path will be searched first.
+    // Where to find unindexed pointcloud source files and indexed
+    // subdirectories, searched in order.
     inputs: [
-        '/vagrant/examples/data/'
+        '/vagrant/examples/data'
+        // , 's3://my-index-bucket'
     ],
 
-    // TODO Allow S3 here.
     // Directory for Greyhound to serialize its indexed data.
     //
     // Default: '/var/greyhound/serial'
-    output: '/var/greyhound/serial',
+    output: '/var/greyhound/serial',    // 's3://greyhound-index-bucket'
 
     // If false, component will not run.
     enable: true,

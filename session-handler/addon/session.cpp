@@ -5,6 +5,7 @@
 
 #include <pdal/StageFactory.hpp>
 
+#include <entwine/drivers/arbiter.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/tree/branches/clipper.hpp>
@@ -52,19 +53,24 @@ Session::Session(const pdal::StageFactory& stageFactory)
     , m_entwine()
     , m_name()
     , m_paths()
+    , m_arbiter()
 { }
 
 Session::~Session()
 { }
 
-bool Session::initialize(const std::string& name, const Paths& paths)
+bool Session::initialize(
+        const std::string& name,
+        const Paths& paths,
+        std::shared_ptr<entwine::Arbiter> arbiter)
 {
-    m_initOnce.ensure([this, &name, &paths]()
+    m_initOnce.ensure([this, &name, &paths, arbiter]()
     {
         std::cout << "Discovering " << name << std::endl;
 
         m_name = name;
         m_paths.reset(new Paths(paths));
+        m_arbiter = arbiter;
 
         resolveSource();
         resolveIndex();
@@ -174,6 +180,8 @@ bool Session::indexed()
 
 bool Session::resolveSource()
 {
+    // TODO For now only works for local paths.  Support any Source the Arbiter
+    // contains.
     std::lock_guard<std::mutex> lock(m_sourceMutex);
     if (!m_source)
     {
@@ -222,19 +230,25 @@ bool Session::resolveIndex()
     std::lock_guard<std::mutex> lock(m_indexMutex);
     if (!m_entwine)
     {
-        try
-        {
-            entwine::S3Info s3Info(
-                    m_paths->s3Info.baseAwsUrl,
-                    m_name,
-                    m_paths->s3Info.awsAccessKeyId,
-                    m_paths->s3Info.awsSecretAccessKey);
+        std::vector<std::string> searchPaths(m_paths->inputs);
+        searchPaths.push_back(m_paths->output);
+        searchPaths.push_back("s3://");
 
-            m_entwine.reset(new entwine::Reader(s3Info, 128));
-        }
-        catch (...)
+        for (std::string path : searchPaths)
         {
-            m_entwine.reset();
+            try
+            {
+                if (path.size() && path.back() != '/') path.push_back('/');
+
+                entwine::Source source(m_arbiter->getSource(path + m_name));
+                m_entwine.reset(new entwine::Reader(source, 128, 8));
+            }
+            catch (...)
+            {
+                m_entwine.reset(0);
+            }
+
+            if (m_entwine) break;
         }
     }
 

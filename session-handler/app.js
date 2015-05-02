@@ -30,7 +30,7 @@ var express = require('express'),
 console.log('Read paths:', inputs);
 console.log('Write path:', output);
 if (aws)
-    console.log('S3 credentials enabled for', aws.url, aws.bucket);
+    console.log('S3 credentials enabled');
 else
     console.log('S3 serialization disabled - no credentials supplied');
 
