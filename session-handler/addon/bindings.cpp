@@ -8,6 +8,7 @@
 #include <pdal/PointLayout.hpp>
 #include <pdal/StageFactory.hpp>
 
+#include <entwine/drivers/s3.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -72,35 +73,38 @@ namespace
         return paths;
     }
 
-    entwine::S3Info parseS3Info(const v8::Local<v8::Value>& rawArg)
+    std::mutex initMutex;
+    std::shared_ptr<entwine::Arbiter> arbiter(0);
+
+    void parseAwsAuth(const v8::Local<v8::Value>& rawArg)
     {
-        entwine::S3Info info;
-        if (!rawArg->IsUndefined() && rawArg->IsObject())
+        std::lock_guard<std::mutex> lock(initMutex);
+
+        if (!arbiter)
         {
-            Local<Object> rawObj(Object::Cast(*rawArg));
+            entwine::DriverMap drivers;
 
-            const v8::Local<v8::Value>& rawUrl(
-                    rawObj->Get(String::NewSymbol("url")));
-            const v8::Local<v8::Value>& rawBucket(
-                    rawObj->Get(String::NewSymbol("bucket")));
-            const v8::Local<v8::Value>& rawAccess(
-                    rawObj->Get(String::NewSymbol("access")));
-            const v8::Local<v8::Value>& rawHidden(
-                    rawObj->Get(String::NewSymbol("hidden")));
+            if (!rawArg->IsUndefined() && rawArg->IsObject())
+            {
+                Local<Object> rawObj(Object::Cast(*rawArg));
 
-            const std::string url(
-                    *v8::String::Utf8Value(rawUrl->ToString()));
-            const std::string bucket(
-                    *v8::String::Utf8Value(rawBucket->ToString()));
-            const std::string access(
-                    *v8::String::Utf8Value(rawAccess->ToString()));
-            const std::string hidden(
-                    *v8::String::Utf8Value(rawHidden->ToString()));
+                const v8::Local<v8::Value>& rawAccess(
+                        rawObj->Get(String::NewSymbol("access")));
+                const v8::Local<v8::Value>& rawHidden(
+                        rawObj->Get(String::NewSymbol("hidden")));
 
-            return entwine::S3Info(url, bucket, access, hidden);
+                const std::string access(
+                        *v8::String::Utf8Value(rawAccess->ToString()));
+                const std::string hidden(
+                        *v8::String::Utf8Value(rawHidden->ToString()));
+
+                entwine::AwsAuth awsAuth(access, hidden);
+                drivers.insert(
+                        { "s3", std::make_shared<entwine::S3Driver>(awsAuth) });
+            }
+
+            arbiter.reset(new entwine::Arbiter(drivers));
         }
-
-        return info;
     }
 
     entwine::DimList parseDims(
@@ -322,7 +326,7 @@ Handle<Value> Bindings::create(const Arguments& args)
 
     std::size_t i(0);
     const auto& nameArg     (args[i++]);
-    const auto& s3Arg       (args[i++]);
+    const auto& awsAuthArg  (args[i++]);
     const auto& inputsArg   (args[i++]);
     const auto& outputArg   (args[i++]);
     const auto& cbArg       (args[i++]);
@@ -354,16 +358,16 @@ Handle<Value> Bindings::create(const Arguments& args)
         return scope.Close(Undefined());
     }
 
+    parseAwsAuth(awsAuthArg);
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const entwine::S3Info s3Info(parseS3Info(s3Arg));
     const std::vector<std::string> inputs(parsePathList(inputsArg));
     const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
 
-    const Paths paths(s3Info, inputs, output);
+    const Paths paths(inputs, output);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(obj->m_session, name, paths, callback);
+    req->data = new CreateData(obj->m_session, name, paths, arbiter, callback);
 
     uv_queue_work(
         uv_default_loop(),
@@ -376,7 +380,8 @@ Handle<Value> Bindings::create(const Arguments& args)
             {
                 if (!createData->session->initialize(
                         createData->name,
-                        createData->paths))
+                        createData->paths,
+                        createData->arbiter))
                 {
                     createData->status.set(404, "Not found");
                 }

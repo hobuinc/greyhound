@@ -15,6 +15,7 @@ namespace pdal
 
 namespace entwine
 {
+    class Arbiter;
     class BBox;
     class Schema;
     class Reader;
@@ -32,7 +33,10 @@ public:
 
     // Returns true if initialization was successful.  If false, this session
     // should not be used.
-    bool initialize(const std::string& name, const Paths& paths);
+    bool initialize(
+            const std::string& name,
+            const Paths& paths,
+            std::shared_ptr<entwine::Arbiter> arbiter);
 
     std::size_t getNumPoints();
     std::string getStats();
@@ -80,6 +84,7 @@ private:
 
     std::string m_name;
     std::unique_ptr<Paths> m_paths;
+    std::shared_ptr<entwine::Arbiter> m_arbiter;
 
     // Disallow copy/assignment.
     Session(const Session&);
