@@ -102,6 +102,18 @@ std::string Session::getSrs()
     return "";
 }
 
+entwine::BBox Session::getBounds()
+{
+    if (resolveIndex())
+    {
+        return m_entwine->bbox();
+    }
+    else
+    {
+        throw std::runtime_error("No index found for " + m_name);
+    }
+}
+
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const bool compress)
@@ -241,7 +253,7 @@ bool Session::resolveIndex()
                 if (path.size() && path.back() != '/') path.push_back('/');
 
                 entwine::Source source(m_arbiter->getSource(path + m_name));
-                m_entwine.reset(new entwine::Reader(source, 128, 8));
+                m_entwine.reset(new entwine::Reader(source, 128, 128));
             }
             catch (...)
             {

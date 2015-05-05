@@ -139,6 +139,14 @@ app.get('/srs/:resource', function(req, res) {
     });
 });
 
+app.get('/bounds/:resource', function(req, res) {
+    getSession(req.params.resource, function(err, session) {
+        if (err) return error(res, err);
+
+        res.json({ bounds: session.getBounds() });
+    });
+});
+
 app.post('/cancel/:resource', function(req, res) {
     getSession(res, req.params.resource, function(err, session) {
         if (err) return error(res, err);

@@ -63,6 +63,14 @@ var
         });
     }
 
+    Controller.prototype.bounds = function(resource, cb) {
+        console.log("controller::bounds");
+        affinity.get(resource, function(err, sessionHandler) {
+            if (err) return cb(err);
+            web.get(sessionHandler, '/bounds/' + resource, cb);
+        });
+    }
+
     Controller.prototype.cancel = function(resource, readId, cb) {
         var self = this;
         console.log("controller::cancel");
