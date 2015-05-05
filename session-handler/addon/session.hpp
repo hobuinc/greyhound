@@ -41,6 +41,7 @@ public:
     std::size_t getNumPoints();
     std::string getStats();
     std::string getSrs();
+    entwine::BBox getBounds();
 
     // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(

@@ -133,6 +133,12 @@ if (
             });
         });
 
+        app.get('/pipeline/:pipeline/bounds', function(req, res) {
+            controller.bounds(req.params.pipeline, function(err, data) {
+                res.json(extend(err, data, 'bounds'));
+            });
+        });
+
         app.get('/pipeline/:pipeline/fills', function(req, res) {
             controller.fills(req.params.pipeline, function(err, data) {
                 res.json(extend(err, data, 'fills'));

@@ -30,6 +30,7 @@
                 '-Wall',
                 '-Werror',
                 '-pedantic',
+                '-pthread',
                 '-fexceptions',
                 '-frtti'
             ],
@@ -37,7 +38,7 @@
                 'libraries': [
                     '-lpdalcpp',
                     '-lentwine',
-                    '-lpthread'
+                    '-pthread'
                 ]
             }
         }

@@ -288,6 +288,8 @@ void Bindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getStats)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
         FunctionTemplate::New(getSrs)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("getBounds"),
+        FunctionTemplate::New(getBounds)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
 
@@ -477,6 +479,23 @@ Handle<Value> Bindings::getSrs(const Arguments& args)
     const std::string wkt(obj->m_session->getSrs());
 
     return scope.Close(String::New(wkt.data(), wkt.size()));
+}
+
+Handle<Value> Bindings::getBounds(const Arguments& args)
+{
+    HandleScope scope;
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+
+    const entwine::BBox bbox(obj->m_session->getBounds());
+
+    v8::Handle<v8::Array> jsBounds = v8::Array::New(4);
+
+    jsBounds->Set(0, v8::Number::New(bbox.min().x));
+    jsBounds->Set(1, v8::Number::New(bbox.min().y));
+    jsBounds->Set(2, v8::Number::New(bbox.max().x));
+    jsBounds->Set(3, v8::Number::New(bbox.max().y));
+
+    return scope.Close(jsBounds);
 }
 
 Handle<Value> Bindings::read(const Arguments& args)

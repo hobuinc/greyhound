@@ -68,6 +68,10 @@ var
             controller.srs(msg.pipeline, cb);
         });
 
+        commander.on('bounds', function(msg, cb) {
+            controller.bounds(msg.pipeline, cb);
+        });
+
         commander.on('fills', function(msg, cb) {
             controller.fills(msg.pipeline, cb);
         });
