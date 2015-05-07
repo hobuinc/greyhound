@@ -8,18 +8,15 @@ var
     methodOverride = require('method-override'),
     lessMiddleware = require('less-middleware'),
 
-    disco = require('../../../common').disco,
     console = require('clim')()
 
     controllerConfig = (require('../../../config').cn || { }),
-    httpConfig = (controllerConfig ? controllerConfig.http  : { }),
-    wsConfig   = (controllerConfig ? controllerConfig.ws    : { })
+    httpConfig = (controllerConfig ? controllerConfig.http : { }),
     exposedHeaders =
             'X-Greyhound-Num-Points,' +
             'X-Greyhound-Read-ID,' +
             'X-Greyhound-Raster-Meta'
     ;
-
 
 if (
         httpConfig.headers &&
@@ -74,11 +71,11 @@ if (
             app.use(lessMiddleware(path.join(__dirname, publicDir)));
             app.use(express.static(__dirname + publicDir));
 
-            app.get('/ws/:pipelineId', function(req, res) {
+            app.get('/ws/:resourceId', function(req, res) {
                 res.render('wsView');
             });
 
-            app.get('/http/:pipelineId', function(req, res) {
+            app.get('/http/:resourceId', function(req, res) {
                 res.render('httpView');
             });
         }
@@ -86,15 +83,9 @@ if (
         registerCommands(self.controller, app);
 
         var server = http.createServer(app);
-        var port = httpConfig.port || 8081;
+        server.listen(self.port);
 
-        disco.register('web', port, function(err, service) {
-            if (err) return console.log("Failed to register service:", err);
-
-            server.listen(service.port, function () {
-                console.log('HTTP server running on port ' + port);
-            });
-        });
+        console.log('HTTP server running on port: ' + self.port);
     }
 
     var extend = function(err, response, command) {
@@ -109,51 +100,51 @@ if (
     }
 
     var registerCommands = function(controller, app) {
-        app.get('/pipeline/:pipeline/numPoints', function(req, res) {
-            controller.numPoints(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/numPoints', function(req, res) {
+            controller.numPoints(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'numPoints'));
             });
         });
 
-        app.get('/pipeline/:pipeline/schema', function(req, res) {
-            controller.schema(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/schema', function(req, res) {
+            controller.schema(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'schema'));
             });
         });
 
-        app.get('/pipeline/:pipeline/stats', function(req, res) {
-            controller.stats(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/stats', function(req, res) {
+            controller.stats(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'stats'));
             });
         });
 
-        app.get('/pipeline/:pipeline/srs', function(req, res) {
-            controller.srs(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/srs', function(req, res) {
+            controller.srs(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'srs'));
             });
         });
 
-        app.get('/pipeline/:pipeline/bounds', function(req, res) {
-            controller.bounds(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/bounds', function(req, res) {
+            controller.bounds(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'bounds'));
             });
         });
 
-        app.get('/pipeline/:pipeline/fills', function(req, res) {
-            controller.fills(req.params.pipeline, function(err, data) {
+        app.get('/resource/:resource/fills', function(req, res) {
+            controller.fills(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'fills'));
             });
         });
 
-        app.post('/pipeline/:pipeline/serialize', function(req, res) {
-            controller.serialize(req.params.pipeline, function(err, data) {
+        app.post('/resource/:resource/serialize', function(req, res) {
+            controller.serialize(req.params.resource, function(err, data) {
                 res.json(extend(err, data, 'serialize'));
             });
         });
 
-        app.delete('/pipeline/:pipeline/readId/:readId', function(req, res) {
+        app.delete('/resource/:resource/readId/:readId', function(req, res) {
             controller.cancel(
-                req.params.pipeline,
+                req.params.resource,
                 req.params.readId,
                 function(err, data) {
                     res.json(extend(err, data, 'cancel'));
@@ -161,26 +152,31 @@ if (
             );
         });
 
-        app.get('/pipeline/:pipeline/read', function(req, res) {
+        app.get('/resource/:resource/read', function(req, res) {
             var params = req.query;
 
             controller.read(
-                req.params.pipeline,
+                req.params.resource,
                 params,
-                function(err, shRes) {
-                    if (err) return res.json(500, err);
+                function(err, props) {
+                    if (err) return res.json(err.code || 500, err.message);
 
-                    res.header('X-Greyhound-Num-Points', shRes.numPoints);
-                    res.header('X-Greyhound-Read-ID', shRes.readId);
+                    res.header('X-Greyhound-Num-Points', props.numPoints);
+                    res.header('X-Greyhound-Read-ID', props.readId);
                     res.header('Content-Type', 'application/octet-stream');
-                    if (shRes.rasterMeta) {
+                    if (props.rasterMeta) {
                         res.header(
                             'X-Greyhound-Raster-Meta',
                             JSON.stringify(shRes.rasterMeta));
                     }
                 },
-                function(data) { res.write(data); },
-                function() { res.end(); }
+                function(err, data, done) {
+                    if (err) return res.json(err.code || 500, err.message);
+
+                    res.write(data);
+
+                    if (done) res.end();
+                }
             );
         });
     }

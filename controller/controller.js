@@ -1,131 +1,185 @@
-var
-    _ = require('lodash'),
-    console = require('clim')(),
+var error = function(code, message) {
+    return { code: code, message: message };
+}
 
-    disco = require('../common').disco,
+var getTimeout = function(raw) {
+    if (raw != undefined && raw >= 0) return raw;
+    else return 30;
+}
 
-    Affinity = require('./lib/affinity').Affinity,
-    Listener = require('./lib/listener').Listener,
-    web = require('./lib/web'),
+var getSchema = function(json, cb) {
+    if (!json) {
+        return cb(null, []);
+    }
+    else {
+        try {
+            return cb(null, JSON.parse(json));
+        }
+        catch (e) {
+            return cb(error(400, 'Invalid schema'));
+        }
+    }
+}
+
+var console = require('clim')(),
 
     config = (require('../config').cn || { }),
+    inputs = config.inputs,
+    output = config.output,
+    aws = config.aws,
 
-    resourceTimeoutMinutes =
-        (function() {
-            if (config.hasOwnProperty('resourceTimeoutMinutes') &&
-                config.resourceTimeoutMinutes >= 0) {
+    Session = require('./build/Release/session').Bindings,
 
-                // May be zero to never expire pipelines.
-                return config.resourceTimeoutMinutes;
+    resourceIds = { }, // resource name -> session (one to one)
+    resourceTimeoutMinutes = getTimeout(config.resourceTimeoutMinutes)
+    ;
+
+var getSession = function(name, cb) {
+    var session;
+
+    if (resourceIds[name]) {
+        session = resourceIds[name];
+    }
+    else {
+        session = new Session();
+        resourceIds[name] = session;
+    }
+
+    // Call every time, even if this name was found in our session mapping, to
+    // ensure that initialization has finished before the session is used.
+    try {
+        console.log('Calling create on', name);
+        session.create(name, aws, inputs, output, function(err) {
+            if (err) {
+                console.warn(name, 'could not be created');
+                delete resourceIds[name];
             }
-            else {
-                return 30;
-            }
-        })(),
-    affinity = new Affinity(disco);
+
+            return cb(err, session);
+        });
+    }
+    catch (e) {
+        delete resourceIds[name];
+        console.warn('Caught exception in CREATE:', e);
+
+        return cb(error(500, 'Unknown error during create'));
+    }
+};
+
+console.log('Read paths:', inputs);
+console.log('Write path:', output);
+if (aws)
+    console.log('S3 credentials found');
+else
+    console.log('S3 disabled - no credentials supplied');
 
 (function() {
     'use strict';
 
-    var Controller = function() {
-        this.listeners = { }
-    }
+    var Controller = function() { }
 
     Controller.prototype.numPoints = function(resource, cb) {
         console.log("controller::numPoints");
-        affinity.get(resource, function(err, sessionHandler) {
+        getSession(resource, function(err, session) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/numPoints/' + resource, cb);
+            else return cb(null, session.getNumPoints());
         });
     }
 
     Controller.prototype.schema = function(resource, cb) {
         console.log("controller::schema");
-        affinity.get(resource, function(err, sessionHandler) {
+        getSession(resource, function(err, session) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/schema/' + resource, cb);
+            else return cb(null, session.getSchema());
         });
     }
 
     Controller.prototype.stats = function(resource, cb) {
         console.log("controller::stats");
-        affinity.get(resource, function(err, sessionHandler) {
+        getSession(resource, function(err, session) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/stats/' + resource, cb);
+
+            try {
+                var stats = JSON.parse(session.getStats());
+                return cb(null, stats);
+            }
+            catch (e) {
+                console.warn('Invalid stats -', resource);
+                return cb(error(500, 'Stats could not be parsed as JSON'));
+            }
         });
     }
 
     Controller.prototype.srs = function(resource, cb) {
         console.log("controller::srs");
-        affinity.get(resource, function(err, sessionHandler) {
+        getSession(resource, function(err, session) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/srs/' + resource, cb);
+            else return cb(null, session.getSrs());
         });
     }
 
     Controller.prototype.bounds = function(resource, cb) {
         console.log("controller::bounds");
-        affinity.get(resource, function(err, sessionHandler) {
+        getSession(resource, function(err, session) {
             if (err) return cb(err);
-            web.get(sessionHandler, '/bounds/' + resource, cb);
+            else return cb(null, session.getBounds());
         });
     }
 
     Controller.prototype.cancel = function(resource, readId, cb) {
-        var self = this;
-        console.log("controller::cancel");
-        if (!resource || !readId) return cb(new Error('Invalid params'));
-
-        var res = { cancelled: false };
-        var listeners = self.listeners;
-
-        if (listeners.hasOwnProperty(resource)) {
-            var listener = listeners[resource][readId];
-
-            if (listener) {
-                res.cancelled = true;
-                listener.cancel();
-
-                delete listeners[resource][readId];
-
-                if (Object.keys(listeners[resource]).length == 0) {
-                    delete listeners[resource];
-                }
-            }
-        }
-
-        return cb(null, res);
+        // TODO
+        getSession(resource, function(err, session) {
+            if (err) return cb(err);
+            else return cb(null, session.cancel(readId));
+        });
     }
 
-    Controller.prototype.read = function(resource, query, onInit, onData, onEnd)
-    {
-        var self = this;
-        var listeners = self.listeners;
+    Controller.prototype.read = function(resource, query, onInit, onData) {
         console.log("controller::read");
 
-        affinity.get(resource, function(err, sh) {
-            if (err) return onInit(err);
+        getSchema(query.schema, function(err, schema) {
+            if (err) return cb(err);
 
-            var listener = new Listener(onData, onEnd);
+            var compress = query.hasOwnProperty('compress') && !!query.compress;
 
-            listener.listen(function(address) {
-                var params = {
-                    'address':  address,
-                    'query':    query
-                };
-                var readPath = '/read/' + resource;
+            // Simplify our query decision tree for later.
+            delete query.schema;
+            delete query.compress;
 
-                web.post(sh, readPath, params, function(err, res) {
-                    if (!err && res.readId) {
-                        if (!listeners.hasOwnProperty[resource]) {
-                            listeners[resource] = { };
+            getSession(resource, function(err, session) {
+                if (err) return cb(err);
+
+                var readCb = function(
+                    err,
+                    readId,
+                    numPoints,
+                    numBytes,
+                    rasterMeta)
+                {
+                    if (err) {
+                        console.warn('controller::read::ERROR:', err);
+                        onInit(err);
+                    }
+                    else {
+                        var props = {
+                            readId: readId,
+                            numPoints: numPoints,
+                            numBytes: numBytes,
+                        };
+
+                        if (rasterMeta) {
+                            props.rasterMeta = rasterMeta;
                         }
 
-                        listeners[resource][res.readId] = listener;
+                        onInit(null, props);
                     }
+                };
 
-                    onInit(err, res);
-                });
+                var dataCb = function(err, data, done) {
+                    onData(err, data, done);
+                }
+
+                session.read(schema, compress, query, readCb, dataCb);
             });
         });
     }

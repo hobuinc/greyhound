@@ -10,17 +10,8 @@ var awsCredentials = (function() {
     }
 })();
 
-config.dist = {
-    // If false, component will not run.
-    enable: true,
-};
-
-// Session handler configuration.
-config.sh = {
-    // Specify a port on which to listen.  If omitted or null, the process will
-    // select an open port.
-    port: null,
-
+// Controller configuration.
+config.cn = {
     // AWS credentials - specified in the file: credentials.js, if it exists.
     // If not supplied, S3 capabilities will be disabled.
     aws: awsCredentials,
@@ -36,21 +27,6 @@ config.sh = {
     //
     // Default: '/var/greyhound/serial'
     output: '/var/greyhound/serial',    // 's3://greyhound-index-bucket'
-
-    // If false, component will not run.
-    enable: true,
-};
-
-// Controller configuration.
-config.cn = {
-    ws: {
-        // True to support a websocket interface.
-        enable: true,
-
-        // Specify a port on which to listen.  If omitted or null, the process
-        // will select an open port.
-        port: null,
-    },
 
     http: {
         // True to support an HTTP interface.
@@ -69,11 +45,24 @@ config.cn = {
 
         // Specify a port on which to listen.  If omitted or null, default is
         // 8081. This is not a public-facing port - haproxy will route to this
-        // port for non-websocket connections.
+        // port for HTTP requests.
         //
         // IMPORTANT: If a frontend proxy is used, this value must match the
         // backend web port specified in frontend-proxy/haproxy.cfg.
         port: 8081,
+    },
+
+    ws: {
+        // True to support a websocket interface.
+        enable: true,
+
+        // Specify a port on which to listen.  If omitted or null, default is
+        // 8082. This is not a public-facing port - haproxy will route to this
+        // port for websocket connections.
+        //
+        // IMPORTANT: If a frontend proxy is used, this value must match the
+        // backend web port specified in frontend-proxy/haproxy.cfg.
+        port: 8082,
     },
 
     // Time of inactivity per session handler, in minutes, after which to
@@ -88,33 +77,6 @@ config.cn = {
     //
     // Default: 30.
     resourceTimeoutMinutes: 30,
-
-    // If false, component will not run.
-    enable: true,
-};
-
-config.global = {
-    // Components that wish to terminate without restarting should exit with
-    // this error code.  The typical case for this would be if the component is
-    // disabled.  Any monitor program should not restart its child process if
-    // the child returns with this exit code.
-    //
-    // Should not be greater than 255, and should not be a reserved exit code
-    // or a code with any other meaning, so avoid 1-2, 64-78, 126-165, and 255.
-    //
-    // Default if omitted or null: 42.
-    quitForeverExitCode: 42,
-
-    // Number of times to relaunch components if they encounter an unexpected
-    // error.
-    //
-    // To relaunch eternally, omit this parameter or set it to null.  A value
-    // of zero means that components will exit forever if an unhandled error is
-    // encountered.  A positive value specifies the number of times to relaunch
-    // the component.  A negative value is treated the same way as a zero.
-    //
-    // Default: null.
-    relaunchAttempts: null,
 };
 
 module.exports = config;

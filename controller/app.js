@@ -1,23 +1,16 @@
 process.title = 'gh_cn';
 
 process.on('uncaughtException', function(err) {
-    console.log('Caught at top level: ' + err);
+    console.error('Caught at top level: ' + err);
 });
 
-var
-    console = require('clim')(),
+var console = require('clim')(),
+    config = (require('../config').cn || { }),
 
     Controller = require('./controller').Controller,
     WsHandler = require('./interfaces/ws/handler').WsHandler,
-    HttpHandler = require('./interfaces/http/handler').HttpHandler,
-
-    config = (require('../config').cn || { }),
-    globalConfig = (require('../config').global || { })
+    HttpHandler = require('./interfaces/http/handler').HttpHandler
     ;
-
-if (config.enable === false) {
-    process.exit(globalConfig.quitForeverExitCode || 42);
-}
 
 var controller = new Controller();
 
@@ -28,7 +21,7 @@ process.nextTick(function() {
     }
 
     if (config.hasOwnProperty('http') && config.http.enable) {
-        var httpHandler = new HttpHandler(controller, config.ws.port);
+        var httpHandler = new HttpHandler(controller, config.http.port);
         httpHandler.start();
     }
 });

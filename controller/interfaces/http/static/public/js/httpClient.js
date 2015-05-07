@@ -130,13 +130,13 @@
     var downloadData = function(setStatus, cb) {
         var url = w.location.host;
         var match = w.location.pathname.match('\/http\/([^\/]+)');
-        var pipelineId = match ? match[1] : null;
+        var resourceId = match ? match[1] : null;
 
-        if (!pipelineId) {
-            return cb('No pipeline selected!');
+        if (!resourceId) {
+            return cb('No resource selected!');
         }
 
-        var readUrl = 'http://' + url + '/pipeline/' + pipelineId + '/read';
+        var readUrl = 'http://' + url + '/resource/' + resourceId + '/read';
 
         var query = w.location.search;
         var sep = (query ? '&' : '?');
