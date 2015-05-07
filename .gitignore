@@ -17,4 +17,4 @@ frontend-proxy/hipache-log.txt
 examples/data/autzen.laz
 scripts/vagrant/pdal
 scripts/vagrant/entwine
-session-handler/build
+controller/build

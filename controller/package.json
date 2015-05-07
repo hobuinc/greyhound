@@ -1,11 +1,9 @@
 {
   "name": "controller",
   "private": true,
+  "gypfile": true,
   "version": "0.0.1",
   "dependencies": {
-    "async": "^0.9.0",
-    "clim": "^1.0.0",
-    "lodash": "^2.4.1",
-    "redis": "^0.12.1"
+    "clim": "^1.0.0"
   }
 }

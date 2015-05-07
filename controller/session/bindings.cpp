@@ -510,8 +510,6 @@ Handle<Value> Bindings::read(const Arguments& args)
     const std::string readId(generateReadId());
 
     std::size_t i(0);
-    const auto& hostArg     (args[i++]);
-    const auto& portArg     (args[i++]);
     const auto& schemaArg   (args[i++]);
     const auto& compressArg (args[i++]);
     const auto& queryArg    (args[i++]);
@@ -519,12 +517,6 @@ Handle<Value> Bindings::read(const Arguments& args)
     const auto& dataCbArg   (args[i++]);
 
     std::string errMsg("");
-
-    if (!hostArg->IsString())
-        errMsg += "\t'host' must be a string";
-
-    if (!portArg->IsNumber())
-        errMsg += "\t'port' must be a number";
 
     if (!schemaArg->IsArray())
         errMsg += "\t'schema' must be a string";
@@ -563,8 +555,6 @@ Handle<Value> Bindings::read(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    const std::string host(*v8::String::Utf8Value(hostArg->ToString()));
-    const std::size_t port(portArg->Uint32Value());
     const bool compress(compressArg->BooleanValue());
     Local<Object> query(queryArg->ToObject());
 
@@ -576,8 +566,6 @@ Handle<Value> Bindings::read(const Arguments& args)
                 obj->m_session,
                 obj->m_itcBufferPool,
                 readId,
-                host,
-                port,
                 dims,
                 compress,
                 query,

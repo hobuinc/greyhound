@@ -1,20 +1,14 @@
 PROXY?=TRUE
-COMPONENTS = gh_dist gh_sh gh_cn
+COMPONENTS = gh_cn
 CREDENTIALS = credentials.js
 
 # Directories that need to be copied to the installation path.
-SRC_DIRS = common \
-		   dist-handler \
-		   frontend-proxy \
-		   session-handler \
+SRC_DIRS = frontend-proxy \
 		   controller
 
 # Directories where we need to run 'npm install'.
 # 'npm install' will also be run at the top level.
-NPM_DIRS = common \
-		   dist-handler \
-		   examples/js \
-		   session-handler \
+NPM_DIRS = examples/js \
 		   test \
 		   controller \
 		   controller/interfaces/ws \
@@ -24,15 +18,14 @@ NPM_DIRS = common \
 
 required:
 	$(MAKE) npm
-	$(MAKE) cpp
 
 all:
 	$(MAKE) required
 	$(MAKE) examples
 
 cpp:
-	@echo Building session-handler.
-	$(MAKE) -C session-handler all
+	@echo Building C++ addon.
+	$(MAKE) -C controller all
 
 npm:
 	@echo Getting NPM dependencies.
@@ -47,7 +40,7 @@ test:
 	nodeunit test/unit.js
 
 clean:
-	$(MAKE) -C session-handler clean
+	$(MAKE) -C controller clean
 	$(MAKE) -C examples/cpp clean
 
 

@@ -30,8 +30,6 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            std::string host,
-            std::size_t port,
             bool compress,
             entwine::DimList dims,
             v8::Persistent<v8::Function> readCb,
@@ -70,8 +68,6 @@ protected:
     uv_async_t* m_async;
 
     const std::string m_readId;
-    const std::string m_host;
-    const std::size_t m_port;
     const bool m_compress;
     const entwine::Schema m_schema;
     std::size_t m_numSent;
@@ -89,8 +85,6 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            std::string host,
-            std::size_t port,
             bool compress,
             entwine::DimList dims,
             v8::Persistent<v8::Function> readCb,
@@ -107,8 +101,6 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            std::string host,
-            std::size_t port,
             bool compress,
             entwine::DimList dims,
             entwine::BBox bbox,
@@ -132,8 +124,6 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            std::string host,
-            std::size_t port,
             bool compress,
             entwine::DimList dims,
             entwine::BBox bbox,
@@ -161,8 +151,6 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            std::string host,
-            std::size_t port,
             entwine::DimList dims,
             bool compress,
             v8::Local<v8::Object> query,

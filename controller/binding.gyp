@@ -4,22 +4,22 @@
         {
             'target_name': 'session',
             'sources': [
-                './addon/bindings.cpp',
-                './addon/session.cpp',
+                './session/bindings.cpp',
+                './session/session.cpp',
 
-                './addon/commands/read.cpp',
+                './session/commands/read.cpp',
 
-                './addon/read-queries/base.cpp',
-                './addon/read-queries/entwine.cpp',
-                './addon/read-queries/unindexed.cpp',
+                './session/read-queries/base.cpp',
+                './session/read-queries/entwine.cpp',
+                './session/read-queries/unindexed.cpp',
 
-                './addon/types/source-manager.cpp',
+                './session/types/source-manager.cpp',
 
-                './addon/util/buffer-pool.cpp',
-                './addon/util/once.cpp'
+                './session/util/buffer-pool.cpp',
+                './session/util/once.cpp'
             ],
             'include_dirs': [
-                './addon',
+                './session',
                 '/usr/include/libxml2'
             ],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
