@@ -21,6 +21,8 @@ var getSchema = function(json, cb) {
     }
 }
 
+process.env.UV_THREADPOOL_SIZE = 128;
+
 var console = require('clim')(),
 
     config = (require('../config').cn || { }),

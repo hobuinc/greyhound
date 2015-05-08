@@ -253,6 +253,8 @@ bool Session::resolveIndex()
                 if (path.size() && path.back() != '/') path.push_back('/');
 
                 entwine::Source source(m_arbiter->getSource(path + m_name));
+
+                // TODO Specify via config.
                 m_entwine.reset(new entwine::Reader(source, 128, 128));
             }
             catch (...)
