@@ -8,7 +8,7 @@ var
     methodOverride = require('method-override'),
     lessMiddleware = require('less-middleware'),
 
-    console = require('clim')()
+    console = require('clim')(),
 
     controllerConfig = (require('../../../config').cn || { }),
     httpConfig = (controllerConfig ? controllerConfig.http : { }),
@@ -17,6 +17,8 @@ var
             'X-Greyhound-Read-ID,' +
             'X-Greyhound-Raster-Meta'
     ;
+
+http.globalAgent.maxSockets = 1024;
 
 if (
         httpConfig.headers &&
@@ -153,11 +155,9 @@ if (
         });
 
         app.get('/resource/:resource/read', function(req, res) {
-            var params = req.query;
-
             controller.read(
                 req.params.resource,
-                params,
+                req.query,
                 function(err, props) {
                     if (err) return res.json(err.code || 500, err.message);
 
@@ -171,7 +171,10 @@ if (
                     }
                 },
                 function(err, data, done) {
-                    if (err) return res.json(err.code || 500, err.message);
+                    if (err) {
+                        console.error('Encountered data error');
+                        return res.json(err.code || 500, err.message);
+                    }
 
                     res.write(data);
 
