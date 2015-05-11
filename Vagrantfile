@@ -83,6 +83,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       pkg_cmd << "echo Installing other packages; "
       pkg_cmd << "gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit node-gyp; "
 
+      # Dirty hack to stop hipache from using a bad http-proxy version for now
+      # until the development code that doesn't use hipache gets to master.
+      pkg_cmd << "cd /usr/lib/node_modules/hipache; "
+      pkg_cmd << "sed -i 's/\"http-proxy\": \"1.0.2\"/\"http-proxy\": \"1.11.1\"/g' package.json; "
+      pkg_cmd << "npm install; cd -; "
+
       config.vm.provision :shell, :inline => pkg_cmd
 
       config.vm.provision :shell, :inline => "npm update npm -g; echo npm -v; npm cache clean;"
