@@ -15,30 +15,25 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         vb.customize ["modifyvm", :id, "--memory", "2048"]
         vb.customize ["modifyvm", :id, "--cpus", "2"]
         vb.customize ["modifyvm", :id, "--ioapic", "on"]
-
-        scripts = [
-            "ubuntu.sh",
-            "startup.sh",
-            "websocketpp.sh",
-            "libgeotiff.sh",
-            "nitro.sh",
-            "hexer.sh",
-            "p2g.sh",
-            "laszip.sh",
-            "lazperf.sh",
-            "pdal.sh"
-        ];
-
-        scripts.each {
-            |script| config.vm.provision :shell,
-            :path => "scripts/vagrant/" << script
-        }
-
-        config.vm.provision :shell, :path => "scripts/vagrant/vagrant.sh"
-
-        # Automatically cd to /vagrant on 'vagrant ssh'.
-        config.vm.provision :shell, :inline =>
-            "echo \"\n\ncd /vagrant\n\" >> /home/vagrant/.bashrc"
     end
+
+    scripts = [
+        "ubuntu.sh",
+        "websocketpp.sh",
+        "laszip.sh",
+        "lazperf.sh",
+        "pdal.sh",
+        "vagrant.sh"
+    ];
+
+    scripts.each {
+        |script| config.vm.provision :shell,
+        :path => "scripts/vagrant/" << script
+    }
+
+    # Automatically cd to /vagrant on 'vagrant ssh'.
+    config.vm.provision :shell, :inline =>
+        "echo \"\n\ncd /vagrant\n\" >> /home/vagrant/.bashrc"
+
 end
 

@@ -26,9 +26,7 @@ pkg=(
     build-essential
     libjsoncpp-dev
     pkg-config
-    redis-server
     cmake
-    libflann-dev
     libgdal-dev
     libpq-dev
     libproj-dev
@@ -42,7 +40,6 @@ pkg=(
     libbz2-dev
     libsqlite0-dev
     cmake-curses-gui
-    screen
     postgis
     libcunit1-dev
     postgresql-server-dev-9.3
@@ -53,8 +50,9 @@ pkg=(
 apt-get install -q -y -V ${pkg[@]}
 
 # Install gems
-gem install foreman --no-rdoc --no-ri; npm install -g hipache nodeunit node-gyp
-
+npm install -g nodeunit node-gyp
 npm update npm -g
 npm cache clean
+
+service postgresql start
 
