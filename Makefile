@@ -46,6 +46,8 @@ clean:
 
 
 install:
+	@echo Stopping any running Greyhound components...
+	@greyhound stop
 	@echo Installing Greyhound...
 #
 # Copy module launchers.
@@ -85,7 +87,8 @@ endif
 
 
 uninstall:
-	@echo Removing all traces of Greyhound...
+	@echo Stopping and removing all traces of Greyhound...
+	@greyhound stop
 #
 # Remove module launchers.
 	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
