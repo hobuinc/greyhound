@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 NUMTHREADS=2
 if [[ -f /sys/devices/system/cpu/online ]]; then
 	# Calculates 1.5 times physical threads
