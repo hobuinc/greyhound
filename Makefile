@@ -1,6 +1,7 @@
 PROXY?=TRUE
 COMPONENTS = gh_cn
 CREDENTIALS = credentials.js
+SHELL := /bin/bash
 
 # Directories that need to be copied to the installation path.
 SRC_DIRS = frontend-proxy \
@@ -46,8 +47,11 @@ clean:
 
 
 install:
-	@echo Stopping any running Greyhound components...
-	@greyhound stop
+	@gh_exists=$$(which greyhound); \
+		if [ -x "$$gh_exists" ]; then \
+		echo "Stopping running Greyhound components..."; \
+		greyhound stop; \
+		fi
 	@echo Installing Greyhound...
 #
 # Copy module launchers.
