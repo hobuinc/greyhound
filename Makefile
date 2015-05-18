@@ -55,7 +55,6 @@ install:
 	@echo Installing Greyhound...
 #
 # Copy module launchers.
-	chmod -R 755 scripts/init.d/
 	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
 ifeq ($(PROXY),TRUE)
 	@echo Using frontend proxy
@@ -85,7 +84,6 @@ endif
 	cp -R node_modules/* /var/greyhound/node_modules/
 #
 # Copy launcher utility.
-	chmod 755 greyhound
 	cp greyhound /usr/bin/
 
 
