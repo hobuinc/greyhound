@@ -19,7 +19,8 @@ config.cn = {
     // Where to find unindexed pointcloud source files and indexed
     // subdirectories, searched in order.
     inputs: [
-        '/vagrant/examples/data'
+        '/vagrant/examples/data',
+        's3://entwine'
         // , 's3://my-index-bucket'
     ],
 

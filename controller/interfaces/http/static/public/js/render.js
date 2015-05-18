@@ -26,7 +26,7 @@
         }
     };
 
-    var getBounds = function(arr, recSize, doIntensity) {
+    var getBounds = function(arr, recSize, doIntensity, doColor) {
         var bounds = {};
         var pc = arr.byteLength / recSize;
 
@@ -36,14 +36,26 @@
             var z = arr.getFloat32(recSize * i + 8, true);
 
             var intensity = doIntensity ?
-                arr.getInt16( recSize * i + 12, true) : 0;
+                arr.getInt16(recSize * i + 12, true) : 0;
+
+            var r = 0, g = 0, b = 0;
+
+            if (doColor) {
+                var offset = doIntensity ? 14 : 12;
+                r = arr.getUint16(recSize * i + offset, true);
+                g = arr.getUint16(recSize * i + offset + 2, true);
+                b = arr.getUint16(recSize * i + offset + 4, true);
+            }
 
             if (i === 0) {
                 bounds = {
                     mx: x, xx: x,
                     my: y, xy: y,
                     mz: z, xz: z,
-                    mi: intensity, xi: intensity};
+                    mi: intensity, xi: intensity,
+                    mc: Math.min(r, g, b),
+                    xc: Math.max(r, g, b)
+                };
             }
             else {
                 bounds.mx = Math.min(bounds.mx, x);
@@ -57,6 +69,9 @@
 
                 bounds.mi = Math.min(bounds.mi, intensity);
                 bounds.xi = Math.max(bounds.xi, intensity);
+
+                bounds.mc = Math.min(bounds.mc, r, g, b);
+                bounds.xc = Math.max(bounds.xc, r, g, b);
             }
         }
 
@@ -124,18 +139,16 @@
     function initPoints(data, count) {
         var recordSize = data.byteLength / count;
 
-        // we only support two formats here, XYZ and XYZ + 2 byte per RGB
-        // For anything else right now, we just continue by assuming no color
-        var nocolor = false, noxyz = false, nointensity = false;
+        var hasColor = true, hasIntensity = true;
 
         if (recordSize === 3*4) {
-            nocolor = nointensity = true;
+            hasColor = hasIntensity = true;
         }
         else if (recordSize === 3*4 + 2) {
-            nocolor = true;
+            hasColor = false;
         }
         else if (recordSize === 3*4 + 3*2) {
-            nointensity = true;
+            hasIntensity = false;
         }
         else if (recordSize !== 3*4 + 2 + 3*2) {
             console.log("Record size: ", recordSize);
@@ -143,19 +156,14 @@
         }
 
         console.log(
-                'nocolor:', nocolor,
-                'noxyz:', noxyz,
-                'nointensity', nointensity);
-
-        if (noxyz)
-            throw new Error("The record size is too small to even " +
-                    "contain XYZ values, check source");
+                'hasColor:', hasColor,
+                'hasIntensity:', hasIntensity);
 
         var asDataView = new DataView(data.buffer);
 
         console.log('Total', count, 'points');
 
-        var bounds = getBounds(asDataView, recordSize, !nointensity);
+        var bounds = getBounds(asDataView, recordSize, hasIntensity, hasColor);
         console.log(bounds);
 
         var maxBound = Math.max(bounds.xx - bounds.mx,
@@ -178,7 +186,7 @@
             var holdZ = z;
 
             var intensity = 1.0;
-            if(!nointensity) {
+            if (hasIntensity) {
                 intensity = asDataView.getInt16(offset, true); offset += 2;
                 intensity = (intensity - bounds.mi) / (bounds.xi - bounds.mi);
             }
@@ -193,26 +201,33 @@
 
             // colors
             var r = 0.0, g = 0.0, b = 0.0;
-            if (nocolor) {
-                if (nointensity) {
+            if (hasColor) {
+                r = asDataView.getUint16(offset, true); offset += 2;
+                g = asDataView.getUint16(offset, true); offset += 2;
+                b = asDataView.getUint16(offset, true); offset += 2;
+            }
+            else {
+                if (hasIntensity && bounds.xi > bounds.mi) {
+                    r = g = b = 255.0 * intensity;
+                }
+                else {
                     r = g = b =
                         255.0 * (z - bounds.mz) / (bounds.xz - bounds.mz);
                 }
-                else {
-                    r = g = b = 255.0 * intensity;
-                }
+            }
+
+            if (hasColor && bounds.xc > bounds.mc) {
+                var scale = bounds.xc > 255.0 ? 65535.0 : 255.0;
+
+                colors[ 3*i ]     = r / scale;
+                colors[ 3*i + 1 ] = g / scale;
+                colors[ 3*i + 2 ] = b / scale;
             }
             else {
-                r = asDataView.getInt16(offset, true); offset += 2;
-                g = asDataView.getInt16(offset, true); offset += 2;
-                b = asDataView.getInt16(offset, true); offset += 2;
+                colors[ 3*i ]     = 1;
+                colors[ 3*i + 1 ] = 0;
+                colors[ 3*i + 2 ] = 1;
             }
-
-            intensity = 1.0;
-
-            colors[ 3*i ]     = 1;
-            colors[ 3*i + 1 ] = 0;
-            colors[ 3*i + 2 ] = 1;
         }
 
         geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
