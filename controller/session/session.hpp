@@ -28,7 +28,7 @@ class Paths;
 class Session
 {
 public:
-    Session(const pdal::StageFactory& stageFactory);
+    Session(pdal::StageFactory& stageFactory, std::mutex& factoryMutex);
     ~Session();
 
     // Returns true if initialization was successful.  If false, this session
@@ -74,7 +74,8 @@ private:
     bool resolveSource();
     bool resolveIndex();
 
-    const pdal::StageFactory& m_stageFactory;
+    pdal::StageFactory& m_stageFactory;
+    std::mutex& m_factoryMutex;
 
     Once m_initOnce;
     std::unique_ptr<SourceManager> m_source;

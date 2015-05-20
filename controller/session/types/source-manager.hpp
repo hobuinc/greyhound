@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 namespace pdal
 {
@@ -18,17 +19,19 @@ class SourceManager
 {
 public:
     SourceManager(
-            const pdal::StageFactory& stageFactory,
+            pdal::StageFactory& stageFactory,
+            std::mutex& factoryMutex,
             std::string path,
             std::string driver);
 
-    std::unique_ptr<pdal::Reader> createReader() const;
+    std::unique_ptr<pdal::Reader> createReader();
 
     std::size_t numPoints() const;
     const entwine::Schema& schema() const;
 
 private:
-    const pdal::StageFactory& m_stageFactory;
+    pdal::StageFactory& m_stageFactory;
+    std::mutex& m_factoryMutex;
     std::unique_ptr<pdal::Options> m_options;
 
     std::string m_driver;
