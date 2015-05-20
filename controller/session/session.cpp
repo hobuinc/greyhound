@@ -8,7 +8,7 @@
 #include <entwine/drivers/arbiter.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/tree/branches/clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/reader.hpp>
 
 #include "read-queries/entwine.hpp"

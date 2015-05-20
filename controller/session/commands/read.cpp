@@ -47,7 +47,7 @@ namespace
             Json::Reader reader;
             Json::Value jsonBBox;
             reader.parse(bboxStr, jsonBBox, false);
-            bbox = entwine::BBox::fromJson(jsonBBox);
+            bbox = entwine::BBox(jsonBBox);
         }
         catch (...)
         {

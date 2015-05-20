@@ -140,7 +140,7 @@ else
         console.log("controller::read");
 
         getSchema(query.schema, function(err, schema) {
-            if (err) return cb(err);
+            if (err) return onInit(err);
 
             var compress = query.hasOwnProperty('compress') && !!query.compress;
 
@@ -149,7 +149,7 @@ else
             delete query.compress;
 
             getSession(resource, function(err, session) {
-                if (err) return cb(err);
+                if (err) return onInit(err);
 
                 var readCb = function(
                     err,
