@@ -19,7 +19,7 @@ namespace
 UnindexedReadQuery::UnindexedReadQuery(
         const entwine::Schema& schema,
         bool compress,
-        const SourceManager& sourceManager)
+        SourceManager& sourceManager)
     : ReadQuery(schema, compress, false)
     , m_reader(sourceManager.createReader())
     , m_numPoints(sourceManager.numPoints())

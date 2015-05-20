@@ -28,7 +28,7 @@ public:
     UnindexedReadQuery(
             const entwine::Schema& schema,
             bool compress,
-            const SourceManager& sourceManager);
+            SourceManager& sourceManager);
     ~UnindexedReadQuery();
 
     virtual bool eof() const;

@@ -46,8 +46,11 @@ namespace
     }
 }
 
-Session::Session(const pdal::StageFactory& stageFactory)
+Session::Session(
+        pdal::StageFactory& stageFactory,
+        std::mutex& factoryMutex)
     : m_stageFactory(stageFactory)
+    , m_factoryMutex(factoryMutex)
     , m_initOnce()
     , m_source()
     , m_entwine()
@@ -211,8 +214,11 @@ bool Session::resolveSource()
             while (!m_source && i < sources.size())
             {
                 const std::string path(sources[i++]);
+
+                std::unique_lock<std::mutex> lock(m_factoryMutex);
                 const std::string driver(
                         m_stageFactory.inferReaderDriver(path));
+                lock.unlock();
 
                 if (driver.size())
                 {
@@ -221,6 +227,7 @@ bool Session::resolveSource()
                         m_source.reset(
                                 new SourceManager(
                                     m_stageFactory,
+                                    m_factoryMutex,
                                     path,
                                     driver));
                     }

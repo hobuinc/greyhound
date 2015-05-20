@@ -8,10 +8,12 @@
 #include <entwine/types/simple-point-table.hpp>
 
 SourceManager::SourceManager(
-        const pdal::StageFactory& stageFactory,
+        pdal::StageFactory& stageFactory,
+        std::mutex& factoryMutex,
         std::string path,
         std::string driver)
     : m_stageFactory(stageFactory)
+    , m_factoryMutex(factoryMutex)
     , m_options(new pdal::Options())
     , m_driver(driver)
     , m_schema(new entwine::Schema())
@@ -48,11 +50,13 @@ SourceManager::SourceManager(
     }
 }
 
-std::unique_ptr<pdal::Reader> SourceManager::createReader() const
+std::unique_ptr<pdal::Reader> SourceManager::createReader()
 {
+    std::unique_lock<std::mutex> lock(m_factoryMutex);
     std::unique_ptr<pdal::Reader> reader(
             static_cast<pdal::Reader*>(
                 m_stageFactory.createStage(m_driver)));
+    lock.unlock();
 
     reader->setOptions(*m_options);
     return reader;

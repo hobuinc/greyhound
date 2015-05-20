@@ -32,6 +32,7 @@ namespace
     const std::size_t maxReadLength = 65536;
     ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
 
+    std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
     const std::size_t readIdSize = 24;
@@ -248,7 +249,7 @@ namespace ghEnv
 Persistent<Function> Bindings::constructor;
 
 Bindings::Bindings()
-    : m_session(new Session(*stageFactory))
+    : m_session(new Session(*stageFactory, factoryMutex))
     , m_itcBufferPool(itcBufferPool)
 {
     ghEnv::once.ensure([]()->void {
