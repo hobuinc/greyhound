@@ -264,6 +264,11 @@ bool Session::resolveIndex()
                 // TODO Specify via config.
                 m_entwine.reset(new entwine::Reader(source, 128, 128));
             }
+            catch (std::runtime_error& e)
+            {
+                std::cout << "At " << path << ": " <<
+                    e.what() << "\n" << std::endl;
+            }
             catch (...)
             {
                 m_entwine.reset(0);
