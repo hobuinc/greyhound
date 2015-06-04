@@ -12,6 +12,26 @@ var awsCredentials = (function() {
 
 // Controller configuration.
 config.cn = {
+    // If queryLimits values are configured to be outside the ranges specified
+    // below, they will be silently clipped or grown to fall within the valid
+    // range.
+    queryLimits: {
+        // Number of outstanding simultaneous queries.  Must be in the
+        // inclusive range [8, 128].
+        concurrentQueries: 16,
+
+        // Maximum number of indexed chunks allowed to be fetched per query.
+        // Smaller numbers result in faster query response times.  Must be no
+        // less than 4.
+        chunksPerQuery: 8,
+
+        // Number of previously fetched chunks that may be held in the cache.
+        // If this value is less than concurrentQueries * chunksPerQuery, the
+        // cache may be overrun under heavy load, which causes 'internal server
+        // error' responses to valid queries.  Must be no less than 16.
+        chunkCacheSize: 128
+    },
+
     // AWS credentials - specified in the file: credentials.js, if it exists.
     // If not supplied, S3 capabilities will be disabled.
     aws: awsCredentials,

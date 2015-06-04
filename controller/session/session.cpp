@@ -56,6 +56,8 @@ Session::Session(
     , m_entwine()
     , m_name()
     , m_paths()
+    , m_maxQuerySize(0)
+    , m_maxCacheSize(0)
     , m_arbiter()
 { }
 
@@ -65,14 +67,19 @@ Session::~Session()
 bool Session::initialize(
         const std::string& name,
         const Paths& paths,
+        const std::size_t maxQuerySize,
+        const std::size_t maxCacheSize,
         std::shared_ptr<entwine::Arbiter> arbiter)
 {
-    m_initOnce.ensure([this, &name, &paths, arbiter]()
+    m_initOnce.ensure(
+            [this, &name, &paths, maxQuerySize, maxCacheSize, arbiter]()
     {
         std::cout << "Discovering " << name << std::endl;
 
         m_name = name;
         m_paths.reset(new Paths(paths));
+        m_maxQuerySize = maxQuerySize;
+        m_maxCacheSize = maxCacheSize;
         m_arbiter = arbiter;
 
         resolveSource();
@@ -261,8 +268,12 @@ bool Session::resolveIndex()
 
                 entwine::Source source(m_arbiter->getSource(path + m_name));
 
-                // TODO Specify via config.
-                m_entwine.reset(new entwine::Reader(source, 128, 128));
+                m_entwine.reset(
+                        new entwine::Reader(
+                            source,
+                            m_maxCacheSize,
+                            m_maxQuerySize,
+                            m_arbiter));
             }
             catch (std::runtime_error& e)
             {

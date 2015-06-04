@@ -21,8 +21,6 @@ var getSchema = function(json, cb) {
     }
 }
 
-process.env.UV_THREADPOOL_SIZE = 128;
-
 var console = require('clim')(),
 
     config = (require('../config').cn || { }),
@@ -30,11 +28,29 @@ var console = require('clim')(),
     output = config.output,
     aws = config.aws,
 
+    concurrentQueries = config.queryLimits.concurrentQueries,
+    chunksPerQuery = config.queryLimits.chunksPerQuery,
+    chunkCacheSize = config.queryLimits.chunkCacheSize,
+
     Session = require('./build/Release/session').Bindings,
 
     resourceIds = { }, // resource name -> session (one to one)
     resourceTimeoutMinutes = getTimeout(config.resourceTimeoutMinutes)
     ;
+
+if (concurrentQueries < 8) concurrentQueries = 8;
+else if (concurrentQueries > 128) concurrentQueries = 128;
+
+if (chunksPerQuery < 4) chunksPerQuery = 4;
+
+if (chunkCacheSize < 16) chunkCacheSize = 16;
+
+console.log('Using');
+console.log('\tConcurrent queries:', concurrentQueries);
+console.log('\tChunks per query:', chunksPerQuery);
+console.log('\tChunk cache size:', chunkCacheSize);
+
+process.env.UV_THREADPOOL_SIZE = concurrentQueries;
 
 var getSession = function(name, cb) {
     var session;
@@ -51,7 +67,15 @@ var getSession = function(name, cb) {
     // ensure that initialization has finished before the session is used.
     try {
         console.log('Calling create on', name);
-        session.create(name, aws, inputs, output, function(err) {
+        session.create(
+                name,
+                aws,
+                inputs,
+                output,
+                chunksPerQuery,
+                chunkCacheSize,
+                function(err)
+        {
             if (err) {
                 console.warn(name, 'could not be created');
                 delete resourceIds[name];

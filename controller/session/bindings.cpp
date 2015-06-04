@@ -332,6 +332,8 @@ Handle<Value> Bindings::create(const Arguments& args)
     const auto& awsAuthArg  (args[i++]);
     const auto& inputsArg   (args[i++]);
     const auto& outputArg   (args[i++]);
+    const auto& queryArg    (args[i++]);
+    const auto& cacheArg    (args[i++]);
     const auto& cbArg       (args[i++]);
 
     std::string errMsg("");
@@ -365,12 +367,21 @@ Handle<Value> Bindings::create(const Arguments& args)
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
     const std::vector<std::string> inputs(parsePathList(inputsArg));
     const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
+    const std::size_t maxQuerySize(queryArg->IntegerValue());
+    const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
     const Paths paths(inputs, output);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
-    req->data = new CreateData(obj->m_session, name, paths, arbiter, callback);
+    req->data = new CreateData(
+            obj->m_session,
+            name,
+            paths,
+            maxQuerySize,
+            maxCacheSize,
+            arbiter,
+            callback);
 
     uv_queue_work(
         uv_default_loop(),
@@ -384,6 +395,8 @@ Handle<Value> Bindings::create(const Arguments& args)
                 if (!createData->session->initialize(
                         createData->name,
                         createData->paths,
+                        createData->maxQuerySize,
+                        createData->maxCacheSize,
                         createData->arbiter))
                 {
                     createData->status.set(404, "Not found");

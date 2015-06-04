@@ -17,11 +17,15 @@ struct CreateData : public Background
             std::shared_ptr<Session> session,
             std::string name,
             Paths paths,
+            std::size_t maxQuerySize,
+            std::size_t maxCacheSize,
             std::shared_ptr<entwine::Arbiter> arbiter,
             v8::Persistent<v8::Function> callback)
         : session(session)
         , name(name)
         , paths(paths)
+        , maxQuerySize(maxQuerySize)
+        , maxCacheSize(maxCacheSize)
         , arbiter(arbiter)
         , callback(callback)
     { }
@@ -35,6 +39,8 @@ struct CreateData : public Background
     const std::shared_ptr<Session> session;
     const std::string name;
     const Paths paths;
+    const std::size_t maxQuerySize;
+    const std::size_t maxCacheSize;
     std::shared_ptr<entwine::Arbiter> arbiter;
 
     v8::Persistent<v8::Function> callback;

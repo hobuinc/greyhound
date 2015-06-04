@@ -36,6 +36,8 @@ public:
     bool initialize(
             const std::string& name,
             const Paths& paths,
+            std::size_t maxQuerySize,
+            std::size_t maxCacheSize,
             std::shared_ptr<entwine::Arbiter> arbiter);
 
     std::size_t getNumPoints();
@@ -86,6 +88,8 @@ private:
 
     std::string m_name;
     std::unique_ptr<Paths> m_paths;
+    std::size_t m_maxQuerySize;
+    std::size_t m_maxCacheSize;
     std::shared_ptr<entwine::Arbiter> m_arbiter;
 
     // Disallow copy/assignment.
