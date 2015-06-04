@@ -322,7 +322,7 @@ Handle<Value> Bindings::create(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    if (args.Length() != 5)
+    if (args.Length() != 7)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
