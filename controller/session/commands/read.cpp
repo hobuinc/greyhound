@@ -261,22 +261,37 @@ ReadCommand* ReadCommandFactory::create(
         dims = session->schema().dims();
     }
 
+    const auto depthSymbol(toSymbol("depth"));
     const auto depthBeginSymbol(toSymbol("depthBegin"));
     const auto depthEndSymbol(toSymbol("depthEnd"));
     const auto rasterizeSymbol(toSymbol("rasterize"));
     const auto bboxSymbol(toSymbol("bbox"));
 
     if (
+            query->HasOwnProperty(depthSymbol) ||
             query->HasOwnProperty(depthBeginSymbol) ||
             query->HasOwnProperty(depthEndSymbol))
     {
-        const std::size_t depthBegin(
+        std::size_t depthBegin(
                 query->HasOwnProperty(depthBeginSymbol) ?
                     query->Get(depthBeginSymbol)->Uint32Value() : 0);
 
-        const std::size_t depthEnd(
+        std::size_t depthEnd(
                 query->HasOwnProperty(depthEndSymbol) ?
                     query->Get(depthEndSymbol)->Uint32Value() : 0);
+
+        if (depthBegin || depthEnd)
+        {
+            query->Delete(depthBeginSymbol);
+            query->Delete(depthEndSymbol);
+        }
+        else if (query->HasOwnProperty(depthSymbol))
+        {
+            depthBegin = query->Get(depthSymbol)->Uint32Value();
+            depthEnd = depthBegin + 1;
+
+            query->Delete(depthSymbol);
+        }
 
         entwine::BBox bbox;
 
@@ -286,8 +301,6 @@ ReadCommand* ReadCommandFactory::create(
             if (!bbox.exists()) return readCommand;
         }
 
-        query->Delete(depthBeginSymbol);
-        query->Delete(depthEndSymbol);
         query->Delete(bboxSymbol);
 
         if (isEmpty(query))
