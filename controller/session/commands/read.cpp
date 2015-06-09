@@ -45,9 +45,24 @@ namespace
                         *v8::String::Utf8Value(jsBBox->ToString())));
 
             Json::Reader reader;
-            Json::Value jsonBBox;
-            reader.parse(bboxStr, jsonBBox, false);
-            bbox = entwine::BBox(jsonBBox);
+            Json::Value rawBounds;
+
+            reader.parse(bboxStr, rawBounds, false);
+
+            Json::Value json;
+            Json::Value& bounds(json["bounds"]);
+
+            bounds.append(rawBounds[0].asDouble());
+            bounds.append(rawBounds[1].asDouble());
+            bounds.append(0);
+            bounds.append(rawBounds[2].asDouble());
+            bounds.append(rawBounds[3].asDouble());
+            bounds.append(0);
+
+            // TODO
+            json["is3d"] = false;
+
+            bbox = entwine::BBox(json);
         }
         catch (...)
         {
