@@ -506,8 +506,10 @@ Handle<Value> Bindings::getBounds(const Arguments& args)
 
     jsBounds->Set(0, v8::Number::New(bbox.min().x));
     jsBounds->Set(1, v8::Number::New(bbox.min().y));
-    jsBounds->Set(2, v8::Number::New(bbox.max().x));
-    jsBounds->Set(3, v8::Number::New(bbox.max().y));
+    jsBounds->Set(2, v8::Number::New(bbox.min().z));
+    jsBounds->Set(3, v8::Number::New(bbox.max().x));
+    jsBounds->Set(4, v8::Number::New(bbox.max().y));
+    jsBounds->Set(5, v8::Number::New(bbox.max().z));
 
     return scope.Close(jsBounds);
 }

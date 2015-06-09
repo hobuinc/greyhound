@@ -18,3 +18,9 @@ examples/data/autzen.laz
 scripts/vagrant/pdal
 scripts/vagrant/entwine
 controller/build
+
+examples/data/*
+!examples/data/autzen.las
+!examples/data/half-dome.laz
+!examples/data/read.xml
+!examples/data/half-dome.xml
