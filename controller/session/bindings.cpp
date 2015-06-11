@@ -437,7 +437,7 @@ Handle<Value> Bindings::getNumPoints(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    return scope.Close(Integer::New(obj->m_session->getNumPoints()));
+    return scope.Close(Number::New(obj->m_session->getNumPoints()));
 }
 
 Handle<Value> Bindings::getSchema(const Arguments& args)
