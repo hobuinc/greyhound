@@ -32,9 +32,12 @@ public:
             std::string readId,
             bool compress,
             entwine::DimList dims,
-            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
     virtual ~ReadCommand();
+
+    void registerInitCb();
+    void registerDataCb();
 
     virtual void read(std::size_t maxNumBytes);
     virtual bool rasterize() const { return false; }
@@ -53,10 +56,11 @@ public:
 
     std::string readId()    const;
     bool        cancel()    const;
-    v8::Persistent<v8::Function> readCb() const;
+    v8::Persistent<v8::Function> initCb() const;
     v8::Persistent<v8::Function> dataCb() const;
 
-    uv_async_t* async() { return m_async; }
+    uv_async_t* initAsync() { return m_initAsync; }
+    uv_async_t* dataAsync() { return m_dataAsync; }
 
 protected:
     virtual void query() = 0;
@@ -65,16 +69,17 @@ protected:
 
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
-    uv_async_t* m_async;
-
     const std::string m_readId;
     const bool m_compress;
     const entwine::Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
 
-    v8::Persistent<v8::Function> m_readCb;
+    uv_async_t* m_initAsync;
+    uv_async_t* m_dataAsync;
+    v8::Persistent<v8::Function> m_initCb;
     v8::Persistent<v8::Function> m_dataCb;
+
     bool m_cancel;
 };
 
@@ -87,7 +92,7 @@ public:
             std::string readId,
             bool compress,
             entwine::DimList dims,
-            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
 
 private:
@@ -106,7 +111,7 @@ public:
             entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
 
 protected:
@@ -128,7 +133,7 @@ public:
             entwine::DimList dims,
             entwine::BBox bbox,
             std::size_t level,
-            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
 
     virtual void read(std::size_t maxNumBytes);
@@ -154,7 +159,7 @@ public:
             entwine::DimList dims,
             bool compress,
             v8::Local<v8::Object> query,
-            v8::Persistent<v8::Function> readCb,
+            v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
 };
 
