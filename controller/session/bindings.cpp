@@ -8,6 +8,7 @@
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/drivers/s3.hpp>
+#include <entwine/tree/reader.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -289,7 +290,6 @@ Handle<Value> Bindings::construct(const Arguments& args)
 
 Handle<Value> Bindings::create(const Arguments& args)
 {
-    std::cout << "Bindings::create" << std::endl;
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
@@ -309,17 +309,10 @@ Handle<Value> Bindings::create(const Arguments& args)
 
     std::string errMsg("");
 
-    if (!nameArg->IsString())
-        errMsg += "\t'name' must be a string";
-
-    if (!inputsArg->IsArray())
-        errMsg += "\t'inputs' must be an array of strings";
-
-    if (!outputArg->IsString())
-        errMsg += "\t'output' must be a string";
-
-    if (!cbArg->IsFunction())
-        throw std::runtime_error("Invalid callback supplied to 'create'");
+    if (!nameArg->IsString())   errMsg += "\t'name' must be a string";
+    if (!inputsArg->IsArray())  errMsg += "\t'inputs' must be an array";
+    if (!outputArg->IsString()) errMsg += "\t'output' must be a string";
+    if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
     Persistent<Function> callback(
             Persistent<Function>::New(Local<Function>::Cast(cbArg)));
@@ -554,6 +547,10 @@ Handle<Value> Bindings::read(const Arguments& args)
         return scope.Close(Undefined());
     }
 
+    // Register our callbacks with their async tokens.
+    readCommand->registerInitCb();
+    readCommand->registerDataCb();
+
     // Store our read command where our worker functions can access it.
     uv_work_t* req(new uv_work_t);
     req->data = readCommand;
@@ -566,17 +563,24 @@ Handle<Value> Bindings::read(const Arguments& args)
         {
             ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
-            readCommand->registerInitCb();
-            readCommand->registerDataCb();
-
             // Run the query.  This will ensure indexing if needed, and
             // will obtain everything needed to start streaming binary
             // data to the client.
-            readCommand->safe([readCommand]()->void { readCommand->run(); });
+            readCommand->safe([readCommand]()->void
+            {
+                try
+                {
+                    readCommand->run();
+                }
+                catch (entwine::QueryLimitExceeded& e)
+                {
+                    readCommand->status.set(413, e.what());
+                }
+            });
 
             // Call initial informative callback.  If status is no good, we're
             // done here - don't continue for data.
-            uv_async_send(readCommand->initAsync());
+            readCommand->doCb(readCommand->initAsync());
             if (!readCommand->status.ok()) { return; }
 
             readCommand->safe([readCommand]()->void
@@ -585,8 +589,6 @@ Handle<Value> Bindings::read(const Arguments& args)
 
                 do
                 {
-                    readCommand->getBuffer()->grab();
-
                     try
                     {
                         readCommand->read(maxReadLength);
@@ -600,7 +602,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                         readCommand->status.set(500, "Error in query");
                     }
 
-                    uv_async_send(readCommand->dataAsync());
+                    readCommand->doCb(readCommand->dataAsync());
                 }
                 while (!readCommand->done() && readCommand->status.ok());
 

@@ -240,7 +240,7 @@ bool Session::resolveSource()
                     }
                     catch (...)
                     {
-                        std::cout << "Bad source: " << path << std::endl;
+                        std::cout << "\tNo success with: " << path << std::endl;
                         m_source.reset(0);
                     }
                 }
@@ -277,7 +277,7 @@ bool Session::resolveIndex()
             }
             catch (std::runtime_error& e)
             {
-                std::cout << "At " << path << ": " <<
+                std::cout << "\tTried " << path << ": " <<
                     e.what() << "\n" << std::endl;
             }
             catch (...)
