@@ -15,20 +15,6 @@ class ItcBuffer
     friend class ItcBufferPool;
 
 public:
-    // This class does not support data races where multiple threads may be
-    // trying to grab this buffer.  Supports a well-defined hand-off/receive
-    // where a thread hands off to another thread, which must call flush()
-    // before the original thread may continue work.
-
-    // Acquire the buffer, after which point its data may be altered.  After
-    // the data is set, this buffer may be sent to a different thread for
-    // processing.
-    void grab();
-
-    // A worker thread uses this to signal that the processing is complete,
-    // and another thread may grab() and reuse this buffer.
-    void flush();
-
     // Append vector onto this buffer.  If current size plus the size of the
     // incoming bytes is greater than the max capacity, std::runtime_error is
     // thrown.
@@ -42,9 +28,6 @@ public:
 
 private:
     ItcBuffer(std::size_t id, std::size_t capacity);
-
-    // Release this buffer back into the buffer pool.
-    void release();
 
     std::size_t id() const { return m_id; }
 

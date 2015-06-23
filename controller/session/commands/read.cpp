@@ -135,6 +135,7 @@ ReadCommand::ReadCommand(
     , m_dataAsync(new uv_async_t())
     , m_initCb(initCb)
     , m_dataCb(dataCb)
+    , m_wait(false)
     , m_cancel(false)
 {
     // This allows us to unwrap our own ReadCommand during async CBs.
@@ -189,13 +190,15 @@ void ReadCommand::registerInitCb()
             }
             else
             {
-                HandleScope scope;
                 const unsigned argc = 1;
                 Local<Value> argv[argc] = { readCommand->status.toObject() };
 
                 readCommand->initCb()->Call(
                     Context::GetCurrent()->Global(), argc, argv);
             }
+
+            readCommand->notifyCb();
+            scope.Close(Undefined());
         })
     );
 }
@@ -235,7 +238,8 @@ void ReadCommand::registerDataCb()
                     Context::GetCurrent()->Global(), argc, argv);
             }
 
-            readCommand->getBuffer()->flush();
+            readCommand->notifyCb();
+
             scope.Close(Undefined());
         })
     );

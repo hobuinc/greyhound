@@ -66,7 +66,6 @@ var getSession = function(name, cb) {
     // Call every time, even if this name was found in our session mapping, to
     // ensure that initialization has finished before the session is used.
     try {
-        console.log('Calling create on', name);
         session.create(
                 name,
                 aws,
@@ -175,7 +174,7 @@ else
             getSession(resource, function(err, session) {
                 if (err) return onInit(err);
 
-                var readCb = function(
+                var initCb = function(
                     err,
                     readId,
                     numPoints,
@@ -205,7 +204,7 @@ else
                     onData(err, data, done);
                 }
 
-                session.read(schema, compress, query, readCb, dataCb);
+                session.read(schema, compress, query, initCb, dataCb);
             });
         });
     }

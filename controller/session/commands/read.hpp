@@ -62,6 +62,22 @@ public:
     uv_async_t* initAsync() { return m_initAsync; }
     uv_async_t* dataAsync() { return m_dataAsync; }
 
+    void doCb(uv_async_t* async)
+    {
+        m_wait = true;
+        uv_async_send(async);
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_cv.wait(lock, [this]()->bool { return !m_wait; });
+    }
+
+
+    void notifyCb() {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_wait = false;
+        lock.unlock();
+        m_cv.notify_all();
+    }
+
 protected:
     virtual void query() = 0;
 
@@ -79,6 +95,10 @@ protected:
     uv_async_t* m_dataAsync;
     v8::Persistent<v8::Function> m_initCb;
     v8::Persistent<v8::Function> m_dataCb;
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    bool m_wait;
 
     bool m_cancel;
 };
