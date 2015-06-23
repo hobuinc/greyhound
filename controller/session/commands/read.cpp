@@ -1,3 +1,5 @@
+#include <node_buffer.h>
+
 #include <pdal/PointLayout.hpp>
 
 #include <entwine/types/dim-info.hpp>
@@ -71,6 +73,47 @@ namespace
 
         return bbox;
     }
+
+    v8::Local<v8::Value> getRasterMeta(ReadCommand* readCommand)
+    {
+        v8::Local<v8::Value> result(Local<Value>::New(Undefined()));
+
+        if (readCommand->rasterize())
+        {
+            ReadCommandRastered* readCommandRastered(
+                    static_cast<ReadCommandRastered*>(readCommand));
+
+            if (!readCommandRastered)
+                throw std::runtime_error("Invalid ReadCommand state");
+
+            const RasterMeta rasterMeta(
+                    readCommandRastered->rasterMeta());
+
+            Local<Object> rasterObj(Object::New());
+            rasterObj->Set(
+                    String::NewSymbol("xBegin"),
+                    Number::New(rasterMeta.xBegin));
+            rasterObj->Set(
+                    String::NewSymbol("xStep"),
+                    Number::New(rasterMeta.xStep));
+            rasterObj->Set(
+                    String::NewSymbol("xNum"),
+                    Integer::New(rasterMeta.xNum()));
+            rasterObj->Set(
+                    String::NewSymbol("yBegin"),
+                    Number::New(rasterMeta.yBegin));
+            rasterObj->Set(
+                    String::NewSymbol("yStep"),
+                    Number::New(rasterMeta.yStep));
+            rasterObj->Set(
+                    String::NewSymbol("yNum"),
+                    Integer::New(rasterMeta.yNum()));
+
+            result = v8::Local<v8::Value>::New(rasterObj);
+        }
+
+        return result;
+    }
 }
 
 ReadCommand::ReadCommand(
@@ -79,25 +122,123 @@ ReadCommand::ReadCommand(
         const std::string readId,
         const bool compress,
         entwine::DimList dims,
-        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : m_session(session)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
-    , m_async(new uv_async_t())
     , m_readId(readId)
     , m_compress(compress)
     , m_schema(dims)
     , m_numSent(0)
-    , m_readCb(readCb)
+    , m_initAsync(new uv_async_t())
+    , m_dataAsync(new uv_async_t())
+    , m_initCb(initCb)
     , m_dataCb(dataCb)
     , m_cancel(false)
-{ }
+{
+    // This allows us to unwrap our own ReadCommand during async CBs.
+    m_initAsync->data = this;
+    m_dataAsync->data = this;
+}
 
 ReadCommand::~ReadCommand()
 {
-    m_readCb.Dispose();
+    uv_handle_t* initAsync(reinterpret_cast<uv_handle_t*>(m_initAsync));
+    uv_handle_t* dataAsync(reinterpret_cast<uv_handle_t*>(m_dataAsync));
+
+    uv_close_cb closeCallback(
+        (uv_close_cb)([](uv_handle_t* async)->void
+        {
+            delete async;
+        })
+    );
+
+    uv_close(initAsync, closeCallback);
+    uv_close(dataAsync, closeCallback);
+
+    m_initCb.Dispose();
     m_dataCb.Dispose();
+}
+
+void ReadCommand::registerInitCb()
+{
+    uv_async_init(
+        uv_default_loop(),
+        m_initAsync,
+        ([](uv_async_t* async, int status)->void
+        {
+            HandleScope scope;
+            ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
+
+            if (readCommand->status.ok())
+            {
+                const std::string id(readCommand->readId());
+                const unsigned argc = 5;
+                Local<Value> argv[argc] =
+                {
+                    Local<Value>::New(Null()), // err
+                    Local<Value>::New(String::New(id.data(), id.size())),
+                    Local<Value>::New(Integer::New(readCommand->numPoints())),
+                    Local<Value>::New(Integer::New(readCommand->numBytes())),
+                    getRasterMeta(readCommand)
+                };
+
+                readCommand->initCb()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+            }
+            else
+            {
+                HandleScope scope;
+                const unsigned argc = 1;
+                Local<Value> argv[argc] = { readCommand->status.toObject() };
+
+                readCommand->initCb()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+            }
+        })
+    );
+}
+
+void ReadCommand::registerDataCb()
+{
+    uv_async_init(
+        uv_default_loop(),
+        m_dataAsync,
+        ([](uv_async_t* async, int status)->void
+        {
+            HandleScope scope;
+            ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
+
+            if (readCommand->status.ok())
+            {
+                const unsigned argc = 3;
+                Local<Value>argv[argc] =
+                {
+                    Local<Value>::New(Null()), // err
+                    Local<Value>::New(node::Buffer::New(
+                            readCommand->getBuffer()->data(),
+                            readCommand->getBuffer()->size())->handle_),
+                    Local<Value>::New(Number::New(readCommand->done()))
+                };
+
+                readCommand->dataCb()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+            }
+            else
+            {
+                const unsigned argc = 1;
+                Local<Value> argv[argc] =
+                    { readCommand->status.toObject() };
+
+                readCommand->dataCb()->Call(
+                    Context::GetCurrent()->Global(), argc, argv);
+            }
+
+            readCommand->getBuffer()->flush();
+            scope.Close(Undefined());
+        })
+    );
 }
 
 std::size_t ReadCommand::numBytes() const
@@ -160,9 +301,9 @@ bool ReadCommand::cancel() const
     return m_cancel;
 }
 
-v8::Persistent<v8::Function> ReadCommand::readCb() const
+v8::Persistent<v8::Function> ReadCommand::initCb() const
 {
-    return m_readCb;
+    return m_initCb;
 }
 
 v8::Persistent<v8::Function> ReadCommand::dataCb() const
@@ -176,7 +317,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string readId,
         bool compress,
         entwine::DimList dims,
-        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
             session,
@@ -184,7 +325,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             readId,
             compress,
             dims,
-            readCb,
+            initCb,
             dataCb)
 { }
 
@@ -197,7 +338,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
             session,
@@ -205,7 +346,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             readId,
             compress,
             dims,
-            readCb,
+            initCb,
             dataCb)
     , m_bbox(bbox)
     , m_depthBegin(depthBegin)
@@ -220,7 +361,7 @@ ReadCommandRastered::ReadCommandRastered(
         entwine::DimList dims,
         entwine::BBox bbox,
         const std::size_t level,
-        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
             session,
@@ -228,7 +369,7 @@ ReadCommandRastered::ReadCommandRastered(
             readId,
             compress,
             dims,
-            readCb,
+            initCb,
             dataCb)
     , m_bbox(bbox)
     , m_level(level)
@@ -266,7 +407,7 @@ ReadCommand* ReadCommandFactory::create(
         entwine::DimList dims,
         bool compress,
         v8::Local<v8::Object> query,
-        v8::Persistent<v8::Function> readCb,
+        v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
 {
     ReadCommand* readCommand(0);
@@ -329,7 +470,7 @@ ReadCommand* ReadCommandFactory::create(
                     bbox,
                     depthBegin,
                     depthEnd,
-                    readCb,
+                    initCb,
                     dataCb);
         }
     }
@@ -358,7 +499,7 @@ ReadCommand* ReadCommandFactory::create(
                     dims,
                     bbox,
                     rasterize,
-                    readCb,
+                    initCb,
                     dataCb);
         }
     }
@@ -370,7 +511,7 @@ ReadCommand* ReadCommandFactory::create(
                 readId,
                 compress,
                 dims,
-                readCb,
+                initCb,
                 dataCb);
     }
 

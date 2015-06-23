@@ -1,7 +1,6 @@
 #include <thread>
 #include <sstream>
 
-#include <node_buffer.h>
 #include <curl/curl.h>
 #include <openssl/crypto.h>
 
@@ -16,7 +15,6 @@
 
 #include "session.hpp"
 #include "commands/create.hpp"
-#include "commands/read.hpp"
 #include "util/buffer-pool.hpp"
 #include "util/once.hpp"
 
@@ -149,45 +147,18 @@ namespace
         return dims;
     }
 
-    v8::Local<v8::Value> getRasterMeta(ReadCommand* readCommand)
+    entwine::DimList parseDimList(
+            const v8::Local<v8::Value>& schemaArg,
+            const entwine::Schema& sessionSchema)
     {
-        v8::Local<v8::Value> result(Local<Value>::New(Undefined()));
-
-        if (readCommand->rasterize())
+        entwine::DimList dims;
+        const Local<Array> schemaArray(Array::Cast(*schemaArg));
+        if (schemaArray->Length())
         {
-            ReadCommandRastered* readCommandRastered(
-                    static_cast<ReadCommandRastered*>(readCommand));
-
-            if (!readCommandRastered)
-                throw std::runtime_error("Invalid ReadCommand state");
-
-            const RasterMeta rasterMeta(
-                    readCommandRastered->rasterMeta());
-
-            Local<Object> rasterObj(Object::New());
-            rasterObj->Set(
-                    String::NewSymbol("xBegin"),
-                    Number::New(rasterMeta.xBegin));
-            rasterObj->Set(
-                    String::NewSymbol("xStep"),
-                    Number::New(rasterMeta.xStep));
-            rasterObj->Set(
-                    String::NewSymbol("xNum"),
-                    Integer::New(rasterMeta.xNum()));
-            rasterObj->Set(
-                    String::NewSymbol("yBegin"),
-                    Number::New(rasterMeta.yBegin));
-            rasterObj->Set(
-                    String::NewSymbol("yStep"),
-                    Number::New(rasterMeta.yStep));
-            rasterObj->Set(
-                    String::NewSymbol("yNum"),
-                    Integer::New(rasterMeta.yNum()));
-
-            result = v8::Local<v8::Value>::New(rasterObj);
+            dims = parseDims(schemaArray, sessionSchema);
         }
 
-        return result;
+        return dims;
     }
 }
 
@@ -529,53 +500,38 @@ Handle<Value> Bindings::read(const Arguments& args)
     const auto& schemaArg   (args[i++]);
     const auto& compressArg (args[i++]);
     const auto& queryArg    (args[i++]);
-    const auto& readCbArg   (args[i++]);
+    const auto& initCbArg   (args[i++]);
     const auto& dataCbArg   (args[i++]);
 
     std::string errMsg("");
 
-    if (!schemaArg->IsArray())
-        errMsg += "\t'schema' must be a string";
+    if (!schemaArg->IsArray())      errMsg += "\t'schema' must be a string";
+    if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
+    if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
+    if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
+    if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
 
-    if (!compressArg->IsBoolean())
-        errMsg += "\t'compress' must be a boolean";
+    entwine::DimList dims(parseDimList(schemaArg, obj->m_session->schema()));
+    const bool compress(compressArg->BooleanValue());
+    Local<Object> query(queryArg->ToObject());
 
-    if (!dataCbArg->IsFunction())
-        errMsg += "\t'dataCb' must be a function";
+    Persistent<Function> initCb(
+            Persistent<Function>::New(Local<Function>::Cast(initCbArg)));
 
-    if (!readCbArg->IsFunction())
-        throw std::runtime_error("Invalid callback supplied to 'read'");
+    Persistent<Function> dataCb(
+            Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
 
-    entwine::DimList dims;
+    if (!dims.size()) errMsg += "\t'schema' has no valid dimensions";
 
-    const Local<Array> schemaArray(Array::Cast(*schemaArg));
-
-    if (schemaArray->Length())
-    {
-        dims = parseDims(schemaArray, obj->m_session->schema());
-
-        if (!dims.size())
-            errMsg += "\t'schema' has no valid dimensions";
-    }
-
-    Persistent<Function> readCb(
-            Persistent<Function>::New(Local<Function>::Cast(readCbArg)));
-
-    if (errMsg.size())
+    if (!errMsg.empty())
     {
         Status status(400, errMsg);
         const unsigned argc = 1;
         Local<Value> argv[argc] = { status.toObject() };
 
-        readCb->Call(Context::GetCurrent()->Global(), argc, argv);
+        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
         return scope.Close(Undefined());
     }
-
-    const bool compress(compressArg->BooleanValue());
-    Local<Object> query(queryArg->ToObject());
-
-    Persistent<Function> dataCb(
-            Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
 
     ReadCommand* readCommand(
             ReadCommandFactory::create(
@@ -585,7 +541,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                 dims,
                 compress,
                 query,
-                readCb,
+                initCb,
                 dataCb));
 
     if (!readCommand)
@@ -594,179 +550,70 @@ Handle<Value> Bindings::read(const Arguments& args)
         const unsigned argc = 1;
         Local<Value> argv[argc] = { status.toObject() };
 
-        readCb->Call(Context::GetCurrent()->Global(), argc, argv);
+        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
         return scope.Close(Undefined());
     }
 
     // Store our read command where our worker functions can access it.
-    uv_work_t* readReq(new uv_work_t);
-    readReq->data = readCommand;
+    uv_work_t* req(new uv_work_t);
+    req->data = readCommand;
 
     // Read points asynchronously.
     uv_queue_work(
         uv_default_loop(),
-        readReq,
-        (uv_work_cb)([](uv_work_t* readReq)->void
+        req,
+        (uv_work_cb)([](uv_work_t* req)->void
         {
-            ReadCommand* readCommand(static_cast<ReadCommand*>(readReq->data));
+            ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
-            readCommand->safe([readCommand]()->void {
-                // Run the query.  This will ensure indexing if needed, and
-                // will obtain everything needed to start streaming binary
-                // data to the client.
-                readCommand->run();
+            readCommand->registerInitCb();
+            readCommand->registerDataCb();
+
+            // Run the query.  This will ensure indexing if needed, and
+            // will obtain everything needed to start streaming binary
+            // data to the client.
+            readCommand->safe([readCommand]()->void { readCommand->run(); });
+
+            // Call initial informative callback.  If status is no good, we're
+            // done here - don't continue for data.
+            uv_async_send(readCommand->initAsync());
+            if (!readCommand->status.ok()) { return; }
+
+            readCommand->safe([readCommand]()->void
+            {
+                readCommand->acquire();
+
+                do
+                {
+                    readCommand->getBuffer()->grab();
+
+                    try
+                    {
+                        readCommand->read(maxReadLength);
+                    }
+                    catch (std::runtime_error& e)
+                    {
+                        readCommand->status.set(500, e.what());
+                    }
+                    catch (...)
+                    {
+                        readCommand->status.set(500, "Error in query");
+                    }
+
+                    uv_async_send(readCommand->dataAsync());
+                }
+                while (!readCommand->done() && readCommand->status.ok());
+
+                readCommand->getBufferPool().release(readCommand->getBuffer());
             });
         }),
-        (uv_after_work_cb)([](uv_work_t* readReq, int status)->void
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void
         {
-            ReadCommand* readCommand(
-                static_cast<ReadCommand*>(readReq->data));
+            HandleScope scope;
+            ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
-            if (!readCommand->status.ok())
-            {
-                HandleScope scope;
-                const unsigned argc = 1;
-                Local<Value> argv[argc] = { readCommand->status.toObject() };
-
-                readCommand->readCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
-
-                delete readCommand;
-                delete readReq;
-                scope.Close(Undefined());
-                return;
-            }
-
-            const std::string id(readCommand->readId());
-
-            // Call the initial callback.
-            {
-                const unsigned argc = 5;
-                Local<Value> argv[argc] =
-                {
-                    Local<Value>::New(Null()), // err
-                    Local<Value>::New(String::New(id.data(), id.size())),
-                    Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes())),
-                    getRasterMeta(readCommand)
-                };
-
-                readCommand->readCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
-            }
-
-            uv_work_t* dataReq(new uv_work_t);
-            dataReq->data = readCommand;
-
-            uv_async_init(
-                uv_default_loop(),
-                readCommand->async(),
-                ([](uv_async_t* async, int status)->void
-                {
-                    HandleScope scope;
-
-                    ReadCommand* readCommand(
-                        static_cast<ReadCommand*>(async->data));
-
-                    if (readCommand->status.ok())
-                    {
-                        const unsigned argc = 3;
-                        Local<Value>argv[argc] =
-                        {
-                            Local<Value>::New(Null()), // err
-                            Local<Value>::New(node::Buffer::New(
-                                    readCommand->getBuffer()->data(),
-                                    readCommand->getBuffer()->size())->handle_),
-                            Local<Value>::New(Number::New(readCommand->done()))
-                        };
-
-                        readCommand->dataCb()->Call(
-                            Context::GetCurrent()->Global(), argc, argv);
-                    }
-                    else
-                    {
-                        const unsigned argc = 1;
-                        Local<Value> argv[argc] =
-                            { readCommand->status.toObject() };
-
-                        readCommand->dataCb()->Call(
-                            Context::GetCurrent()->Global(), argc, argv);
-                    }
-
-                    readCommand->getBuffer()->flush();
-                    scope.Close(Undefined());
-                })
-            );
-
-            uv_queue_work(
-                uv_default_loop(),
-                dataReq,
-                (uv_work_cb)([](uv_work_t* dataReq)->void
-                {
-                    ReadCommand* readCommand(
-                        static_cast<ReadCommand*>(dataReq->data));
-
-                    readCommand->safe([readCommand]()->void
-                    {
-                        readCommand->acquire();
-
-                        // Go through this once even if there is no data for
-                        // this query so we close any outstanding sockets.
-                        do
-                        {
-                            readCommand->getBuffer()->grab();
-                            try
-                            {
-                                readCommand->read(maxReadLength);
-                            }
-                            catch (std::runtime_error& e)
-                            {
-                                readCommand->status.set(500, e.what());
-                            }
-                            catch (...)
-                            {
-                                readCommand->status.set(500, "Error in query");
-                            }
-
-                            // A bit strange, but we need to send this via the
-                            // same async token used in the uv_async_init()
-                            // call, so it must be a member of ReadCommand
-                            // since that object is the only thing we can
-                            // access in this background work queue.
-                            readCommand->async()->data = readCommand;
-                            uv_async_send(readCommand->async());
-                        }
-                        while (
-                                !readCommand->done() &&
-                                readCommand->status.ok());
-
-                        readCommand->getBufferPool().release(
-                            readCommand->getBuffer());
-                    });
-                }),
-                (uv_after_work_cb)([](uv_work_t* dataReq, int status)->void
-                {
-                    ReadCommand* readCommand(
-                        static_cast<ReadCommand*>(dataReq->data));
-
-                    uv_handle_t* async(
-                        reinterpret_cast<uv_handle_t*>(
-                            readCommand->async()));
-
-                    uv_close_cb closeCallback(
-                        (uv_close_cb)([](uv_handle_t* async)->void
-                        {
-                            delete async;
-                        }));
-
-                    uv_close(async, closeCallback);
-
-                    delete dataReq;
-                    delete readCommand;
-                })
-            );
-
-            delete readReq;
+            delete readCommand;
+            delete req;
         })
     );
 

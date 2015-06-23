@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include "commands/read.hpp"
+
 class Session;
 class ItcBufferPool;
 
