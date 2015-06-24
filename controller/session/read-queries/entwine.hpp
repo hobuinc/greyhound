@@ -1,11 +1,12 @@
 #pragma once
 
+#include <entwine/tree/reader.hpp>
+
 #include "read-queries/base.hpp"
 
 namespace entwine
 {
     class Schema;
-    class Reader;
 }
 
 class EntwineReadQuery : public ReadQuery
@@ -15,8 +16,8 @@ public:
             const entwine::Schema& schema,
             bool compress,
             bool rasterize,
-            entwine::Reader& entwine,
-            std::vector<std::size_t> ids);
+            std::unique_ptr<entwine::Query> query);
+
     ~EntwineReadQuery();
 
     virtual bool eof() const;
@@ -24,8 +25,7 @@ public:
     virtual std::size_t numPoints() const;
 
 private:
-    entwine::Reader& m_entwine;
-    std::vector<std::size_t> m_ids;
+    std::unique_ptr<entwine::Query> m_query;
 
     virtual void readPoint(
             char* pos,
