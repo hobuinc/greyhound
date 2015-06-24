@@ -151,19 +151,16 @@ std::shared_ptr<ReadQuery> Session::query(
 {
     if (resolveIndex())
     {
-        std::vector<std::size_t> results(
-                m_entwine->query(
-                    bbox.exists() ? bbox : m_entwine->bbox(),
-                    depthBegin,
-                    depthEnd));
-
         return std::shared_ptr<ReadQuery>(
                 new EntwineReadQuery(
                     schema,
                     compress,
                     false,
-                    *m_entwine,
-                    results));
+                    m_entwine->query(
+                        schema,
+                        bbox.exists() ? bbox : m_entwine->bbox(),
+                        depthBegin,
+                        depthEnd)));
     }
     else
     {

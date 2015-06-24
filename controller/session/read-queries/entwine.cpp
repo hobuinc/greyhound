@@ -8,11 +8,9 @@ EntwineReadQuery::EntwineReadQuery(
         const entwine::Schema& schema,
         bool compress,
         bool rasterize,
-        entwine::Reader& entwine,
-        std::vector<std::size_t> ids)
+        std::unique_ptr<entwine::Query> query)
     : ReadQuery(schema, compress, rasterize)
-    , m_entwine(entwine)
-    , m_ids(ids)
+    , m_query(std::move(query))
 { }
 
 EntwineReadQuery::~EntwineReadQuery()
@@ -23,8 +21,7 @@ void EntwineReadQuery::readPoint(
         const entwine::Schema& schema,
         bool rasterize)
 {
-    std::vector<char> point(m_entwine.getPointData(m_ids[index()], schema));
-    std::memcpy(pos, point.data(), point.size());
+    m_query->getPointAt(index(), pos);
 }
 
 bool EntwineReadQuery::eof() const
@@ -34,6 +31,6 @@ bool EntwineReadQuery::eof() const
 
 std::size_t EntwineReadQuery::numPoints() const
 {
-    return m_ids.size();
+    return m_query->size();
 }
 
