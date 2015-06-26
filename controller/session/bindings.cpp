@@ -22,12 +22,10 @@
 
 #include "bindings.hpp"
 
-// TODO Remove.
 using namespace v8;
 
 namespace
 {
-    // TODO Configure.
     const std::size_t numBuffers = 1024;
     const std::size_t maxReadLength = 65536;
     ItcBufferPool itcBufferPool(numBuffers, maxReadLength);

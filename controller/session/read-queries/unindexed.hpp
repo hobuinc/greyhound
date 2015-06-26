@@ -38,10 +38,7 @@ public:
     void addPoint(pdal::PointView& view, pdal::PointId id);
 
 private:
-    virtual void readPoint(
-            char* pos,
-            const entwine::Schema& schema,
-            bool rasterize);
+    virtual void readPoint(char* pos, const entwine::Schema& schema);
 
     std::unique_ptr<pdal::Reader> m_reader;
     std::size_t m_numPoints;

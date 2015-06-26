@@ -153,7 +153,6 @@ std::shared_ptr<ReadQuery> Session::query(
                 new EntwineReadQuery(
                     schema,
                     compress,
-                    false,
                     m_entwine->query(
                         schema,
                         bbox.exists() ? bbox : m_entwine->bbox(),
@@ -164,17 +163,6 @@ std::shared_ptr<ReadQuery> Session::query(
     {
         return std::shared_ptr<ReadQuery>();
     }
-}
-
-std::shared_ptr<ReadQuery> Session::query(
-        const entwine::Schema& schema,
-        bool compress,
-        const entwine::BBox& bbox,
-        std::size_t rasterize,
-        RasterMeta& rasterMeta)
-{
-    throw std::runtime_error("TODO - Session::query (rastered)");
-    return std::shared_ptr<ReadQuery>();
 }
 
 const entwine::Schema& Session::schema()

@@ -12,10 +12,7 @@ var
 
     controllerConfig = (require('../../../config').cn || { }),
     httpConfig = (controllerConfig ? controllerConfig.http : { }),
-    exposedHeaders =
-            'X-Greyhound-Num-Points,' +
-            'X-Greyhound-Read-ID,' +
-            'X-Greyhound-Raster-Meta'
+    exposedHeaders = 'X-Greyhound-Num-Points,' + 'X-Greyhound-Read-ID'
     ;
 
 http.globalAgent.maxSockets = 1024;
@@ -164,11 +161,6 @@ if (
                     res.header('X-Greyhound-Num-Points', props.numPoints);
                     res.header('X-Greyhound-Read-ID', props.readId);
                     res.header('Content-Type', 'application/octet-stream');
-                    if (props.rasterMeta) {
-                        res.header(
-                            'X-Greyhound-Raster-Meta',
-                            JSON.stringify(shRes.rasterMeta));
-                    }
                 },
                 function(err, data, done) {
                     if (err) {

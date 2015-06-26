@@ -11,7 +11,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 
-#include "types/raster-meta.hpp"
 #include "commands/background.hpp"
 
 void errorCb(
@@ -40,7 +39,6 @@ public:
     void registerDataCb();
 
     virtual void read(std::size_t maxNumBytes);
-    virtual bool rasterize() const { return false; }
 
     void run();
 
@@ -140,33 +138,6 @@ protected:
     const entwine::BBox m_bbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
-};
-
-class ReadCommandRastered : public ReadCommand
-{
-public:
-    ReadCommandRastered(
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            std::string readId,
-            bool compress,
-            entwine::DimList dims,
-            entwine::BBox bbox,
-            std::size_t level,
-            v8::Persistent<v8::Function> initCb,
-            v8::Persistent<v8::Function> dataCb);
-
-    virtual void read(std::size_t maxNumBytes);
-
-    virtual bool rasterize() const { return true; }
-    RasterMeta rasterMeta() const { return m_rasterMeta; }
-
-protected:
-    virtual void query();
-
-    const entwine::BBox m_bbox;
-    const std::size_t m_level;
-    RasterMeta m_rasterMeta;
 };
 
 class ReadCommandFactory

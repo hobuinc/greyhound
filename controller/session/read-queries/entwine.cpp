@@ -7,19 +7,15 @@
 EntwineReadQuery::EntwineReadQuery(
         const entwine::Schema& schema,
         bool compress,
-        bool rasterize,
         std::unique_ptr<entwine::Query> query)
-    : ReadQuery(schema, compress, rasterize)
+    : ReadQuery(schema, compress)
     , m_query(std::move(query))
 { }
 
 EntwineReadQuery::~EntwineReadQuery()
 { }
 
-void EntwineReadQuery::readPoint(
-        char* pos,
-        const entwine::Schema& schema,
-        bool rasterize)
+void EntwineReadQuery::readPoint(char* pos, const entwine::Schema& schema)
 {
     m_query->get(index(), pos);
 }

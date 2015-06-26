@@ -21,7 +21,6 @@ public:
     ReadQuery(
             const entwine::Schema& schema,
             bool compress,
-            bool rasterize,
             std::size_t index = 0);
 
     virtual std::size_t numPoints() const = 0;
@@ -30,10 +29,7 @@ public:
     bool compress() const { return m_compressor.get() != 0; }
     virtual bool serial() const { return false; }
 
-    void read(
-            std::shared_ptr<ItcBuffer> buffer,
-            std::size_t maxNumBytes,
-            bool rasterize = false);
+    void read(std::shared_ptr<ItcBuffer> buffer, std::size_t maxNumBytes);
 
 protected:
     std::size_t index() const;
@@ -44,13 +40,11 @@ protected:
     std::size_t m_compressionOffset;
 
     const entwine::Schema& m_schema;
-    const bool m_rasterize;
 
 private:
     virtual void readPoint(
             char* pos,
-            const entwine::Schema& schema,
-            bool rasterize) = 0;
+            const entwine::Schema& schema) = 0;
 
     virtual bool eof() const = 0;
 
