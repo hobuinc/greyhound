@@ -28,7 +28,6 @@ var console = require('clim')(),
     output = config.output,
     aws = config.aws,
 
-    concurrentQueries = config.queryLimits.concurrentQueries,
     chunksPerQuery = config.queryLimits.chunksPerQuery,
     chunkCacheSize = config.queryLimits.chunkCacheSize,
 
@@ -38,19 +37,14 @@ var console = require('clim')(),
     resourceTimeoutMinutes = getTimeout(config.resourceTimeoutMinutes)
     ;
 
-if (concurrentQueries < 8) concurrentQueries = 8;
-else if (concurrentQueries > 128) concurrentQueries = 128;
-
 if (chunksPerQuery < 4) chunksPerQuery = 4;
-
 if (chunkCacheSize < 16) chunkCacheSize = 16;
 
 console.log('Using');
-console.log('\tConcurrent queries:', concurrentQueries);
 console.log('\tChunks per query:', chunksPerQuery);
 console.log('\tChunk cache size:', chunkCacheSize);
 
-process.env.UV_THREADPOOL_SIZE = concurrentQueries;
+process.env.UV_THREADPOOL_SIZE = 128;
 
 var getSession = function(name, cb) {
     var session;
