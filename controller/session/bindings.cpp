@@ -8,7 +8,8 @@
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/drivers/s3.hpp>
-#include <entwine/tree/reader.hpp>
+#include <entwine/reader/cache.hpp>
+#include <entwine/reader/reader.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -33,6 +34,9 @@ namespace
 
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
+
+    std::shared_ptr<entwine::Arbiter> arbiter(0);
+    std::shared_ptr<entwine::Cache> cache(0);
 
     const std::size_t readIdSize = 24;
     const std::string hexValues = "0123456789ABCDEF";
@@ -74,11 +78,18 @@ namespace
     }
 
     std::mutex initMutex;
-    std::shared_ptr<entwine::Arbiter> arbiter(0);
 
-    void parseAwsAuth(const v8::Local<v8::Value>& rawArg)
+    void initConfigurable(
+            const v8::Local<v8::Value>& rawArg,
+            const std::size_t maxCacheSize,
+            const std::size_t maxQuerySize)
     {
         std::lock_guard<std::mutex> lock(initMutex);
+
+        if (!cache)
+        {
+            cache.reset(new entwine::Cache(maxCacheSize, maxQuerySize));
+        }
 
         if (!arbiter)
         {
@@ -212,10 +223,12 @@ namespace ghEnv
         delete lock;
     }
 
-    Once once([]()->void {
+    Once curlCryptoOnce([]()->void {
         std::cout << "Destructing global environment" << std::endl;
         curl_global_cleanup();
     });
+
+    Once cacheOnce;
 }
 
 Persistent<Function> Bindings::constructor;
@@ -224,7 +237,7 @@ Bindings::Bindings()
     : m_session(new Session(*stageFactory, factoryMutex))
     , m_itcBufferPool(itcBufferPool)
 {
-    ghEnv::once.ensure([]()->void {
+    ghEnv::curlCryptoOnce.ensure([]()->void {
         std::cout << "Initializing global environment" << std::endl;
         curl_global_init(CURL_GLOBAL_ALL);
 
@@ -327,12 +340,13 @@ Handle<Value> Bindings::create(const Arguments& args)
         return scope.Close(Undefined());
     }
 
-    parseAwsAuth(awsAuthArg);
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
     const std::vector<std::string> inputs(parsePathList(inputsArg));
     const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
     const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
+
+    initConfigurable(awsAuthArg, maxCacheSize, maxQuerySize);
 
     const Paths paths(inputs, output);
 
@@ -342,9 +356,8 @@ Handle<Value> Bindings::create(const Arguments& args)
             obj->m_session,
             name,
             paths,
-            maxQuerySize,
-            maxCacheSize,
             arbiter,
+            cache,
             callback);
 
     uv_queue_work(
@@ -359,9 +372,8 @@ Handle<Value> Bindings::create(const Arguments& args)
                 if (!createData->session->initialize(
                         createData->name,
                         createData->paths,
-                        createData->maxQuerySize,
-                        createData->maxCacheSize,
-                        createData->arbiter))
+                        createData->arbiter,
+                        createData->cache))
                 {
                     createData->status.set(404, "Not found");
                 }
