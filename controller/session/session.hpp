@@ -22,7 +22,6 @@ namespace entwine
     class Reader;
 }
 
-class RasterMeta;
 class ReadQuery;
 class Paths;
 
@@ -58,14 +57,6 @@ public:
             const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
-
-    // Read quad-tree indexed data with depth level for rasterization.
-    std::shared_ptr<ReadQuery> query(
-            const entwine::Schema& schema,
-            bool compress,
-            const entwine::BBox& bbox,
-            std::size_t rasterize,
-            RasterMeta& rasterMeta);
 
     const entwine::Schema& schema();
 

@@ -49,10 +49,7 @@ UnindexedReadQuery::UnindexedReadQuery(
 UnindexedReadQuery::~UnindexedReadQuery()
 { }
 
-void UnindexedReadQuery::readPoint(
-        char* pos,
-        const entwine::Schema&,
-        bool rasterize)
+void UnindexedReadQuery::readPoint(char* pos, const entwine::Schema&)
 {
     if (!m_hasChunk)
     {

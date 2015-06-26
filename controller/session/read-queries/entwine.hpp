@@ -16,7 +16,6 @@ public:
     EntwineReadQuery(
             const entwine::Schema& schema,
             bool compress,
-            bool rasterize,
             std::unique_ptr<entwine::Query> query);
 
     ~EntwineReadQuery();
@@ -28,9 +27,6 @@ public:
 private:
     std::unique_ptr<entwine::Query> m_query;
 
-    virtual void readPoint(
-            char* pos,
-            const entwine::Schema& schema,
-            bool rasterize);
+    virtual void readPoint(char* pos, const entwine::Schema& schema);
 };
 

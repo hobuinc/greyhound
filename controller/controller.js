@@ -178,8 +178,7 @@ else
                     err,
                     readId,
                     numPoints,
-                    numBytes,
-                    rasterMeta)
+                    numBytes)
                 {
                     if (err) {
                         console.warn('controller::read::ERROR:', err);
@@ -191,10 +190,6 @@ else
                             numPoints: numPoints,
                             numBytes: numBytes,
                         };
-
-                        if (rasterMeta) {
-                            props.rasterMeta = rasterMeta;
-                        }
 
                         onInit(null, props);
                     }

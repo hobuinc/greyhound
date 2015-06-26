@@ -3,43 +3,20 @@
 #include <entwine/types/schema.hpp>
 
 #include "util/buffer-pool.hpp"
-#include "util/schema.hpp"
-
-namespace
-{
-    pdal::DimTypeList pruneDims(
-            const entwine::Schema& schema,
-            bool rasterize)
-    {
-        pdal::DimTypeList output;
-
-        for (const auto& dim : schema.dims())
-        {
-            if (Util::use(dim, rasterize))
-            {
-                output.push_back(pdal::DimType(dim.id(), dim.type()));
-            }
-        }
-
-        return output;
-    }
-}
 
 ReadQuery::ReadQuery(
         const entwine::Schema& schema,
         const bool compress,
-        const bool rasterize,
         const std::size_t index)
     : m_compressionStream()
     , m_compressor(
             compress ?
                 new pdal::LazPerfCompressor<entwine::CompressionStream>(
                     m_compressionStream,
-                    pruneDims(schema, rasterize)) :
+                    schema.pdalLayout().dimTypes()) :
                 0)
     , m_compressionOffset(0)
     , m_schema(schema)
-    , m_rasterize(rasterize)
     , m_index(index)
 { }
 
@@ -50,15 +27,12 @@ bool ReadQuery::done() const
              m_compressionOffset == m_compressionStream.data().size());
 }
 
-void ReadQuery::read(
-        std::shared_ptr<ItcBuffer> buffer,
-        std::size_t maxNumBytes,
-        bool rasterize)
+void ReadQuery::read(std::shared_ptr<ItcBuffer> buffer, std::size_t maxNumBytes)
 {
     try
     {
         buffer->resize(0);
-        const std::size_t pointSize(Util::stride(m_schema, rasterize));
+        const std::size_t pointSize(m_schema.pointSize());
         std::vector<char> point(pointSize);
         char* pos(0);
 
@@ -75,7 +49,7 @@ void ReadQuery::read(
             pos = point.data();
 
             // Delegate to specialized subclass.
-            readPoint(pos, m_schema, rasterize);
+            readPoint(pos, m_schema);
 
             if (doCompress)
             {

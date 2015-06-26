@@ -9,7 +9,6 @@
 #include "session.hpp"
 #include "read-queries/base.hpp"
 #include "util/buffer-pool.hpp"
-#include "util/schema.hpp"
 
 #include "commands/read.hpp"
 
@@ -73,47 +72,6 @@ namespace
 
         return bbox;
     }
-
-    v8::Local<v8::Value> getRasterMeta(ReadCommand* readCommand)
-    {
-        v8::Local<v8::Value> result(Local<Value>::New(Undefined()));
-
-        if (readCommand->rasterize())
-        {
-            ReadCommandRastered* readCommandRastered(
-                    static_cast<ReadCommandRastered*>(readCommand));
-
-            if (!readCommandRastered)
-                throw std::runtime_error("Invalid ReadCommand state");
-
-            const RasterMeta rasterMeta(
-                    readCommandRastered->rasterMeta());
-
-            Local<Object> rasterObj(Object::New());
-            rasterObj->Set(
-                    String::NewSymbol("xBegin"),
-                    Number::New(rasterMeta.xBegin));
-            rasterObj->Set(
-                    String::NewSymbol("xStep"),
-                    Number::New(rasterMeta.xStep));
-            rasterObj->Set(
-                    String::NewSymbol("xNum"),
-                    Integer::New(rasterMeta.xNum()));
-            rasterObj->Set(
-                    String::NewSymbol("yBegin"),
-                    Number::New(rasterMeta.yBegin));
-            rasterObj->Set(
-                    String::NewSymbol("yStep"),
-                    Number::New(rasterMeta.yStep));
-            rasterObj->Set(
-                    String::NewSymbol("yNum"),
-                    Integer::New(rasterMeta.yNum()));
-
-            result = v8::Local<v8::Value>::New(rasterObj);
-        }
-
-        return result;
-    }
 }
 
 ReadCommand::ReadCommand(
@@ -175,14 +133,13 @@ void ReadCommand::registerInitCb()
             if (readCommand->status.ok())
             {
                 const std::string id(readCommand->readId());
-                const unsigned argc = 5;
+                const unsigned argc = 4;
                 Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
                     Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes())),
-                    getRasterMeta(readCommand)
+                    Local<Value>::New(Integer::New(readCommand->numBytes()))
                 };
 
                 readCommand->initCb()->Call(
@@ -239,7 +196,6 @@ void ReadCommand::registerDataCb()
             }
 
             readCommand->notifyCb();
-
             scope.Close(Undefined());
         })
     );
@@ -247,7 +203,7 @@ void ReadCommand::registerDataCb()
 
 std::size_t ReadCommand::numBytes() const
 {
-    return numPoints() * Util::stride(m_schema, rasterize());
+    return numPoints() * m_schema.pointSize();
 }
 
 void ReadCommand::cancel(bool cancel)
@@ -283,11 +239,6 @@ void ReadCommand::acquire()
 void ReadCommand::read(std::size_t maxNumBytes)
 {
     m_readQuery->read(m_itcBuffer, maxNumBytes);
-}
-
-void ReadCommandRastered::read(std::size_t maxNumBytes)
-{
-    m_readQuery->read(m_itcBuffer, maxNumBytes, true);
 }
 
 std::size_t ReadCommand::numPoints() const
@@ -357,28 +308,6 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
     , m_depthEnd(depthEnd)
 { }
 
-ReadCommandRastered::ReadCommandRastered(
-        std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
-        const std::string readId,
-        bool compress,
-        entwine::DimList dims,
-        entwine::BBox bbox,
-        const std::size_t level,
-        v8::Persistent<v8::Function> initCb,
-        v8::Persistent<v8::Function> dataCb)
-    : ReadCommand(
-            session,
-            itcBufferPool,
-            readId,
-            compress,
-            dims,
-            initCb,
-            dataCb)
-    , m_bbox(bbox)
-    , m_level(level)
-{ }
-
 void ReadCommandUnindexed::query()
 {
     m_readQuery = m_session->query(m_schema, m_compress);
@@ -392,16 +321,6 @@ void ReadCommandQuadIndex::query()
             m_bbox,
             m_depthBegin,
             m_depthEnd);
-}
-
-void ReadCommandRastered::query()
-{
-    m_readQuery = m_session->query(
-            m_schema,
-            m_compress,
-            m_bbox,
-            m_level,
-            m_rasterMeta);
 }
 
 ReadCommand* ReadCommandFactory::create(
@@ -424,7 +343,6 @@ ReadCommand* ReadCommandFactory::create(
     const auto depthSymbol(toSymbol("depth"));
     const auto depthBeginSymbol(toSymbol("depthBegin"));
     const auto depthEndSymbol(toSymbol("depthEnd"));
-    const auto rasterizeSymbol(toSymbol("rasterize"));
     const auto bboxSymbol(toSymbol("bbox"));
 
     if (
@@ -474,35 +392,6 @@ ReadCommand* ReadCommandFactory::create(
                     bbox,
                     depthBegin,
                     depthEnd,
-                    initCb,
-                    dataCb);
-        }
-    }
-    else if (query->HasOwnProperty(rasterizeSymbol))
-    {
-        const std::size_t rasterize(query->Get(rasterizeSymbol)->Uint32Value());
-
-        entwine::BBox bbox;
-
-        if (query->HasOwnProperty(bboxSymbol))
-        {
-            bbox = parseBBox(query->Get(bboxSymbol));
-            if (!bbox.exists()) return readCommand;
-        }
-
-        query->Delete(rasterizeSymbol);
-        query->Delete(bboxSymbol);
-
-        if (isEmpty(query))
-        {
-            readCommand = new ReadCommandRastered(
-                    session,
-                    itcBufferPool,
-                    readId,
-                    compress,
-                    dims,
-                    bbox,
-                    rasterize,
                     initCb,
                     dataCb);
         }
