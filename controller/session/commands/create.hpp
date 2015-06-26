@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <entwine/drivers/arbiter.hpp>
+#include <entwine/reader/cache.hpp>
 #include <entwine/types/bbox.hpp>
 
 #include "commands/background.hpp"
@@ -17,16 +18,14 @@ struct CreateData : public Background
             std::shared_ptr<Session> session,
             std::string name,
             Paths paths,
-            std::size_t maxQuerySize,
-            std::size_t maxCacheSize,
             std::shared_ptr<entwine::Arbiter> arbiter,
+            std::shared_ptr<entwine::Cache> cache,
             v8::Persistent<v8::Function> callback)
         : session(session)
         , name(name)
         , paths(paths)
-        , maxQuerySize(maxQuerySize)
-        , maxCacheSize(maxCacheSize)
         , arbiter(arbiter)
+        , cache(cache)
         , callback(callback)
     { }
 
@@ -39,9 +38,8 @@ struct CreateData : public Background
     const std::shared_ptr<Session> session;
     const std::string name;
     const Paths paths;
-    const std::size_t maxQuerySize;
-    const std::size_t maxCacheSize;
     std::shared_ptr<entwine::Arbiter> arbiter;
+    std::shared_ptr<entwine::Cache> cache;
 
     v8::Persistent<v8::Function> callback;
 };

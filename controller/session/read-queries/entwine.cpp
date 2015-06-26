@@ -1,7 +1,7 @@
 #include "read-queries/entwine.hpp"
 
+#include <entwine/reader/query.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/reader.hpp>
 #include <entwine/types/schema.hpp>
 
 EntwineReadQuery::EntwineReadQuery(
@@ -21,7 +21,7 @@ void EntwineReadQuery::readPoint(
         const entwine::Schema& schema,
         bool rasterize)
 {
-    m_query->getPointAt(index(), pos);
+    m_query->get(index(), pos);
 }
 
 bool EntwineReadQuery::eof() const

@@ -6,10 +6,11 @@
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/drivers/arbiter.hpp>
+#include <entwine/reader/query.hpp>
+#include <entwine/reader/reader.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/reader.hpp>
 
 #include "read-queries/entwine.hpp"
 #include "read-queries/unindexed.hpp"
@@ -56,9 +57,8 @@ Session::Session(
     , m_entwine()
     , m_name()
     , m_paths()
-    , m_maxQuerySize(0)
-    , m_maxCacheSize(0)
     , m_arbiter()
+    , m_cache()
 { }
 
 Session::~Session()
@@ -67,20 +67,18 @@ Session::~Session()
 bool Session::initialize(
         const std::string& name,
         const Paths& paths,
-        const std::size_t maxQuerySize,
-        const std::size_t maxCacheSize,
-        std::shared_ptr<entwine::Arbiter> arbiter)
+        std::shared_ptr<entwine::Arbiter> arbiter,
+        std::shared_ptr<entwine::Cache> cache)
 {
     m_initOnce.ensure(
-            [this, &name, &paths, maxQuerySize, maxCacheSize, arbiter]()
+            [this, &name, &paths, cache, arbiter]()
     {
         std::cout << "Discovering " << name << std::endl;
 
         m_name = name;
         m_paths.reset(new Paths(paths));
-        m_maxQuerySize = maxQuerySize;
-        m_maxCacheSize = maxCacheSize;
         m_arbiter = arbiter;
+        m_cache = cache;
 
         resolveSource();
         resolveIndex();
@@ -266,11 +264,7 @@ bool Session::resolveIndex()
                 entwine::Source source(m_arbiter->getSource(path + m_name));
 
                 m_entwine.reset(
-                        new entwine::Reader(
-                            source,
-                            m_maxCacheSize,
-                            m_maxQuerySize,
-                            m_arbiter));
+                        new entwine::Reader(source, *m_arbiter, m_cache));
             }
             catch (std::runtime_error& e)
             {

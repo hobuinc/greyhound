@@ -1,11 +1,12 @@
 #pragma once
 
-#include <entwine/tree/reader.hpp>
+#include <entwine/reader/reader.hpp>
 
 #include "read-queries/base.hpp"
 
 namespace entwine
 {
+    class Query;
     class Schema;
 }
 
