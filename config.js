@@ -16,14 +16,10 @@ config.cn = {
     // below, they will be silently clipped or grown to fall within the valid
     // range.
     queryLimits: {
-        // Number of outstanding simultaneous queries.  Must be in the
-        // inclusive range [8, 128].
-        concurrentQueries: 16,
-
         // Maximum number of indexed chunks allowed to be fetched per query.
         // Smaller numbers result in faster query response times.  Must be no
         // less than 4.
-        chunksPerQuery: 8,
+        chunksPerQuery: 16,
 
         // Number of previously fetched chunks that may be held in the cache.
         // If this value is less than concurrentQueries * chunksPerQuery, the

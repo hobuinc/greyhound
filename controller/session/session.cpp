@@ -83,11 +83,11 @@ bool Session::initialize(
         resolveSource();
         resolveIndex();
 
-        std::cout << "Source for " << name << ": " <<
+        std::cout << "\n\tSource for " << name << ": " <<
             (sourced() ? "FOUND" : "NOT found") << std::endl;
 
-        std::cout << "Index for " << name << ": " <<
-            (indexed() ? "FOUND" : "NOT found") << std::endl;
+        std::cout << "\tIndex for " << name << ": " <<
+            (indexed() ? "FOUND" : "NOT found") << "\n" << std::endl;
     });
 
     return sourced() || indexed();
@@ -194,7 +194,8 @@ bool Session::resolveSource()
 
         if (sources.size() > 1)
         {
-            std::cout << "Found competing sources for " << m_name << std::endl;
+            std::cout << "\tFound competing unindexed sources for " << m_name <<
+                std::endl;
         }
 
         if (sources.size())
@@ -223,10 +224,13 @@ bool Session::resolveSource()
                     }
                     catch (...)
                     {
-                        std::cout << "\tNo success with: " << path << std::endl;
                         m_source.reset(0);
                     }
                 }
+
+                std::cout << "\tTried resolving unindexed at " << path << ": ";
+                if (m_source) std::cout << "SUCCESS" << std::endl;
+                else std::cout << "failed" << std::endl;
             }
         }
     }
@@ -254,17 +258,21 @@ bool Session::resolveIndex()
                 m_entwine.reset(
                         new entwine::Reader(source, *m_arbiter, m_cache));
             }
-            catch (std::runtime_error& e)
-            {
-                std::cout << "\tTried " << path << ": " <<
-                    e.what() << "\n" << std::endl;
-            }
             catch (...)
             {
                 m_entwine.reset(0);
             }
 
-            if (m_entwine) break;
+            std::cout << "\tTried resolving index at " << path << ": ";
+            if (m_entwine)
+            {
+                std::cout << "SUCCESS" << std::endl;
+                break;
+            }
+            else
+            {
+                std::cout << "fail" << std::endl;
+            }
         }
     }
 
