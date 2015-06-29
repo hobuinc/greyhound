@@ -1,4 +1,4 @@
-PROXY?=TRUE
+PROXY?=ON
 COMPONENTS = gh_cn
 CREDENTIALS = credentials.js
 SHELL := /bin/bash
@@ -15,14 +15,10 @@ NPM_DIRS = examples/js \
 		   controller/interfaces/ws \
 		   controller/interfaces/http
 
-.PHONY: required cpp npm examples test clean install uninstall
-
-required:
-	$(MAKE) npm
+.PHONY: cpp npm test clean install uninstall
 
 all:
-	$(MAKE) required
-	$(MAKE) examples
+	$(MAKE) npm
 
 cpp:
 	@echo Building C++ addon.
@@ -33,18 +29,11 @@ npm:
 	npm install
 	$(foreach d, $(NPM_DIRS), cd $(d); npm install; cd -;)
 
-examples:
-	@echo Building C++ examples.
-	$(MAKE) -C examples/cpp all
-
 test:
 	nodeunit test/unit.js
 
 clean:
 	$(MAKE) -C controller clean
-	$(MAKE) -C examples/cpp clean
-
-
 
 install:
 	@gh_exists=$$(which greyhound); \
@@ -56,7 +45,7 @@ install:
 #
 # Copy module launchers.
 	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
-ifeq ($(PROXY),TRUE)
+ifeq ($(PROXY),ON)
 	@echo Using frontend proxy
 	cp scripts/init.d/gh_fe /etc/init.d/
 endif
@@ -85,8 +74,6 @@ endif
 #
 # Copy launcher utility.
 	cp greyhound /usr/bin/
-
-
 
 uninstall:
 	@echo Stopping and removing all traces of Greyhound...

@@ -1,11 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
 # A script to set up the Greyhound environment for standalone use.
 #
 
 # Install NPM packages, build our pdal-session binary, and build C++ examples.
 cd /vagrant/
-make all
+sudo -u vagrant cp config.template.js config.js
+sudo -u vagrant make all
 make install
 
 # Set up auto-relaunch of Greyhound components, and launch them.
@@ -16,7 +17,6 @@ greyhound start
 
 # Give Greyhound a few seconds to start up.
 sleep 5
-greyhound status
 
 cd -
 

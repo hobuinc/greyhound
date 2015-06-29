@@ -7,6 +7,7 @@ examples/cpp/put-pipeline
 *.swp
 *.rdb
 
+config.js
 credentials.js
 node_modules
 npm-debug.log

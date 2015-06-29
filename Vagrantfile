@@ -17,19 +17,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         vb.customize ["modifyvm", :id, "--ioapic", "on"]
     end
 
-    scripts = [
-        "ubuntu.sh",
-        "websocketpp.sh",
-        "laszip.sh",
-        "lazperf.sh",
-        "pdal.sh",
-        "vagrant.sh"
-    ];
+    u = ENV['USER'] || "";
+    p = ENV['PASS'] || "";
 
-    scripts.each {
-        |script| config.vm.provision :shell,
-        :path => "scripts/vagrant/" << script
-    }
+    config.vm.provision :shell, :inline => "apt-get install -y git"
+    config.vm.provision :shell, :inline =>
+        "/vagrant/scripts/vagrant/deps.sh \"" + u + "\" \"" + p + "\""
+
+    config.vm.provision :shell, :inline =>
+        "/vagrant/scripts/vagrant/greyhound.sh"
 
     # Automatically cd to /vagrant on 'vagrant ssh'.
     config.vm.provision :shell, :inline =>
