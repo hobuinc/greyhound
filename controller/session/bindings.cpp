@@ -508,7 +508,7 @@ Handle<Value> Bindings::read(const Arguments& args)
 
     std::string errMsg("");
 
-    if (!schemaArg->IsArray())      errMsg += "\t'schema' must be a string";
+    if (!schemaArg->IsArray())      errMsg += "\t'schema' must be an array";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
@@ -523,8 +523,6 @@ Handle<Value> Bindings::read(const Arguments& args)
 
     Persistent<Function> dataCb(
             Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
-
-    if (!dims.size()) errMsg += "\t'schema' has no valid dimensions";
 
     if (!errMsg.empty())
     {
