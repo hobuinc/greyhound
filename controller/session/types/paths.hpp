@@ -3,8 +3,6 @@
 #include <vector>
 #include <string>
 
-#include <entwine/drivers/s3.hpp>
-
 struct Paths
 {
     Paths(std::vector<std::string> inputs, std::string output)

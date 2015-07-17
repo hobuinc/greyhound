@@ -7,9 +7,9 @@
 #include <pdal/PointLayout.hpp>
 #include <pdal/StageFactory.hpp>
 
-#include <entwine/drivers/s3.hpp>
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -33,7 +33,7 @@ namespace
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
-    std::shared_ptr<entwine::Arbiter> arbiter(0);
+    std::shared_ptr<arbiter::Arbiter> commonArbiter(0);
     std::shared_ptr<entwine::Cache> cache(0);
 
     const std::size_t readIdSize = 24;
@@ -89,9 +89,9 @@ namespace
             cache.reset(new entwine::Cache(maxCacheSize, maxQuerySize));
         }
 
-        if (!arbiter)
+        if (!commonArbiter)
         {
-            entwine::DriverMap drivers;
+            std::unique_ptr<arbiter::AwsAuth> auth;
 
             if (!rawArg->IsUndefined() && rawArg->IsObject())
             {
@@ -107,12 +107,10 @@ namespace
                 const std::string hidden(
                         *v8::String::Utf8Value(rawHidden->ToString()));
 
-                entwine::AwsAuth awsAuth(access, hidden);
-                drivers.insert(
-                        { "s3", std::make_shared<entwine::S3Driver>(awsAuth) });
+                auth.reset(new arbiter::AwsAuth(access, hidden));
             }
 
-            arbiter.reset(new entwine::Arbiter(drivers));
+            commonArbiter.reset(new arbiter::Arbiter(auth.get()));
         }
     }
 
@@ -354,7 +352,7 @@ Handle<Value> Bindings::create(const Arguments& args)
             obj->m_session,
             name,
             paths,
-            arbiter,
+            commonArbiter,
             cache,
             callback);
 

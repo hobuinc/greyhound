@@ -13,9 +13,13 @@ namespace pdal
     class StageFactory;
 }
 
-namespace entwine
+namespace arbiter
 {
     class Arbiter;
+}
+
+namespace entwine
+{
     class BBox;
     class Cache;
     class Schema;
@@ -36,7 +40,7 @@ public:
     bool initialize(
             const std::string& name,
             const Paths& paths,
-            std::shared_ptr<entwine::Arbiter> arbiter,
+            std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache);
 
     std::size_t getNumPoints();
@@ -79,7 +83,7 @@ private:
 
     std::string m_name;
     std::unique_ptr<Paths> m_paths;
-    std::shared_ptr<entwine::Arbiter> m_arbiter;
+    std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::shared_ptr<entwine::Cache> m_cache;
 
     // Disallow copy/assignment.
