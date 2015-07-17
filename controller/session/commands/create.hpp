@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <entwine/drivers/arbiter.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/cache.hpp>
 #include <entwine/types/bbox.hpp>
 
@@ -18,7 +18,7 @@ struct CreateData : public Background
             std::shared_ptr<Session> session,
             std::string name,
             Paths paths,
-            std::shared_ptr<entwine::Arbiter> arbiter,
+            std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache,
             v8::Persistent<v8::Function> callback)
         : session(session)
@@ -38,7 +38,7 @@ struct CreateData : public Background
     const std::shared_ptr<Session> session;
     const std::string name;
     const Paths paths;
-    std::shared_ptr<entwine::Arbiter> arbiter;
+    std::shared_ptr<arbiter::Arbiter> arbiter;
     std::shared_ptr<entwine::Cache> cache;
 
     v8::Persistent<v8::Function> callback;

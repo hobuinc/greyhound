@@ -53,15 +53,32 @@ namespace
             Json::Value json;
             Json::Value& bounds(json["bounds"]);
 
-            bounds.append(rawBounds[0].asDouble());
-            bounds.append(rawBounds[1].asDouble());
-            bounds.append(0);
-            bounds.append(rawBounds[2].asDouble());
-            bounds.append(rawBounds[3].asDouble());
-            bounds.append(0);
+            if (rawBounds.size() == 4)
+            {
+                bounds.append(rawBounds[0].asDouble());
+                bounds.append(rawBounds[1].asDouble());
+                bounds.append(0);
+                bounds.append(rawBounds[2].asDouble());
+                bounds.append(rawBounds[3].asDouble());
+                bounds.append(0);
 
-            // TODO
-            json["is3d"] = false;
+                json["is3d"] = false;
+            }
+            else if (rawBounds.size() == 6)
+            {
+                bounds.append(rawBounds[0].asDouble());
+                bounds.append(rawBounds[1].asDouble());
+                bounds.append(rawBounds[2].asDouble());
+                bounds.append(rawBounds[3].asDouble());
+                bounds.append(rawBounds[4].asDouble());
+                bounds.append(rawBounds[5].asDouble());
+
+                json["is3d"] = true;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid");
+            }
 
             bbox = entwine::BBox(json);
         }

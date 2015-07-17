@@ -5,7 +5,7 @@
 
 #include <pdal/StageFactory.hpp>
 
-#include <entwine/drivers/arbiter.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/bbox.hpp>
@@ -67,7 +67,7 @@ Session::~Session()
 bool Session::initialize(
         const std::string& name,
         const Paths& paths,
-        std::shared_ptr<entwine::Arbiter> arbiter,
+        std::shared_ptr<arbiter::Arbiter> arbiter,
         std::shared_ptr<entwine::Cache> cache)
 {
     m_initOnce.ensure(
@@ -253,10 +253,11 @@ bool Session::resolveIndex()
             {
                 if (path.size() && path.back() != '/') path.push_back('/');
 
-                entwine::Source source(m_arbiter->getSource(path + m_name));
+                arbiter::Endpoint endpoint(
+                        m_arbiter->getEndpoint(path + m_name));
 
                 m_entwine.reset(
-                        new entwine::Reader(source, *m_arbiter, m_cache));
+                        new entwine::Reader(endpoint, *m_arbiter, m_cache));
             }
             catch (...)
             {
