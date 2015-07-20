@@ -44,7 +44,7 @@ console.log('Using');
 console.log('\tChunks per query:', chunksPerQuery);
 console.log('\tChunk cache size:', chunkCacheSize);
 
-process.env.UV_THREADPOOL_SIZE = 128;
+process.env.UV_THREADPOOL_SIZE = 8;
 
 var getSession = function(name, cb) {
     var session;
@@ -142,6 +142,14 @@ else
         getSession(resource, function(err, session) {
             if (err) return cb(err);
             else return cb(null, session.getBounds());
+        });
+    }
+
+    Controller.prototype.type = function(resource, cb) {
+        console.log("controller::type");
+        getSession(resource, function(err, session) {
+            if (err) return cb(err);
+            else return cb(null, session.getType());
         });
     }
 

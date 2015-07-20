@@ -129,15 +129,9 @@ if (
             });
         });
 
-        app.get('/resource/:resource/fills', function(req, res) {
-            controller.fills(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'fills'));
-            });
-        });
-
-        app.post('/resource/:resource/serialize', function(req, res) {
-            controller.serialize(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'serialize'));
+        app.get('/resource/:resource/type', function(req, res) {
+            controller.type(req.params.resource, function(err, data) {
+                res.json(extend(err, data, 'type'));
             });
         });
 

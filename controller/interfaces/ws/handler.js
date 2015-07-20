@@ -66,12 +66,8 @@ var
             controller.bounds(msg.pipeline, cb);
         });
 
-        commander.on('fills', function(msg, cb) {
-            controller.fills(msg.pipeline, cb);
-        });
-
-        commander.on('serialize', function(msg, cb) {
-            controller.serialize(msg.pipeline, cb);
+        commander.on('type', function(msg, cb) {
+            controller.type(msg.pipeline, cb);
         });
 
         commander.on('destroy', function(msg, cb) {
