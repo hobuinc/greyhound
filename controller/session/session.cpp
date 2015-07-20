@@ -10,6 +10,7 @@
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/tree/clipper.hpp>
 
 #include "read-queries/entwine.hpp"
@@ -108,6 +109,18 @@ std::string Session::getStats()
 std::string Session::getSrs()
 {
     return "";
+}
+
+std::string Session::getType()
+{
+    if (resolveIndex())
+    {
+        return m_entwine->structure().dimensions() == 2 ? "quadtree" : "octree";
+    }
+    else
+    {
+        throw std::runtime_error("No index found for " + m_name);
+    }
 }
 
 entwine::BBox Session::getBounds()

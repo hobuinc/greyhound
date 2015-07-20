@@ -91,8 +91,6 @@ namespace
 
         if (!commonArbiter)
         {
-            std::unique_ptr<arbiter::AwsAuth> auth;
-
             if (!rawArg->IsUndefined() && rawArg->IsObject())
             {
                 Local<Object> rawObj(Object::Cast(*rawArg));
@@ -107,10 +105,14 @@ namespace
                 const std::string hidden(
                         *v8::String::Utf8Value(rawHidden->ToString()));
 
-                auth.reset(new arbiter::AwsAuth(access, hidden));
+                commonArbiter.reset(
+                        new arbiter::Arbiter(
+                            arbiter::AwsAuth(access, hidden)));
             }
-
-            commonArbiter.reset(new arbiter::Arbiter(auth.get()));
+            else
+            {
+                commonArbiter.reset(new arbiter::Arbiter());
+            }
         }
     }
 
@@ -272,6 +274,8 @@ void Bindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(getSrs)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("getBounds"),
         FunctionTemplate::New(getBounds)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("getType"),
+        FunctionTemplate::New(getType)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
 
@@ -484,6 +488,16 @@ Handle<Value> Bindings::getBounds(const Arguments& args)
     jsBounds->Set(5, v8::Number::New(bbox.max().z));
 
     return scope.Close(jsBounds);
+}
+
+Handle<Value> Bindings::getType(const Arguments& args)
+{
+    HandleScope scope;
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+
+    const std::string type(obj->m_session->getType());
+
+    return scope.Close(String::New(type.data(), type.size()));
 }
 
 Handle<Value> Bindings::read(const Arguments& args)
