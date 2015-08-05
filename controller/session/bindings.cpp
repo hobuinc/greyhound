@@ -1,6 +1,9 @@
 #include <thread>
 #include <sstream>
 
+#include <execinfo.h>
+#include <unistd.h>
+
 #include <curl/curl.h>
 #include <openssl/crypto.h>
 
@@ -26,6 +29,16 @@ using namespace v8;
 
 namespace
 {
+    void handler(int sig)
+    {
+        void* array[16];
+        const std::size_t size(backtrace(array, 16));
+
+        std::cout << "Got error " << sig << std::endl;
+        backtrace_symbols_fd(array, size, STDERR_FILENO);
+        exit(1);
+    }
+
     const std::size_t numBuffers = 1024;
     const std::size_t maxReadLength = 65536;
     ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
@@ -86,6 +99,8 @@ namespace
 
         if (!cache)
         {
+            signal(SIGSEGV, handler);
+
             cache.reset(new entwine::Cache(maxCacheSize, maxQuerySize));
         }
 
@@ -595,6 +610,10 @@ Handle<Value> Bindings::read(const Arguments& args)
                 catch (entwine::QueryLimitExceeded& e)
                 {
                     readCommand->status.set(413, e.what());
+                }
+                catch (entwine::InvalidQuery& e)
+                {
+                    readCommand->status.set(400, e.what());
                 }
             });
 
