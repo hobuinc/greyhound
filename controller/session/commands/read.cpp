@@ -16,6 +16,8 @@ using namespace v8;
 
 namespace
 {
+    void freeCb(char* data, void* hint) { }
+
     bool isInteger(const v8::Local<v8::Value>& value)
     {
         return value->IsInt32() || value->IsUint32();
@@ -189,13 +191,18 @@ void ReadCommand::registerDataCb()
 
             if (readCommand->status.ok())
             {
+                auto buffer(
+                        node::Buffer::New(
+                            readCommand->getBuffer()->data(),
+                            readCommand->getBuffer()->size(),
+                            freeCb,
+                            0));
+
                 const unsigned argc = 3;
                 Local<Value>argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
-                    Local<Value>::New(node::Buffer::New(
-                            readCommand->getBuffer()->data(),
-                            readCommand->getBuffer()->size())->handle_),
+                    Local<Value>::New(buffer->handle_),
                     Local<Value>::New(Number::New(readCommand->done()))
                 };
 
