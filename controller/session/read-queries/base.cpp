@@ -53,8 +53,7 @@ void ReadQuery::read(std::shared_ptr<ItcBuffer> buffer, std::size_t maxNumBytes)
 
             if (doCompress)
             {
-                m_compressor->compress(
-                    reinterpret_cast<char*>(point.data()), pointSize);
+                m_compressor->compress(point.data(), pointSize);
             }
             else
             {

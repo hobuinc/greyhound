@@ -22,6 +22,7 @@ public:
             const entwine::Schema& schema,
             bool compress,
             std::size_t index = 0);
+    virtual ~ReadQuery() { }
 
     virtual std::size_t numPoints() const = 0;
 
