@@ -2,6 +2,10 @@
 
 #include <memory>
 
+#include <node.h>
+#include <node_object_wrap.h>
+#include <v8.h>
+
 #include "commands/read.hpp"
 
 class Session;
@@ -17,23 +21,25 @@ class Bindings : public node::ObjectWrap
 public:
     static void init(v8::Handle<v8::Object> exports);
 
+    typedef v8::FunctionCallbackInfo<v8::Value> Arguments;
+
 private:
     Bindings();
     ~Bindings();
 
     static v8::Persistent<v8::Function> constructor;
 
-    static v8::Handle<v8::Value> construct(const v8::Arguments& args);
+    static void construct(const Arguments& args);
 
-    static v8::Handle<v8::Value> create(const v8::Arguments& args);
-    static v8::Handle<v8::Value> destroy(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getNumPoints(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getSchema(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getStats(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getSrs(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getBounds(const v8::Arguments& args);
-    static v8::Handle<v8::Value> getType(const v8::Arguments& args);
-    static v8::Handle<v8::Value> read(const v8::Arguments& args);
+    static void create(const Arguments& args);
+    static void destroy(const Arguments& args);
+    static void getNumPoints(const Arguments& args);
+    static void getSchema(const Arguments& args);
+    static void getStats(const Arguments& args);
+    static void getSrs(const Arguments& args);
+    static void getBounds(const Arguments& args);
+    static void getType(const Arguments& args);
+    static void read(const Arguments& args);
 
     std::shared_ptr<Session> m_session;
     ItcBufferPool& m_itcBufferPool;
