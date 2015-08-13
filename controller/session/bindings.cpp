@@ -64,18 +64,20 @@ namespace
         return id;
     }
 
-    std::vector<std::string> parsePathList(const v8::Local<v8::Value>& rawArg)
+    std::vector<std::string> parsePathList(
+            Isolate* isolate,
+            const v8::Local<v8::Value>& rawArg)
     {
         std::vector<std::string> paths;
 
         if (!rawArg->IsUndefined() && rawArg->IsArray())
         {
-            Local<Array> rawArray(Array::Cast(*rawArg));
+            Array* rawArray(Array::Cast(*rawArg));
 
             for (std::size_t i(0); i < rawArray->Length(); ++i)
             {
                 const v8::Local<v8::Value>& rawValue(
-                    rawArray->Get(Integer::New(i)));
+                    rawArray->Get(Integer::New(isolate, i)));
 
                 if (rawValue->IsString())
                 {
@@ -91,6 +93,7 @@ namespace
     std::mutex initMutex;
 
     void initConfigurable(
+            Isolate* isolate,
             const v8::Local<v8::Value>& rawArg,
             const std::size_t maxCacheSize,
             const std::size_t maxQuerySize)
@@ -108,12 +111,12 @@ namespace
         {
             if (!rawArg->IsUndefined() && rawArg->IsObject())
             {
-                Local<Object> rawObj(Object::Cast(*rawArg));
+                Object* rawObj(Object::Cast(*rawArg));
 
                 const v8::Local<v8::Value>& rawAccess(
-                        rawObj->Get(String::NewSymbol("access")));
+                        rawObj->Get(String::NewFromUtf8(isolate, "access")));
                 const v8::Local<v8::Value>& rawHidden(
-                        rawObj->Get(String::NewSymbol("hidden")));
+                        rawObj->Get(String::NewFromUtf8(isolate, "hidden")));
 
                 const std::string access(
                         *v8::String::Utf8Value(rawAccess->ToString()));
@@ -132,7 +135,8 @@ namespace
     }
 
     entwine::DimList parseDims(
-            v8::Local<v8::Array> schemaArray,
+            Isolate* isolate,
+            v8::Array* schemaArray,
             const entwine::Schema& sessionSchema)
     {
         entwine::DimList dims;
@@ -140,20 +144,23 @@ namespace
         for (std::size_t i(0); i < schemaArray->Length(); ++i)
         {
             Local<Object> dimObj(schemaArray->Get(
-                        Integer::New(i))->ToObject());
+                        Integer::New(isolate, i))->ToObject());
 
             const std::string sizeString(*v8::String::Utf8Value(
-                    dimObj->Get(String::New("size"))->ToString()));
+                    dimObj->Get(String::NewFromUtf8(isolate, "size"))
+                    ->ToString()));
 
             const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
 
             if (size)
             {
                 const std::string name(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("name"))->ToString()));
+                        dimObj->Get(String::NewFromUtf8(isolate, "name"))
+                        ->ToString()));
 
                 const std::string baseTypeName(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("type"))->ToString()));
+                        dimObj->Get(String::NewFromUtf8(isolate, "type"))
+                        ->ToString()));
 
                 const pdal::Dimension::Id::Enum id(
                         sessionSchema.pdalLayout().findDim(name));
@@ -173,14 +180,15 @@ namespace
     }
 
     entwine::DimList parseDimList(
+            Isolate* isolate,
             const v8::Local<v8::Value>& schemaArg,
             const entwine::Schema& sessionSchema)
     {
         entwine::DimList dims;
-        const Local<Array> schemaArray(Array::Cast(*schemaArg));
+        Array* schemaArray(Array::Cast(*schemaArg));
         if (schemaArray->Length())
         {
-            dims = parseDims(schemaArray, sessionSchema);
+            dims = parseDims(isolate, schemaArray, sessionSchema);
         }
 
         return dims;
@@ -267,59 +275,55 @@ Bindings::~Bindings()
 
 void Bindings::init(v8::Handle<v8::Object> exports)
 {
+    Isolate* isolate(Isolate::GetCurrent());
+
     // Prepare constructor template
-    Local<FunctionTemplate> tpl = FunctionTemplate::New(construct);
-    tpl->SetClassName(String::NewSymbol("Bindings"));
+    Local<FunctionTemplate> tpl(FunctionTemplate::New(isolate, construct));
+    tpl->SetClassName(String::NewFromUtf8(isolate, "Bindings"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     // Prototype
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("construct"),
-        FunctionTemplate::New(construct)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("create"),
-        FunctionTemplate::New(create)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("destroy"),
-        FunctionTemplate::New(destroy)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getNumPoints"),
-        FunctionTemplate::New(getNumPoints)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSchema"),
-        FunctionTemplate::New(getSchema)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getStats"),
-        FunctionTemplate::New(getStats)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
-        FunctionTemplate::New(getSrs)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getBounds"),
-        FunctionTemplate::New(getBounds)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getType"),
-        FunctionTemplate::New(getType)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
-        FunctionTemplate::New(read)->GetFunction());
+    NODE_SET_PROTOTYPE_METHOD(tpl, "construct",     construct);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "create",        create);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",       destroy);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getNumPoints",  getNumPoints);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getSchema",     getSchema);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getStats",      getStats);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getSrs",        getSrs);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getBounds",     getBounds);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getType",       getType);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "read",          read);
 
-    constructor = Persistent<Function>::New(tpl->GetFunction());
-    exports->Set(String::NewSymbol("Bindings"), constructor);
+    constructor.Reset(isolate, tpl->GetFunction());
+    exports->Set(String::NewFromUtf8(isolate, "Bindings"), tpl->GetFunction());
 }
 
-Handle<Value> Bindings::construct(const Arguments& args)
+void Bindings::construct(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
 
     if (args.IsConstructCall())
     {
         // Invoked as constructor with 'new'.
         Bindings* obj = new Bindings();
-        obj->Wrap(args.This());
-        return args.This();
+        obj->Wrap(args.Holder());
+        args.GetReturnValue().Set(args.Holder());
     }
     else
     {
         // Invoked as a function, turn into construct call.
-        return scope.Close(constructor->NewInstance());
+        Local<Function> ctor(Local<Function>::New(isolate, constructor));
+        args.GetReturnValue().Set(ctor->NewInstance());
     }
 }
 
-Handle<Value> Bindings::create(const Arguments& args)
+void Bindings::create(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     if (args.Length() != 7)
     {
@@ -342,26 +346,28 @@ Handle<Value> Bindings::create(const Arguments& args)
     if (!outputArg->IsString()) errMsg += "\t'output' must be a string";
     if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(cbArg)));
+    UniquePersistent<Function> callback(isolate, Local<Function>::Cast(cbArg));
 
     if (errMsg.size())
     {
         Status status(400, errMsg);
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
+        Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        callback->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
+        Local<Function> local(Local<Function>::New(isolate, callback));
+
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        callback.Reset();
+        return;
     }
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const std::vector<std::string> inputs(parsePathList(inputsArg));
+    const std::vector<std::string> inputs(parsePathList(isolate, inputsArg));
     const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
     const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
-    initConfigurable(awsAuthArg, maxCacheSize, maxQuerySize);
+    initConfigurable(isolate, awsAuthArg, maxCacheSize, maxQuerySize);
 
     const Paths paths(inputs, output);
 
@@ -373,7 +379,7 @@ Handle<Value> Bindings::create(const Arguments& args)
             paths,
             commonArbiter,
             cache,
-            callback);
+            std::move(callback));
 
     uv_queue_work(
         uv_default_loop(),
@@ -396,129 +402,139 @@ Handle<Value> Bindings::create(const Arguments& args)
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
+
             CreateData* createData(static_cast<CreateData*>(req->data));
 
             const unsigned argc = 1;
-            Local<Value> argv[argc] = { createData->status.toObject() };
+            Local<Value> argv[argc] = { createData->status.toObject(isolate) };
 
-            createData->callback->Call(
-                Context::GetCurrent()->Global(), argc, argv);
+            Local<Function> local(Local<Function>::New(
+                    isolate,
+                    createData->callback));
+
+            local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
 
             delete createData;
             delete req;
         })
     );
-
-    return scope.Close(Undefined());
 }
 
-Handle<Value> Bindings::destroy(const Arguments& args)
+void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     obj->m_session.reset();
-
-    return scope.Close(Undefined());
 }
 
-Handle<Value> Bindings::getNumPoints(const Arguments& args)
+void Bindings::getNumPoints(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    return scope.Close(Number::New(obj->m_session->getNumPoints()));
+    const std::size_t numPoints(obj->m_session->getNumPoints());
+    args.GetReturnValue().Set(Number::New(isolate, numPoints));
 }
 
-Handle<Value> Bindings::getSchema(const Arguments& args)
+void Bindings::getSchema(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const entwine::Schema& schema(obj->m_session->schema());
     const auto& dims(schema.dims());
 
     // Convert our entwine::Schema to a JS array.
-    Local<Array> jsSchema(Array::New(dims.size()));
+    Local<Array> jsSchema(Array::New(isolate, dims.size()));
 
     for (std::size_t i(0); i < dims.size(); ++i)
     {
         const auto& dim(dims[i]);
 
-        Local<Object> jsDim(Object::New());
+        Local<Object> jsDim(Object::New(isolate));
 
         jsDim->Set(
-                String::NewSymbol("name"),
-                String::New(dim.name().data(), dim.name().size()));
+                String::NewFromUtf8(isolate, "name"),
+                String::NewFromUtf8(isolate, dim.name().c_str()));
 
         jsDim->Set(
-                String::NewSymbol("type"),
-                String::New(dim.typeString().data(), dim.typeString().size()));
+                String::NewFromUtf8(isolate, "type"),
+                String::NewFromUtf8(isolate, dim.typeString().c_str()));
 
         jsDim->Set(
-                String::NewSymbol("size"),
-                Integer::New(dim.size()));
+                String::NewFromUtf8(isolate, "size"),
+                Integer::New(isolate, dim.size()));
 
-        jsSchema->Set(Integer::New(i), jsDim);
+        jsSchema->Set(Integer::New(isolate, i), jsDim);
     }
 
-    return scope.Close(jsSchema);
+    args.GetReturnValue().Set(jsSchema);
 }
 
-Handle<Value> Bindings::getStats(const Arguments& args)
+void Bindings::getStats(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const std::string stats(obj->m_session->getStats());
 
-    return scope.Close(String::New(stats.data(), stats.size()));
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, stats.c_str()));
 }
 
-Handle<Value> Bindings::getSrs(const Arguments& args)
+void Bindings::getSrs(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const std::string wkt(obj->m_session->getSrs());
 
-    return scope.Close(String::New(wkt.data(), wkt.size()));
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, wkt.c_str()));
 }
 
-Handle<Value> Bindings::getBounds(const Arguments& args)
+void Bindings::getBounds(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const entwine::BBox bbox(obj->m_session->getBounds());
 
-    v8::Handle<v8::Array> jsBounds = v8::Array::New(4);
+    v8::Handle<v8::Array> jsBounds = v8::Array::New(isolate, 6);
 
-    jsBounds->Set(0, v8::Number::New(bbox.min().x));
-    jsBounds->Set(1, v8::Number::New(bbox.min().y));
-    jsBounds->Set(2, v8::Number::New(bbox.min().z));
-    jsBounds->Set(3, v8::Number::New(bbox.max().x));
-    jsBounds->Set(4, v8::Number::New(bbox.max().y));
-    jsBounds->Set(5, v8::Number::New(bbox.max().z));
+    jsBounds->Set(0, v8::Number::New(isolate, bbox.min().x));
+    jsBounds->Set(1, v8::Number::New(isolate, bbox.min().y));
+    jsBounds->Set(2, v8::Number::New(isolate, bbox.min().z));
+    jsBounds->Set(3, v8::Number::New(isolate, bbox.max().x));
+    jsBounds->Set(4, v8::Number::New(isolate, bbox.max().y));
+    jsBounds->Set(5, v8::Number::New(isolate, bbox.max().z));
 
-    return scope.Close(jsBounds);
+    args.GetReturnValue().Set(jsBounds);
 }
 
-Handle<Value> Bindings::getType(const Arguments& args)
+void Bindings::getType(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const std::string type(obj->m_session->getType());
 
-    return scope.Close(String::New(type.data(), type.size()));
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, type.c_str()));
 }
 
-Handle<Value> Bindings::read(const Arguments& args)
+void Bindings::read(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     // Call the factory to get the specialized 'read' command based on
     // the input args.  If there is an error with the input args, this call
@@ -541,45 +557,61 @@ Handle<Value> Bindings::read(const Arguments& args)
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
     if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
 
-    entwine::DimList dims(parseDimList(schemaArg, obj->m_session->schema()));
+    entwine::DimList dims(
+            parseDimList(
+                isolate,
+                schemaArg,
+                obj->m_session->schema()));
+
     const bool compress(compressArg->BooleanValue());
     Local<Object> query(queryArg->ToObject());
 
-    Persistent<Function> initCb(
-            Persistent<Function>::New(Local<Function>::Cast(initCbArg)));
+    UniquePersistent<Function> initCb(
+            isolate,
+            Local<Function>::Cast(initCbArg));
 
-    Persistent<Function> dataCb(
-            Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
+    UniquePersistent<Function> dataCb(
+            isolate,
+            Local<Function>::Cast(dataCbArg));
 
     if (!errMsg.empty())
     {
         Status status(400, errMsg);
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
+        Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
+        Local<Function> local(Local<Function>::New(
+                isolate,
+                initCb));
+
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        return;
     }
 
     ReadCommand* readCommand(
             ReadCommandFactory::create(
+                isolate,
                 obj->m_session,
                 obj->m_itcBufferPool,
                 readId,
                 dims,
                 compress,
                 query,
-                initCb,
-                dataCb));
+                std::move(initCb),
+                std::move(dataCb)));
 
     if (!readCommand)
     {
         Status status(400, std::string("Invalid read query parameters"));
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
+        Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
+        Local<Function> local(Local<Function>::New(
+                isolate,
+                initCb));
+
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        return;
     }
 
     // Register our callbacks with their async tokens.
@@ -650,15 +682,14 @@ Handle<Value> Bindings::read(const Arguments& args)
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
             delete readCommand;
             delete req;
         })
     );
-
-    return scope.Close(Undefined());
 }
 
 //////////////////////////////////////////////////////////////////////////////

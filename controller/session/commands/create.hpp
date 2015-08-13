@@ -20,18 +20,18 @@ struct CreateData : public Background
             Paths paths,
             std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache,
-            v8::Persistent<v8::Function> callback)
+            v8::UniquePersistent<v8::Function> callback)
         : session(session)
         , name(name)
         , paths(paths)
         , arbiter(arbiter)
         , cache(cache)
-        , callback(callback)
+        , callback(std::move(callback))
     { }
 
     ~CreateData()
     {
-        callback.Dispose();
+        callback.Reset();
     }
 
     // Inputs
@@ -41,6 +41,6 @@ struct CreateData : public Background
     std::shared_ptr<arbiter::Arbiter> arbiter;
     std::shared_ptr<entwine::Cache> cache;
 
-    v8::Persistent<v8::Function> callback;
+    v8::UniquePersistent<v8::Function> callback;
 };
 
