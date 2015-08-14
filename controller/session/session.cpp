@@ -15,7 +15,6 @@
 
 #include "read-queries/entwine.hpp"
 #include "read-queries/unindexed.hpp"
-#include "types/paths.hpp"
 #include "util/buffer-pool.hpp"
 
 #include "session.hpp"
@@ -67,7 +66,7 @@ Session::~Session()
 
 bool Session::initialize(
         const std::string& name,
-        const Paths& paths,
+        const std::vector<std::string>& paths,
         std::shared_ptr<arbiter::Arbiter> arbiter,
         std::shared_ptr<entwine::Cache> cache)
 {
@@ -77,9 +76,11 @@ bool Session::initialize(
         std::cout << "Discovering " << name << std::endl;
 
         m_name = name;
-        m_paths.reset(new Paths(paths));
+        m_paths = paths;
         m_arbiter = arbiter;
         m_cache = cache;
+
+        m_paths.push_back("s3://");
 
         resolveSource();
         resolveIndex();
@@ -203,7 +204,7 @@ bool Session::resolveSource()
     std::lock_guard<std::mutex> lock(m_sourceMutex);
     if (!m_source)
     {
-        const auto sources(resolve(m_paths->inputs, m_name));
+        const auto sources(resolve(m_paths, m_name));
 
         if (sources.size() > 1)
         {
@@ -256,11 +257,7 @@ bool Session::resolveIndex()
     std::lock_guard<std::mutex> lock(m_indexMutex);
     if (!m_entwine)
     {
-        std::vector<std::string> searchPaths(m_paths->inputs);
-        searchPaths.push_back(m_paths->output);
-        searchPaths.push_back("s3://");
-
-        for (std::string path : searchPaths)
+        for (std::string path : m_paths)
         {
             try
             {

@@ -321,7 +321,7 @@ Handle<Value> Bindings::create(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    if (args.Length() != 7)
+    if (args.Length() != 6)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
@@ -329,17 +329,15 @@ Handle<Value> Bindings::create(const Arguments& args)
     std::size_t i(0);
     const auto& nameArg     (args[i++]);
     const auto& awsAuthArg  (args[i++]);
-    const auto& inputsArg   (args[i++]);
-    const auto& outputArg   (args[i++]);
+    const auto& pathsArg    (args[i++]);
     const auto& queryArg    (args[i++]);
     const auto& cacheArg    (args[i++]);
     const auto& cbArg       (args[i++]);
 
     std::string errMsg("");
 
-    if (!nameArg->IsString())   errMsg += "\t'name' must be a string";
-    if (!inputsArg->IsArray())  errMsg += "\t'inputs' must be an array";
-    if (!outputArg->IsString()) errMsg += "\t'output' must be a string";
+    if (!nameArg->IsString()) errMsg += "\t'name' must be a string";
+    if (!pathsArg->IsArray()) errMsg += "\t'paths' must be an array";
     if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
     Persistent<Function> callback(
@@ -347,6 +345,7 @@ Handle<Value> Bindings::create(const Arguments& args)
 
     if (errMsg.size())
     {
+        std::cout << "Client error: " << errMsg << std::endl;
         Status status(400, errMsg);
         const unsigned argc = 1;
         Local<Value> argv[argc] = { status.toObject() };
@@ -356,14 +355,11 @@ Handle<Value> Bindings::create(const Arguments& args)
     }
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const std::vector<std::string> inputs(parsePathList(inputsArg));
-    const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
+    const std::vector<std::string> paths(parsePathList(pathsArg));
     const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
     initConfigurable(awsAuthArg, maxCacheSize, maxQuerySize);
-
-    const Paths paths(inputs, output);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
