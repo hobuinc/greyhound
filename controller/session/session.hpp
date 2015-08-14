@@ -27,7 +27,6 @@ namespace entwine
 }
 
 class ReadQuery;
-class Paths;
 
 class Session
 {
@@ -39,7 +38,7 @@ public:
     // should not be used.
     bool initialize(
             const std::string& name,
-            const Paths& paths,
+            const std::vector<std::string>& paths,
             std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache);
 
@@ -83,7 +82,8 @@ private:
     std::mutex m_indexMutex;
 
     std::string m_name;
-    std::unique_ptr<Paths> m_paths;
+    std::vector<std::string> m_paths;
+
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::shared_ptr<entwine::Cache> m_cache;
 

@@ -24,7 +24,7 @@ var getSchema = function(json, cb) {
 var console = require('clim')(),
 
     config = (require('../config').cn || { }),
-    inputs = config.inputs,
+    paths = config.paths,
     output = config.output,
     aws = config.aws,
 
@@ -63,8 +63,7 @@ var getSession = function(name, cb) {
         session.create(
                 name,
                 aws,
-                inputs,
-                output,
+                paths,
                 chunksPerQuery,
                 chunkCacheSize,
                 function(err)
@@ -85,8 +84,7 @@ var getSession = function(name, cb) {
     }
 };
 
-console.log('Read paths:', inputs);
-console.log('Write path:', output);
+console.log('Read paths:', paths);
 if (aws)
     console.log('S3 credentials found');
 else
@@ -199,6 +197,7 @@ else
 
                 var dataCb = function(err, data, done) {
                     onData(err, data, done);
+                    if (done) console.log(process.memoryUsage());
                 }
 
                 session.read(schema, compress, query, initCb, dataCb);

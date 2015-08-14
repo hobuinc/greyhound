@@ -34,16 +34,11 @@ config.cn = {
 
     // Where to find unindexed pointcloud source files and indexed
     // subdirectories, searched in order.
-    inputs: [
+    paths: [
         '/vagrant/examples/data',
         's3://entwine'
         // , 's3://my-index-bucket'
     ],
-
-    // Directory for Greyhound to serialize its indexed data.
-    //
-    // Default: '/var/greyhound/serial'
-    output: '/var/greyhound/serial',    // 's3://greyhound-index-bucket'
 
     http: {
         // True to support an HTTP interface.
