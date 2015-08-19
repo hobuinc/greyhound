@@ -13,9 +13,7 @@
 
 #include "commands/background.hpp"
 
-void errorCb(
-        v8::Persistent<v8::Function> callback,
-        std::string errMsg);
+void errorCb(v8::Persistent<v8::Function> callback, std::string errMsg);
 
 class ReadQuery;
 class ItcBufferPool;
@@ -30,7 +28,7 @@ public:
             ItcBufferPool& itcBufferPool,
             std::string readId,
             bool compress,
-            entwine::DimList dims,
+            std::string schemaString,
             v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
     virtual ~ReadCommand();
@@ -50,7 +48,6 @@ public:
     void acquire();
 
     std::size_t numPoints() const;
-    std::size_t numBytes() const;
 
     std::string readId()    const;
     bool        cancel()    const;
@@ -68,7 +65,6 @@ public:
         m_cv.wait(lock, [this]()->bool { return !m_wait; });
     }
 
-
     void notifyCb() {
         std::unique_lock<std::mutex> lock(m_mutex);
         m_wait = false;
@@ -85,7 +81,7 @@ protected:
     std::shared_ptr<ItcBuffer> m_itcBuffer;
     const std::string m_readId;
     const bool m_compress;
-    const entwine::Schema m_schema;
+    entwine::Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
 
@@ -109,7 +105,7 @@ public:
             ItcBufferPool& itcBufferPool,
             std::string readId,
             bool compress,
-            entwine::DimList dims,
+            std::string schemaString,
             v8::Persistent<v8::Function> initCb,
             v8::Persistent<v8::Function> dataCb);
 
@@ -125,7 +121,7 @@ public:
             ItcBufferPool& itcBufferPool,
             std::string readId,
             bool compress,
-            entwine::DimList dims,
+            std::string schemaString,
             entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
@@ -147,7 +143,7 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
-            entwine::DimList dims,
+            std::string schemaString,
             bool compress,
             v8::Local<v8::Object> query,
             v8::Persistent<v8::Function> initCb,

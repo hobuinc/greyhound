@@ -53,6 +53,6 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     bool m_first;
-    std::unique_ptr<std::thread> m_executor;
+    std::thread m_executor;
 };
 

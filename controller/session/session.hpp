@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "types/source-manager.hpp"
@@ -38,15 +39,12 @@ public:
     // should not be used.
     bool initialize(
             const std::string& name,
-            const std::vector<std::string>& paths,
+            std::vector<std::string> paths,
             std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache);
 
-    std::size_t getNumPoints();
-    std::string getStats();
-    std::string getSrs();
-    std::string getType();
-    entwine::BBox getBounds();
+    // Returns stringified JSON response.
+    std::string info() const;
 
     // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(
@@ -62,14 +60,31 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    const entwine::Schema& schema();
+    const entwine::Schema& schema() const;
 
 private:
-    bool sourced();
-    bool indexed();
+    bool resolveIndex(
+            const std::string& name,
+            const std::vector<std::string>& paths,
+            arbiter::Arbiter& arbiter,
+            std::shared_ptr<entwine::Cache> cache);
 
-    bool resolveSource();
-    bool resolveIndex();
+    bool resolveSource(
+            const std::string& name,
+            const std::vector<std::string>& paths);
+
+    void resolveInfo();
+
+    bool indexed() const { return m_entwine.get(); }
+    bool sourced() const { return m_source.get(); }
+
+    void check() const
+    {
+        if (!sourced() && !indexed())
+        {
+            throw std::runtime_error("Session has no backing data.");
+        }
+    }
 
     pdal::StageFactory& m_stageFactory;
     std::mutex& m_factoryMutex;
@@ -77,15 +92,7 @@ private:
     Once m_initOnce;
     std::unique_ptr<SourceManager> m_source;
     std::unique_ptr<entwine::Reader> m_entwine;
-
-    std::mutex m_sourceMutex;
-    std::mutex m_indexMutex;
-
-    std::string m_name;
-    std::vector<std::string> m_paths;
-
-    std::shared_ptr<arbiter::Arbiter> m_arbiter;
-    std::shared_ptr<entwine::Cache> m_cache;
+    std::string m_info;
 
     // Disallow copy/assignment.
     Session(const Session&);

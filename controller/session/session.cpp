@@ -8,10 +8,11 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/reader/reader.hpp>
+#include <entwine/third/json/json.h>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/tree/clipper.hpp>
 
 #include "read-queries/entwine.hpp"
 #include "read-queries/unindexed.hpp"
@@ -32,7 +33,7 @@ namespace
             auto flags(GLOB_NOSORT | GLOB_TILDE);
             if (i) flags |= GLOB_APPEND;
 
-            glob((dirs[i] + "/" + name + "*").c_str(), flags, 0, &buffer);
+            glob((dirs[i] + "/" + name + ".*").c_str(), flags, 0, &buffer);
         }
 
         std::vector<std::string> results;
@@ -55,10 +56,6 @@ Session::Session(
     , m_initOnce()
     , m_source()
     , m_entwine()
-    , m_name()
-    , m_paths()
-    , m_arbiter()
-    , m_cache()
 { }
 
 Session::~Session()
@@ -66,81 +63,65 @@ Session::~Session()
 
 bool Session::initialize(
         const std::string& name,
-        const std::vector<std::string>& paths,
+        std::vector<std::string> paths,
         std::shared_ptr<arbiter::Arbiter> arbiter,
         std::shared_ptr<entwine::Cache> cache)
 {
-    m_initOnce.ensure(
-            [this, &name, &paths, cache, arbiter]()
+    m_initOnce.ensure([this, &name, &paths, cache, arbiter]()
     {
+        paths.push_back("s3://");
+
         std::cout << "Discovering " << name << std::endl;
 
-        m_name = name;
-        m_paths = paths;
-        m_arbiter = arbiter;
-        m_cache = cache;
+        if (resolveIndex(name, paths, *arbiter, cache))
+        {
+            std::cout << "\tIndex for " << name << " found" << std::endl;
 
-        m_paths.push_back("s3://");
+            Json::Value json;
+            const std::size_t numPoints(m_entwine->numPoints());
+            const std::size_t numDimensions(
+                    m_entwine->structure().dimensions());
+            const entwine::BBox& bbox(m_entwine->bbox());
 
-        resolveSource();
-        resolveIndex();
+            json["type"] = (numDimensions == 2 ? "quadtree" : "octree");
+            json["numPoints"] = static_cast<Json::UInt64>(numPoints);
+            json["schema"] = m_entwine->schema().toJson();
+            json["bounds"] = bbox.toJson()["bounds"]);
 
-        std::cout << "\n\tSource for " << name << ": " <<
-            (sourced() ? "FOUND" : "NOT found") << std::endl;
+            m_info = json.toStyledString();
+        }
+        else if (resolveSource(name, paths))
+        {
+            std::cout << "\tSource for " << name << " found" << std::endl;
+            const std::size_t numPoints(m_source->numPoints());
 
-        std::cout << "\tIndex for " << name << ": " <<
-            (indexed() ? "FOUND" : "NOT found") << "\n" << std::endl;
+            Json::Value json;
+            json["type"] = "unindexed";
+            json["numPoints"] = static_cast<Json::UInt64>(numPoints);
+            json["schema"] = m_source->schema().toJson();
+
+            m_info = json.toStyledString();
+        }
+        else
+        {
+            std::cout << "\tBacking for " << name << " NOT found" << std::endl;
+        }
     });
 
     return sourced() || indexed();
 }
 
-std::size_t Session::getNumPoints()
+std::string Session::info() const
 {
-    if (indexed()) return m_entwine->numPoints();
-    else return m_source->numPoints();
-}
-
-std::string Session::getStats()
-{
-    // TODO
-    return "{ }";
-}
-
-std::string Session::getSrs()
-{
-    return "";
-}
-
-std::string Session::getType()
-{
-    if (resolveIndex())
-    {
-        return m_entwine->structure().dimensions() == 2 ? "quadtree" : "octree";
-    }
-    else
-    {
-        throw std::runtime_error("No index found for " + m_name);
-    }
-}
-
-entwine::BBox Session::getBounds()
-{
-    if (resolveIndex())
-    {
-        return m_entwine->bbox();
-    }
-    else
-    {
-        throw std::runtime_error("No index found for " + m_name);
-    }
+    check();
+    return m_info;
 }
 
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const bool compress)
 {
-    if (resolveSource())
+    if (sourced())
     {
         return std::shared_ptr<ReadQuery>(
                 new UnindexedReadQuery(
@@ -156,12 +137,12 @@ std::shared_ptr<ReadQuery> Session::query(
 
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
-        bool compress,
+        const bool compress,
         const entwine::BBox& bbox,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
 {
-    if (resolveIndex())
+    if (indexed())
     {
         return std::shared_ptr<ReadQuery>(
                 new EntwineReadQuery(
@@ -179,114 +160,96 @@ std::shared_ptr<ReadQuery> Session::query(
     }
 }
 
-const entwine::Schema& Session::schema()
+const entwine::Schema& Session::schema() const
 {
+    check();
+
     if (indexed()) return m_entwine->schema();
     else return m_source->schema();
 }
 
-bool Session::sourced()
+bool Session::resolveIndex(
+        const std::string& name,
+        const std::vector<std::string>& paths,
+        arbiter::Arbiter& arbiter,
+        std::shared_ptr<entwine::Cache> cache)
 {
-    std::lock_guard<std::mutex> lock(m_sourceMutex);
-    return m_source.get() != 0;
-}
-
-bool Session::indexed()
-{
-    std::lock_guard<std::mutex> lock(m_indexMutex);
-    return m_entwine.get() != 0;
-}
-
-bool Session::resolveSource()
-{
-    // TODO For now only works for local paths.  Support any Source the Arbiter
-    // contains.
-    std::lock_guard<std::mutex> lock(m_sourceMutex);
-    if (!m_source)
+    for (std::string path : paths)
     {
-        const auto sources(resolve(m_paths, m_name));
-
-        if (sources.size() > 1)
+        try
         {
-            std::cout << "\tFound competing unindexed sources for " << m_name <<
-                std::endl;
+            if (path.size() && path.back() != '/') path.push_back('/');
+            arbiter::Endpoint endpoint(arbiter.getEndpoint(path + name));
+            m_entwine.reset(new entwine::Reader(endpoint, arbiter, cache));
+        }
+        catch (...)
+        {
+            m_entwine.reset(0);
         }
 
-        if (sources.size())
+        std::cout << "\tTried resolving index at " << path << ": ";
+        if (m_entwine)
         {
-            std::size_t i(0);
+            std::cout << "SUCCESS" << std::endl;
+            break;
+        }
+        else
+        {
+            std::cout << "fail" << std::endl;
+        }
+    }
 
-            while (!m_source && i < sources.size())
+    return indexed();
+}
+
+bool Session::resolveSource(
+        const std::string& name,
+        const std::vector<std::string>& paths)
+{
+    const auto sources(resolve(paths, name));
+
+    if (sources.size() > 1)
+    {
+        std::cout << "\tFound competing unindexed sources for " << name <<
+            std::endl;
+    }
+
+    if (sources.size())
+    {
+        std::size_t i(0);
+
+        while (!m_source && i < sources.size())
+        {
+            const std::string path(sources[i++]);
+
+            std::unique_lock<std::mutex> lock(m_factoryMutex);
+            const std::string driver(
+                    m_stageFactory.inferReaderDriver(path));
+            lock.unlock();
+
+            if (driver.size())
             {
-                const std::string path(sources[i++]);
-
-                std::unique_lock<std::mutex> lock(m_factoryMutex);
-                const std::string driver(
-                        m_stageFactory.inferReaderDriver(path));
-                lock.unlock();
-
-                if (driver.size())
+                try
                 {
-                    try
-                    {
-                        m_source.reset(
-                                new SourceManager(
-                                    m_stageFactory,
-                                    m_factoryMutex,
-                                    path,
-                                    driver));
-                    }
-                    catch (...)
-                    {
-                        m_source.reset(0);
-                    }
+                    m_source.reset(
+                            new SourceManager(
+                                m_stageFactory,
+                                m_factoryMutex,
+                                path,
+                                driver));
                 }
-
-                std::cout << "\tTried resolving unindexed at " << path << ": ";
-                if (m_source) std::cout << "SUCCESS" << std::endl;
-                else std::cout << "failed" << std::endl;
+                catch (...)
+                {
+                    m_source.reset(0);
+                }
             }
+
+            std::cout << "\tTried resolving unindexed at " << path << ": ";
+            if (m_source) std::cout << "SUCCESS" << std::endl;
+            else std::cout << "failed" << std::endl;
         }
     }
 
-    return m_source.get() != 0;
-}
-
-bool Session::resolveIndex()
-{
-    std::lock_guard<std::mutex> lock(m_indexMutex);
-    if (!m_entwine)
-    {
-        for (std::string path : m_paths)
-        {
-            try
-            {
-                if (path.size() && path.back() != '/') path.push_back('/');
-
-                arbiter::Endpoint endpoint(
-                        m_arbiter->getEndpoint(path + m_name));
-
-                m_entwine.reset(
-                        new entwine::Reader(endpoint, *m_arbiter, m_cache));
-            }
-            catch (...)
-            {
-                m_entwine.reset(0);
-            }
-
-            std::cout << "\tTried resolving index at " << path << ": ";
-            if (m_entwine)
-            {
-                std::cout << "SUCCESS" << std::endl;
-                break;
-            }
-            else
-            {
-                std::cout << "fail" << std::endl;
-            }
-        }
-    }
-
-    return m_entwine.get() != 0;
+    return sourced();
 }
 

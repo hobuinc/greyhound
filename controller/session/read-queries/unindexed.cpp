@@ -38,16 +38,16 @@ UnindexedReadQuery::UnindexedReadQuery(
 
     m_reader->prepare(*m_table);
 
-    m_executor.reset(new std::thread([this]()
+    m_executor = std::thread([this]()
     {
         m_reader->execute(*m_table);
-    }));
-
-    m_executor->detach();
+    });
 }
 
 UnindexedReadQuery::~UnindexedReadQuery()
-{ }
+{
+    m_executor.join();
+}
 
 void UnindexedReadQuery::readPoint(char* pos, const entwine::Schema&)
 {

@@ -98,7 +98,7 @@ ReadCommand::ReadCommand(
         ItcBufferPool& itcBufferPool,
         const std::string readId,
         const bool compress,
-        entwine::DimList dims,
+        const std::string schemaString,
         v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : m_session(session)
@@ -106,7 +106,8 @@ ReadCommand::ReadCommand(
     , m_itcBuffer()
     , m_readId(readId)
     , m_compress(compress)
-    , m_schema(dims)
+    , m_schema(schemaString.empty() ?
+            session->schema() : entwine::Schema(schemaString))
     , m_numSent(0)
     , m_initAsync(new uv_async_t())
     , m_dataAsync(new uv_async_t())
@@ -115,6 +116,25 @@ ReadCommand::ReadCommand(
     , m_wait(false)
     , m_cancel(false)
 {
+    if (schemaString.empty())
+    {
+        m_schema = session->schema();
+    }
+    else
+    {
+        Json::Reader reader;
+        Json::Value jsonSchema;
+        reader.parse("{\"schema\":" + schemaString + "}", jsonSchema);
+
+        if (reader.getFormattedErrorMessages().size())
+        {
+            std::cout << reader.getFormattedErrorMessages() << std::endl;
+            throw std::runtime_error("Could not parse requested schema");
+        }
+
+        m_schema = entwine::Schema(jsonSchema["schema"]);
+    }
+
     // This allows us to unwrap our own ReadCommand during async CBs.
     m_initAsync->data = this;
     m_dataAsync->data = this;
@@ -152,13 +172,12 @@ void ReadCommand::registerInitCb()
             if (readCommand->status.ok())
             {
                 const std::string id(readCommand->readId());
-                const unsigned argc = 4;
+                const unsigned argc = 3;
                 Local<Value> argv[argc] =
                 {
                     Local<Value>::New(Null()), // err
                     Local<Value>::New(String::New(id.data(), id.size())),
-                    Local<Value>::New(Integer::New(readCommand->numPoints())),
-                    Local<Value>::New(Integer::New(readCommand->numBytes()))
+                    Local<Value>::New(Integer::New(readCommand->numPoints()))
                 };
 
                 readCommand->initCb()->Call(
@@ -223,11 +242,6 @@ void ReadCommand::registerDataCb()
             scope.Close(Undefined());
         })
     );
-}
-
-std::size_t ReadCommand::numBytes() const
-{
-    return numPoints() * m_schema.pointSize();
 }
 
 void ReadCommand::cancel(bool cancel)
@@ -295,7 +309,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         ItcBufferPool& itcBufferPool,
         std::string readId,
         bool compress,
-        entwine::DimList dims,
+        const std::string schemaString,
         v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
     : ReadCommand(
@@ -303,7 +317,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             itcBufferPool,
             readId,
             compress,
-            dims,
+            schemaString,
             initCb,
             dataCb)
 { }
@@ -313,7 +327,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         ItcBufferPool& itcBufferPool,
         std::string readId,
         bool compress,
-        entwine::DimList dims,
+        const std::string schemaString,
         entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
@@ -324,7 +338,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             itcBufferPool,
             readId,
             compress,
-            dims,
+            schemaString,
             initCb,
             dataCb)
     , m_bbox(bbox)
@@ -351,18 +365,13 @@ ReadCommand* ReadCommandFactory::create(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
-        entwine::DimList dims,
+        const std::string schemaString,
         bool compress,
         v8::Local<v8::Object> query,
         v8::Persistent<v8::Function> initCb,
         v8::Persistent<v8::Function> dataCb)
 {
     ReadCommand* readCommand(0);
-
-    if (!dims.size())
-    {
-        dims = session->schema().dims();
-    }
 
     const auto depthSymbol(toSymbol("depth"));
     const auto depthBeginSymbol(toSymbol("depthBegin"));
@@ -412,7 +421,7 @@ ReadCommand* ReadCommandFactory::create(
                     itcBufferPool,
                     readId,
                     compress,
-                    dims,
+                    schemaString,
                     bbox,
                     depthBegin,
                     depthEnd,
@@ -427,7 +436,7 @@ ReadCommand* ReadCommandFactory::create(
                 itcBufferPool,
                 readId,
                 compress,
-                dims,
+                schemaString,
                 initCb,
                 dataCb);
     }

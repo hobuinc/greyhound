@@ -151,10 +151,8 @@
             var dataBuffer = new Int8Array(readRes);
             var numPoints  =
                 parseInt(request.getResponseHeader('X-Greyhound-Num-Points'));
-            var rasterMeta = JSON.parse(
-                request.getResponseHeader('X-Greyhound-Raster-Meta'));
 
-            return cb(null, dataBuffer, numPoints, rasterMeta);
+            return cb(null, dataBuffer, numPoints);
         }).fail(function(err) {
             console.log('READ failed');
             return cb('Failed' + err);

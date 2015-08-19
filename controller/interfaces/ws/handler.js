@@ -46,48 +46,18 @@ var
     }
 
     var registerCommands = function(controller, commander, ws) {
-        commander.on('numPoints', function(msg, cb) {
-            controller.numPoints(msg.pipeline, cb);
-        });
-
-        commander.on('schema', function(msg, cb) {
-            controller.schema(msg.pipeline, cb);
-        });
-
-        commander.on('stats', function(msg, cb) {
-            controller.stats(msg.pipeline, cb);
-        });
-
-        commander.on('srs', function(msg, cb) {
-            controller.srs(msg.pipeline, cb);
-        });
-
-        commander.on('bounds', function(msg, cb) {
-            controller.bounds(msg.pipeline, cb);
-        });
-
-        commander.on('type', function(msg, cb) {
-            controller.type(msg.pipeline, cb);
-        });
-
-        commander.on('destroy', function(msg, cb) {
-            controller.destroy(msg.pipeline, cb);
-        });
-
-        commander.on('cancel', function(msg, cb) {
-            controller.cancel(msg.pipeline, msg.readId, function(err, res) {
-                if (res.cancelled) res['numBytes'] = numBytes[msg.readId];
-                cb(null, res);
-            });
+        commander.on('info', function(msg, cb) {
+            controller.info(msg.resource, cb);
         });
 
         commander.on('read', function(msg, cb) {
             var params = msg;
 
-            var pipeline = params.pipeline;
-            if (msg.hasOwnProperty('pipeline')) delete params.pipeline;
+            var pipeline = params.resource;
             var summary = params.summary;
-            if (params.hasOwnProperty('summary')) delete params.summary;
+
+            delete params.resource;
+            delete params.summary;
 
             var readId;
 
