@@ -66,26 +66,6 @@ Targets:
  - ``install PROXY=OFF`` - Install without proxy, so that the HTTP/WS services are accessible over different public ports.
  - ``uninstall`` - Remove all traces of Greyhound installation (including log files).
 
-Greyhound Administration
-===============================================================================
-
-After Greyhound installation, the ``init.d`` services of Greyhound must be registered for auto-launch, the method for which is OS-dependent.  The Greyhound lauchers installed into ``/etc/init.d/`` contain ``chkconfig`` lines to ensure the proper launch order.  If launch order is changed during auto-launch registration, note that the `Front-end Proxy`_ and the Mongo service (if using standalone mode) should be configured to launch prior to all other Greyhound services.
-
-All Greyhound services are prefixed with ``gh_``, followed by an abbreviated service name.
-
-Service names:
- - ``gh_fe`` - Front-end proxy.
- - ``gh_mongo`` - MongoDB launcher, for standalone mode only.
- - ``gh_ws`` - WebSocket handler.
- - ``gh_db`` - Database handler.
- - ``gh_dist`` - Distribution handler.
- - ``gh_sh`` - Session handler.
- - ``gh_web`` - Web server.
-
-|
-
-After auto-launch registration, services will launch on reboot.  Individual services may also be manually controlled with ``/etc/init.d/gh_<COMPONENT> {start|stop}``.  See `Commanding Greyhound`_ for more information.
-
 Commanding Greyhound
 -------------------------------------------------------------------------------
 
@@ -118,5 +98,5 @@ Front-end Proxy Settings
 
 The *front-end proxy* allows connections over a single port (e.g. 80) to be used for both HTTP and WebSocket interfaces.
 
-The proxy is configured via ``/var/greyhound/frontend-proxy/hipache-config.json``.  Hipache receives incoming WebSocket traffic from HAProxy and routes this traffic to a `WebSocket Handler`_.  If the proxy is used, the values for back-end ports much match those specified in ``config.js``.
+The proxy is configured via ``/var/greyhound/frontend-proxy/hipache-config.json``.  If used, the values for back-end ports much match those specified in ``config.js``, and the `frontend fe` binding is the only public-facing Greyhound port.
 
