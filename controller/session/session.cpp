@@ -81,12 +81,11 @@ bool Session::initialize(
             const std::size_t numPoints(m_entwine->numPoints());
             const std::size_t numDimensions(
                     m_entwine->structure().dimensions());
-            const entwine::BBox& bbox(m_entwine->bbox());
 
             json["type"] = (numDimensions == 2 ? "quadtree" : "octree");
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_entwine->schema().toJson();
-            json["bounds"] = bbox.toJson()["bounds"]);
+            json["bounds"] = m_entwine->bbox().toJson()["bounds"];
 
             m_info = json.toStyledString();
         }
@@ -99,6 +98,7 @@ bool Session::initialize(
             json["type"] = "unindexed";
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_source->schema().toJson();
+            json["bounds"] = m_source->bbox().toJson()["bounds"];
 
             m_info = json.toStyledString();
         }
