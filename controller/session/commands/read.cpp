@@ -376,7 +376,7 @@ ReadCommand* ReadCommandFactory::create(
     const auto depthSymbol(toSymbol("depth"));
     const auto depthBeginSymbol(toSymbol("depthBegin"));
     const auto depthEndSymbol(toSymbol("depthEnd"));
-    const auto bboxSymbol(toSymbol("bbox"));
+    const auto bboxSymbol(toSymbol("bounds"));
 
     if (
             query->HasOwnProperty(depthSymbol) ||
