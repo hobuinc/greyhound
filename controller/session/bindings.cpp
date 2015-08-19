@@ -130,61 +130,6 @@ namespace
             }
         }
     }
-
-    entwine::DimList parseDims(
-            v8::Local<v8::Array> schemaArray,
-            const entwine::Schema& sessionSchema)
-    {
-        entwine::DimList dims;
-
-        for (std::size_t i(0); i < schemaArray->Length(); ++i)
-        {
-            Local<Object> dimObj(schemaArray->Get(
-                        Integer::New(i))->ToObject());
-
-            const std::string sizeString(*v8::String::Utf8Value(
-                    dimObj->Get(String::New("size"))->ToString()));
-
-            const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
-
-            if (size)
-            {
-                const std::string name(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("name"))->ToString()));
-
-                const std::string baseTypeName(*v8::String::Utf8Value(
-                        dimObj->Get(String::New("type"))->ToString()));
-
-                const pdal::Dimension::Id::Enum id(
-                        sessionSchema.pdalLayout().findDim(name));
-
-                if (sessionSchema.pdalLayout().hasDim(id))
-                {
-                    dims.push_back(
-                            entwine::DimInfo(
-                                name,
-                                baseTypeName,
-                                size));
-                }
-            }
-        }
-
-        return dims;
-    }
-
-    entwine::DimList parseDimList(
-            const v8::Local<v8::Value>& schemaArg,
-            const entwine::Schema& sessionSchema)
-    {
-        entwine::DimList dims;
-        const Local<Array> schemaArray(Array::Cast(*schemaArg));
-        if (schemaArray->Length())
-        {
-            dims = parseDims(schemaArray, sessionSchema);
-        }
-
-        return dims;
-    }
 }
 
 namespace ghEnv
@@ -193,14 +138,8 @@ namespace ghEnv
 
     void sslLock(int mode, int n, const char* file, int line)
     {
-        if (mode & CRYPTO_LOCK)
-        {
-            sslMutexList.at(n).lock();
-        }
-        else
-        {
-            sslMutexList.at(n).unlock();
-        }
+        if (mode & CRYPTO_LOCK) sslMutexList.at(n).lock();
+        else sslMutexList.at(n).unlock();
     }
 
     unsigned long sslId()
@@ -221,14 +160,8 @@ namespace ghEnv
             const char* file,
             int line)
     {
-        if (mode & CRYPTO_LOCK)
-        {
-            lock->mutex.lock();
-        }
-        else
-        {
-            lock->mutex.unlock();
-        }
+        if (mode & CRYPTO_LOCK) lock->mutex.lock();
+        else lock->mutex.unlock();
     }
 
     void dynamicDestroy(CRYPTO_dynlock_value* lock, const char* file, int line)
@@ -279,18 +212,8 @@ void Bindings::init(v8::Handle<v8::Object> exports)
         FunctionTemplate::New(create)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("destroy"),
         FunctionTemplate::New(destroy)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getNumPoints"),
-        FunctionTemplate::New(getNumPoints)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSchema"),
-        FunctionTemplate::New(getSchema)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getStats"),
-        FunctionTemplate::New(getStats)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getSrs"),
-        FunctionTemplate::New(getSrs)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getBounds"),
-        FunctionTemplate::New(getBounds)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("getType"),
-        FunctionTemplate::New(getType)->GetFunction());
+    tpl->PrototypeTemplate()->Set(String::NewSymbol("info"),
+        FunctionTemplate::New(info)->GetFunction());
     tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
         FunctionTemplate::New(read)->GetFunction());
 
@@ -419,96 +342,13 @@ Handle<Value> Bindings::destroy(const Arguments& args)
     return scope.Close(Undefined());
 }
 
-Handle<Value> Bindings::getNumPoints(const Arguments& args)
+Handle<Value> Bindings::info(const Arguments& args)
 {
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    return scope.Close(Number::New(obj->m_session->getNumPoints()));
-}
-
-Handle<Value> Bindings::getSchema(const Arguments& args)
-{
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
-
-    const entwine::Schema& schema(obj->m_session->schema());
-    const auto& dims(schema.dims());
-
-    // Convert our entwine::Schema to a JS array.
-    Local<Array> jsSchema(Array::New(dims.size()));
-
-    for (std::size_t i(0); i < dims.size(); ++i)
-    {
-        const auto& dim(dims[i]);
-
-        Local<Object> jsDim(Object::New());
-
-        jsDim->Set(
-                String::NewSymbol("name"),
-                String::New(dim.name().data(), dim.name().size()));
-
-        jsDim->Set(
-                String::NewSymbol("type"),
-                String::New(dim.typeString().data(), dim.typeString().size()));
-
-        jsDim->Set(
-                String::NewSymbol("size"),
-                Integer::New(dim.size()));
-
-        jsSchema->Set(Integer::New(i), jsDim);
-    }
-
-    return scope.Close(jsSchema);
-}
-
-Handle<Value> Bindings::getStats(const Arguments& args)
-{
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
-
-    const std::string stats(obj->m_session->getStats());
-
-    return scope.Close(String::New(stats.data(), stats.size()));
-}
-
-Handle<Value> Bindings::getSrs(const Arguments& args)
-{
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
-
-    const std::string wkt(obj->m_session->getSrs());
-
-    return scope.Close(String::New(wkt.data(), wkt.size()));
-}
-
-Handle<Value> Bindings::getBounds(const Arguments& args)
-{
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
-
-    const entwine::BBox bbox(obj->m_session->getBounds());
-
-    v8::Handle<v8::Array> jsBounds = v8::Array::New(4);
-
-    jsBounds->Set(0, v8::Number::New(bbox.min().x));
-    jsBounds->Set(1, v8::Number::New(bbox.min().y));
-    jsBounds->Set(2, v8::Number::New(bbox.min().z));
-    jsBounds->Set(3, v8::Number::New(bbox.max().x));
-    jsBounds->Set(4, v8::Number::New(bbox.max().y));
-    jsBounds->Set(5, v8::Number::New(bbox.max().z));
-
-    return scope.Close(jsBounds);
-}
-
-Handle<Value> Bindings::getType(const Arguments& args)
-{
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
-
-    const std::string type(obj->m_session->getType());
-
-    return scope.Close(String::New(type.data(), type.size()));
+    const std::string info(obj->m_session->info());
+    return scope.Close(String::New(info.data(), info.size()));
 }
 
 Handle<Value> Bindings::read(const Arguments& args)
@@ -531,13 +371,18 @@ Handle<Value> Bindings::read(const Arguments& args)
 
     std::string errMsg("");
 
-    if (!schemaArg->IsArray())      errMsg += "\t'schema' must be an array";
+    if (!schemaArg->IsString() && !schemaArg->IsUndefined())
+        errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
     if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
 
-    entwine::DimList dims(parseDimList(schemaArg, obj->m_session->schema()));
+    const std::string schemaString(
+            schemaArg->IsString() ?
+                *v8::String::Utf8Value(schemaArg->ToString()) :
+                "");
+
     const bool compress(compressArg->BooleanValue());
     Local<Object> query(queryArg->ToObject());
 
@@ -562,7 +407,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                 obj->m_session,
                 obj->m_itcBufferPool,
                 readId,
-                dims,
+                schemaString,
                 compress,
                 query,
                 initCb,
