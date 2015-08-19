@@ -22,10 +22,12 @@ These dependencies must be installed separately and independently from Greyhound
 Dependencies:
  - `PDAL`_ compiled with `LazPerf`_ compression enabled (``-DWITH_LAZPERF=ON``)
  - `Node.js`_ 10.29 or greater
+ - `HAProxy`_ (optional - used for front-end proxy)
  - C++11 compiler
 
 .. _`PDAL`: http://www.pdal.io/index.html
 .. _`Node.js`: http://nodejs.org/
+.. _`Haproxy`: http://www.haproxy.org/
 .. _`LazPerf`: https://github.com/verma/laz-perf
 
 Global NPM Dependencies
@@ -34,11 +36,10 @@ Global NPM Dependencies
 NPM dependencies may be installed via the Node.js package manager "npm", which is included with an installation of Node.js.
 
 NPM dependencies:
- - ``hipache``
  - ``node-gyp``
  - ``nodeunit`` (unit testing module - optional)
 
-These packages may be installed after Node.js is installed with ``npm install -g hipache node-gyp nodeunit``.  The ``-g`` flag specifies global installation.
+These packages may be installed after Node.js is installed with ``npm install -g node-gyp nodeunit``.  The ``-g`` flag specifies global installation.
 
 Obtaining, Building, and Installing
 ===============================================================================
@@ -98,5 +99,5 @@ Front-end Proxy Settings
 
 The *front-end proxy* allows connections over a single port (e.g. 80) to be used for both HTTP and WebSocket interfaces.
 
-The proxy is configured via ``/var/greyhound/frontend-proxy/hipache-config.json``.  If used, the values for back-end ports much match those specified in ``config.js``, and the `frontend fe` binding is the only public-facing Greyhound port.
+The proxy is configured via ``/var/greyhound/frontend-proxy/haproxy.cfg``.  If used, the values for back-end ports much match those specified in ``config.js``, and the `frontend fe` binding is the only public-facing Greyhound port.
 
