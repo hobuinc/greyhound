@@ -19,8 +19,7 @@
                 './session/util/once.cpp'
             ],
             'include_dirs': [
-                './session',
-                '/usr/include/libxml2'
+                './session'
             ],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
             'cflags_cc!': [ '-fno-exceptions', '-fno-rtti' ],
