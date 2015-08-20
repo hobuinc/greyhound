@@ -63,6 +63,12 @@ SourceManager::SourceManager(
             }
         });
 
+        auto preview(executor.preview(path, nullptr, true));
+        if (preview)
+        {
+            m_srs = preview->srs;
+        }
+
         if (!executor.run(path, nullptr, bounder))
         {
             throw std::runtime_error("Could not execute resource: " + path);
