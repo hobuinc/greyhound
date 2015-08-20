@@ -134,7 +134,7 @@ std::shared_ptr<ReadQuery> Session::query(
     }
     else
     {
-        return std::shared_ptr<ReadQuery>();
+        throw WrongQueryType();
     }
 }
 
@@ -159,7 +159,7 @@ std::shared_ptr<ReadQuery> Session::query(
     }
     else
     {
-        return std::shared_ptr<ReadQuery>();
+        throw WrongQueryType();
     }
 }
 
