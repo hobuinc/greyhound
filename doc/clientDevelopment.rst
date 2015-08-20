@@ -18,6 +18,8 @@ Greyhound's provides a simple HTTP and `WebSocket`_ interface to request informa
 
 .. _`WebSocket`: http://en.wikipedia.org/wiki/WebSocket
 
+|
+
 API
 ===============================================================================
 
@@ -40,11 +42,9 @@ Making Requests
 HTTP Interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Greyhound's primary interface is over HTTP, using GET requests of the form:
+Greyhound's primary interface is over HTTP, using GET requests of the form ``http://<greyhound-server>/resource/<resource-name>/<command>?<options>``
 
-    http://<greyhound-server>/resource/<resource-name>/<command>?<options>
-
-The HTTP body of Greyhound's response contains the result of the request, which is either a JSON object for the ``info`` query, or binary point data for the ``read`` query.  A response to ``read`` also contains some necessary information about the response as HTTP header data (see The **Read** Query for details).
+The HTTP body of Greyhound's response contains the result of the request, which is either a JSON object for the ``info`` query, or binary point data for the ``read`` query.  A response to ``read`` also contains some necessary information about the response as HTTP header data (see `The Read Query`_ for details).
 
 WebSocket Interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,7 +79,9 @@ Responses from Greyhound look like:
 
 See the details for these commands for more information about command-dependent parameters and values.
 
-The **Info** Query
+|
+
+The Info Query
 ===============================================================================
 
 The `info` command returns a JSON structure with various metadata for the requested resource.  For the HTTP interface, this is contained in the body of the response - for WebSockets, this is contained in the response key ``info``.
@@ -112,7 +114,7 @@ schema
 
 *Type*: Array of Objects.
 
-*Description*: An array of dimension information representing the native schema of a resource.  Each dimension object contains entries for `name`, `type`, and `size`, as shown below.  The dimensions requested during a ``read`` request should be a subset of these dimensions, and their types may be altered to suit a given application (see The **Read** Query for details).
+*Description*: An array of dimension information representing the native schema of a resource.  Each dimension object contains entries for `name`, `type`, and `size`, as shown below.  The dimensions requested during a ``read`` request should be a subset of these dimensions, and their types may be altered to suit a given application (see `The Read Query`_ for details).
 
 +---------------+--------------------------------------------------------------------------------+
 | Field         | Value                                                                          |
@@ -143,22 +145,7 @@ An example return object from the ``schema`` call looks something like: ::
             "size": "8"
         },
         {
-            "name": "GpsTime",
-            "type": "floating",
-            "size": "8"
-        },
-        {
-            "name": "ScanAngleRank",
-            "type": "floating",
-            "size": "4"
-        },
-        {
             "name": "Intensity",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "PointSourceId",
             "type": "unsigned",
             "size": "2"
         },
@@ -188,33 +175,15 @@ An example return object from the ``schema`` call looks something like: ::
             "size": "1"
         },
         {
-            "name": "ScanDirectionFlag",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
-            "name": "EdgeOfFlightLine",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
-            "name": "Classification",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
-            "name": "UserData",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
             "name": "Origin",
             "type": "unsigned",
             "size": "4"
         }
     ]
 
-The **Read** Query
+|
+
+The Read Query
 ===============================================================================
 
 This query returns binary point data from a given resource.
@@ -263,6 +232,8 @@ Common options are options available for any ``read`` query, regardless of the `
 
 .. _`laz-perf`: http://github.com/verma/laz-perf
 
+|
+
 Working with Greyhound
 ===============================================================================
 
@@ -288,7 +259,7 @@ This allows a client to avoid querying non-existant dimensions, for example a we
 Progressive Querying
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For indexed datasets, a client should start with a single conservative "base" request - requesting depths zero until some fixed depth, rather than making small requests starting at depth zero.  If the response is a ``413``, the client can continually lower the initial depth until a valid response is received.  The exact depth depends on the application, but this request has a well-defined maximum number of points - for example an octree query with ``depthBegin=0`` and ``depthEnd=8`` will result in 2396745 points at a maximum (8\ :sup:\ 0 + 8\ :sup:\ 1 + ... 8\ :sup:\ 7 = 2396745).
+For indexed datasets, a client should start with a single conservative "base" request - requesting depths zero until some fixed depth, rather than making small requests starting at depth zero.  If the response is a ``413``, the client can continually lower the initial depth until a valid response is received.  The exact depth depends on the application, but this request has a well-defined maximum number of points - for example an octree query with ``depthBegin=0`` and ``depthEnd=8`` will result in 2396745 points at a maximum (8\ :sup:`0` + 8\ :sup:`1` + ... + 8\ :sup:`7` = 2396745).
 
 The "base" query is a request that gives quick feedback to a user of the entire set at a low resolution.  After this is displayed, a client should start splitting their ``bounds`` in the request as they move upward in depth.  In general, a query of depth ``n + 1`` should have one-fourth the volume of depth ``n`` for quadtrees, or one-eight for octrees.  So for example, if the base depth query is 8, a client may decide to issue 8 queries of ``depth=8``, one for each octant of the overall bounds.  For each query whose result contains a non-zero number of points, that octant may be again split into its 8 octants, and the process repeats.  This pattern allows the client to prune their search space - if a query of a given bounds returns zero points at depth ``n``, then there are also zero points for those bounds at depth ``n + 1``.
 
