@@ -456,6 +456,14 @@ Handle<Value> Bindings::read(const Arguments& args)
                 {
                     readCommand->status.set(400, e.what());
                 }
+                catch (WrongQueryType& e)
+                {
+                    readCommand->status.set(400, e.what());
+                }
+                catch (...)
+                {
+                    readCommand->status.set(500, "Error during query");
+                }
             });
 
             // Call initial informative callback.  If status is no good, we're
@@ -479,7 +487,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                     }
                     catch (...)
                     {
-                        readCommand->status.set(500, "Error in query");
+                        readCommand->status.set(500, "Error during query");
                     }
 
                     readCommand->doCb(readCommand->dataAsync());

@@ -29,6 +29,14 @@ namespace entwine
 
 class ReadQuery;
 
+class WrongQueryType : public std::runtime_error
+{
+public:
+    WrongQueryType()
+        : std::runtime_error("Invalid query type for this resource")
+    { }
+};
+
 class Session
 {
 public:
