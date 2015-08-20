@@ -13,6 +13,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/executor.hpp>
 
 #include "read-queries/entwine.hpp"
 #include "read-queries/unindexed.hpp"
@@ -86,6 +87,7 @@ bool Session::initialize(
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_entwine->schema().toJson();
             json["bounds"] = m_entwine->bbox().toJson()["bounds"];
+            json["srs"] = m_entwine->srs();
 
             m_info = json.toStyledString();
         }
@@ -99,6 +101,7 @@ bool Session::initialize(
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_source->schema().toJson();
             json["bounds"] = m_source->bbox().toJson()["bounds"];
+            json["srs"] = m_source->srs();
 
             m_info = json.toStyledString();
         }
