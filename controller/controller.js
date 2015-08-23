@@ -16,6 +16,7 @@ var console = require('clim')(),
 
     chunksPerQuery = config.queryLimits.chunksPerQuery,
     chunkCacheSize = config.queryLimits.chunkCacheSize,
+    threads = Math.ceil(require('os').cpus().length * 1.2),
 
     Session = require('./build/Release/session').Bindings,
 
@@ -25,12 +26,12 @@ var console = require('clim')(),
 
 if (chunksPerQuery < 4) chunksPerQuery = 4;
 if (chunkCacheSize < 16) chunkCacheSize = 16;
+process.env.UV_THREADPOOL_SIZE = threads;
 
 console.log('Using');
 console.log('\tChunks per query:', chunksPerQuery);
 console.log('\tChunk cache size:', chunkCacheSize);
-
-process.env.UV_THREADPOOL_SIZE = 8;
+console.log('\tLibuv threadpool size:', threads);
 
 var getSession = function(name, cb) {
     var session;
