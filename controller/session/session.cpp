@@ -8,7 +8,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/reader/reader.hpp>
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
