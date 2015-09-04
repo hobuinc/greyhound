@@ -12,7 +12,7 @@ var console = require('clim')(),
     config = (require('../config').cn || { }),
     paths = config.paths,
     output = config.output,
-    aws = config.aws,
+    aws = require('./aws'),
 
     chunksPerQuery = config.queryLimits.chunksPerQuery,
     chunkCacheSize = config.queryLimits.chunkCacheSize,
