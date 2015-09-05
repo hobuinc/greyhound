@@ -1,5 +1,4 @@
 var
-    _ = require('lodash'),
     fs = require('fs'),
     http = require('http'),
 	path = require('path'),
@@ -87,62 +86,12 @@ if (
         console.log('HTTP server running on port: ' + self.port);
     }
 
-    var extend = function(err, response, command) {
-        var common = {
-            status: !err,
-            command: command
-        }
-
-        if (err) common['reason'] = err.message;
-
-        return _.extend(response || { }, common);
-    }
-
     var registerCommands = function(controller, app) {
-        app.get('/resource/:resource/numPoints', function(req, res) {
-            controller.numPoints(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'numPoints'));
+        app.get('/resource/:resource/info', function(req, res) {
+            controller.info(req.params.resource, function(err, data) {
+                if (err) return res.json(err.code || 500, err.message);
+                else return res.json(data);
             });
-        });
-
-        app.get('/resource/:resource/schema', function(req, res) {
-            controller.schema(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'schema'));
-            });
-        });
-
-        app.get('/resource/:resource/stats', function(req, res) {
-            controller.stats(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'stats'));
-            });
-        });
-
-        app.get('/resource/:resource/srs', function(req, res) {
-            controller.srs(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'srs'));
-            });
-        });
-
-        app.get('/resource/:resource/bounds', function(req, res) {
-            controller.bounds(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'bounds'));
-            });
-        });
-
-        app.get('/resource/:resource/type', function(req, res) {
-            controller.type(req.params.resource, function(err, data) {
-                res.json(extend(err, data, 'type'));
-            });
-        });
-
-        app.delete('/resource/:resource/readId/:readId', function(req, res) {
-            controller.cancel(
-                req.params.resource,
-                req.params.readId,
-                function(err, data) {
-                    res.json(extend(err, data, 'cancel'));
-                }
-            );
         });
 
         app.get('/resource/:resource/read', function(req, res) {

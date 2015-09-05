@@ -8,7 +8,6 @@
 #include <entwine/types/bbox.hpp>
 
 #include "commands/background.hpp"
-#include "types/paths.hpp"
 
 class Session;
 
@@ -17,7 +16,7 @@ struct CreateData : public Background
     CreateData(
             std::shared_ptr<Session> session,
             std::string name,
-            Paths paths,
+            const std::vector<std::string>& paths,
             std::shared_ptr<arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache,
             v8::UniquePersistent<v8::Function> callback)
@@ -37,7 +36,7 @@ struct CreateData : public Background
     // Inputs
     const std::shared_ptr<Session> session;
     const std::string name;
-    const Paths paths;
+    const std::vector<std::string> paths;
     std::shared_ptr<arbiter::Arbiter> arbiter;
     std::shared_ptr<entwine::Cache> cache;
 

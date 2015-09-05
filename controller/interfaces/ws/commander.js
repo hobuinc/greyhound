@@ -25,14 +25,14 @@ var _ = require('lodash');
 			} catch(e) {
 				return send({
 					status: 0,
-					reason: 'Couldn\'t parse command'
+					message: 'Couldn\'t parse command'
 				});
 			}
 
 			if (!msg.command)
 				return send({
 					status: 0,
-					reason: 'Unknown command'
+					message: 'Unknown command'
 				});
 
 			if (_.isFunction(o.handlers[msg.command])) {
@@ -41,7 +41,7 @@ var _ = require('lodash');
                         return send({
                             command: msg.command,
                             status: 0,
-                            reason: err.message,
+                            message: err.message,
                         });
                     }
                     else {

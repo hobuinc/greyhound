@@ -4,8 +4,10 @@
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
 
+#include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+#include <entwine/util/executor.hpp>
 
 SourceManager::SourceManager(
         pdal::StageFactory& stageFactory,
@@ -17,28 +19,60 @@ SourceManager::SourceManager(
     , m_options(new pdal::Options())
     , m_driver(driver)
     , m_schema(new entwine::Schema())
+    , m_bbox(new entwine::BBox())
     , m_numPoints(0)
 {
     m_options->add(pdal::Option("filename", path));
 
-    // Determine the number of points in this resource.
+    // Use BBox::set() to avoid malformed BBox warning.
+    m_bbox->set(
+            entwine::Point(
+                std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max()),
+            entwine::Point(
+                std::numeric_limits<double>::lowest(),
+                std::numeric_limits<double>::lowest(),
+                std::numeric_limits<double>::lowest()),
+            true);
+
+    // Determine the number of points and the bounds for this resource.
     {
-        auto reader(createReader());
+        entwine::DimList dims;
+        const auto type(pdal::Dimension::Type::Double);
 
-        entwine::DimList emptyDims;
-        entwine::Schema emptySchema(emptyDims);
-        entwine::SimplePointTable pointTable(emptySchema);
+        dims.push_back(entwine::DimInfo("X", pdal::Dimension::Id::X, type));
+        dims.push_back(entwine::DimInfo("Y", pdal::Dimension::Id::Y, type));
+        dims.push_back(entwine::DimInfo("Z", pdal::Dimension::Id::Z, type));
 
-        reader->setReadCb(
-                [this, &pointTable]
-                (pdal::PointView& view, pdal::PointId index)
+        entwine::Schema xyzSchema(dims);
+        entwine::Executor executor(xyzSchema, true);
+
+        auto bounder([this](pdal::PointView& view)
         {
-            ++m_numPoints;
-            pointTable.clear();
+            entwine::Point p;
+            m_numPoints += view.size();
+
+            for (std::size_t i = 0; i < view.size(); ++i)
+            {
+                p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, i);
+                p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, i);
+                p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, i);
+
+                m_bbox->grow(p);
+            }
         });
 
-        reader->prepare(pointTable);
-        reader->execute(pointTable);
+        auto preview(executor.preview(path, nullptr, true));
+        if (preview)
+        {
+            m_srs = preview->srs;
+        }
+
+        if (!executor.run(path, nullptr, bounder))
+        {
+            throw std::runtime_error("Could not execute resource: " + path);
+        }
     }
 
     // Determine the native schema of the resource.
@@ -60,15 +94,5 @@ std::unique_ptr<pdal::Reader> SourceManager::createReader()
 
     reader->setOptions(*m_options);
     return reader;
-}
-
-std::size_t SourceManager::numPoints() const
-{
-    return m_numPoints;
-}
-
-const entwine::Schema& SourceManager::schema() const
-{
-    return *m_schema;
 }
 

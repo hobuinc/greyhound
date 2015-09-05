@@ -164,11 +164,6 @@
                     numPoints   = msg.numPoints;
                     dataBuffer  = new Int8Array(msg.numBytes);
 
-                    if (msg.hasOwnProperty('rasterMeta'))
-                    {
-                        meta = msg.rasterMeta;
-                    }
-
                     if (numPoints == 0) ws.close();
                 }
             }
