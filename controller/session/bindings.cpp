@@ -109,89 +109,8 @@ namespace
 
         if (!commonArbiter)
         {
-            if (!rawArg->IsUndefined() && rawArg->IsObject())
-            {
-                Object* rawObj(Object::Cast(*rawArg));
-
-                const v8::Local<v8::Value>& rawAccess(
-                        rawObj->Get(String::NewFromUtf8(isolate, "access")));
-                const v8::Local<v8::Value>& rawHidden(
-                        rawObj->Get(String::NewFromUtf8(isolate, "hidden")));
-
-                const std::string access(
-                        *v8::String::Utf8Value(rawAccess->ToString()));
-                const std::string hidden(
-                        *v8::String::Utf8Value(rawHidden->ToString()));
-
-                commonArbiter.reset(
-                        new arbiter::Arbiter(
-                            arbiter::AwsAuth(access, hidden)));
-            }
-            else
-            {
-                commonArbiter.reset(new arbiter::Arbiter());
-            }
+            commonArbiter.reset(new arbiter::Arbiter());
         }
-    }
-
-    entwine::DimList parseDims(
-            Isolate* isolate,
-            v8::Array* schemaArray,
-            const entwine::Schema& sessionSchema)
-    {
-        entwine::DimList dims;
-
-        for (std::size_t i(0); i < schemaArray->Length(); ++i)
-        {
-            Local<Object> dimObj(schemaArray->Get(
-                        Integer::New(isolate, i))->ToObject());
-
-            const std::string sizeString(*v8::String::Utf8Value(
-                    dimObj->Get(String::NewFromUtf8(isolate, "size"))
-                    ->ToString()));
-
-            const std::size_t size(strtoul(sizeString.c_str(), 0, 0));
-
-            if (size)
-            {
-                const std::string name(*v8::String::Utf8Value(
-                        dimObj->Get(String::NewFromUtf8(isolate, "name"))
-                        ->ToString()));
-
-                const std::string baseTypeName(*v8::String::Utf8Value(
-                        dimObj->Get(String::NewFromUtf8(isolate, "type"))
-                        ->ToString()));
-
-                const pdal::Dimension::Id::Enum id(
-                        sessionSchema.pdalLayout().findDim(name));
-
-                if (sessionSchema.pdalLayout().hasDim(id))
-                {
-                    dims.push_back(
-                            entwine::DimInfo(
-                                name,
-                                baseTypeName,
-                                size));
-                }
-            }
-        }
-
-        return dims;
-    }
-
-    entwine::DimList parseDimList(
-            Isolate* isolate,
-            const v8::Local<v8::Value>& schemaArg,
-            const entwine::Schema& sessionSchema)
-    {
-        entwine::DimList dims;
-        Array* schemaArray(Array::Cast(*schemaArg));
-        if (schemaArray->Length())
-        {
-            dims = parseDims(isolate, schemaArray, sessionSchema);
-        }
-
-        return dims;
     }
 }
 
@@ -201,14 +120,8 @@ namespace ghEnv
 
     void sslLock(int mode, int n, const char* file, int line)
     {
-        if (mode & CRYPTO_LOCK)
-        {
-            sslMutexList.at(n).lock();
-        }
-        else
-        {
-            sslMutexList.at(n).unlock();
-        }
+        if (mode & CRYPTO_LOCK) sslMutexList.at(n).lock();
+        else sslMutexList.at(n).unlock();
     }
 
     unsigned long sslId()
@@ -229,14 +142,8 @@ namespace ghEnv
             const char* file,
             int line)
     {
-        if (mode & CRYPTO_LOCK)
-        {
-            lock->mutex.lock();
-        }
-        else
-        {
-            lock->mutex.unlock();
-        }
+        if (mode & CRYPTO_LOCK) lock->mutex.lock();
+        else lock->mutex.unlock();
     }
 
     void dynamicDestroy(CRYPTO_dynlock_value* lock, const char* file, int line)
@@ -278,21 +185,15 @@ void Bindings::init(v8::Handle<v8::Object> exports)
     Isolate* isolate(Isolate::GetCurrent());
 
     // Prepare constructor template
-    Local<FunctionTemplate> tpl(FunctionTemplate::New(isolate, construct));
+    Local<FunctionTemplate> tpl(v8::FunctionTemplate::New(isolate, construct));
     tpl->SetClassName(String::NewFromUtf8(isolate, "Bindings"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    // Prototype
-    NODE_SET_PROTOTYPE_METHOD(tpl, "construct",     construct);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "create",        create);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",       destroy);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getNumPoints",  getNumPoints);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getSchema",     getSchema);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getStats",      getStats);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getSrs",        getSrs);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getBounds",     getBounds);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getType",       getType);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "read",          read);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "construct", construct);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "create",    create);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",   destroy);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "info",      info);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "read",      read);
 
     constructor.Reset(isolate, tpl->GetFunction());
     exports->Set(String::NewFromUtf8(isolate, "Bindings"), tpl->GetFunction());
@@ -325,7 +226,7 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
 
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    if (args.Length() != 7)
+    if (args.Length() != 6)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
@@ -333,23 +234,22 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
     std::size_t i(0);
     const auto& nameArg     (args[i++]);
     const auto& awsAuthArg  (args[i++]);
-    const auto& inputsArg   (args[i++]);
-    const auto& outputArg   (args[i++]);
+    const auto& pathsArg    (args[i++]);
     const auto& queryArg    (args[i++]);
     const auto& cacheArg    (args[i++]);
     const auto& cbArg       (args[i++]);
 
     std::string errMsg("");
 
-    if (!nameArg->IsString())   errMsg += "\t'name' must be a string";
-    if (!inputsArg->IsArray())  errMsg += "\t'inputs' must be an array";
-    if (!outputArg->IsString()) errMsg += "\t'output' must be a string";
+    if (!nameArg->IsString()) errMsg += "\t'name' must be a string";
+    if (!pathsArg->IsArray()) errMsg += "\t'paths' must be an array";
     if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
     UniquePersistent<Function> callback(isolate, Local<Function>::Cast(cbArg));
 
     if (errMsg.size())
     {
+        std::cout << "Client error: " << errMsg << std::endl;
         Status status(400, errMsg);
         const unsigned argc = 1;
         Local<Value> argv[argc] = { status.toObject(isolate) };
@@ -362,14 +262,11 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
     }
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const std::vector<std::string> inputs(parsePathList(isolate, inputsArg));
-    const std::string output(*v8::String::Utf8Value(outputArg->ToString()));
+    const std::vector<std::string> paths(parsePathList(isolate, pathsArg));
     const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
     initConfigurable(isolate, awsAuthArg, maxCacheSize, maxQuerySize);
-
-    const Paths paths(inputs, output);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
@@ -431,103 +328,14 @@ void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
     obj->m_session.reset();
 }
 
-void Bindings::getNumPoints(const FunctionCallbackInfo<Value>& args)
+void Bindings::info(const FunctionCallbackInfo<Value>& args)
 {
     Isolate* isolate(Isolate::GetCurrent());
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    const std::size_t numPoints(obj->m_session->getNumPoints());
-    args.GetReturnValue().Set(Number::New(isolate, numPoints));
-}
-
-void Bindings::getSchema(const FunctionCallbackInfo<Value>& args)
-{
-    Isolate* isolate(Isolate::GetCurrent());
-    HandleScope scope(isolate);
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
-
-    const entwine::Schema& schema(obj->m_session->schema());
-    const auto& dims(schema.dims());
-
-    // Convert our entwine::Schema to a JS array.
-    Local<Array> jsSchema(Array::New(isolate, dims.size()));
-
-    for (std::size_t i(0); i < dims.size(); ++i)
-    {
-        const auto& dim(dims[i]);
-
-        Local<Object> jsDim(Object::New(isolate));
-
-        jsDim->Set(
-                String::NewFromUtf8(isolate, "name"),
-                String::NewFromUtf8(isolate, dim.name().c_str()));
-
-        jsDim->Set(
-                String::NewFromUtf8(isolate, "type"),
-                String::NewFromUtf8(isolate, dim.typeString().c_str()));
-
-        jsDim->Set(
-                String::NewFromUtf8(isolate, "size"),
-                Integer::New(isolate, dim.size()));
-
-        jsSchema->Set(Integer::New(isolate, i), jsDim);
-    }
-
-    args.GetReturnValue().Set(jsSchema);
-}
-
-void Bindings::getStats(const FunctionCallbackInfo<Value>& args)
-{
-    Isolate* isolate(Isolate::GetCurrent());
-    HandleScope scope(isolate);
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
-
-    const std::string stats(obj->m_session->getStats());
-
-    args.GetReturnValue().Set(String::NewFromUtf8(isolate, stats.c_str()));
-}
-
-void Bindings::getSrs(const FunctionCallbackInfo<Value>& args)
-{
-    Isolate* isolate(Isolate::GetCurrent());
-    HandleScope scope(isolate);
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
-
-    const std::string wkt(obj->m_session->getSrs());
-
-    args.GetReturnValue().Set(String::NewFromUtf8(isolate, wkt.c_str()));
-}
-
-void Bindings::getBounds(const FunctionCallbackInfo<Value>& args)
-{
-    Isolate* isolate(Isolate::GetCurrent());
-    HandleScope scope(isolate);
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
-
-    const entwine::BBox bbox(obj->m_session->getBounds());
-
-    v8::Handle<v8::Array> jsBounds = v8::Array::New(isolate, 6);
-
-    jsBounds->Set(0, v8::Number::New(isolate, bbox.min().x));
-    jsBounds->Set(1, v8::Number::New(isolate, bbox.min().y));
-    jsBounds->Set(2, v8::Number::New(isolate, bbox.min().z));
-    jsBounds->Set(3, v8::Number::New(isolate, bbox.max().x));
-    jsBounds->Set(4, v8::Number::New(isolate, bbox.max().y));
-    jsBounds->Set(5, v8::Number::New(isolate, bbox.max().z));
-
-    args.GetReturnValue().Set(jsBounds);
-}
-
-void Bindings::getType(const FunctionCallbackInfo<Value>& args)
-{
-    Isolate* isolate(Isolate::GetCurrent());
-    HandleScope scope(isolate);
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
-
-    const std::string type(obj->m_session->getType());
-
-    args.GetReturnValue().Set(String::NewFromUtf8(isolate, type.c_str()));
+    const std::string info(obj->m_session->info());
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, info.c_str()));
 }
 
 void Bindings::read(const FunctionCallbackInfo<Value>& args)
@@ -551,17 +359,17 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
 
     std::string errMsg("");
 
-    if (!schemaArg->IsArray())      errMsg += "\t'schema' must be an array";
+    if (!schemaArg->IsString() && !schemaArg->IsUndefined())
+        errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
     if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
 
-    entwine::DimList dims(
-            parseDimList(
-                isolate,
-                schemaArg,
-                obj->m_session->schema()));
+    const std::string schemaString(
+            schemaArg->IsString() ?
+                *v8::String::Utf8Value(schemaArg->ToString()) :
+                "");
 
     const bool compress(compressArg->BooleanValue());
     Local<Object> query(queryArg->ToObject());
@@ -580,10 +388,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
         const unsigned argc = 1;
         Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        Local<Function> local(Local<Function>::New(
-                isolate,
-                initCb));
-
+        Local<Function> local(Local<Function>::New(isolate, initCb));
         local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
         return;
     }
@@ -594,25 +399,13 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 obj->m_session,
                 obj->m_itcBufferPool,
                 readId,
-                dims,
+                schemaString,
                 compress,
                 query,
                 std::move(initCb),
                 std::move(dataCb)));
 
-    if (!readCommand)
-    {
-        Status status(400, std::string("Invalid read query parameters"));
-        const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject(isolate) };
-
-        Local<Function> local(Local<Function>::New(
-                isolate,
-                initCb));
-
-        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
-        return;
-    }
+    if (!readCommand) return;
 
     // Register our callbacks with their async tokens.
     readCommand->registerInitCb();
@@ -647,6 +440,14 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 {
                     readCommand->status.set(400, e.what());
                 }
+                catch (WrongQueryType& e)
+                {
+                    readCommand->status.set(400, e.what());
+                }
+                catch (...)
+                {
+                    readCommand->status.set(500, "Error during query");
+                }
             });
 
             // Call initial informative callback.  If status is no good, we're
@@ -670,7 +471,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                     }
                     catch (...)
                     {
-                        readCommand->status.set(500, "Error in query");
+                        readCommand->status.set(500, "Error during query");
                     }
 
                     readCommand->doCb(readCommand->dataAsync());

@@ -6,30 +6,17 @@ var getTimeout = function(raw) {
     if (raw != undefined && raw >= 0) return raw;
     else return 30;
 }
-
-var getSchema = function(json, cb) {
-    if (!json) {
-        return cb(null, []);
-    }
-    else {
-        try {
-            return cb(null, JSON.parse(json));
-        }
-        catch (e) {
-            return cb(error(400, 'Invalid schema'));
-        }
-    }
-}
-
 var console = require('clim')(),
+    querystring = require('querystring'),
 
     config = (require('../config').cn || { }),
-    inputs = config.inputs,
+    paths = config.paths,
     output = config.output,
-    aws = config.aws,
+    aws = require('./aws'),
 
     chunksPerQuery = config.queryLimits.chunksPerQuery,
     chunkCacheSize = config.queryLimits.chunkCacheSize,
+    threads = Math.ceil(require('os').cpus().length * 1.2),
 
     Session = require('./build/Release/session').Bindings,
 
@@ -39,12 +26,12 @@ var console = require('clim')(),
 
 if (chunksPerQuery < 4) chunksPerQuery = 4;
 if (chunkCacheSize < 16) chunkCacheSize = 16;
+process.env.UV_THREADPOOL_SIZE = threads;
 
 console.log('Using');
 console.log('\tChunks per query:', chunksPerQuery);
 console.log('\tChunk cache size:', chunkCacheSize);
-
-process.env.UV_THREADPOOL_SIZE = 8;
+console.log('\tLibuv threadpool size:', threads);
 
 var getSession = function(name, cb) {
     var session;
@@ -63,8 +50,7 @@ var getSession = function(name, cb) {
         session.create(
                 name,
                 aws,
-                inputs,
-                output,
+                paths,
                 chunksPerQuery,
                 chunkCacheSize,
                 function(err)
@@ -85,8 +71,7 @@ var getSession = function(name, cb) {
     }
 };
 
-console.log('Read paths:', inputs);
-console.log('Write path:', output);
+console.log('Read paths:', paths);
 if (aws)
     console.log('S3 credentials found');
 else
@@ -97,112 +82,54 @@ else
 
     var Controller = function() { }
 
-    Controller.prototype.numPoints = function(resource, cb) {
-        console.log("controller::numPoints");
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.getNumPoints());
-        });
-    }
-
-    Controller.prototype.schema = function(resource, cb) {
-        console.log("controller::schema");
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.getSchema());
-        });
-    }
-
-    Controller.prototype.stats = function(resource, cb) {
-        console.log("controller::stats");
+    Controller.prototype.info = function(resource, cb) {
+        console.log("controller::info");
         getSession(resource, function(err, session) {
             if (err) return cb(err);
 
             try {
-                var stats = JSON.parse(session.getStats());
-                return cb(null, stats);
+                return cb(null, JSON.parse(session.info()));
             }
             catch (e) {
-                console.warn('Invalid stats -', resource);
-                return cb(error(500, 'Stats could not be parsed as JSON'));
+                return cb(error(500, 'Error parsing info'));
             }
-        });
-    }
-
-    Controller.prototype.srs = function(resource, cb) {
-        console.log("controller::srs");
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.getSrs());
-        });
-    }
-
-    Controller.prototype.bounds = function(resource, cb) {
-        console.log("controller::bounds");
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.getBounds());
-        });
-    }
-
-    Controller.prototype.type = function(resource, cb) {
-        console.log("controller::type");
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.getType());
-        });
-    }
-
-    Controller.prototype.cancel = function(resource, readId, cb) {
-        // TODO
-        getSession(resource, function(err, session) {
-            if (err) return cb(err);
-            else return cb(null, session.cancel(readId));
         });
     }
 
     Controller.prototype.read = function(resource, query, onInit, onData) {
         console.log("controller::read");
 
-        getSchema(query.schema, function(err, schema) {
+        var schema = query.schema;
+        var compress = query.hasOwnProperty('compress') && !!query.compress;
+
+        // Simplify our query decision tree for later.
+        delete query.schema;
+        delete query.compress;
+
+        getSession(resource, function(err, session) {
             if (err) return onInit(err);
 
-            var compress = query.hasOwnProperty('compress') && !!query.compress;
-
-            // Simplify our query decision tree for later.
-            delete query.schema;
-            delete query.compress;
-
-            getSession(resource, function(err, session) {
-                if (err) return onInit(err);
-
-                var initCb = function(
-                    err,
-                    readId,
-                    numPoints,
-                    numBytes)
-                {
-                    if (err) {
-                        console.warn('controller::read::ERROR:', err);
-                        onInit(err);
-                    }
-                    else {
-                        var props = {
-                            readId: readId,
-                            numPoints: numPoints,
-                            numBytes: numBytes,
-                        };
-
-                        onInit(null, props);
-                    }
-                };
-
-                var dataCb = function(err, data, done) {
-                    onData(err, data, done);
+            var initCb = function(
+                err,
+                readId,
+                numPoints)
+            {
+                if (err) {
+                    console.warn('controller::read::ERROR:', err);
+                    onInit(err);
                 }
+                else {
+                    var props = { readId: readId, numPoints: numPoints };
+                    onInit(null, props);
+                }
+            };
 
-                session.read(schema, compress, query, initCb, dataCb);
-            });
+            var dataCb = function(err, data, done) {
+                onData(err, data, done);
+                if (done) console.log(process.memoryUsage());
+            }
+
+            session.read(schema, compress, query, initCb, dataCb);
         });
     }
 

@@ -29,17 +29,14 @@ private:
 
     static v8::Persistent<v8::Function> constructor;
 
-    static void construct(const Arguments& args);
+    typedef v8::FunctionCallbackInfo<v8::Value> Args;
 
-    static void create(const Arguments& args);
-    static void destroy(const Arguments& args);
-    static void getNumPoints(const Arguments& args);
-    static void getSchema(const Arguments& args);
-    static void getStats(const Arguments& args);
-    static void getSrs(const Arguments& args);
-    static void getBounds(const Arguments& args);
-    static void getType(const Arguments& args);
-    static void read(const Arguments& args);
+    static void construct(const Args& args);
+
+    static void create(const Args& args);
+    static void destroy(const Args& args);
+    static void info(const Args& args);
+    static void read(const Args& args);
 
     std::shared_ptr<Session> m_session;
     ItcBufferPool& m_itcBufferPool;
