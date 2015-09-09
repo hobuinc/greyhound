@@ -21,8 +21,6 @@ class Bindings : public node::ObjectWrap
 public:
     static void init(v8::Handle<v8::Object> exports);
 
-    typedef v8::FunctionCallbackInfo<v8::Value> Arguments;
-
 private:
     Bindings();
     ~Bindings();
