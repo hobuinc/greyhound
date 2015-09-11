@@ -12,7 +12,6 @@ var console = require('clim')(),
     config = (require('../config').cn || { }),
     paths = config.paths,
     output = config.output,
-    aws = require('./aws'),
 
     chunksPerQuery = config.queryLimits.chunksPerQuery,
     chunkCacheSize = config.queryLimits.chunkCacheSize,
@@ -49,7 +48,6 @@ var getSession = function(name, cb) {
     try {
         session.create(
                 name,
-                aws,
                 paths,
                 chunksPerQuery,
                 chunkCacheSize,
@@ -72,10 +70,6 @@ var getSession = function(name, cb) {
 };
 
 console.log('Read paths:', paths);
-if (aws)
-    console.log('S3 credentials found');
-else
-    console.log('S3 disabled - no credentials supplied');
 
 (function() {
     'use strict';

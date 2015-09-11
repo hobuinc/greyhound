@@ -90,10 +90,7 @@ namespace
 
     std::mutex initMutex;
 
-    void initConfigurable(
-            const v8::Local<v8::Value>& rawArg,
-            const std::size_t maxCacheSize,
-            const std::size_t maxQuerySize)
+    void initConfigurable(std::size_t maxCacheSize, std::size_t maxQuerySize)
     {
         std::lock_guard<std::mutex> lock(initMutex);
 
@@ -106,28 +103,7 @@ namespace
 
         if (!commonArbiter)
         {
-            if (!rawArg->IsUndefined() && rawArg->IsObject())
-            {
-                Local<Object> rawObj(Object::Cast(*rawArg));
-
-                const v8::Local<v8::Value>& rawAccess(
-                        rawObj->Get(String::NewSymbol("access")));
-                const v8::Local<v8::Value>& rawHidden(
-                        rawObj->Get(String::NewSymbol("hidden")));
-
-                const std::string access(
-                        *v8::String::Utf8Value(rawAccess->ToString()));
-                const std::string hidden(
-                        *v8::String::Utf8Value(rawHidden->ToString()));
-
-                commonArbiter.reset(
-                        new arbiter::Arbiter(
-                            arbiter::AwsAuth(access, hidden)));
-            }
-            else
-            {
-                commonArbiter.reset(new arbiter::Arbiter());
-            }
+            commonArbiter.reset(new arbiter::Arbiter());
         }
     }
 }
@@ -244,14 +220,13 @@ Handle<Value> Bindings::create(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    if (args.Length() != 6)
+    if (args.Length() != 5)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
 
     std::size_t i(0);
     const auto& nameArg     (args[i++]);
-    const auto& awsAuthArg  (args[i++]);
     const auto& pathsArg    (args[i++]);
     const auto& queryArg    (args[i++]);
     const auto& cacheArg    (args[i++]);
@@ -282,7 +257,7 @@ Handle<Value> Bindings::create(const Arguments& args)
     const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
-    initConfigurable(awsAuthArg, maxCacheSize, maxQuerySize);
+    initConfigurable(maxCacheSize, maxQuerySize);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
