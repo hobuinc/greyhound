@@ -1,8 +1,7 @@
 #include "buffer-pool.hpp"
 
-ItcBuffer::ItcBuffer(std::size_t id, std::size_t capacity)
-    : m_maxCapacity(capacity)
-    , m_buffer()
+ItcBuffer::ItcBuffer(std::size_t id)
+    : m_buffer()
     , m_id(id)
     , m_mutex()
     , m_cv()
@@ -11,11 +10,6 @@ ItcBuffer::ItcBuffer(std::size_t id, std::size_t capacity)
 
 std::size_t ItcBuffer::push(const char* data, const std::size_t size)
 {
-    if (m_buffer.size() + size > m_maxCapacity)
-    {
-        throw std::runtime_error("Exceeded ItcBuffer bounds!");
-    }
-
     m_buffer.insert(m_buffer.end(), data, data + size);
     return size;
 }
@@ -27,14 +21,6 @@ std::size_t ItcBuffer::size() const
 
 void ItcBuffer::resize(std::size_t size)
 {
-    if (size > m_maxCapacity)
-        throw std::runtime_error("Resize request over capacity");
-
-    if (m_buffer.capacity() < m_maxCapacity)
-    {
-        m_buffer.reserve(m_maxCapacity);
-    }
-
     m_buffer.resize(size);
 }
 
@@ -45,7 +31,7 @@ char* ItcBuffer::data()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ItcBufferPool::ItcBufferPool(std::size_t numBuffers, std::size_t capacity)
+ItcBufferPool::ItcBufferPool(std::size_t numBuffers)
     : m_available(numBuffers)
     , m_buffers()
     , m_mutex()
@@ -56,7 +42,7 @@ ItcBufferPool::ItcBufferPool(std::size_t numBuffers, std::size_t capacity)
         m_available[i] = i;
         m_buffers.insert(std::make_pair(
                     i,
-                    std::shared_ptr<ItcBuffer>(new ItcBuffer(i, capacity))));
+                    std::shared_ptr<ItcBuffer>(new ItcBuffer(i))));
     }
 }
 

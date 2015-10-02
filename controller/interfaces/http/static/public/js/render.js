@@ -28,7 +28,7 @@
 
     var getBounds = function(arr, recSize, doIntensity, doColor) {
         var bounds = {};
-        var pc = arr.byteLength / recSize;
+        var pc = (arr.byteLength - 4) / recSize;
 
         for (var i = 0 ; i < pc ; i++) {
             var x = arr.getFloat32(recSize * i + 0, true);
@@ -132,7 +132,7 @@
     };
 
     function initPoints(data, count) {
-        var recordSize = data.byteLength / count;
+        var recordSize = (data.byteLength - 4) / count;
 
         var hasColor = true, hasIntensity = true;
 
@@ -173,7 +173,7 @@
         var colors = new Float32Array(count * 3);
 
         var offset = 0;
-        for ( var i = 0; i < count; i++) {
+        for ( var i = 0; i < count; ++i) {
             // positions
             var x = asDataView.getFloat32(offset, true); offset += 4;
             var y = asDataView.getFloat32(offset, true); offset += 4;
@@ -190,9 +190,9 @@
             y = (y - bounds.my) / maxBound * 800 - 400;
             z = (z - bounds.mz) / maxBound * 400;
 
-            positions[ 3*i ]     = x;
-            positions[ 3*i + 1 ] = y;
-            positions[ 3*i + 2 ] = z;
+            positions[3 * i]     = x;
+            positions[3 * i + 1] = y;
+            positions[3 * i + 2] = z;
 
             // colors
             var r = 0.0, g = 0.0, b = 0.0;
@@ -214,14 +214,14 @@
             if (hasColor && bounds.xc > bounds.mc) {
                 var scale = bounds.xc > 255.0 ? 65535.0 : 255.0;
 
-                colors[ 3*i ]     = r / scale;
-                colors[ 3*i + 1 ] = g / scale;
-                colors[ 3*i + 2 ] = b / scale;
+                colors[3 * i]     = r / scale;
+                colors[3 * i + 1] = g / scale;
+                colors[3 * i + 2] = b / scale;
             }
             else {
-                colors[ 3*i ]     = 1;
-                colors[ 3*i + 1 ] = 0;
-                colors[ 3*i + 2 ] = 1;
+                colors[3 * i]     = 1;
+                colors[3 * i + 1] = 0;
+                colors[3 * i + 2] = 1;
             }
         }
 
@@ -234,18 +234,6 @@
 
         var particleSystem = new THREE.PointCloud(geometry, material);
         scene.add(particleSystem);
-    }
-
-    function getX(meta, xIndex) {
-        return meta.xBegin + meta.xStep * xIndex;
-    }
-
-    function getY(meta, yIndex) {
-        return meta.yBegin + meta.yStep * yIndex;
-    }
-
-    function getZIndex(meta, xIndex, yIndex, recordSize) {
-        return recordSize * (yIndex * meta.xNum + xIndex) + 1;
     }
 
     function onWindowResize() {

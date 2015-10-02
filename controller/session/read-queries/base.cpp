@@ -17,76 +17,45 @@ ReadQuery::ReadQuery(
                 0)
     , m_compressionOffset(0)
     , m_schema(schema)
-    , m_index(index)
+    , m_done(false)
 { }
 
-bool ReadQuery::done() const
+void ReadQuery::read(ItcBuffer& buffer)
 {
-    return eof() &&
-            (!compress() ||
-             m_compressionOffset == m_compressionStream.data().size());
-}
+    if (m_done) throw std::runtime_error("Tried to call read() after done");
 
-void ReadQuery::read(std::shared_ptr<ItcBuffer> buffer, std::size_t maxNumBytes)
-{
-    try
+    buffer.resize(0);
+    m_done = readSome(buffer);
+
+    std::cout << "Read " << buffer.size() << " bytes.  Done? " << m_done <<
+        std::endl;
+
+    if (compress())
     {
-        buffer->resize(0);
-        const std::size_t pointSize(m_schema.pointSize());
-        std::vector<char> point(pointSize);
-        char* pos(0);
+        m_compressor->compress(buffer.data(), buffer.size());
 
-        const bool doCompress(compress());
-
-        while (
-                !eof() &&
-                ((!doCompress &&
-                    buffer->size() + pointSize <= maxNumBytes) ||
-                 (doCompress &&
-                    m_compressionStream.data().size() - m_compressionOffset <=
-                            maxNumBytes)))
+        if (m_done)
         {
-            pos = point.data();
-
-            // Delegate to specialized subclass.
-            readPoint(pos, m_schema);
-
-            if (doCompress)
-            {
-                m_compressor->compress(point.data(), pointSize);
-            }
-            else
-            {
-                buffer->push(point.data(), pointSize);
-            }
-
-            ++m_index;
+            m_compressor->done();
         }
 
-        if (doCompress)
-        {
-            if (eof()) m_compressor->done();
-
-            const std::size_t size(
-                    std::min(
-                        m_compressionStream.data().size() - m_compressionOffset,
-                        maxNumBytes));
-
-            buffer->push(
-                    m_compressionStream.data().data() + m_compressionOffset,
-                    size);
-
-            m_compressionOffset += size;
-        }
+        compressionSwap(buffer);
     }
-    catch (...)
+
+    if (m_done)
     {
-        throw std::runtime_error("Failed to read points from PDAL");
+        std::cout << "Done.  NP: " << numPoints() << std::endl;
+        const uint32_t points(numPoints());
+        const char* pos(reinterpret_cast<const char*>(&points));
+        buffer.push(pos, sizeof(uint32_t));
     }
 }
 
-std::size_t ReadQuery::index() const
+void ReadQuery::compressionSwap(ItcBuffer& buffer)
 {
-    return m_index;
+    const std::vector<char>& compressed(m_compressionStream.data());
+    buffer.resize(0);
+    buffer.push(compressed.data(), compressed.size());
+    m_compressionStream.clear();
 }
 

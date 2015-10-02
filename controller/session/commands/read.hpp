@@ -36,7 +36,7 @@ public:
     void registerInitCb();
     void registerDataCb();
 
-    virtual void read(std::size_t maxNumBytes);
+    virtual void read();
 
     void run();
 

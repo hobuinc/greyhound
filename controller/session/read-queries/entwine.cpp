@@ -4,6 +4,8 @@
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/schema.hpp>
 
+#include "util/buffer-pool.hpp"
+
 EntwineReadQuery::EntwineReadQuery(
         const entwine::Schema& schema,
         bool compress,
@@ -15,18 +17,14 @@ EntwineReadQuery::EntwineReadQuery(
 EntwineReadQuery::~EntwineReadQuery()
 { }
 
-void EntwineReadQuery::readPoint(char* pos, const entwine::Schema& schema)
+bool EntwineReadQuery::readSome(ItcBuffer& buffer)
 {
-    m_query->get(index(), pos);
-}
-
-bool EntwineReadQuery::eof() const
-{
-    return index() == numPoints();
+    m_query->next(buffer.vecRef());
+    return m_query->done();
 }
 
 std::size_t EntwineReadQuery::numPoints() const
 {
-    return m_query->size();
+    return m_query->numPoints();
 }
 

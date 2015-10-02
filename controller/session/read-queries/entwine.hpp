@@ -20,13 +20,10 @@ public:
 
     ~EntwineReadQuery();
 
-    virtual bool eof() const;
-
+private:
+    virtual bool readSome(ItcBuffer& buffer);
     virtual std::size_t numPoints() const;
 
-private:
     std::unique_ptr<entwine::Query> m_query;
-
-    virtual void readPoint(char* pos, const entwine::Schema& schema);
 };
 

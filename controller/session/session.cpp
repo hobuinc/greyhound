@@ -183,7 +183,7 @@ bool Session::resolveIndex(
         {
             if (path.size() && path.back() != '/') path.push_back('/');
             arbiter::Endpoint endpoint(arbiter.getEndpoint(path + name));
-            m_entwine.reset(new entwine::Reader(endpoint, arbiter, cache));
+            m_entwine.reset(new entwine::Reader(endpoint, arbiter, *cache));
         }
         catch (...)
         {

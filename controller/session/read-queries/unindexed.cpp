@@ -1,3 +1,4 @@
+/*
 #include "read-queries/unindexed.hpp"
 
 #include <pdal/Reader.hpp>
@@ -109,4 +110,5 @@ std::size_t UnindexedReadQuery::numPoints() const
 {
     return m_numPoints;
 }
+*/
 

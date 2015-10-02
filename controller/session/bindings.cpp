@@ -40,8 +40,7 @@ namespace
     }
 
     const std::size_t numBuffers = 1024;
-    const std::size_t maxReadLength = 65536;
-    ItcBufferPool itcBufferPool(numBuffers, maxReadLength);
+    ItcBufferPool itcBufferPool(numBuffers);
 
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
@@ -90,7 +89,7 @@ namespace
 
     std::mutex initMutex;
 
-    void initConfigurable(std::size_t maxCacheSize, std::size_t maxQuerySize)
+    void initConfigurable(std::size_t maxCacheSize)
     {
         std::lock_guard<std::mutex> lock(initMutex);
 
@@ -98,7 +97,7 @@ namespace
         {
             signal(SIGSEGV, handler);
 
-            cache.reset(new entwine::Cache(maxCacheSize, maxQuerySize));
+            cache.reset(new entwine::Cache(maxCacheSize));
         }
 
         if (!commonArbiter)
@@ -220,7 +219,7 @@ Handle<Value> Bindings::create(const Arguments& args)
     HandleScope scope;
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
 
-    if (args.Length() != 5)
+    if (args.Length() != 4)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
@@ -228,7 +227,6 @@ Handle<Value> Bindings::create(const Arguments& args)
     std::size_t i(0);
     const auto& nameArg     (args[i++]);
     const auto& pathsArg    (args[i++]);
-    const auto& queryArg    (args[i++]);
     const auto& cacheArg    (args[i++]);
     const auto& cbArg       (args[i++]);
 
@@ -254,10 +252,9 @@ Handle<Value> Bindings::create(const Arguments& args)
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
     const std::vector<std::string> paths(parsePathList(pathsArg));
-    const std::size_t maxQuerySize(queryArg->IntegerValue());
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
-    initConfigurable(maxCacheSize, maxQuerySize);
+    initConfigurable(maxCacheSize);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
@@ -423,10 +420,6 @@ Handle<Value> Bindings::read(const Arguments& args)
                 {
                     readCommand->run();
                 }
-                catch (entwine::QueryLimitExceeded& e)
-                {
-                    readCommand->status.set(413, e.what());
-                }
                 catch (entwine::InvalidQuery& e)
                 {
                     readCommand->status.set(400, e.what());
@@ -454,7 +447,7 @@ Handle<Value> Bindings::read(const Arguments& args)
                 {
                     try
                     {
-                        readCommand->read(maxReadLength);
+                        readCommand->read();
                     }
                     catch (std::runtime_error& e)
                     {

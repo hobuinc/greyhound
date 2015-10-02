@@ -24,31 +24,23 @@ public:
             std::size_t index = 0);
     virtual ~ReadQuery() { }
 
-    virtual std::size_t numPoints() const = 0;
-
-    bool done() const;
+    void read(ItcBuffer& buffer);
     bool compress() const { return m_compressor.get() != 0; }
-    virtual bool serial() const { return false; }
-
-    void read(std::shared_ptr<ItcBuffer> buffer, std::size_t maxNumBytes);
+    bool done() const { return m_done; }
+    virtual uint64_t numPoints() const = 0;
 
 protected:
-    std::size_t index() const;
+    // Must return true if done, else false.
+    virtual bool readSome(ItcBuffer& buffer) = 0;
+
+    void compressionSwap(ItcBuffer& buffer);
 
     entwine::CompressionStream m_compressionStream;
-    std::shared_ptr<pdal::LazPerfCompressor<
+    std::unique_ptr<pdal::LazPerfCompressor<
             entwine::CompressionStream>> m_compressor;
     std::size_t m_compressionOffset;
 
     const entwine::Schema& m_schema;
-
-private:
-    virtual void readPoint(
-            char* pos,
-            const entwine::Schema& schema) = 0;
-
-    virtual bool eof() const = 0;
-
-    std::size_t m_index;
+    bool m_done;
 };
 
