@@ -24,14 +24,14 @@ public:
     void resize(std::size_t);
 
     const std::vector<char>& vecRef() const { return m_buffer; }
+    std::vector<char>& vecRef() { return m_buffer; }
     char* data();
 
 private:
-    ItcBuffer(std::size_t id, std::size_t capacity);
+    ItcBuffer(std::size_t id);
 
     std::size_t id() const { return m_id; }
 
-    const std::size_t m_maxCapacity;
     std::vector<char> m_buffer;
     const std::size_t m_id;
 
@@ -43,7 +43,7 @@ private:
 class ItcBufferPool
 {
 public:
-    ItcBufferPool(std::size_t numBuffers, std::size_t capacity);
+    ItcBufferPool(std::size_t numBuffers);
 
     std::shared_ptr<ItcBuffer> acquire();
     void release(std::shared_ptr<ItcBuffer> buffer);

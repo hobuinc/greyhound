@@ -31,14 +31,9 @@ public:
             SourceManager& sourceManager);
     ~UnindexedReadQuery();
 
-    virtual bool eof() const;
-
-    virtual std::size_t numPoints() const;
-
-    void addPoint(pdal::PointView& view, pdal::PointId id);
-
 private:
-    virtual void readPoint(char* pos, const entwine::Schema& schema);
+    virtual bool readSome(ItcBuffer& buffer);
+    virtual uint64_t numPoints() const;
 
     std::unique_ptr<pdal::Reader> m_reader;
     std::size_t m_numPoints;

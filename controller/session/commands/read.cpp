@@ -274,9 +274,9 @@ void ReadCommand::acquire()
     m_itcBuffer = m_itcBufferPool.acquire();
 }
 
-void ReadCommand::read(std::size_t maxNumBytes)
+void ReadCommand::read()
 {
-    m_readQuery->read(m_itcBuffer, maxNumBytes);
+    m_readQuery->read(*m_itcBuffer);
 }
 
 std::size_t ReadCommand::numPoints() const

@@ -149,9 +149,16 @@
             url: readUrl + w.location.search + sep + 'schema=' + schema()
         }).done(function(readRes, status, request) {
             var dataBuffer = new Int8Array(readRes);
-            var numPoints  =
-                parseInt(request.getResponseHeader('X-Greyhound-Num-Points'));
 
+            var numPointsBuffer = new ArrayBuffer(4);
+            var numPointsView = new DataView(numPointsBuffer);
+            for (var i = 0; i < 4; ++i) {
+                numPointsView.setUint8(
+                    i,
+                    dataBuffer[dataBuffer.length - i - 1]);
+            }
+
+            var numPoints = numPointsView.getUint32(0);
             return cb(null, dataBuffer, numPoints);
         }).fail(function(err) {
             console.log('READ failed');
