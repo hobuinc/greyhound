@@ -11,7 +11,7 @@ var
 
     controllerConfig = (require('../../../config').cn || { }),
     httpConfig = (controllerConfig ? controllerConfig.http : { }),
-    exposedHeaders = 'X-Greyhound-Num-Points,' + 'X-Greyhound-Read-ID'
+    exposedHeaders = 'X-Greyhound-Read-ID'
     ;
 
 http.globalAgent.maxSockets = 1024;
@@ -101,7 +101,6 @@ if (
                 function(err, props) {
                     if (err) return res.json(err.code || 500, err.message);
 
-                    res.header('X-Greyhound-Num-Points', props.numPoints);
                     res.header('X-Greyhound-Read-ID', props.readId);
                     res.header('Content-Type', 'application/octet-stream');
                 },
