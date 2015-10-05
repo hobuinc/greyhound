@@ -36,6 +36,15 @@ SourceManager::SourceManager(
                 std::numeric_limits<double>::lowest()),
             true);
 
+    // Determine the native schema of the resource.
+    {
+        auto reader(createReader());
+        entwine::DataPool dataPool(0);
+        entwine::SimplePointTable pointTable(dataPool, *m_schema);
+        reader->prepare(pointTable);
+        m_schema->finalize();
+    }
+
     // Determine the number of points and the bounds for this resource.
     {
         entwine::DimList dims;
@@ -46,10 +55,14 @@ SourceManager::SourceManager(
         dims.push_back(entwine::DimInfo("Z", pdal::Dimension::Id::Z, type));
 
         entwine::Schema xyzSchema(dims);
-        entwine::Executor executor(xyzSchema, true);
+        entwine::Executor executor(true);
 
-        auto bounder([this](pdal::PointView& view)
+        entwine::DataPool dataPool(m_schema->pointSize());
+        entwine::SimplePointTable table(dataPool, *m_schema);
+
+        auto bounder([this, &table, &dataPool](pdal::PointView& view)
         {
+            entwine::PooledDataStack stack;
             entwine::Point p;
             m_numPoints += view.size();
 
@@ -60,7 +73,11 @@ SourceManager::SourceManager(
                 p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, i);
 
                 m_bbox->grow(p);
+
+                stack.push(table.getNode(i));
             }
+
+            dataPool.release(stack);
         });
 
         auto preview(executor.preview(path, nullptr, true));
@@ -69,18 +86,10 @@ SourceManager::SourceManager(
             m_srs = preview->srs;
         }
 
-        if (!executor.run(path, nullptr, bounder))
+        if (!executor.run(table, path, nullptr, bounder))
         {
             throw std::runtime_error("Could not execute resource: " + path);
         }
-    }
-
-    // Determine the native schema of the resource.
-    {
-        auto reader(createReader());
-        entwine::SimplePointTable pointTable(*m_schema);
-        reader->prepare(pointTable);
-        m_schema->finalize();
     }
 }
 
