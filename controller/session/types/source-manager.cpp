@@ -62,7 +62,6 @@ SourceManager::SourceManager(
 
         auto bounder([this, &table, &dataPool](pdal::PointView& view)
         {
-            entwine::PooledDataStack stack;
             entwine::Point p;
             m_numPoints += view.size();
 
@@ -73,11 +72,7 @@ SourceManager::SourceManager(
                 p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, i);
 
                 m_bbox->grow(p);
-
-                stack.push(table.getNode(i));
             }
-
-            dataPool.release(stack);
         });
 
         auto preview(executor.preview(path, nullptr, true));
