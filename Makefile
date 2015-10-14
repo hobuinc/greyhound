@@ -26,8 +26,8 @@ cpp:
 
 npm:
 	@echo Getting NPM dependencies.
-	npm install
-	$(foreach d, $(NPM_DIRS), cd $(d); npm install; cd -;)
+	npm install --unsafe-perm
+	$(foreach d, $(NPM_DIRS), cd $(d); npm install --unsafe-perm; cd -;)
 
 test:
 	nodeunit test/unit.js
