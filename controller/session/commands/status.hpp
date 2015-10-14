@@ -19,21 +19,22 @@ public:
 
     bool ok() const { return m_code == 200; }
 
-    v8::Local<v8::Value> toObject() const
+    v8::Local<v8::Value> toObject(v8::Isolate* isolate) const
     {
         if (m_code == 200)
         {
-            return v8::Local<v8::Value>::New(v8::Null());
+            return v8::Local<v8::Value>::New(isolate, Null(isolate));
         }
         else
         {
-            v8::Local<v8::Object> obj = v8::Object::New();
+            v8::Local<v8::Object> obj(v8::Object::New(isolate));
+
             obj->Set(
-                    v8::String::NewSymbol("code"),
-                    v8::Integer::New(m_code));
+                    v8::String::NewFromUtf8(isolate, "code"),
+                    v8::Integer::New(isolate, m_code));
             obj->Set(
-                    v8::String::NewSymbol("message"),
-                    v8::String::New(m_message.data(), m_message.size()));
+                    v8::String::NewFromUtf8(isolate, "message"),
+                    v8::String::NewFromUtf8(isolate, m_message.c_str()));
 
             return obj;
         }

@@ -28,9 +28,9 @@ namespace
         return !value->IsUndefined();
     }
 
-    v8::Local<v8::String> toSymbol(const std::string& str)
+    v8::Local<v8::String> toSymbol(Isolate* isolate, const std::string& str)
     {
-        return v8::String::NewSymbol(str.c_str());
+        return v8::String::NewFromUtf8(isolate, str.c_str());
     }
 
     std::size_t isEmpty(v8::Local<v8::Object> object)
@@ -99,8 +99,8 @@ ReadCommand::ReadCommand(
         const std::string readId,
         const bool compress,
         const std::string schemaString,
-        v8::Persistent<v8::Function> initCb,
-        v8::Persistent<v8::Function> dataCb)
+        v8::UniquePersistent<v8::Function> initCb,
+        v8::UniquePersistent<v8::Function> dataCb)
     : m_session(session)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
@@ -111,8 +111,8 @@ ReadCommand::ReadCommand(
     , m_numSent(0)
     , m_initAsync(new uv_async_t())
     , m_dataAsync(new uv_async_t())
-    , m_initCb(initCb)
-    , m_dataCb(dataCb)
+    , m_initCb(std::move(initCb))
+    , m_dataCb(std::move(dataCb))
     , m_wait(false)
     , m_cancel(false)
 {
@@ -155,8 +155,8 @@ ReadCommand::~ReadCommand()
     uv_close(initAsync, closeCallback);
     uv_close(dataAsync, closeCallback);
 
-    m_initCb.Dispose();
-    m_dataCb.Dispose();
+    m_initCb.Reset();
+    m_dataCb.Reset();
 }
 
 void ReadCommand::registerInitCb()
@@ -164,9 +164,10 @@ void ReadCommand::registerInitCb()
     uv_async_init(
         uv_default_loop(),
         m_initAsync,
-        ([](uv_async_t* async, int status)->void
+        ([](uv_async_t* async)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
 
             if (readCommand->status.ok())
@@ -175,25 +176,35 @@ void ReadCommand::registerInitCb()
                 const unsigned argc = 3;
                 Local<Value> argv[argc] =
                 {
-                    Local<Value>::New(Null()), // err
-                    Local<Value>::New(String::New(id.data(), id.size())),
-                    Local<Value>::New(Integer::New(readCommand->numPoints()))
+                    Local<Value>::New(isolate, Null(isolate)), // err
+                    Local<Value>::New(
+                            isolate,
+                            String::NewFromUtf8(isolate, id.c_str())),
+                    Local<Value>::New(
+                            isolate,
+                            Integer::New(isolate, readCommand->numPoints()))
                 };
 
-                readCommand->initCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
+                Local<Function> local(Local<Function>::New(
+                        isolate,
+                        readCommand->initCb()));
+
+                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             }
             else
             {
                 const unsigned argc = 1;
-                Local<Value> argv[argc] = { readCommand->status.toObject() };
+                Local<Value> argv[argc] =
+                    { readCommand->status.toObject(isolate) };
 
-                readCommand->initCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
+                Local<Function> local(Local<Function>::New(
+                        isolate,
+                        readCommand->initCb()));
+
+                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             }
 
             readCommand->notifyCb();
-            scope.Close(Undefined());
         })
     );
 }
@@ -203,43 +214,50 @@ void ReadCommand::registerDataCb()
     uv_async_init(
         uv_default_loop(),
         m_dataAsync,
-        ([](uv_async_t* async, int status)->void
+        ([](uv_async_t* async)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
 
             if (readCommand->status.ok())
             {
-                auto buffer(
+                MaybeLocal<Object> buffer(
                         node::Buffer::New(
+                            isolate,
                             readCommand->getBuffer()->data(),
-                            readCommand->getBuffer()->size(),
-                            freeCb,
-                            0));
+                            readCommand->getBuffer()->size()));
 
                 const unsigned argc = 3;
                 Local<Value>argv[argc] =
                 {
-                    Local<Value>::New(Null()), // err
-                    Local<Value>::New(buffer->handle_),
-                    Local<Value>::New(Number::New(readCommand->done()))
+                    Local<Value>::New(isolate, Null(isolate)),
+                    Local<Value>::New(isolate, buffer.ToLocalChecked()),
+                    Local<Value>::New(
+                            isolate,
+                            Number::New(isolate, readCommand->done()))
                 };
 
-                readCommand->dataCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
+                Local<Function> local(Local<Function>::New(
+                        isolate,
+                        readCommand->dataCb()));
+
+                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             }
             else
             {
                 const unsigned argc = 1;
                 Local<Value> argv[argc] =
-                    { readCommand->status.toObject() };
+                    { readCommand->status.toObject(isolate) };
 
-                readCommand->dataCb()->Call(
-                    Context::GetCurrent()->Global(), argc, argv);
+                Local<Function> local(Local<Function>::New(
+                        isolate,
+                        readCommand->dataCb()));
+
+                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             }
 
             readCommand->notifyCb();
-            scope.Close(Undefined());
         })
     );
 }
@@ -294,12 +312,12 @@ bool ReadCommand::cancel() const
     return m_cancel;
 }
 
-v8::Persistent<v8::Function> ReadCommand::initCb() const
+v8::UniquePersistent<v8::Function>& ReadCommand::initCb()
 {
     return m_initCb;
 }
 
-v8::Persistent<v8::Function> ReadCommand::dataCb() const
+v8::UniquePersistent<v8::Function>& ReadCommand::dataCb()
 {
     return m_dataCb;
 }
@@ -310,16 +328,16 @@ ReadCommandUnindexed::ReadCommandUnindexed(
         std::string readId,
         bool compress,
         const std::string schemaString,
-        v8::Persistent<v8::Function> initCb,
-        v8::Persistent<v8::Function> dataCb)
+        v8::UniquePersistent<v8::Function> initCb,
+        v8::UniquePersistent<v8::Function> dataCb)
     : ReadCommand(
             session,
             itcBufferPool,
             readId,
             compress,
             schemaString,
-            initCb,
-            dataCb)
+            std::move(initCb),
+            std::move(dataCb))
 { }
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
@@ -331,16 +349,16 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         entwine::BBox bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
-        v8::Persistent<v8::Function> initCb,
-        v8::Persistent<v8::Function> dataCb)
+        v8::UniquePersistent<v8::Function> initCb,
+        v8::UniquePersistent<v8::Function> dataCb)
     : ReadCommand(
             session,
             itcBufferPool,
             readId,
             compress,
             schemaString,
-            initCb,
-            dataCb)
+            std::move(initCb),
+            std::move(dataCb))
     , m_bbox(bbox)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
@@ -362,21 +380,22 @@ void ReadCommandQuadIndex::query()
 }
 
 ReadCommand* ReadCommandFactory::create(
+        Isolate* isolate,
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         std::string readId,
         const std::string schemaString,
         bool compress,
         v8::Local<v8::Object> query,
-        v8::Persistent<v8::Function> initCb,
-        v8::Persistent<v8::Function> dataCb)
+        v8::UniquePersistent<v8::Function> initCb,
+        v8::UniquePersistent<v8::Function> dataCb)
 {
     ReadCommand* readCommand(0);
 
-    const auto depthSymbol(toSymbol("depth"));
-    const auto depthBeginSymbol(toSymbol("depthBegin"));
-    const auto depthEndSymbol(toSymbol("depthEnd"));
-    const auto bboxSymbol(toSymbol("bounds"));
+    const auto depthSymbol(toSymbol(isolate, "depth"));
+    const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
+    const auto depthEndSymbol(toSymbol(isolate, "depthEnd"));
+    const auto bboxSymbol(toSymbol(isolate, "bounds"));
 
     if (
             query->HasOwnProperty(depthSymbol) ||
@@ -425,8 +444,8 @@ ReadCommand* ReadCommandFactory::create(
                     bbox,
                     depthBegin,
                     depthEnd,
-                    initCb,
-                    dataCb);
+                    std::move(initCb),
+                    std::move(dataCb));
         }
     }
     else if (isEmpty(query))
@@ -437,8 +456,19 @@ ReadCommand* ReadCommandFactory::create(
                 readId,
                 compress,
                 schemaString,
-                initCb,
-                dataCb);
+                std::move(initCb),
+                std::move(dataCb));
+    }
+
+    if (!readCommand)
+    {
+        std::cout << "Bad read command" << std::endl;
+        Status status(400, std::string("Invalid read query parameters"));
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = { status.toObject(isolate) };
+
+        Local<Function> local(Local<Function>::New(isolate, initCb));
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
     }
 
     return readCommand;
