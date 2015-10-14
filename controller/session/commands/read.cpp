@@ -223,7 +223,7 @@ void ReadCommand::registerDataCb()
             if (readCommand->status.ok())
             {
                 MaybeLocal<Object> buffer(
-                        node::Buffer::New(
+                        node::Buffer::Copy(
                             isolate,
                             readCommand->getBuffer()->data(),
                             readCommand->getBuffer()->size()));
