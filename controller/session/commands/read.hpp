@@ -4,8 +4,9 @@
 #include <vector>
 #include <mutex>
 
-#include <v8.h>
 #include <node.h>
+#include <uv.h>
+#include <v8.h>
 
 #include <pdal/Dimension.hpp>
 #include <entwine/types/bbox.hpp>
@@ -29,8 +30,8 @@ public:
             std::string readId,
             bool compress,
             std::string schemaString,
-            v8::Persistent<v8::Function> initCb,
-            v8::Persistent<v8::Function> dataCb);
+            v8::UniquePersistent<v8::Function> initCb,
+            v8::UniquePersistent<v8::Function> dataCb);
     virtual ~ReadCommand();
 
     void registerInitCb();
@@ -51,8 +52,8 @@ public:
 
     std::string readId()    const;
     bool        cancel()    const;
-    v8::Persistent<v8::Function> initCb() const;
-    v8::Persistent<v8::Function> dataCb() const;
+    v8::UniquePersistent<v8::Function>& initCb();
+    v8::UniquePersistent<v8::Function>& dataCb();
 
     uv_async_t* initAsync() { return m_initAsync; }
     uv_async_t* dataAsync() { return m_dataAsync; }
@@ -87,8 +88,8 @@ protected:
 
     uv_async_t* m_initAsync;
     uv_async_t* m_dataAsync;
-    v8::Persistent<v8::Function> m_initCb;
-    v8::Persistent<v8::Function> m_dataCb;
+    v8::UniquePersistent<v8::Function> m_initCb;
+    v8::UniquePersistent<v8::Function> m_dataCb;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
@@ -106,8 +107,8 @@ public:
             std::string readId,
             bool compress,
             std::string schemaString,
-            v8::Persistent<v8::Function> initCb,
-            v8::Persistent<v8::Function> dataCb);
+            v8::UniquePersistent<v8::Function> initCb,
+            v8::UniquePersistent<v8::Function> dataCb);
 
 private:
     virtual void query();
@@ -125,8 +126,8 @@ public:
             entwine::BBox bbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            v8::Persistent<v8::Function> initCb,
-            v8::Persistent<v8::Function> dataCb);
+            v8::UniquePersistent<v8::Function> initCb,
+            v8::UniquePersistent<v8::Function> dataCb);
 
 protected:
     virtual void query();
@@ -140,13 +141,14 @@ class ReadCommandFactory
 {
 public:
     static ReadCommand* create(
+            v8::Isolate* isolate,
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string readId,
             std::string schemaString,
             bool compress,
             v8::Local<v8::Object> query,
-            v8::Persistent<v8::Function> initCb,
-            v8::Persistent<v8::Function> dataCb);
+            v8::UniquePersistent<v8::Function> initCb,
+            v8::UniquePersistent<v8::Function> dataCb);
 };
 

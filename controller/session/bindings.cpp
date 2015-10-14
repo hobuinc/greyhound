@@ -63,18 +63,20 @@ namespace
         return id;
     }
 
-    std::vector<std::string> parsePathList(const v8::Local<v8::Value>& rawArg)
+    std::vector<std::string> parsePathList(
+            Isolate* isolate,
+            const v8::Local<v8::Value>& rawArg)
     {
         std::vector<std::string> paths;
 
         if (!rawArg->IsUndefined() && rawArg->IsArray())
         {
-            Local<Array> rawArray(Array::Cast(*rawArg));
+            Array* rawArray(Array::Cast(*rawArg));
 
             for (std::size_t i(0); i < rawArray->Length(); ++i)
             {
                 const v8::Local<v8::Value>& rawValue(
-                    rawArray->Get(Integer::New(i)));
+                    rawArray->Get(Integer::New(isolate, i)));
 
                 if (rawValue->IsString())
                 {
@@ -175,49 +177,49 @@ Bindings::~Bindings()
 
 void Bindings::init(v8::Handle<v8::Object> exports)
 {
+    Isolate* isolate(Isolate::GetCurrent());
+
     // Prepare constructor template
-    Local<FunctionTemplate> tpl = FunctionTemplate::New(construct);
-    tpl->SetClassName(String::NewSymbol("Bindings"));
+    Local<FunctionTemplate> tpl(v8::FunctionTemplate::New(isolate, construct));
+    tpl->SetClassName(String::NewFromUtf8(isolate, "Bindings"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    // Prototype
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("construct"),
-        FunctionTemplate::New(construct)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("create"),
-        FunctionTemplate::New(create)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("destroy"),
-        FunctionTemplate::New(destroy)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("info"),
-        FunctionTemplate::New(info)->GetFunction());
-    tpl->PrototypeTemplate()->Set(String::NewSymbol("read"),
-        FunctionTemplate::New(read)->GetFunction());
+    NODE_SET_PROTOTYPE_METHOD(tpl, "construct", construct);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "create",    create);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",   destroy);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "info",      info);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "read",      read);
 
-    constructor = Persistent<Function>::New(tpl->GetFunction());
-    exports->Set(String::NewSymbol("Bindings"), constructor);
+    constructor.Reset(isolate, tpl->GetFunction());
+    exports->Set(String::NewFromUtf8(isolate, "Bindings"), tpl->GetFunction());
 }
 
-Handle<Value> Bindings::construct(const Arguments& args)
+void Bindings::construct(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
 
     if (args.IsConstructCall())
     {
         // Invoked as constructor with 'new'.
         Bindings* obj = new Bindings();
-        obj->Wrap(args.This());
-        return args.This();
+        obj->Wrap(args.Holder());
+        args.GetReturnValue().Set(args.Holder());
     }
     else
     {
         // Invoked as a function, turn into construct call.
-        return scope.Close(constructor->NewInstance());
+        Local<Function> ctor(Local<Function>::New(isolate, constructor));
+        args.GetReturnValue().Set(ctor->NewInstance());
     }
 }
 
-Handle<Value> Bindings::create(const Arguments& args)
+void Bindings::create(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     if (args.Length() != 4)
     {
@@ -236,22 +238,24 @@ Handle<Value> Bindings::create(const Arguments& args)
     if (!pathsArg->IsArray()) errMsg += "\t'paths' must be an array";
     if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
-    Persistent<Function> callback(
-            Persistent<Function>::New(Local<Function>::Cast(cbArg)));
+    UniquePersistent<Function> callback(isolate, Local<Function>::Cast(cbArg));
 
     if (errMsg.size())
     {
         std::cout << "Client error: " << errMsg << std::endl;
         Status status(400, errMsg);
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
+        Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        callback->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
+        Local<Function> local(Local<Function>::New(isolate, callback));
+
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        callback.Reset();
+        return;
     }
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const std::vector<std::string> paths(parsePathList(pathsArg));
+    const std::vector<std::string> paths(parsePathList(isolate, pathsArg));
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
 
     initConfigurable(maxCacheSize);
@@ -264,7 +268,7 @@ Handle<Value> Bindings::create(const Arguments& args)
             paths,
             commonArbiter,
             cache,
-            callback);
+            std::move(callback));
 
     uv_queue_work(
         uv_default_loop(),
@@ -287,46 +291,50 @@ Handle<Value> Bindings::create(const Arguments& args)
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
+
             CreateData* createData(static_cast<CreateData*>(req->data));
 
             const unsigned argc = 1;
-            Local<Value> argv[argc] = { createData->status.toObject() };
+            Local<Value> argv[argc] = { createData->status.toObject(isolate) };
 
-            createData->callback->Call(
-                Context::GetCurrent()->Global(), argc, argv);
+            Local<Function> local(Local<Function>::New(
+                    isolate,
+                    createData->callback));
+
+            local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
 
             delete createData;
             delete req;
         })
     );
-
-    return scope.Close(Undefined());
 }
 
-Handle<Value> Bindings::destroy(const Arguments& args)
+void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     obj->m_session.reset();
-
-    return scope.Close(Undefined());
 }
 
-Handle<Value> Bindings::info(const Arguments& args)
+void Bindings::info(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     const std::string info(obj->m_session->info());
-    return scope.Close(String::New(info.data(), info.size()));
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, info.c_str()));
 }
 
-Handle<Value> Bindings::read(const Arguments& args)
+void Bindings::read(const FunctionCallbackInfo<Value>& args)
 {
-    HandleScope scope;
-    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.This());
+    Isolate* isolate(Isolate::GetCurrent());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
     // Call the factory to get the specialized 'read' command based on
     // the input args.  If there is an error with the input args, this call
@@ -358,42 +366,38 @@ Handle<Value> Bindings::read(const Arguments& args)
     const bool compress(compressArg->BooleanValue());
     Local<Object> query(queryArg->ToObject());
 
-    Persistent<Function> initCb(
-            Persistent<Function>::New(Local<Function>::Cast(initCbArg)));
+    UniquePersistent<Function> initCb(
+            isolate,
+            Local<Function>::Cast(initCbArg));
 
-    Persistent<Function> dataCb(
-            Persistent<Function>::New(Local<Function>::Cast(dataCbArg)));
+    UniquePersistent<Function> dataCb(
+            isolate,
+            Local<Function>::Cast(dataCbArg));
 
     if (!errMsg.empty())
     {
         Status status(400, errMsg);
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
+        Local<Value> argv[argc] = { status.toObject(isolate) };
 
-        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
+        Local<Function> local(Local<Function>::New(isolate, initCb));
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        return;
     }
 
     ReadCommand* readCommand(
             ReadCommandFactory::create(
+                isolate,
                 obj->m_session,
                 obj->m_itcBufferPool,
                 readId,
                 schemaString,
                 compress,
                 query,
-                initCb,
-                dataCb));
+                std::move(initCb),
+                std::move(dataCb)));
 
-    if (!readCommand)
-    {
-        Status status(400, std::string("Invalid read query parameters"));
-        const unsigned argc = 1;
-        Local<Value> argv[argc] = { status.toObject() };
-
-        initCb->Call(Context::GetCurrent()->Global(), argc, argv);
-        return scope.Close(Undefined());
-    }
+    if (!readCommand) return;
 
     // Register our callbacks with their async tokens.
     readCommand->registerInitCb();
@@ -467,15 +471,14 @@ Handle<Value> Bindings::read(const Arguments& args)
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void
         {
-            HandleScope scope;
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
             delete readCommand;
             delete req;
         })
     );
-
-    return scope.Close(Undefined());
 }
 
 //////////////////////////////////////////////////////////////////////////////

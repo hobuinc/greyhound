@@ -2,6 +2,10 @@
 
 #include <memory>
 
+#include <node.h>
+#include <node_object_wrap.h>
+#include <v8.h>
+
 #include "commands/read.hpp"
 
 class Session;
@@ -23,12 +27,14 @@ private:
 
     static v8::Persistent<v8::Function> constructor;
 
-    static v8::Handle<v8::Value> construct(const v8::Arguments& args);
+    typedef v8::FunctionCallbackInfo<v8::Value> Args;
 
-    static v8::Handle<v8::Value> create(const v8::Arguments& args);
-    static v8::Handle<v8::Value> destroy(const v8::Arguments& args);
-    static v8::Handle<v8::Value> info(const v8::Arguments& args);
-    static v8::Handle<v8::Value> read(const v8::Arguments& args);
+    static void construct(const Args& args);
+
+    static void create(const Args& args);
+    static void destroy(const Args& args);
+    static void info(const Args& args);
+    static void read(const Args& args);
 
     std::shared_ptr<Session> m_session;
     ItcBufferPool& m_itcBufferPool;
