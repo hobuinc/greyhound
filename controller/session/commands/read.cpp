@@ -96,7 +96,6 @@ namespace
 ReadCommand::ReadCommand(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        const std::string readId,
         const bool compress,
         const std::string schemaString,
         v8::UniquePersistent<v8::Function> initCb,
@@ -104,7 +103,6 @@ ReadCommand::ReadCommand(
     : m_session(session)
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
-    , m_readId(readId)
     , m_compress(compress)
     , m_schema(schemaString.empty() ?
             session->schema() : entwine::Schema(schemaString))
@@ -172,40 +170,19 @@ void ReadCommand::registerInitCb()
             HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
 
-            if (readCommand->status.ok())
+            const unsigned argc = 1;
+            Local<Value> argv[argc] =
             {
-                const std::string id(readCommand->readId());
-                const unsigned argc = 3;
-                Local<Value> argv[argc] =
-                {
-                    Local<Value>::New(isolate, Null(isolate)), // err
-                    Local<Value>::New(
-                            isolate,
-                            String::NewFromUtf8(isolate, id.c_str())),
-                    Local<Value>::New(
-                            isolate,
-                            Integer::New(isolate, readCommand->numPoints()))
-                };
+                readCommand->status.ok() ?
+                    Local<Value>::New(isolate, Null(isolate)) : // err
+                    readCommand->status.toObject(isolate)
+            };
 
-                Local<Function> local(Local<Function>::New(
-                        isolate,
-                        readCommand->initCb()));
+            Local<Function> local(Local<Function>::New(
+                    isolate,
+                    readCommand->initCb()));
 
-                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
-            }
-            else
-            {
-                const unsigned argc = 1;
-                Local<Value> argv[argc] =
-                    { readCommand->status.toObject(isolate) };
-
-                Local<Function> local(Local<Function>::New(
-                        isolate,
-                        readCommand->initCb()));
-
-                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
-            }
-
+            local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             readCommand->notifyCb();
         })
     );
@@ -304,11 +281,6 @@ std::size_t ReadCommand::numPoints() const
     return m_readQuery->numPoints();
 }
 
-std::string ReadCommand::readId() const
-{
-    return m_readId;
-}
-
 bool ReadCommand::cancel() const
 {
     return m_cancel;
@@ -327,7 +299,6 @@ v8::UniquePersistent<v8::Function>& ReadCommand::dataCb()
 ReadCommandUnindexed::ReadCommandUnindexed(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        std::string readId,
         bool compress,
         const std::string schemaString,
         v8::UniquePersistent<v8::Function> initCb,
@@ -335,7 +306,6 @@ ReadCommandUnindexed::ReadCommandUnindexed(
     : ReadCommand(
             session,
             itcBufferPool,
-            readId,
             compress,
             schemaString,
             std::move(initCb),
@@ -345,7 +315,6 @@ ReadCommandUnindexed::ReadCommandUnindexed(
 ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        std::string readId,
         bool compress,
         const std::string schemaString,
         entwine::BBox bbox,
@@ -356,7 +325,6 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
     : ReadCommand(
             session,
             itcBufferPool,
-            readId,
             compress,
             schemaString,
             std::move(initCb),
@@ -385,7 +353,6 @@ ReadCommand* ReadCommandFactory::create(
         Isolate* isolate,
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
-        std::string readId,
         const std::string schemaString,
         bool compress,
         v8::Local<v8::Object> query,
@@ -440,7 +407,6 @@ ReadCommand* ReadCommandFactory::create(
             readCommand = new ReadCommandQuadIndex(
                     session,
                     itcBufferPool,
-                    readId,
                     compress,
                     schemaString,
                     bbox,
@@ -455,7 +421,6 @@ ReadCommand* ReadCommandFactory::create(
         readCommand = new ReadCommandUnindexed(
                 session,
                 itcBufferPool,
-                readId,
                 compress,
                 schemaString,
                 std::move(initCb),

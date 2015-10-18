@@ -99,25 +99,8 @@ console.log('Read paths:', paths);
         getSession(resource, function(err, session) {
             if (err) return onInit(err);
 
-            var initCb = function(
-                err,
-                readId,
-                numPoints)
-            {
-                if (err) {
-                    console.warn('controller::read::ERROR:', err);
-                    onInit(err);
-                }
-                else {
-                    var props = { readId: readId, numPoints: numPoints };
-                    onInit(null, props);
-                }
-            };
-
-            var dataCb = function(err, data, done) {
-                onData(err, data, done);
-                if (done) console.log(process.memoryUsage());
-            }
+            var initCb = (err) => onInit(err);
+            var dataCb = (err, data, done) => onData(err, data, done);
 
             session.read(schema, compress, query, initCb, dataCb);
         });

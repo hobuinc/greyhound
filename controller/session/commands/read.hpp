@@ -27,7 +27,6 @@ public:
     ReadCommand(
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
-            std::string readId,
             bool compress,
             std::string schemaString,
             v8::UniquePersistent<v8::Function> initCb,
@@ -50,7 +49,6 @@ public:
 
     std::size_t numPoints() const;
 
-    std::string readId()    const;
     bool        cancel()    const;
     v8::UniquePersistent<v8::Function>& initCb();
     v8::UniquePersistent<v8::Function>& dataCb();
@@ -80,7 +78,6 @@ protected:
 
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
-    const std::string m_readId;
     const bool m_compress;
     entwine::Schema m_schema;
     std::size_t m_numSent;
@@ -104,7 +101,6 @@ public:
     ReadCommandUnindexed(
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
-            std::string readId,
             bool compress,
             std::string schemaString,
             v8::UniquePersistent<v8::Function> initCb,
@@ -120,7 +116,6 @@ public:
     ReadCommandQuadIndex(
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
-            std::string readId,
             bool compress,
             std::string schemaString,
             entwine::BBox bbox,
@@ -144,7 +139,6 @@ public:
             v8::Isolate* isolate,
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
-            std::string readId,
             std::string schemaString,
             bool compress,
             v8::Local<v8::Object> query,
