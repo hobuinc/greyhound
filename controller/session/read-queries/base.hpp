@@ -22,7 +22,7 @@ public:
             const entwine::Schema& schema,
             bool compress,
             std::size_t index = 0);
-    virtual ~ReadQuery() { }
+    virtual ~ReadQuery() { if (m_compressor) m_compressor->done(); }
 
     void read(ItcBuffer& buffer);
     bool compress() const { return m_compressor.get() != 0; }
