@@ -7,7 +7,6 @@
 #include <entwine/types/schema.hpp>
 
 #include "session.hpp"
-#include "read-queries/base.hpp"
 #include "util/buffer-pool.hpp"
 
 #include "commands/read.hpp"
@@ -17,16 +16,6 @@ using namespace v8;
 namespace
 {
     void freeCb(char* data, void* hint) { }
-
-    bool isInteger(const v8::Local<v8::Value>& value)
-    {
-        return value->IsInt32() || value->IsUint32();
-    }
-
-    bool isDefined(const v8::Local<v8::Value>& value)
-    {
-        return !value->IsUndefined();
-    }
 
     v8::Local<v8::String> toSymbol(Isolate* isolate, const std::string& str)
     {
@@ -112,7 +101,7 @@ ReadCommand::ReadCommand(
     , m_initCb(std::move(initCb))
     , m_dataCb(std::move(dataCb))
     , m_wait(false)
-    , m_cancel(false)
+    , m_terminate(false)
 {
     if (schemaString.empty())
     {
@@ -201,6 +190,24 @@ void ReadCommand::registerDataCb()
 
             if (readCommand->status.ok())
             {
+                /*
+
+                Ideally we'd pass kgFunction as arg 4 of this callback,
+                allowing JS-land to asyncly call us as long as their keepGoing
+                logic is truthy.  For now we'll make JS return a value from
+                their onData function, since we can't capture state with this
+                method.
+
+                auto keepGoingCb([](const FunctionCallbackInfo<Value>& args)
+                {
+                    std::cout << "Got keep going signal!" << std::endl;
+                });
+
+                Local<FunctionTemplate> kgTemplate(
+                        FunctionTemplate::New(isolate, keepGoingCb));
+                Local<Function> kgFunction(kgTemplate->GetFunction());
+                */
+
                 MaybeLocal<Object> buffer(
                         node::Buffer::Copy(
                             isolate,
@@ -221,7 +228,13 @@ void ReadCommand::registerDataCb()
                         isolate,
                         readCommand->dataCb()));
 
-                local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+                Local<Value> keepGoing =
+                    local->Call(
+                            isolate->GetCurrentContext()->Global(),
+                            argc,
+                            argv);
+
+                readCommand->terminate(!keepGoing->BooleanValue());
             }
             else
             {
@@ -239,46 +252,6 @@ void ReadCommand::registerDataCb()
             readCommand->notifyCb();
         })
     );
-}
-
-std::shared_ptr<ItcBuffer> ReadCommand::getBuffer()
-{
-    return m_itcBuffer;
-}
-
-ItcBufferPool& ReadCommand::getBufferPool()
-{
-    return m_itcBufferPool;
-}
-
-bool ReadCommand::done() const
-{
-    return m_readQuery->done();
-}
-
-void ReadCommand::run()
-{
-    query();
-}
-
-void ReadCommand::acquire()
-{
-    m_itcBuffer = m_itcBufferPool.acquire();
-}
-
-void ReadCommand::read()
-{
-    m_readQuery->read(*m_itcBuffer);
-}
-
-v8::UniquePersistent<v8::Function>& ReadCommand::initCb()
-{
-    return m_initCb;
-}
-
-v8::UniquePersistent<v8::Function>& ReadCommand::dataCb()
-{
-    return m_dataCb;
 }
 
 ReadCommandUnindexed::ReadCommandUnindexed(
