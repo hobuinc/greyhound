@@ -142,6 +142,8 @@ ReadCommand::ReadCommand(
 
 ReadCommand::~ReadCommand()
 {
+    getBufferPool().release(getBuffer());
+
     uv_handle_t* initAsync(reinterpret_cast<uv_handle_t*>(m_initAsync));
     uv_handle_t* dataAsync(reinterpret_cast<uv_handle_t*>(m_dataAsync));
 

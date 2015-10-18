@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include <curl/curl.h>
-#include <openssl/crypto.h>
 
 #include <pdal/PointLayout.hpp>
 #include <pdal/StageFactory.hpp>
@@ -111,42 +110,7 @@ namespace
 
 namespace ghEnv
 {
-    std::vector<std::mutex> sslMutexList(CRYPTO_num_locks());
-
-    void sslLock(int mode, int n, const char* file, int line)
-    {
-        if (mode & CRYPTO_LOCK) sslMutexList.at(n).lock();
-        else sslMutexList.at(n).unlock();
-    }
-
-    unsigned long sslId()
-    {
-        std::ostringstream ss;
-        ss << std::this_thread::get_id();
-        return std::stoull(ss.str());
-    }
-
-    CRYPTO_dynlock_value* dynamicCreate(const char* file, int line)
-    {
-        return new CRYPTO_dynlock_value();
-    }
-
-    void dynamicLock(
-            int mode,
-            CRYPTO_dynlock_value* lock,
-            const char* file,
-            int line)
-    {
-        if (mode & CRYPTO_LOCK) lock->mutex.lock();
-        else lock->mutex.unlock();
-    }
-
-    void dynamicDestroy(CRYPTO_dynlock_value* lock, const char* file, int line)
-    {
-        delete lock;
-    }
-
-    Once curlCryptoOnce([]()->void {
+    Once curlOnce([]()->void {
         std::cout << "Destructing global environment" << std::endl;
         curl_global_cleanup();
     });
@@ -160,15 +124,9 @@ Bindings::Bindings()
     : m_session(new Session(*stageFactory, factoryMutex))
     , m_itcBufferPool(itcBufferPool)
 {
-    ghEnv::curlCryptoOnce.ensure([]()->void {
+    ghEnv::curlOnce.ensure([]()->void {
         std::cout << "Initializing global environment" << std::endl;
         curl_global_init(CURL_GLOBAL_ALL);
-
-        CRYPTO_set_id_callback(ghEnv::sslId);
-        CRYPTO_set_locking_callback(ghEnv::sslLock);
-        CRYPTO_set_dynlock_create_callback(ghEnv::dynamicCreate);
-        CRYPTO_set_dynlock_lock_callback(ghEnv::dynamicLock);
-        CRYPTO_set_dynlock_destroy_callback(ghEnv::dynamicDestroy);
     });
 }
 
@@ -196,7 +154,7 @@ void Bindings::init(v8::Handle<v8::Object> exports)
 
 void Bindings::construct(const FunctionCallbackInfo<Value>& args)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
 
     if (args.IsConstructCall())
@@ -216,7 +174,7 @@ void Bindings::construct(const FunctionCallbackInfo<Value>& args)
 
 void Bindings::create(const FunctionCallbackInfo<Value>& args)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
 
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
@@ -313,7 +271,7 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
 
 void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
@@ -322,7 +280,7 @@ void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
 
 void Bindings::info(const FunctionCallbackInfo<Value>& args)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
@@ -332,7 +290,7 @@ void Bindings::info(const FunctionCallbackInfo<Value>& args)
 
 void Bindings::read(const FunctionCallbackInfo<Value>& args)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
@@ -447,26 +405,23 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
             {
                 readCommand->acquire();
 
-                do
+                try
                 {
-                    try
+                    do
                     {
                         readCommand->read();
+                        readCommand->doCb(readCommand->dataAsync());
                     }
-                    catch (std::runtime_error& e)
-                    {
-                        readCommand->status.set(500, e.what());
-                    }
-                    catch (...)
-                    {
-                        readCommand->status.set(500, "Error during query");
-                    }
-
-                    readCommand->doCb(readCommand->dataAsync());
+                    while (!readCommand->done() && readCommand->status.ok());
                 }
-                while (!readCommand->done() && readCommand->status.ok());
-
-                readCommand->getBufferPool().release(readCommand->getBuffer());
+                catch (std::runtime_error& e)
+                {
+                    readCommand->status.set(500, e.what());
+                }
+                catch (...)
+                {
+                    readCommand->status.set(500, "Error during query");
+                }
             });
         }),
         (uv_after_work_cb)([](uv_work_t* req, int status)->void
