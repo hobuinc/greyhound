@@ -37,19 +37,13 @@ public:
     void registerDataCb();
 
     virtual void read();
-
     void run();
 
-    void cancel(bool cancel);
     std::shared_ptr<ItcBuffer> getBuffer();
     ItcBufferPool& getBufferPool();
 
     bool done() const;
     void acquire();
-
-    std::size_t numPoints() const;
-
-    bool        cancel()    const;
     v8::UniquePersistent<v8::Function>& initCb();
     v8::UniquePersistent<v8::Function>& dataCb();
 
