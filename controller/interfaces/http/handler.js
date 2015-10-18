@@ -11,20 +11,17 @@ var
 
     controllerConfig = (require('../../../config').cn || { }),
     httpConfig = (controllerConfig ? controllerConfig.http : { }),
-    exposedHeaders = 'X-Greyhound-Read-ID'
+    accessControlString = 'Access-Control-Expose-Headers',
+    exposedHeaders = (() => {
+        if (httpConfig.headers && httpConfig.headers[accessControlString]) {
+            var h = httpConfig.headers[accessControlString];
+            delete httpConfig.headers[accessControlString];
+            return h;
+        }
+    })();
     ;
 
 http.globalAgent.maxSockets = 1024;
-
-if (
-        httpConfig.headers &&
-        httpConfig.headers['Access-Control-Expose-Headers'])
-{
-    exposedHeaders +=
-        ',' +
-        httpConfig.headers['Access-Control-Expose-Headers'];
-    delete httpConfig.headers['Access-Control-Expose-Headers'];
-}
 
 (function() {
     'use strict';
@@ -54,7 +51,6 @@ if (
             next();
         });
 
-        // development only
         if (app.get('env') == 'development') {
             app.use(express.errorHandler());
         }
@@ -95,13 +91,15 @@ if (
         });
 
         app.get('/resource/:resource/read', function(req, res) {
+            // TODO Need to terminate query on socket hangup.
+            var stop = false;
+            req.on('close', () => stop = true);
+
             controller.read(
                 req.params.resource,
                 req.query,
-                function(err, props) {
+                function(err) {
                     if (err) return res.json(err.code || 500, err.message);
-
-                    res.header('X-Greyhound-Read-ID', props.readId);
                     res.header('Content-Type', 'application/octet-stream');
                 },
                 function(err, data, done) {
@@ -111,7 +109,6 @@ if (
                     }
 
                     res.write(data);
-
                     if (done) res.end();
                 }
             );

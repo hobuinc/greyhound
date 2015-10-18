@@ -47,21 +47,6 @@ namespace
     std::shared_ptr<arbiter::Arbiter> commonArbiter(0);
     std::shared_ptr<entwine::Cache> cache(0);
 
-    const std::size_t readIdSize = 24;
-    const std::string hexValues = "0123456789ABCDEF";
-
-    std::string generateReadId()
-    {
-        std::string id(readIdSize, '0');
-
-        for (std::size_t i(0); i < id.size(); ++i)
-        {
-            id[i] = hexValues[rand() % hexValues.size()];
-        }
-
-        return id;
-    }
-
     std::vector<std::string> parsePathList(
             Isolate* isolate,
             const v8::Local<v8::Value>& rawArg)
@@ -294,12 +279,6 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    // Call the factory to get the specialized 'read' command based on
-    // the input args.  If there is an error with the input args, this call
-    // will attempt to make an error callback (if a callback argument can be
-    // identified) and return a null ptr.
-    const std::string readId(generateReadId());
-
     std::size_t i(0);
     const auto& schemaArg   (args[i++]);
     const auto& compressArg (args[i++]);
@@ -348,7 +327,6 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 isolate,
                 obj->m_session,
                 obj->m_itcBufferPool,
-                readId,
                 schemaString,
                 compress,
                 query,
