@@ -241,11 +241,6 @@ void ReadCommand::registerDataCb()
     );
 }
 
-void ReadCommand::cancel(bool cancel)
-{
-    m_cancel = cancel;
-}
-
 std::shared_ptr<ItcBuffer> ReadCommand::getBuffer()
 {
     return m_itcBuffer;
@@ -274,16 +269,6 @@ void ReadCommand::acquire()
 void ReadCommand::read()
 {
     m_readQuery->read(*m_itcBuffer);
-}
-
-std::size_t ReadCommand::numPoints() const
-{
-    return m_readQuery->numPoints();
-}
-
-bool ReadCommand::cancel() const
-{
-    return m_cancel;
 }
 
 v8::UniquePersistent<v8::Function>& ReadCommand::initCb()
