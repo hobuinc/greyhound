@@ -91,9 +91,9 @@ http.globalAgent.maxSockets = 1024;
         });
 
         app.get('/resource/:resource/read', function(req, res) {
-            // TODO Need to terminate query on socket hangup.
-            var stop = false;
-            req.on('close', () => stop = true);
+            // Terminate query on socket hangup.
+            var keepGoing = true;
+            req.on('close', () => keepGoing = false);
 
             controller.read(
                 req.params.resource,
@@ -110,6 +110,8 @@ http.globalAgent.maxSockets = 1024;
 
                     res.write(data);
                     if (done) res.end();
+
+                    return keepGoing;
                 }
             );
         });

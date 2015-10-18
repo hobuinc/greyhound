@@ -408,6 +408,11 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
             HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
+            if (readCommand->terminate())
+            {
+                std::cout << "Read was successfully terminated" << std::endl;
+            }
+
             delete readCommand;
             delete req;
         })

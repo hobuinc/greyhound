@@ -13,10 +13,10 @@
 #include <entwine/types/schema.hpp>
 
 #include "commands/background.hpp"
+#include "read-queries/base.hpp"
 
 void errorCb(v8::Persistent<v8::Function> callback, std::string errMsg);
 
-class ReadQuery;
 class ItcBufferPool;
 class ItcBuffer;
 class Session;
@@ -36,16 +36,19 @@ public:
     void registerInitCb();
     void registerDataCb();
 
-    virtual void read();
-    void run();
+    void read() { m_readQuery->read(*m_itcBuffer); }
+    void run() { query(); }
 
-    std::shared_ptr<ItcBuffer> getBuffer();
-    ItcBufferPool& getBufferPool();
+    std::shared_ptr<ItcBuffer> getBuffer() { return m_itcBuffer; }
+    ItcBufferPool& getBufferPool() { return m_itcBufferPool; }
 
-    bool done() const;
-    void acquire();
-    v8::UniquePersistent<v8::Function>& initCb();
-    v8::UniquePersistent<v8::Function>& dataCb();
+    bool done() const { return terminate() || m_readQuery->done(); }
+    bool terminate() const { return m_terminate; }
+    void terminate(bool val) { m_terminate = val; }
+
+    void acquire() { m_itcBuffer = m_itcBufferPool.acquire(); }
+    v8::UniquePersistent<v8::Function>& initCb() { return m_initCb; }
+    v8::UniquePersistent<v8::Function>& dataCb() { return m_dataCb; }
 
     uv_async_t* initAsync() { return m_initAsync; }
     uv_async_t* dataAsync() { return m_dataAsync; }
@@ -85,8 +88,7 @@ protected:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     bool m_wait;
-
-    bool m_cancel;
+    bool m_terminate;
 };
 
 class ReadCommandUnindexed : public ReadCommand
