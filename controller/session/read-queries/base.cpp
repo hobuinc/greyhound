@@ -33,12 +33,7 @@ void ReadQuery::read(ItcBuffer& buffer)
     if (compress())
     {
         m_compressor->compress(buffer.data(), buffer.size());
-
-        if (m_done)
-        {
-            m_compressor->done();
-        }
-
+        if (m_done) m_compressor->done();
         compressionSwap(buffer);
     }
 
@@ -53,9 +48,8 @@ void ReadQuery::read(ItcBuffer& buffer)
 
 void ReadQuery::compressionSwap(ItcBuffer& buffer)
 {
-    const std::vector<char>& compressed(m_compressionStream.data());
+    std::unique_ptr<std::vector<char>> compressed(m_compressionStream.data());
     buffer.resize(0);
-    buffer.push(compressed.data(), compressed.size());
-    m_compressionStream.clear();
+    buffer.push(compressed->data(), compressed->size());
 }
 
