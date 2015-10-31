@@ -47,6 +47,23 @@ namespace
 
         return results;
     }
+
+    std::string getTypeString(const entwine::Structure& structure)
+    {
+        if (structure.dimensions() == 2)
+        {
+            if (structure.tubular()) return "hybrid";
+            else return "quadtree";
+        }
+        else if (structure.dimensions() == 3 && !structure.tubular())
+        {
+            return "octree";
+        }
+        else
+        {
+            throw std::runtime_error("Invalid structure");
+        }
+    }
 }
 
 Session::Session(
@@ -80,10 +97,8 @@ bool Session::initialize(
 
             Json::Value json;
             const std::size_t numPoints(m_entwine->numPoints());
-            const std::size_t numDimensions(
-                    m_entwine->structure().dimensions());
 
-            json["type"] = (numDimensions == 2 ? "quadtree" : "octree");
+            json["type"] = getTypeString(m_entwine->structure());
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_entwine->schema().toJson();
             json["bounds"] = m_entwine->bbox().toJson()["bounds"];
