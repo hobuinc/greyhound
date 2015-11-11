@@ -126,7 +126,7 @@ schema
 | ``"size"``    | Dimension size in bytes.  Possible values: ``"1"``, ``"2"``, ``"4"``, ``"8"``  |
 +---------------+--------------------------------------------------------------------------------+
 
-An example return object from the ``schema`` call looks something like: ::
+An ``schema`` looks something like: ::
 
     [
         {
@@ -186,11 +186,7 @@ An example return object from the ``schema`` call looks something like: ::
 The Read Query
 ===============================================================================
 
-This query returns binary point data from a given resource.
-
-Read queries return, in addition to the selected binary data, an indicator for the number of points returned.  For the HTTP interface, this is given via HTTP header as ``X-Greyhound-Num-Points``.
-
-For the WebSocket interface, first a standard response (as described in `WebSocket Interface`_) is returned, which is then followed by the binary data.  For this interface, the number of points is added via the ``numPoints`` key in the initial JSON response.
+This query returns binary point data from a given resource.  Following the binary point data, 4 bytes that indicate the number of points in the response are appended.  These may be parsed as a 32-bit unsigned integer, transmitted in network byte order.  If the last 4 bytes are zero, then those 4 bytes shall be the only 4 bytes in the response.
 
 Unindexed
 -------------------------------------------------------------------------------
@@ -216,11 +212,9 @@ Available options for depth selection are:
 Bounds option
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``bounds`` option allows a client to select only a portion of the entire dataset's bounds, as given by the ``bounds`` field from The **Info** Query.  If this field is omitted, the entire bounds is queried.
+The ``bounds`` option allows a client to select only a portion of the entire dataset's bounds, as given by the ``bounds`` field from The **Info** Query.  If this field is omitted, the total dataset bounds are queried.
 
-For quadtree resources, this option must be an array of doubles of length 4, formatted as ``[xMin, yMin, xMax, yMax]``.
-
-For octrees, the array must be of length 6, formatted as ``[xMin, yMin, zMin, xMax, yMax, zMax]``.
+For a 3-dimensional query, the array may be of length 6, formatted as ``[xMin, yMin, zMin, xMax, yMax, zMax]``.  An array of length 4, formatted as ``[xMin, yMin, xMax, yMax]`` will query the entire Z-range of the dataset within the given XY bounds.
 
 Read Options - Common
 -------------------------------------------------------------------------------
@@ -270,9 +264,8 @@ Sample Queries
 
 This section shows some full HTTP requests for various queries, assuming a Greyhound server is running on localhost with an octree resource named `the-moon`.
 
-- Get the metadata info: `localhost/resource/the-moon/info``
+- Get the metadata info: ``localhost/resource/the-moon/info``
 
 - Query compressed data up to depth 8, fetching only X, Y, Z, and Intensity for the entire dataset bounds - where X, Y, and Z are requested as 4-byte floats and Intensity is a 2-byte unsigned integer: ``localhost/resource/the-moon/read?depthEnd=8&schema=[{"name":"X","type":"floating","size":"4"},{"name":"Y","type":"floating","size":"4"},{"name":"Z","type":"floating","size":"4"},{"name":"Intensity","type":"unsigned","size":"2"}]&compress=true``
 
 - Query uncompressed data at depth 12 within a given bounds, fetching XYZRGB values as single-byte unsigned integers: ``localhost/resource/the-moon/read?depth=12&bounds=[275,100,25,287.5,112.5,50]&schema=[{"name":"X","type":"floating","size":"4"},{"name":"Y","type":"floating","size":"4"},{"name":"Z","type":"floating","size":"4"},{"name":"Red","type":"unsigned","size":"1"},{"name":"Green","type":"unsigned","size":"1"},{"name":"Blue","type":"unsigned","size":"1"}]``
-
