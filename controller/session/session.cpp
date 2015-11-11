@@ -52,7 +52,7 @@ namespace
     {
         if (structure.dimensions() == 2)
         {
-            if (structure.tubular()) return "hybrid";
+            if (structure.tubular()) return "octree";
             else return "quadtree";
         }
         else if (structure.dimensions() == 3 && !structure.tubular())
