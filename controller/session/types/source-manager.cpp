@@ -75,7 +75,7 @@ SourceManager::SourceManager(
             }
         });
 
-        auto preview(executor.preview(path, nullptr, true));
+        auto preview(executor.preview(path, nullptr));
         if (preview)
         {
             m_srs = preview->srs;
