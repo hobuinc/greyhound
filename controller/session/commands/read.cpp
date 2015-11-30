@@ -86,6 +86,7 @@ ReadCommand::ReadCommand(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const bool compress,
+        const bool normalize,
         const std::string schemaString,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
@@ -93,6 +94,7 @@ ReadCommand::ReadCommand(
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
     , m_compress(compress)
+    , m_normalize(normalize)
     , m_schema(schemaString.empty() ?
             session->schema() : entwine::Schema(schemaString))
     , m_numSent(0)
@@ -265,6 +267,7 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             session,
             itcBufferPool,
             compress,
+            false,              // No normalization for unindexed queries.
             schemaString,
             std::move(initCb),
             std::move(dataCb))
@@ -274,6 +277,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         bool compress,
+        bool normalize,
         const std::string schemaString,
         entwine::BBox bbox,
         std::size_t depthBegin,
@@ -284,6 +288,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             session,
             itcBufferPool,
             compress,
+            normalize,
             schemaString,
             std::move(initCb),
             std::move(dataCb))
@@ -302,6 +307,7 @@ void ReadCommandQuadIndex::query()
     m_readQuery = m_session->query(
             m_schema,
             m_compress,
+            m_normalize,
             m_bbox,
             m_depthBegin,
             m_depthEnd);
@@ -313,6 +319,7 @@ ReadCommand* ReadCommandFactory::create(
         ItcBufferPool& itcBufferPool,
         const std::string schemaString,
         bool compress,
+        bool normalize,
         v8::Local<v8::Object> query,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
@@ -366,6 +373,7 @@ ReadCommand* ReadCommandFactory::create(
                     session,
                     itcBufferPool,
                     compress,
+                    normalize,
                     schemaString,
                     bbox,
                     depthBegin,
