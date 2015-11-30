@@ -156,6 +156,7 @@ std::shared_ptr<ReadQuery> Session::query(
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const bool compress,
+        const bool normalize,
         const entwine::BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -170,7 +171,8 @@ std::shared_ptr<ReadQuery> Session::query(
                         schema,
                         bbox.exists() ? bbox : m_entwine->bbox(),
                         depthBegin,
-                        depthEnd)));
+                        depthEnd,
+                        normalize)));
     }
     else
     {

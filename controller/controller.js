@@ -91,10 +91,12 @@ console.log('Read paths:', paths);
 
         var schema = query.schema;
         var compress = query.hasOwnProperty('compress') && !!query.compress;
+        var normalize = query.hasOwnProperty('normalize') && !!query.normalize;
 
         // Simplify our query decision tree for later.
         delete query.schema;
         delete query.compress;
+        delete query.normalize;
 
         getSession(resource, function(err, session) {
             if (err) return onInit(err);
@@ -102,7 +104,7 @@ console.log('Read paths:', paths);
             var initCb = (err) => onInit(err);
             var dataCb = (err, data, done) => onData(err, data, done);
 
-            session.read(schema, compress, query, initCb, dataCb);
+            session.read(schema, compress, normalize, query, initCb, dataCb);
         });
     }
 
