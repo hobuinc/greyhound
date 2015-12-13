@@ -7,7 +7,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/executor.hpp>
 
@@ -36,64 +35,33 @@ SourceManager::SourceManager(
     , m_options(new pdal::Options())
     , m_driver(driver)
     , m_schema(new entwine::Schema())
-    , m_bbox(new entwine::BBox())
+    , m_bbox()
     , m_numPoints(0)
+    , m_srs()
 {
     m_options->add(pdal::Option("filename", path));
 
-    // Use BBox::set() to avoid malformed BBox warning.
-    m_bbox->set(
-            entwine::Point(
-                std::numeric_limits<double>::max(),
-                std::numeric_limits<double>::max(),
-                std::numeric_limits<double>::max()),
-            entwine::Point(
-                std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest()),
-            true);
+    entwine::Executor executor(true);
 
-    // Determine the native schema of the resource.
+    auto preview(executor.preview(path, nullptr));
+    if (preview)
     {
-        auto reader(createReader());
-        entwine::DataPool dataPool(0);
-        entwine::SimplePointTable pointTable(dataPool, *m_schema);
-        reader->prepare(pointTable);
-        m_schema->finalize();
+        m_numPoints = preview->numPoints;
+        m_srs = preview->srs;
+        m_bbox.reset(new entwine::BBox(preview->bbox));
+
+        entwine::DimList dims;
+        for (const auto& name : preview->dimNames)
+        {
+            const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
+            dims.emplace_back(name, id, pdal::Dimension::defaultType(id));
+        }
+
+        m_schema.reset(new entwine::Schema(dims));
     }
-
-    // Determine the number of points and the bounds for this resource.
+    else
     {
-        entwine::Executor executor(true);
-
-        auto preview(executor.preview(path, nullptr));
-        if (preview)
-        {
-            m_srs = preview->srs;
-        }
-
-        auto bounder([this](entwine::PooledInfoStack stack)
-        {
-            m_numPoints += stack.size();
-
-            entwine::RawInfoNode* info(stack.head());
-
-            while (info)
-            {
-                m_bbox->grow(info->val().point());
-                info = info->next();
-            }
-
-            return stack;
-        });
-
-        entwine::Pools pools(xyzSchema);
-        entwine::PooledPointTable table(pools, bounder);
-
-        if (!executor.run(table, path, nullptr))
-        {
-            throw std::runtime_error("Could not execute resource: " + path);
-        }
+        throw std::runtime_error("Could not create source");
     }
 }
 
