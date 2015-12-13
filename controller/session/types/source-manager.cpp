@@ -5,9 +5,26 @@
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/util/executor.hpp>
+
+namespace
+{
+    entwine::Schema xyzSchema(([]()
+    {
+        entwine::DimList dims;
+        const auto type(pdal::Dimension::Type::Double);
+
+        dims.push_back(entwine::DimInfo("X", pdal::Dimension::Id::X, type));
+        dims.push_back(entwine::DimInfo("Y", pdal::Dimension::Id::Y, type));
+        dims.push_back(entwine::DimInfo("Z", pdal::Dimension::Id::Z, type));
+
+        return entwine::Schema(dims);
+    })());
+}
 
 SourceManager::SourceManager(
         pdal::StageFactory& stageFactory,
@@ -47,33 +64,7 @@ SourceManager::SourceManager(
 
     // Determine the number of points and the bounds for this resource.
     {
-        entwine::DimList dims;
-        const auto type(pdal::Dimension::Type::Double);
-
-        dims.push_back(entwine::DimInfo("X", pdal::Dimension::Id::X, type));
-        dims.push_back(entwine::DimInfo("Y", pdal::Dimension::Id::Y, type));
-        dims.push_back(entwine::DimInfo("Z", pdal::Dimension::Id::Z, type));
-
-        entwine::Schema xyzSchema(dims);
         entwine::Executor executor(true);
-
-        entwine::DataPool dataPool(m_schema->pointSize());
-        entwine::SimplePointTable table(dataPool, *m_schema);
-
-        auto bounder([this, &table, &dataPool](pdal::PointView& view)
-        {
-            entwine::Point p;
-            m_numPoints += view.size();
-
-            for (std::size_t i = 0; i < view.size(); ++i)
-            {
-                p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, i);
-                p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, i);
-                p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, i);
-
-                m_bbox->grow(p);
-            }
-        });
 
         auto preview(executor.preview(path, nullptr));
         if (preview)
@@ -81,7 +72,25 @@ SourceManager::SourceManager(
             m_srs = preview->srs;
         }
 
-        if (!executor.run(table, path, nullptr, bounder))
+        auto bounder([this](entwine::PooledInfoStack stack)
+        {
+            m_numPoints += stack.size();
+
+            entwine::RawInfoNode* info(stack.head());
+
+            while (info)
+            {
+                m_bbox->grow(info->val().point());
+                info = info->next();
+            }
+
+            return stack;
+        });
+
+        entwine::Pools pools(xyzSchema);
+        entwine::PooledPointTable table(pools, bounder);
+
+        if (!executor.run(table, path, nullptr))
         {
             throw std::runtime_error("Could not execute resource: " + path);
         }
