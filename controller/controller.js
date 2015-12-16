@@ -90,8 +90,12 @@ console.log('Read paths:', paths);
         console.log("controller::read");
 
         var schema = query.schema;
-        var compress = query.hasOwnProperty('compress') && !!query.compress;
-        var normalize = query.hasOwnProperty('normalize') && !!query.normalize;
+        var compress =
+            query.hasOwnProperty('compress') &&
+            query.compress.toLowerCase() == 'true';
+        var normalize =
+            query.hasOwnProperty('normalize') &&
+            query.normalize.toLowerCase() == 'true';
 
         // Simplify our query decision tree for later.
         delete query.schema;
