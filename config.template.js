@@ -1,15 +1,6 @@
 var fs = require('fs');
 var config = { };
 
-var awsCredentials = (function() {
-    if (fs.existsSync(__dirname + '/' + 'credentials.js')) {
-        return require(__dirname + '/' + 'credentials').aws;
-    }
-    else {
-        return null;
-    }
-})();
-
 // Controller configuration.
 config.cn = {
     // If queryLimits values are configured to be outside the ranges specified
@@ -27,10 +18,6 @@ config.cn = {
         // error' responses to valid queries.  Must be no less than 16.
         chunkCacheSize: 128
     },
-
-    // AWS credentials - specified in the file: credentials.js, if it exists.
-    // If not supplied, S3 capabilities will be disabled.
-    aws: awsCredentials,
 
     // Where to find unindexed pointcloud source files and indexed
     // subdirectories, searched in order.

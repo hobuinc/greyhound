@@ -6,6 +6,7 @@ var getTimeout = function(raw) {
     if (raw != undefined && raw >= 0) return raw;
     else return 30;
 }
+
 var console = require('clim')(),
     querystring = require('querystring'),
 
@@ -18,8 +19,10 @@ var console = require('clim')(),
 
     Session = require('./build/Release/session').Bindings,
 
-    resourceIds = { }, // resource name -> session (one to one)
-    resourceTimeoutMinutes = getTimeout(config.resourceTimeoutMinutes)
+    // resource name -> { session: session, accessed: Date }
+    resources = { },
+    timeoutMinutes = getTimeout(config.resourceTimeoutMinutes),
+    timeoutMs = timeoutMinutes * 60 * 1000
     ;
 
 if (chunkCacheSize < 16) chunkCacheSize = 16;
@@ -31,34 +34,32 @@ console.log('\tLibuv threadpool size:', threads);
 
 var getSession = function(name, cb) {
     var session;
+    var now = new Date();
 
-    if (resourceIds[name]) {
-        session = resourceIds[name];
+    if (resources[name]) {
+        session = resources[name].session;
     }
     else {
         session = new Session();
-        resourceIds[name] = session;
+        resources[name] = { session: session };
     }
+
+    resources[name].accessed = now;
 
     // Call every time, even if this name was found in our session mapping, to
     // ensure that initialization has finished before the session is used.
     try {
-        session.create(
-                name,
-                paths,
-                chunkCacheSize,
-                function(err)
-        {
+        session.create(name, paths, chunkCacheSize, function(err) {
             if (err) {
                 console.warn(name, 'could not be created');
-                delete resourceIds[name];
+                delete resources[name];
             }
 
             return cb(err, session);
         });
     }
     catch (e) {
-        delete resourceIds[name];
+        delete resources[name];
         console.warn('Caught exception in CREATE:', e);
 
         return cb(error(500, 'Unknown error during create'));
@@ -70,7 +71,22 @@ console.log('Read paths:', paths);
 (function() {
     'use strict';
 
-    var Controller = function() { }
+    var Controller = function() {
+        var clean = () => {
+            var now = new Date();
+
+            Object.keys(resources).forEach((name) => {
+                if (now - resources[name].accessed > timeoutMs) {
+                    console.log('Purging', name);
+                    delete resources[name];
+                }
+            });
+
+            setTimeout(clean, timeoutMs);
+        };
+
+        setTimeout(clean, timeoutMs);
+    };
 
     Controller.prototype.info = function(resource, cb) {
         console.log("controller::info");
