@@ -7,6 +7,8 @@ examples/cpp/put-pipeline
 *.swp
 *.rdb
 
+key.pem
+cert.pem
 config.js
 credentials.js
 node_modules
@@ -14,8 +16,6 @@ npm-debug.log
 .vagrant
 doc/*.pdf
 web/public/css/style.css
-frontend-proxy/hipache-log.txt
-examples/data/autzen.laz
 scripts/vagrant/pdal
 scripts/vagrant/entwine
 controller/build

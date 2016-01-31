@@ -3,33 +3,17 @@
 case $1 in
 start)
     greyhound stop
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        /etc/init.d/gh_fe start
-    fi
     /etc/init.d/gh_cn start
     ;;
 stop)
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        /etc/init.d/gh_fe stop
-    fi
     /etc/init.d/gh_cn stop
     ;;
 auto)
     # Add auto-launch services.
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        update-rc.d gh_fe defaults 95 05
-    fi
     update-rc.d gh_cn defaults 96 04
     ;;
 rmauto)
     # Remove all auto-launch services.
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        update-rc.d -f gh_fe remove
-    fi
     update-rc.d -f gh_cn remove
     ;;
 log)

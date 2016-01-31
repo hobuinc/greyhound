@@ -1,11 +1,11 @@
-PROXY?=ON
 COMPONENTS = gh_cn
 CREDENTIALS = credentials.js
+KEY=key.pem
+CERT=cert.pem
 SHELL := /bin/bash
 
 # Directories that need to be copied to the installation path.
-SRC_DIRS = frontend-proxy \
-		   controller
+SRC_DIRS = controller
 
 # Directories where we need to run 'npm install'.
 # 'npm install' will also be run at the top level.
@@ -44,11 +44,7 @@ install:
 	@echo Installing Greyhound...
 #
 # Copy module launchers.
-	$(foreach comp, $(COMPONENTS), cp scripts/init.d/$(comp) /etc/init.d/;)
-ifeq ($(PROXY),ON)
-	@echo Using frontend proxy
-	cp scripts/init.d/gh_fe /etc/init.d/
-endif
+	cp scripts/init.d/gh_cn /etc/init.d/
 #
 # Set up Greyhound component source directory.
 	mkdir -p /var/greyhound/
@@ -68,6 +64,12 @@ endif
 ifneq ("$(wildcard $(CREDENTIALS))","")
 	cp $(CREDENTIALS) /var/greyhound
 endif
+ifneq ("$(wildcard $(KEY))","")
+	cp $(KEY) /var/greyhound
+endif
+ifneq ("$(wildcard $(CERT))","")
+	cp $(CERT) /var/greyhound
+endif
 	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
 	cp -R node_modules/* /var/greyhound/node_modules/
@@ -80,8 +82,7 @@ uninstall:
 	@greyhound stop
 #
 # Remove module launchers.
-	$(foreach comp, $(COMPONENTS), rm -f /etc/init.d/$(comp);)
-	rm -f /etc/init.d/gh_fe
+	rm -f /etc/init.d/gh_cn
 #
 # Remove launcher utility.
 	rm -f /usr/bin/greyhound

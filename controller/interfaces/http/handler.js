@@ -1,6 +1,7 @@
 var
     fs = require('fs'),
     http = require('http'),
+    https = require('https'),
 	path = require('path'),
     express = require('express'),
     bodyParser = require('body-parser'),
@@ -31,8 +32,7 @@ http.globalAgent.maxSockets = 1024;
         this.port = port;
     }
 
-    HttpHandler.prototype.start = function() {
-        var self = this;
+    HttpHandler.prototype.start = function(creds) {
         var app = express();
 
         app.use(express.logger('dev'));
@@ -74,12 +74,16 @@ http.globalAgent.maxSockets = 1024;
             });
         }
 
-        registerCommands(self.controller, app);
+        registerCommands(this.controller, app);
 
-        var server = http.createServer(app);
-        server.listen(self.port);
+        var server = creds ?
+            https.createServer(creds, app) :
+            http.createServer(app);
 
-        console.log('HTTP server running on port: ' + self.port);
+        server.listen(this.port);
+
+        var type = creds ? 'HTTPS' : 'HTTP';
+        console.log(type, 'server running on port', this.port);
     }
 
     var registerCommands = function(controller, app) {
@@ -117,6 +121,6 @@ http.globalAgent.maxSockets = 1024;
         });
     }
 
-    module.exports.HttpHandler = HttpHandler;
+    module.exports.HttpHandler = HttpHandler
 })();
 
