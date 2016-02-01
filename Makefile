@@ -9,9 +9,7 @@ SRC_DIRS = controller
 
 # Directories where we need to run 'npm install'.
 # 'npm install' will also be run at the top level.
-NPM_DIRS = examples/js \
-		   test \
-		   controller \
+NPM_DIRS = controller \
 		   controller/interfaces/ws \
 		   controller/interfaces/http
 
@@ -27,7 +25,7 @@ cpp:
 npm:
 	@echo Getting NPM dependencies.
 	npm install --unsafe-perm
-	$(foreach d, $(NPM_DIRS), cd $(d); npm install --unsafe-perm; cd -;)
+	$(foreach d, $(NPM_DIRS), cd $(d); rm -rf node_modules; npm install --unsafe-perm; cd -;)
 
 test:
 	nodeunit test/unit.js

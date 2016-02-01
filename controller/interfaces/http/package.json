@@ -3,10 +3,9 @@
   "private": true,
   "version": "0.0.1",
   "dependencies": {
-    "body-parser": "^1.9.0",
-    "express": "^3.17.6",
-    "jade": "^1.7.0",
-    "less-middleware": "^1.0.4",
-    "method-override": "^2.2.0"
+    "body-parser": "^1.14.2",
+    "express": "^4.13.3",
+    "jade": "^1.11.0",
+    "less-middleware": "^1.0.4"
   }
 }

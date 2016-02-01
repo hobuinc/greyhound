@@ -17,28 +17,36 @@ var console = require('clim')(),
 var controller = new Controller();
 
 process.nextTick(function() {
-    if (config.hasOwnProperty('ws') && config.ws.enable) {
+    if (config.ws && config.ws.port) {
         var wsHandler = new WsHandler(controller, config.ws.port);
         wsHandler.start();
     }
 
-    if (config.hasOwnProperty('http') && config.http.enable) {
-        var httpHandler = new HttpHandler(controller, config.http.port);
-        httpHandler.start();
-    }
+    if (config.http && (config.http.port || config.http.securePort)) {
+        var http = config.http;
+        var creds = null;
 
-    if (config.hasOwnProperty('https') && config.https.enable) {
-        if (!config.https.keyFile || !config.https.certFile) {
-            throw new Error('HTTPS enabled, but no certFile/keyFile specified');
+        if (http.keyFile && http.certFile && http.securePort) {
+            var getPath = (file) => {
+                if (file == 'key.pem' || file == 'cert.pem') {
+                    return path.join(__dirname, '../', file);
+                }
+                else return path;
+            };
+
+            var key = fs.readFileSync(getPath(http.keyFile));
+            var cert = fs.readFileSync(getPath(http.certFile));
+
+            creds = { key: key, cert: cert };
         }
 
-        var httpsHandler = new HttpHandler(controller, config.https.port);
+        var httpHandler = new HttpHandler(
+            controller,
+            http.port,
+            http.securePort,
+            creds);
 
-        var getPath = (file) => path.join(__dirname, '../', file);
-        var key = fs.readFileSync(getPath(config.https.keyFile));
-        var cert = fs.readFileSync(getPath(config.https.certFile));
-
-        httpsHandler.start({ key: key, cert: cert });
+        httpHandler.start();
     }
 });
 
