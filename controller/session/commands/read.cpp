@@ -15,8 +15,6 @@ using namespace v8;
 
 namespace
 {
-    void freeCb(char* data, void* hint) { }
-
     v8::Local<v8::String> toSymbol(Isolate* isolate, const std::string& str)
     {
         return v8::String::NewFromUtf8(isolate, str.c_str());

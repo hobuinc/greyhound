@@ -4,8 +4,8 @@ var
     https = require('https'),
 	path = require('path'),
     express = require('express'),
+    morgan = require('morgan'),
     bodyParser = require('body-parser'),
-    methodOverride = require('method-override'),
     lessMiddleware = require('less-middleware'),
 
     console = require('clim')(),
@@ -27,18 +27,19 @@ http.globalAgent.maxSockets = 1024;
 (function() {
     'use strict';
 
-    var HttpHandler = function(controller, port) {
+    var HttpHandler = function(controller, port, securePort, creds) {
         this.controller = controller;
         this.port = port;
+        this.securePort = securePort;
+        this.creds = creds;
     }
 
     HttpHandler.prototype.start = function(creds) {
         var app = express();
 
-        app.use(express.logger('dev'));
+        app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
-        app.use(methodOverride());
 
         // Set the x-powered-by header
         app.use(function(req, res, next) {
@@ -51,40 +52,38 @@ http.globalAgent.maxSockets = 1024;
             next();
         });
 
-        if (app.get('env') == 'development') {
-            app.use(express.errorHandler());
-        }
-
-        app.use(app.router);
-
-        if (httpConfig.enableStaticServe) {
-            app.set('views', __dirname + '/static/views');
-            app.set('view engine', 'jade');
-
-            var publicDir = '/static/public';
-            app.use(lessMiddleware(path.join(__dirname, publicDir)));
-            app.use(express.static(__dirname + publicDir));
-
-            app.get('/ws/:resourceId', function(req, res) {
-                res.render('wsView');
-            });
-
-            app.get('/http/:resourceId', function(req, res) {
-                res.render('httpView');
-            });
-        }
-
+        if (httpConfig.enableStaticServe) registerStatic(app);
         registerCommands(this.controller, app);
 
-        var server = creds ?
-            https.createServer(creds, app) :
-            http.createServer(app);
+        if (this.port) {
+            var httpServer = http.createServer(app);
+            httpServer.listen(this.port);
+            console.log('HTTP server running on port', this.port);
+        }
 
-        server.listen(this.port);
-
-        var type = creds ? 'HTTPS' : 'HTTP';
-        console.log(type, 'server running on port', this.port);
+        if (this.securePort) {
+            var httpsServer = https.createServer(this.creds, app);
+            httpsServer.listen(this.securePort);
+            console.log('HTTPS server running on port', this.securePort);
+        }
     }
+
+    var registerStatic = function(app) {
+        app.set('views', __dirname + '/static/views');
+        app.set('view engine', 'jade');
+
+        var publicDir = '/static/public';
+        app.use(lessMiddleware(path.join(__dirname, publicDir)));
+        app.use(express.static(__dirname + publicDir));
+
+        app.get('/ws/:resourceId', function(req, res) {
+            res.render('wsView');
+        });
+
+        app.get('/http/:resourceId', function(req, res) {
+            res.render('httpView');
+        });
+    };
 
     var registerCommands = function(controller, app) {
         app.get('/resource/:resource/info', function(req, res) {

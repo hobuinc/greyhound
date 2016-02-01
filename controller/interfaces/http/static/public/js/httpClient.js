@@ -129,14 +129,14 @@
 
     var downloadData = function(setStatus, cb) {
         var url = w.location.host;
-        var match = w.location.pathname.match('\/http\/([^\/]+)');
+        var match = w.location.pathname.match('\/http[s]?\/([^\/]+)');
         var resourceId = match ? match[1] : null;
 
         if (!resourceId) {
             return cb('No resource selected!');
         }
 
-        var readUrl = 'http://' + url + '/resource/' + resourceId + '/read';
+        var readUrl = '//' + url + '/resource/' + resourceId + '/read';
 
         var query = w.location.search;
         var sep = (query ? '&' : '?');
