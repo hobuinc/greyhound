@@ -134,7 +134,9 @@ http.globalAgent.maxSockets = 1024;
                 next();
             });
 
-            app.use('/resource/:resource/*', function(req, res, next) {
+            app.use('/resource/:resource(*)/:call(info|read)',
+                    function(req, res, next)
+            {
                 var id = req.session.greyhoundId;
                 var resource = req.params.resource;
 
@@ -178,14 +180,14 @@ http.globalAgent.maxSockets = 1024;
             });
         }
 
-        app.get('/resource/:resource/info', function(req, res) {
+        app.get('/resource/:resource(*)/info', function(req, res) {
             controller.info(req.params.resource, function(err, data) {
                 if (err) return res.status(err.code || 500).json(err.message);
                 else return res.json(data);
             });
         });
 
-        app.get('/resource/:resource/read', function(req, res) {
+        app.get('/resource/:resource(*)/read', function(req, res) {
             // Terminate query on socket hangup.
             var keepGoing = true;
             req.on('close', () => keepGoing = false);
