@@ -5,7 +5,10 @@
   "dependencies": {
     "body-parser": "^1.14.2",
     "express": "^4.13.3",
+    "express-session": "^1.13.0",
     "jade": "^1.11.0",
-    "less-middleware": "^1.0.4"
+    "less-middleware": "^1.0.4",
+    "node-uuid": "^1.4.7",
+    "request": "^2.69.0"
   }
 }
