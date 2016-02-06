@@ -1,0 +1,23 @@
+FROM hobu/entwine:latest
+MAINTAINER Connor Manning <connor@hobu.co>
+ARG branch=master
+
+ENV CC clang
+ENV CXX clang++
+
+RUN apt-get update && apt-get install -y supervisor
+RUN rm -rf /var/lib/apt/lists/*
+
+ADD . /opt/greyhound
+WORKDIR /opt/greyhound
+
+RUN make && make install
+
+EXPOSE 80
+EXPOSE 443
+
+CMD supervisord -c /etc/supervisor/supervisord.conf && greyhound log
+
+# Sample invocation:
+#     docker run -it -p 8080:80 -v ~/data:/opt/greyhound local/greyhound
+

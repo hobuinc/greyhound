@@ -1,4 +1,4 @@
-process.title = 'gh_cn';
+process.title = 'greyhound';
 
 process.on('uncaughtException', function(err) {
     console.error('Caught at top level: ' + err);
