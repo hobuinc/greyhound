@@ -1,26 +1,19 @@
 #!/usr/bin/env bash
 
+LOGPATH=/var/log/supervisor/greyhound.log
+
 case $1 in
 start)
     greyhound stop
-    /etc/init.d/gh_cn start
+    supervisorctl start greyhound
     ;;
 stop)
-    /etc/init.d/gh_cn stop
-    ;;
-auto)
-    # Add auto-launch services.
-    update-rc.d gh_cn defaults 96 04
-    ;;
-rmauto)
-    # Remove all auto-launch services.
-    update-rc.d -f gh_cn remove
+    supervisorctl stop greyhound
     ;;
 log)
-    tail -f /var/log/greyhound/gh_*
+    touch $LOGPATH && tail -f $LOGPATH
     ;;
 *)
-    echo "Usage: $0 {start|stop|auto|rmauto|log}" >&2
-
+    echo "Usage: $0 {start|stop|log}" >&2
 esac
 

@@ -1,5 +1,4 @@
 COMPONENTS = gh_cn
-CREDENTIALS = credentials.js
 KEY=key.pem
 CERT=cert.pem
 SHELL := /bin/bash
@@ -41,36 +40,23 @@ install:
 		fi
 	@echo Installing Greyhound...
 #
-# Copy module launchers.
-	cp scripts/init.d/gh_cn /etc/init.d/
-#
-# Set up Greyhound component source directory.
-	mkdir -p /var/greyhound/
-#
-# Set up Greyhound component logging directory.
-	mkdir -p /var/log/greyhound/
-#
-# Make source directories for each component.
-	$(foreach srcDir, $(SRC_DIRS), mkdir -p /var/greyhound/$(srcDir);)
-#
-# Copy component sources.
-	$(foreach srcDir, $(SRC_DIRS), cp -R $(srcDir)/* /var/greyhound/$(srcDir);)
-#
-# Copy top-level dependencies.
-	cp Makefile /var/greyhound/
+# Copy sources.
+	mkdir -p /var/greyhound
+	cp -R controller/ /var/greyhound
 	cp config.js /var/greyhound/
-ifneq ("$(wildcard $(CREDENTIALS))","")
-	cp $(CREDENTIALS) /var/greyhound
-endif
+	touch /var/log/supervisor/greyhound.log
+#
+# Copy launcher.
+	cp scripts/supervisord.conf /etc/supervisor/conf.d/greyhound.conf
+#
 ifneq ("$(wildcard $(KEY))","")
 	cp $(KEY) /var/greyhound
 endif
 ifneq ("$(wildcard $(CERT))","")
 	cp $(CERT) /var/greyhound
 endif
-	cp forever.js /var/greyhound/
 	mkdir -p /var/greyhound/node_modules/
-	cp -R node_modules/* /var/greyhound/node_modules/
+# 	cp -R node_modules/* /var/greyhound/node_modules/
 #
 # Copy launcher utility.
 	cp greyhound /usr/bin/
@@ -79,15 +65,12 @@ uninstall:
 	@echo Stopping and removing all traces of Greyhound...
 	@greyhound stop
 #
-# Remove module launchers.
-	rm -f /etc/init.d/gh_cn
+# Remove launcher.
+	rm -f /etc/supervisor/conf.d/greyhound.conf
 #
-# Remove launcher utility.
+# Remove bin script.
 	rm -f /usr/bin/greyhound
 #
 # Remove sources.
 	rm -rf /var/greyhound/
-#
-# Remove log files.
-	rm -rf /var/log/greyhound/
 

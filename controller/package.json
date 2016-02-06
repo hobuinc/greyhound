@@ -4,6 +4,7 @@
   "gypfile": true,
   "version": "0.0.1",
   "dependencies": {
-    "clim": "^1.0.0"
+    "clim": "^1.0.0",
+    "morgan": "^1.6.1"
   }
 }
