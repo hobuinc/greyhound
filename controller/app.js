@@ -1,9 +1,5 @@
 process.title = 'greyhound';
 
-process.on('uncaughtException', function(err) {
-    console.error('Caught at top level: ' + err);
-});
-
 var console = require('clim')(),
     fs = require('fs'),
     path = require('path'),
@@ -31,7 +27,7 @@ process.nextTick(function() {
                 if (file == 'key.pem' || file == 'cert.pem') {
                     return path.join(__dirname, '../', file);
                 }
-                else return path;
+                else return file;
             };
 
             var key = fs.readFileSync(getPath(http.keyFile));
