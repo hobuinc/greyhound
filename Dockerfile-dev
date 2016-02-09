@@ -16,7 +16,7 @@ RUN make && make install
 EXPOSE 80
 EXPOSE 443
 
-CMD supervisord -c /etc/supervisor/supervisord.conf && greyhound log
+CMD greyhound dockerstart && greyhound log
 
 # Sample invocation:
 #     docker run -it -p 8080:80 -v ~/data:/opt/greyhound local/greyhound

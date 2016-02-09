@@ -13,6 +13,9 @@ stop)
 log)
     touch $LOGPATH && tail -f $LOGPATH
     ;;
+dockerstart)
+    supervisord -c /etc/supervisor/supervisord.conf
+    ;;
 *)
     echo "Usage: $0 {start|stop|log}" >&2
 esac
