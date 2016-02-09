@@ -158,7 +158,7 @@ http.globalAgent.maxSockets = 1024;
 
                             console.log('Authed', id, 'in', time, 's');
 
-                            var timeoutMs = ok ?
+                            var timeoutMinutes = ok ?
                                 config.auth.cacheMinutes.good :
                                 config.auth.cacheMinutes.bad;
 
@@ -167,7 +167,7 @@ http.globalAgent.maxSockets = 1024;
                                 if (!Object.keys(auths[id]).length) {
                                     delete auths[id];
                                 }
-                            }, timeoutMs * 60000);
+                            }, timeoutMinutes * 60000);
 
                             if (ok) resolve();
                             else reject(code);

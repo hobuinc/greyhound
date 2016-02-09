@@ -43,8 +43,10 @@ install:
 # Copy sources.
 	mkdir -p /var/greyhound
 	cp -R controller/ /var/greyhound
-	cp config.js /var/greyhound/
 	touch /var/log/supervisor/greyhound.log
+ifneq ("$(wildcard config.js)","")
+	cp config.js /var/greyhound/
+endif
 #
 # Copy launcher.
 	cp scripts/supervisord.conf /etc/supervisor/conf.d/greyhound.conf
@@ -55,7 +57,7 @@ endif
 ifneq ("$(wildcard $(CERT))","")
 	cp $(CERT) /var/greyhound
 endif
-	mkdir -p /var/greyhound/node_modules/
+#	mkdir -p /var/greyhound/node_modules/
 # 	cp -R node_modules/* /var/greyhound/node_modules/
 #
 # Copy launcher utility.
