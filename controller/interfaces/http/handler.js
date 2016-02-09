@@ -14,16 +14,7 @@ var
     console = require('clim')(),
 
     config = (require('../../../config').cn || { }),
-    httpConfig = (config ? config.http : { }),
-    accessControlString = 'Access-Control-Expose-Headers',
-    exposedHeaders = (() => {
-        if (httpConfig.headers && httpConfig.headers[accessControlString]) {
-            var h = httpConfig.headers[accessControlString];
-            delete httpConfig.headers[accessControlString];
-            return h;
-        }
-    })()
-    ;
+    httpConfig = (config ? config.http : { });
 
 if (config.auth) {
     var maybeAddSlashTo = (s) => s.slice(-1) == '/' ? s : s + '/';
@@ -38,8 +29,8 @@ if (config.auth) {
         };
     }
 
-    config.auth.cacheMinutes.good = Math.max(config.auth.cacheMinutes.good, 1);
-    config.auth.cacheMinutes.bad= Math.max(config.auth.cacheMinutes.bad, 1);
+    if (!config.auth.cacheMinutes.good) config.auth.cacheMinutes.good = 1;
+    if (!config.auth.cacheMinutes.bad)  config.auth.cacheMinutes.bad  = 1;
 }
 
 http.globalAgent.maxSockets = 1024;
@@ -61,14 +52,11 @@ http.globalAgent.maxSockets = 1024;
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
 
-        // Set the x-powered-by header
         app.use(function(req, res, next) {
             Object.keys(httpConfig.headers).map(function(key) {
                 res.header(key, httpConfig.headers[key]);
             });
             res.header('X-powered-by', 'Hobu, Inc.');
-            res.header('Access-Control-Expose-Headers', exposedHeaders);
-            res.header('Access-Control-Allow-Headers', 'Content-Type');
             next();
         });
 
@@ -76,14 +64,17 @@ http.globalAgent.maxSockets = 1024;
         registerCommands(this.controller, app);
 
         if (this.port) {
-            var httpServer = http.createServer(app);
-            httpServer.listen(this.port);
-            console.log('HTTP server running on port', this.port);
+            if (!config.auth) {
+                http.createServer(app).listen(this.port);
+                console.log('HTTP server running on port', this.port);
+            }
+            else {
+                console.log('HTTP server disabled due to auth specification');
+            }
         }
 
         if (this.securePort) {
-            var httpsServer = https.createServer(this.creds, app);
-            httpsServer.listen(this.securePort);
+            https.createServer(this.creds, app).listen(this.securePort);
             console.log('HTTPS server running on port', this.securePort);
         }
     }
@@ -107,6 +98,7 @@ http.globalAgent.maxSockets = 1024;
 
     var registerCommands = function(controller, app) {
         if (config.auth) {
+            console.log('Proxying auth requests to', config.auth.path);
             var auths = { };
 
             app.use(session({
