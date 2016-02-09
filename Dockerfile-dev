@@ -1,6 +1,5 @@
 FROM hobu/entwine:latest
 MAINTAINER Connor Manning <connor@hobu.co>
-ARG branch=master
 
 ENV CC clang
 ENV CXX clang++
