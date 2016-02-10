@@ -1,4 +1,5 @@
 var
+    Promise = require('bluebird'),
     fs = require('fs'),
     http = require('http'),
     https = require('https'),
