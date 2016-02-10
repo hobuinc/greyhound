@@ -1,11 +1,14 @@
-FROM hobu/entwine:latest
+FROM connormanning/entwine:latest
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ENV CC clang
 ENV CXX clang++
 
-RUN apt-get update && apt-get install -y supervisor
+RUN wget -qO- https://deb.nodesource.com/setup_4.x | bash -
+RUN apt-get install -y nodejs supervisor
 RUN rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g node-gyp && npm update npm -g && npm cache clean
 
 ADD . /opt/greyhound
 WORKDIR /opt/greyhound
@@ -14,6 +17,7 @@ RUN make && make install
 
 EXPOSE 80
 EXPOSE 443
+EXPOSE 8989
 
 CMD greyhound dockerstart && greyhound log
 
