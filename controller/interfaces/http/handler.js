@@ -53,6 +53,15 @@ http.globalAgent.maxSockets = 1024;
         app.use(bodyParser.urlencoded({ extended: true }));
 
         app.use(function(req, res, next) {
+            if (config.auth) {
+                res.header(
+                    'Access-Control-Allow-Headers',
+                    'Content-Type, Authorization');
+                res.header(
+                    'Access-Control-Allow-Methods',
+                    'GET, OPTIONS');
+            }
+
             Object.keys(httpConfig.headers).map(function(key) {
                 res.header(key, httpConfig.headers[key]);
             });
@@ -124,6 +133,10 @@ http.globalAgent.maxSockets = 1024;
                 }
 
                 next();
+            });
+
+            app.options('*', function(req, res) {
+                res.status(200).end();
             });
 
             app.use('/resource/:resource(*)/:call(info|read)',
