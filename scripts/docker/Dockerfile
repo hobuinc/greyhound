@@ -1,26 +1,18 @@
-FROM hobu/entwine:latest
+FROM connormanning/entwine:latest
 MAINTAINER Connor Manning <connor@hobu.co>
-ARG branch=entwine
 
 ENV CC clang
 ENV CXX clang++
-ARG branch=entwine
 
-RUN apt-get update && apt-get install -y supervisor
+RUN wget -qO- https://deb.nodesource.com/setup_4.x | bash -
+RUN apt-get install -y nodejs supervisor
 RUN rm -rf /var/lib/apt/lists/*
-
-ENV nodeVer="4.2.1"
-ENV nodeUrl="http://nodejs.org/dist/v${nodeVer}/node-v${nodeVer}-linux-x64.tar.gz"
-RUN mkdir -p /tmp/nodejs && \
-    wget -qO - ${nodeUrl} | tar zxf - --strip-components 1 -C /tmp/nodejs && \
-    cd /tmp/nodejs && \
-    cp -r * /usr
 
 RUN npm install -g node-gyp && npm update npm -g && npm cache clean
 
 RUN git clone "https://github.com/hobu/greyhound.git" && \
     cd greyhound && \
-    git checkout ${branch} && \
+    git checkout entwine && \
     make && \
     make install
 
