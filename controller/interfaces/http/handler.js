@@ -225,6 +225,16 @@ http.globalAgent.maxSockets = 1024;
                 }
             );
         });
+
+        app.get('/resource/:resource(*)/hierarchy', function(req, res) {
+            var resource = req.params.resource;
+            var query = req.query;
+
+            controller.hierarchy(resource, query, (err, data) => {
+                if (err) return res.status(err.code || 500).json(err.message);
+                else return res.json(data);
+            });
+        });
     }
 
     module.exports.HttpHandler = HttpHandler

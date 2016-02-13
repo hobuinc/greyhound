@@ -53,6 +53,10 @@ public:
 
     // Returns stringified JSON response.
     std::string info() const;
+    std::string hierarchy(
+            const entwine::BBox& bbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
 
     // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(

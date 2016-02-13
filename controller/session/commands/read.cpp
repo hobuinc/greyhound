@@ -7,7 +7,6 @@
 #include <entwine/types/schema.hpp>
 
 #include "session.hpp"
-#include "util/buffer-pool.hpp"
 
 #include "commands/read.hpp"
 
@@ -15,68 +14,9 @@ using namespace v8;
 
 namespace
 {
-    v8::Local<v8::String> toSymbol(Isolate* isolate, const std::string& str)
-    {
-        return v8::String::NewFromUtf8(isolate, str.c_str());
-    }
-
     std::size_t isEmpty(v8::Local<v8::Object> object)
     {
         return object->GetOwnPropertyNames()->Length() == 0;
-    }
-
-    entwine::BBox parseBBox(const v8::Local<v8::Value>& jsBBox)
-    {
-        entwine::BBox bbox;
-
-        try
-        {
-            std::string bboxStr(std::string(
-                        *v8::String::Utf8Value(jsBBox->ToString())));
-
-            Json::Reader reader;
-            Json::Value rawBounds;
-
-            reader.parse(bboxStr, rawBounds, false);
-
-            Json::Value json;
-            Json::Value& bounds(json["bounds"]);
-
-            if (rawBounds.size() == 4)
-            {
-                bounds.append(rawBounds[0].asDouble());
-                bounds.append(rawBounds[1].asDouble());
-                bounds.append(0);
-                bounds.append(rawBounds[2].asDouble());
-                bounds.append(rawBounds[3].asDouble());
-                bounds.append(0);
-
-                json["is3d"] = false;
-            }
-            else if (rawBounds.size() == 6)
-            {
-                bounds.append(rawBounds[0].asDouble());
-                bounds.append(rawBounds[1].asDouble());
-                bounds.append(rawBounds[2].asDouble());
-                bounds.append(rawBounds[3].asDouble());
-                bounds.append(rawBounds[4].asDouble());
-                bounds.append(rawBounds[5].asDouble());
-
-                json["is3d"] = true;
-            }
-            else
-            {
-                throw std::runtime_error("Invalid");
-            }
-
-            bbox = entwine::BBox(json);
-        }
-        catch (...)
-        {
-            std::cout << "Invalid BBox in query." << std::endl;
-        }
-
-        return bbox;
     }
 }
 
@@ -125,6 +65,9 @@ ReadCommand::ReadCommand(
     // This allows us to unwrap our own ReadCommand during async CBs.
     m_initAsync->data = this;
     m_dataAsync->data = this;
+
+    registerInitCb();
+    registerDataCb();
 }
 
 ReadCommand::~ReadCommand()
@@ -311,7 +254,7 @@ void ReadCommandQuadIndex::query()
             m_depthEnd);
 }
 
-ReadCommand* ReadCommandFactory::create(
+ReadCommand* ReadCommand::create(
         Isolate* isolate,
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
@@ -322,7 +265,7 @@ ReadCommand* ReadCommandFactory::create(
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
 {
-    ReadCommand* readCommand(0);
+    ReadCommand* readCommand(nullptr);
 
     const auto depthSymbol(toSymbol(isolate, "depth"));
     const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
@@ -360,12 +303,11 @@ ReadCommand* ReadCommandFactory::create(
         if (query->HasOwnProperty(bboxSymbol))
         {
             bbox = parseBBox(query->Get(bboxSymbol));
-            if (!bbox.exists()) return readCommand;
         }
 
         query->Delete(bboxSymbol);
 
-        if (isEmpty(query))
+        if (isEmpty(query) && bbox.exists())
         {
             readCommand = new ReadCommandQuadIndex(
                     session,

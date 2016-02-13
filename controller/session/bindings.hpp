@@ -6,8 +6,6 @@
 #include <node_object_wrap.h>
 #include <v8.h>
 
-#include "commands/read.hpp"
-
 class Session;
 class ItcBufferPool;
 
@@ -35,6 +33,7 @@ private:
     static void destroy(const Args& args);
     static void info(const Args& args);
     static void read(const Args& args);
+    static void hierarchy(const Args& args);
 
     std::shared_ptr<Session> m_session;
     ItcBufferPool& m_itcBufferPool;
