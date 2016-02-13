@@ -89,21 +89,17 @@ console.log('Read paths:', paths);
     };
 
     Controller.prototype.info = function(resource, cb) {
-        console.log("controller::info");
+        console.log('controller::info');
         getSession(resource, function(err, session) {
             if (err) return cb(err);
 
-            try {
-                return cb(null, JSON.parse(session.info()));
-            }
-            catch (e) {
-                return cb(error(500, 'Error parsing info'));
-            }
+            try { return cb(null, JSON.parse(session.info())); }
+            catch (e) { return cb(error(500, 'Error parsing info')); }
         });
-    }
+    };
 
     Controller.prototype.read = function(resource, query, onInit, onData) {
-        console.log("controller::read");
+        console.log('controller::read');
 
         var schema = query.schema;
         var compress =
@@ -125,6 +121,18 @@ console.log('Read paths:', paths);
             var dataCb = (err, data, done) => onData(err, data, done);
 
             session.read(schema, compress, normalize, query, initCb, dataCb);
+        });
+    };
+
+    Controller.prototype.hierarchy = function(resource, query, cb) {
+        console.log('controller::hierarchy');
+
+        getSession(resource, (err, session) => {
+            if (err) cb(err);
+            else session.hierarchy(query, (err, string) => {
+                try { return cb(null, JSON.parse(string)); }
+                catch (e) { return cb(error(500, 'Error parsing hierarchy')); }
+            });
         });
     }
 

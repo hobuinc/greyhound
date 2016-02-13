@@ -19,6 +19,8 @@
 
 #include "session.hpp"
 #include "commands/create.hpp"
+#include "commands/hierarchy.hpp"
+#include "commands/read.hpp"
 #include "util/buffer-pool.hpp"
 #include "util/once.hpp"
 
@@ -132,6 +134,7 @@ void Bindings::init(v8::Handle<v8::Object> exports)
     NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",   destroy);
     NODE_SET_PROTOTYPE_METHOD(tpl, "info",      info);
     NODE_SET_PROTOTYPE_METHOD(tpl, "read",      read);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "hierarchy", hierarchy);
 
     constructor.Reset(isolate, tpl->GetFunction());
     exports->Set(String::NewFromUtf8(isolate, "Bindings"), tpl->GetFunction());
@@ -326,7 +329,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     }
 
     ReadCommand* readCommand(
-            ReadCommandFactory::create(
+            ReadCommand::create(
                 isolate,
                 obj->m_session,
                 obj->m_itcBufferPool,
@@ -338,10 +341,6 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 std::move(dataCb)));
 
     if (!readCommand) return;
-
-    // Register our callbacks with their async tokens.
-    readCommand->registerInitCb();
-    readCommand->registerDataCb();
 
     // Store our read command where our worker functions can access it.
     uv_work_t* req(new uv_work_t);
@@ -418,6 +417,94 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
             }
 
             delete readCommand;
+            delete req;
+        })
+    );
+}
+
+void Bindings::hierarchy(const FunctionCallbackInfo<Value>& args)
+{
+    Isolate* isolate(args.GetIsolate());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
+
+    std::size_t i(0);
+    const auto& queryArg(args[i++]);
+    const auto& cbArg   (args[i++]);
+
+    std::string errMsg("");
+
+    if (!queryArg->IsObject())  errMsg += "\tInvalid query type";
+    if (!cbArg->IsFunction())   throw std::runtime_error("Invalid cb");
+
+    Local<Object> query(queryArg->ToObject());
+    UniquePersistent<Function> cb(isolate, Local<Function>::Cast(cbArg));
+
+    if (!errMsg.empty())
+    {
+        Status status(400, errMsg);
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = { status.toObject(isolate) };
+
+        Local<Function> local(Local<Function>::New(isolate, cb));
+        local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+        return;
+    }
+
+    HierarchyCommand* hierarchyCommand(
+            HierarchyCommand::create(
+                isolate,
+                obj->m_session,
+                query,
+                std::move(cb)));
+
+    if (!hierarchyCommand) return;
+
+    // Store our command where our worker functions can access it.
+    uv_work_t* req(new uv_work_t);
+    req->data = hierarchyCommand;
+
+    // Read points asynchronously.
+    uv_queue_work(
+        uv_default_loop(),
+        req,
+        (uv_work_cb)([](uv_work_t* req)->void
+        {
+            HierarchyCommand* command(
+                static_cast<HierarchyCommand*>(req->data));
+
+            command->safe([command]()->void
+            {
+                try
+                {
+                    command->run();
+                }
+                catch (...)
+                {
+                    command->status.set(500, "Error during hierarchy");
+                }
+            });
+        }),
+        (uv_after_work_cb)([](uv_work_t* req, int status)->void
+        {
+            Isolate* isolate(Isolate::GetCurrent());
+            HandleScope scope(isolate);
+            HierarchyCommand* command(
+                static_cast<HierarchyCommand*>(req->data));
+
+            const unsigned argc = 2;
+            Local<Value> argv[argc] =
+            {
+                command->status.ok() ?
+                    Local<Value>::New(isolate, Null(isolate)) : // err
+                    command->status.toObject(isolate),
+                String::NewFromUtf8(isolate, command->result().c_str())
+            };
+
+            Local<Function> local(Local<Function>::New(isolate, command->cb()));
+            local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
+
+            delete command;
             delete req;
         })
     );

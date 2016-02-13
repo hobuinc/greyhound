@@ -135,6 +135,24 @@ std::string Session::info() const
     return m_info;
 }
 
+std::string Session::hierarchy(
+        const entwine::BBox& bbox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
+{
+    if (indexed())
+    {
+        return m_entwine->hierarchy(
+                bbox,
+                depthBegin,
+                depthEnd).toStyledString();
+    }
+    else
+    {
+        throw std::runtime_error("Cannot get hierarchy from unindexed dataset");
+    }
+}
+
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const bool compress)

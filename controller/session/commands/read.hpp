@@ -14,8 +14,7 @@
 
 #include "commands/background.hpp"
 #include "read-queries/base.hpp"
-
-void errorCb(v8::Persistent<v8::Function> callback, std::string errMsg);
+#include "util/buffer-pool.hpp"
 
 class ItcBufferPool;
 class ItcBuffer;
@@ -33,6 +32,17 @@ public:
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
     virtual ~ReadCommand();
+
+    static ReadCommand* create(
+            v8::Isolate* isolate,
+            std::shared_ptr<Session> session,
+            ItcBufferPool& itcBufferPool,
+            std::string schemaString,
+            bool compress,
+            bool normalize,
+            v8::Local<v8::Object> query,
+            v8::UniquePersistent<v8::Function> initCb,
+            v8::UniquePersistent<v8::Function> dataCb);
 
     void registerInitCb();
     void registerDataCb();
@@ -129,20 +139,5 @@ protected:
     const entwine::BBox m_bbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
-};
-
-class ReadCommandFactory
-{
-public:
-    static ReadCommand* create(
-            v8::Isolate* isolate,
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            std::string schemaString,
-            bool compress,
-            bool normalize,
-            v8::Local<v8::Object> query,
-            v8::UniquePersistent<v8::Function> initCb,
-            v8::UniquePersistent<v8::Function> dataCb);
 };
 

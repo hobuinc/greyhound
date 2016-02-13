@@ -8,6 +8,7 @@
                 './session/session.cpp',
 
                 './session/commands/read.cpp',
+                './session/commands/hierarchy.cpp',
 
                 './session/read-queries/base.cpp',
                 './session/read-queries/entwine.cpp',

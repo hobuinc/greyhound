@@ -19,6 +19,7 @@ web/public/css/style.css
 scripts/vagrant/pdal
 scripts/vagrant/entwine
 controller/build
+*.gypi
 
 examples/data/*
 !examples/data/autzen.las
