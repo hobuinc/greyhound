@@ -33,6 +33,8 @@ Command Set
 +---------------+-------------------------------------------------------------+
 | read          | Read points from a resource.                                |
 +---------------+-------------------------------------------------------------+
+| hierarchy     | Get a metadata hierarchy with point counts information.     |
++---------------+-------------------------------------------------------------+
 
 |
 
@@ -228,6 +230,96 @@ Common options are options available for any ``read`` query, regardless of the `
 
 |
 
+The Hierarchy Query
+===============================================================================
+
+This query returns point count information for a given bounding box and depth, and also recursively for incrementing depths and bisected bounding boxes.  This query is only supported for indexed datasets (see `type`).
+
+Purpose and Usage
+-------------------------------------------------------------------------------
+
+The hierarchy query is used to build a client-side version of the structure of portions of the indexed tree in advance of querying actual data.  It is recommended that some base amount of data is loaded before this query, since it may take longer than a typical data query to complete.  A client should only query the hierarchy for a few depths at a time, and then query ever-bisected sub-bounds for each subsequent depth range (for example, depths ``[8, 12)`` with the full bounds, but the bounds for queries of ``[12, 16)``, should be bisected 4 times from the full bounds).
+
+Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The hierarchy query accepts exactly three options, which are similar to those for the ``read`` query.
+
+- ``bounds``: The overall bounds to query.
+- ``depthBegin``: The starting depth to begin the query for the full specified ``bounds``.
+- ``depthEnd``: Similar to the ``read`` query, queries run from ``depthBegin`` (inclusive) to ``depthEnd`` (non-inclusive).
+
+Returned data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The hierarchy query returns JSON data, which at the top level, contains the number of points at depth ``depthBegin`` within the full ``bounds`` box.  Point counts are specified with the ``count`` JSON key.  Nested within the top-level JSON response are subsequent levels up to ``depthEnd``, where each new nesting level represents another level of the recursively bisected ``bounds``.
+
+Bisection directions are denoted by 8 keys for octrees (4 for quadtrees) representing the direction of the split in the native point space.  In this space, we consider North to be an increase in Y (with decrease being South), East to mean an increase in X (with decrease being West), and Up to be an increase in Z (decrease being Down).  The first letter of each of these directions is concatenated in the previously mentioned order, which is more simply shown with an example:
+
++-----------+-----------------+
+| Key       | Meaning         |
++===========+=================+
+| ``"nwu"`` | North-west-up   |
++-----------+-----------------+
+| ``"nwd"`` | North-west-down |
++-----------+-----------------+
+| ``"neu"`` | North-east-up   |
++-----------+-----------------+
+| ``"ned"`` | North-east-down |
++-----------+-----------------+
+| ``"swu"`` | South-west-up   |
++-----------+-----------------+
+| ``"swd"`` | South-west-down |
++-----------+-----------------+
+| ``"seu"`` | South-east-up   |
++-----------+-----------------+
+| ``"sed"`` | South-east-down |
++-----------+-----------------+
+
+For quadtree queries, the third character is omitted, so possible keys are ``nw``, ``ne``, ``sw``, and ``se``.
+
+Within each tree depth of the response, the number of points indicated by a traversal is indicated with the key ``count``.  A sample response for a call of ``/hierarchy?bounds=[0, 0, 0, 1000, 1000, 1000]&depthBegin=8&depthEnd=11`` might look like: ::
+
+    {
+        "count": 158192,
+        "ned": {
+            "count": 138599,
+            "neu": {
+                "count": 130674
+            },
+            "nwu": {
+                "count": 98252
+            },
+            "seu": {
+                "count": 127565
+            },
+            "swu": {
+                "count": 81784
+            }
+        },
+        "neu": {
+            "count": 13653,
+            "ned": {
+                "count": 12531
+            },
+            "sed": {
+                "count": 18163
+            },
+            "swd": {
+                "count": 4617
+            }
+        },
+        ... // etc.
+    }
+
+This result indicates that at depth 8, for the entire queried bounds, there are 158192 points.
+
+At depth 9, for the north-east-down (``ned``) bisected bounds, which would be ``[500, 500, 0, 1000, 1000, 500]``, there are 138599 points.  For ``neu`` at depth 9, being ``[500, 500, 500, 1000, 1000, 1000]``, there are 13653 points.
+
+At depth 10, starting from the ``ned`` bounds, the ``neu`` bounds of ``[750, 750, 250, 1000, 1000, 500]`` contains 13064 points.  Since there is no key for ``["ned"]["ned"]``, there are zero points at depth 10 for bounds ``[750, 750, 0, 1000, 1000, 250]``.
+
+|
+
 Working with Greyhound
 ===============================================================================
 
@@ -248,7 +340,7 @@ Initial Fetch
 
 A client should always start by requesting the ``info`` for a given resource, and store the entire result.
 
-This allows a client to avoid querying non-existant dimensions, for example a web renderer that generally queries Red, Green, and Blue dimensions should not do so if those dimensions do not exist in the native schema.
+This allows a client to avoid querying non-existent dimensions, for example a web renderer that generally queries Red, Green, and Blue dimensions should not do so if those dimensions do not exist in the native schema.
 
 Progressive Querying
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
