@@ -15,8 +15,7 @@ config.cn = {
     // Where to find unindexed pointcloud source files and indexed
     // subdirectories, searched in order.
     paths: [
-        '/vagrant/examples/data',
-        's3://entwine'
+        '/opt/data'
         // , 's3://my-index-bucket'
     ],
 
@@ -33,7 +32,7 @@ config.cn = {
         },
 
         // If null, no HTTP interface will be supported.
-        port: 8081,
+        port: 80,
 
         // If keyFile and certFile are both non-null, and securePort is set
         // below, HTTPS will be supported.
@@ -42,12 +41,15 @@ config.cn = {
         // Greyhound's root directory, key.pem and cert.pem are accepted below.
         // Otherwise, absolute paths are required.
         keyFile: '/opt/keys/greyhound/key.pem',
-        certFile: '/opt/keys/greyhound/cert.pem'
+        certFile: '/opt/keys/greyhound/cert.pem',
+
+        // If null, no HTTPS interface will be supported.
+        securePort: 443
     },
 
     ws: {
         // If null, no websocket interface will be supported.
-        port: 8082,
+        port: 8989,
     },
 
     // Time of inactivity per session handler, in minutes, after which to

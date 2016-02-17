@@ -87,8 +87,6 @@ bool Session::initialize(
 {
     m_initOnce.ensure([this, &name, &paths, cache, arbiter]()
     {
-        paths.push_back("s3://");
-
         std::cout << "Discovering " << name << std::endl;
 
         if (resolveIndex(name, paths, *arbiter, cache))
