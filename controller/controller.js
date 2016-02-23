@@ -1,164 +1,137 @@
-var
-    _ = require('lodash'),
-    console = require('clim')(),
+var error = function(code, message) {
+    return { code: code, message: message };
+}
 
-    disco = require('../common').disco,
-    Affinity = require('../common/affinity').Affinity,
-    web = require('../common/web'),
+var getTimeout = function(raw) {
+    if (raw != undefined && raw >= 0) return raw;
+    else return 30;
+}
 
-    Listener = require('./lib/listener').Listener,
+var console = require('clim')(),
+    querystring = require('querystring'),
 
     config = (require('../config').cn || { }),
+    paths = config.paths,
+    output = config.output,
 
-    softSessionShareMax = (config.softSessionShareMax || 16),
-    hardSessionShareMax = (config.hardSessionShareMax || 0),
-    pipelineTimeoutMinutes =
-        (function() {
-            if (config.hasOwnProperty('pipelineTimeoutMinutes') &&
-                config.pipelineTimeoutMinutes >= 0) {
+    chunkCacheSize = config.queryLimits.chunkCacheSize,
+    threads = Math.ceil(require('os').cpus().length * 1.2),
 
-                // May be zero to never expire pipelines.
-                return config.pipelineTimeoutMinutes;
+    Session = require('./build/Release/session').Bindings,
+
+    // resource name -> { session: session, accessed: Date }
+    resources = { },
+    timeoutMinutes = getTimeout(config.resourceTimeoutMinutes),
+    timeoutMs = timeoutMinutes * 60 * 1000
+    ;
+
+if (chunkCacheSize < 16) chunkCacheSize = 16;
+process.env.UV_THREADPOOL_SIZE = threads;
+
+console.log('Using');
+console.log('\tChunk cache size:', chunkCacheSize);
+console.log('\tLibuv threadpool size:', threads);
+
+var getSession = function(name, cb) {
+    var session;
+    var now = new Date();
+
+    if (resources[name]) {
+        session = resources[name].session;
+    }
+    else {
+        session = new Session();
+        resources[name] = { session: session };
+    }
+
+    resources[name].accessed = now;
+
+    // Call every time, even if this name was found in our session mapping, to
+    // ensure that initialization has finished before the session is used.
+    try {
+        session.create(name, paths, chunkCacheSize, function(err) {
+            if (err) {
+                console.warn(name, 'could not be created');
+                delete resources[name];
             }
-            else {
-                return 30;
-            }
-        })(),
-    affinity = new Affinity(disco);
+
+            return cb(err, session);
+        });
+    }
+    catch (e) {
+        delete resources[name];
+        console.warn('Caught exception in CREATE:', e);
+
+        return cb(error(500, 'Unknown error during create'));
+    }
+};
+
+console.log('Read paths:', paths);
 
 (function() {
     'use strict';
 
     var Controller = function() {
-        this.listeners = { }
+        var clean = () => {
+            var now = new Date();
 
-        var self = this;
-        self.propError = function(cmd, missingProp) {
-            return new Error(
-                    'Missing property "' + missingProp + '" in "' +
-                    cmd + '" command');
-        }
-    }
-
-    Controller.prototype.put = function(filename, cb) {
-        var self = this;
-        console.log("controller::put");
-
-        affinity.getDb(function(err, db) {
-            if (err) return cb(err);
-
-            web.post(db, '/put', { filename: filename }, function(err, res) {
-                if (err)
-                    return cb(err);
-                if (!res.hasOwnProperty('id'))
-                    return cb(new Error('Invalid response from PUT'));
-                else
-                    cb(null, { pipelineId: res.id });
-            });
-        });
-    }
-
-    Controller.prototype.numPoints = function(plId, cb) {
-        console.log("controller::numPoints");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/numPoints/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.schema = function(plId, cb) {
-        console.log("controller::schema");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/schema/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.stats = function(plId, cb) {
-        console.log("controller::stats");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/stats/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.srs = function(plId, cb) {
-        console.log("controller::srs");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/srs/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.fills = function(plId, cb) {
-        console.log("controller::fills");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/fills/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.serialize = function(plId, cb) {
-        console.log("controller::serialize");
-        affinity.get(plId, function(err, sessionHandler) {
-            if (err) return cb(err);
-            web.get(sessionHandler, '/serialize/' + plId, cb);
-        });
-    }
-
-    Controller.prototype.cancel = function(plId, readId, cb) {
-        var self = this;
-        console.log("controller::cancel");
-        if (!plId) return cb(self.propError('cancel', 'pipeline'));
-        if (!readId)  return cb(self.propError('cancel', 'readId'));
-
-        var res = { cancelled: false };
-        var listeners = self.listeners;
-
-        if (listeners.hasOwnProperty(plId)) {
-            var listener = listeners[plId][readId];
-
-            if (listener) {
-                res.cancelled = true;
-                listener.cancel();
-
-                delete listeners[plId][readId];
-
-                if (Object.keys(listeners[plId]).length == 0) {
-                    delete listeners[plId];
+            Object.keys(resources).forEach((name) => {
+                if (now - resources[name].accessed > timeoutMs) {
+                    console.log('Purging', name);
+                    delete resources[name];
                 }
-            }
-        }
+            });
 
-        return cb(null, res);
-    }
+            setTimeout(clean, timeoutMs);
+        };
 
-    Controller.prototype.read = function(plId, query, onInit, onData, onEnd)
-    {
-        var self = this;
-        var listeners = self.listeners;
-        console.log("controller::read");
+        setTimeout(clean, timeoutMs);
+    };
 
-        affinity.get(plId, function(err, sh) {
+    Controller.prototype.info = function(resource, cb) {
+        console.log('controller::info');
+        getSession(resource, function(err, session) {
+            if (err) return cb(err);
+
+            try { return cb(null, JSON.parse(session.info())); }
+            catch (e) { return cb(error(500, 'Error parsing info')); }
+        });
+    };
+
+    Controller.prototype.read = function(resource, query, onInit, onData) {
+        console.log('controller::read');
+
+        var schema = query.schema;
+        var compress =
+            query.hasOwnProperty('compress') &&
+            query.compress.toLowerCase() == 'true';
+        var normalize =
+            query.hasOwnProperty('normalize') &&
+            query.normalize.toLowerCase() == 'true';
+
+        // Simplify our query decision tree for later.
+        delete query.schema;
+        delete query.compress;
+        delete query.normalize;
+
+        getSession(resource, function(err, session) {
             if (err) return onInit(err);
 
-            var listener = new Listener(onData, onEnd);
+            var initCb = (err) => onInit(err);
+            var dataCb = (err, data, done) => onData(err, data, done);
 
-            listener.listen(function(address) {
-                _.extend(query, address);
-                var readPath = '/read/' + plId;
+            session.read(schema, compress, normalize, query, initCb, dataCb);
+        });
+    };
 
-                web.post(sh, readPath, query, function(err, res) {
-                    if (!err && res.readId) {
-                        if (!listeners.hasOwnProperty[plId]) {
-                            listeners[plId] = { };
-                        }
+    Controller.prototype.hierarchy = function(resource, query, cb) {
+        console.log('controller::hierarchy');
 
-                        listeners[plId][res.readId] = listener;
-                    }
-
-                    onInit(err, res);
-                });
+        getSession(resource, (err, session) => {
+            if (err) cb(err);
+            else session.hierarchy(query, (err, string) => {
+                try { return cb(null, JSON.parse(string)); }
+                catch (e) { return cb(error(500, 'Error parsing hierarchy')); }
             });
         });
     }

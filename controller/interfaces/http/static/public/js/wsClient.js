@@ -90,7 +90,7 @@
 
                 if (msg.command === "stats") {
                     stats = msg.stats;
-                    console.log(stats.stages['filters.stats']);
+                    // console.log(stats.stages['filters.stats']);
 
                     if (msg.status === 0)
                         return cb(new Error(
@@ -120,6 +120,7 @@
                             "type": "floating",
                             "size": "4"
                         },
+                        /*
                         {
                             "name": "Intensity",
                             "type": "unsigned",
@@ -140,6 +141,7 @@
                             "type": "unsigned",
                             "size": "2"
                         },
+                        */
                     ];
 
                     // This is in response to our create request.  Now request
@@ -161,11 +163,6 @@
                     count       = 0;
                     numPoints   = msg.numPoints;
                     dataBuffer  = new Int8Array(msg.numBytes);
-
-                    if (msg.hasOwnProperty('rasterMeta'))
-                    {
-                        meta = msg.rasterMeta;
-                    }
 
                     if (numPoints == 0) ws.close();
                 }
@@ -210,7 +207,7 @@
 
             message("Data download complete, handing over to renderer.");
             try {
-                renderPoints(data, count, meta, stats, message);
+                renderPoints(data, count, meta, message);
             }
             catch(e) {
                 errorOut(e.message);
