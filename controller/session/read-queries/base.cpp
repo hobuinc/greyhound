@@ -8,7 +8,7 @@ ReadQuery::ReadQuery(
         const entwine::Schema& schema,
         const bool compress,
         const std::size_t index)
-    : m_compressionStream()
+    : m_compressionStream(0)
     , m_compressor(
             compress ?
                 new pdal::LazPerfCompressor<entwine::CompressionStream>(

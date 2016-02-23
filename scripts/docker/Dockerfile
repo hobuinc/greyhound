@@ -12,7 +12,6 @@ RUN npm install -g node-gyp && npm update npm -g && npm cache clean
 
 RUN git clone "https://github.com/hobu/greyhound.git" && \
     cd greyhound && \
-    git checkout entwine && \
     make && \
     make install
 
