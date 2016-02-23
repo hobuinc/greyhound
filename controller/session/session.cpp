@@ -101,6 +101,11 @@ bool Session::initialize(
             json["schema"] = m_entwine->schema().toJson();
             json["bounds"] = m_entwine->bbox().toJson()["bounds"];
             json["srs"] = m_entwine->srs();
+            json["baseDepth"] =
+                static_cast<Json::UInt64>(
+                    m_entwine->structure().baseIndexSpan() ?
+                        m_entwine->structure().baseDepthBegin() :
+                        m_entwine->structure().coldDepthBegin());
 
             m_info = json.toStyledString();
         }
