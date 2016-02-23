@@ -1,10 +1,10 @@
 {
   "name": "controller",
   "private": true,
+  "gypfile": true,
   "version": "0.0.1",
   "dependencies": {
     "clim": "^1.0.0",
-    "lodash": "^2.4.1",
-    "redis": "^0.12.1"
+    "morgan": "^1.6.1"
   }
 }

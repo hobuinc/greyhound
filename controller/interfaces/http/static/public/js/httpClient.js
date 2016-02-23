@@ -129,54 +129,47 @@
 
     var downloadData = function(setStatus, cb) {
         var url = w.location.host;
-        var match = w.location.pathname.match('\/http\/([^\/]+)');
-        var pipelineId = match ? match[1] : null;
+        var match = w.location.pathname.match('\/http[s]?\/([^\/]+)');
+        var resourceId = match ? match[1] : null;
 
-        if (!pipelineId) {
-            return cb('No pipeline selected!');
+        if (!resourceId) {
+            return cb('No resource selected!');
         }
 
-        var statsUrl = 'http://' + url + '/pipeline/' + pipelineId + '/stats';
+        var readUrl = '//' + url + '/resource/' + resourceId + '/read';
 
-        $.get(statsUrl, function(statsRes) {
-            if (statsRes.status != 1) {
-                return cb('STATS returned invalid status');
+        var query = w.location.search;
+        var sep = (query ? '&' : '?');
+        setStatus("Read initiated, waiting for response...");
+
+        $.ajax({
+            dataType: 'binary',
+            responseType: 'arraybuffer',
+            type: 'GET',
+            url: readUrl + w.location.search + sep + 'schema=' + schema()
+        }).done(function(readRes, status, request) {
+            var dataBuffer = new Int8Array(readRes);
+
+            var numPointsBuffer = new ArrayBuffer(4);
+            var numPointsView = new DataView(numPointsBuffer);
+            for (var i = 0; i < 4; ++i) {
+                numPointsView.setUint8(
+                    i,
+                    dataBuffer[dataBuffer.length - i - 1]);
             }
 
-            var stats = statsRes.stats;
-            console.log(stats.stages['filters.stats']);
-
-            var readUrl =
-                'http://' + url + '/pipeline/' + pipelineId + '/read';
-
-            var query = w.location.search;
-            var sep = (query ? '&' : '?');
-            setStatus("Read initiated, waiting for response...");
-
-            $.ajax({
-                dataType: 'binary',
-                responseType: 'arraybuffer',
-                type: 'GET',
-                url: readUrl + w.location.search + sep + 'schema=' + schema()
-            }).done(function(readRes, status, request) {
-                var dataBuffer = new Int8Array(readRes);
-                var numPoints  =
-                    request.getResponseHeader('X-Greyhound-Num-Points');
-                var rasterMeta = JSON.parse(
-                    request.getResponseHeader('X-Greyhound-Raster-Meta'));
-
-                return cb(null, dataBuffer, numPoints, rasterMeta, stats);
-            }).fail(function(err) {
-                console.log('READ failed');
-                return cb('Failed' + err);
-            });
+            var numPoints = numPointsView.getUint32(0);
+            return cb(null, dataBuffer, numPoints);
+        }).fail(function(err) {
+            console.log('READ failed');
+            return cb('Failed' + err);
         });
     }
 
     w.doIt = function() {
         addBinaryAjaxTransport();
 		$("#stats").hide();
-		downloadData(message, function(err, data, count, meta, stats) {
+		downloadData(message, function(err, data, count, meta) {
 			if (err) {
 				return errorOut(err.message);
             }
@@ -190,7 +183,7 @@
 
 			message("Data download complete, handing over to renderer.");
 			try {
-				renderPoints(data, count, meta, stats, message);
+				renderPoints(data, count, meta, message);
 			}
 			catch(e) {
 				errorOut(e.message);

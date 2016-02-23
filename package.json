@@ -1,9 +1,5 @@
 {
-  "name": "greyhound-server",
+  "name": "greyhound",
   "private": true,
-  "version": "0.0.1",
-  "dependencies": {
-    "forever-monitor": "^1.3.0",
-    "minimist": "^1.1.0"
-  }
+  "version": "0.0.1"
 }

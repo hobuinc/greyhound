@@ -1,34 +1,47 @@
-process.title = 'gh_cn';
+process.title = 'greyhound';
 
-process.on('uncaughtException', function(err) {
-    console.log('Caught at top level: ' + err);
-});
-
-var
-    console = require('clim')(),
+var console = require('clim')(),
+    fs = require('fs'),
+    path = require('path'),
+    config = (require('../config').cn || { }),
 
     Controller = require('./controller').Controller,
     WsHandler = require('./interfaces/ws/handler').WsHandler,
-    HttpHandler = require('./interfaces/http/handler').HttpHandler,
-
-    config = (require('../config').cn || { }),
-    globalConfig = (require('../config').global || { })
+    HttpHandler = require('./interfaces/http/handler').HttpHandler
     ;
-
-if (config.enable === false) {
-    process.exit(globalConfig.quitForeverExitCode || 42);
-}
 
 var controller = new Controller();
 
 process.nextTick(function() {
-    if (config.hasOwnProperty('ws') && config.ws.enable) {
+    if (config.ws && config.ws.port) {
         var wsHandler = new WsHandler(controller, config.ws.port);
         wsHandler.start();
     }
 
-    if (config.hasOwnProperty('http') && config.http.enable) {
-        var httpHandler = new HttpHandler(controller, config.ws.port);
+    if (config.http && (config.http.port || config.http.securePort)) {
+        var http = config.http;
+        var creds = null;
+
+        if (http.keyFile && http.certFile && http.securePort) {
+            var getPath = (file) => {
+                if (file == 'key.pem' || file == 'cert.pem') {
+                    return path.join(__dirname, '../', file);
+                }
+                else return file;
+            };
+
+            var key = fs.readFileSync(getPath(http.keyFile));
+            var cert = fs.readFileSync(getPath(http.certFile));
+
+            creds = { key: key, cert: cert };
+        }
+
+        var httpHandler = new HttpHandler(
+            controller,
+            http.port,
+            http.securePort,
+            creds);
+
         httpHandler.start();
     }
 });

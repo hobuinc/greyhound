@@ -4,8 +4,6 @@ var
     express = require('express'),
     console = require('clim')(),
 
-    disco = require('../../../common').disco,
-
     Commander = require('./commander').Commander,
 
     numBytes = { }
@@ -33,71 +31,33 @@ var
         });
 
         var server = http.createServer(app);
-        disco.register("ws", self.port, function(err, service) {
-            if (err) return console.log("Failed to start service:", err);
 
-            self.port = service.port;
+        server.listen(self.port);
 
-            server.listen(self.port);
-            var wss = new WebSocketServer({ server: server });
+        var wss = new WebSocketServer({ server: server });
 
-            console.log('Websocket server running on port: ' + self.port);
+        console.log('Websocket server running on port: ' + self.port);
 
-            wss.on('connection', function(ws) {
-                console.log("websocket::connection");
-                var commander = new Commander(ws);
-                registerCommands(self.controller, commander, ws);
-            });
+        wss.on('connection', function(ws) {
+            console.log("websocket::connection");
+            var commander = new Commander(ws);
+            registerCommands(self.controller, commander, ws);
         });
     }
 
     var registerCommands = function(controller, commander, ws) {
-        commander.on('put', function(msg, cb) {
-            controller.put(msg.pipeline, cb);
-        });
-
-        commander.on('numPoints', function(msg, cb) {
-            controller.numPoints(msg.pipeline, cb);
-        });
-
-        commander.on('schema', function(msg, cb) {
-            controller.schema(msg.pipeline, cb);
-        });
-
-        commander.on('stats', function(msg, cb) {
-            controller.stats(msg.pipeline, cb);
-        });
-
-        commander.on('srs', function(msg, cb) {
-            controller.srs(msg.pipeline, cb);
-        });
-
-        commander.on('fills', function(msg, cb) {
-            controller.fills(msg.pipeline, cb);
-        });
-
-        commander.on('serialize', function(msg, cb) {
-            controller.serialize(msg.pipeline, cb);
-        });
-
-        commander.on('destroy', function(msg, cb) {
-            controller.destroy(msg.pipeline, cb);
-        });
-
-        commander.on('cancel', function(msg, cb) {
-            controller.cancel(msg.pipeline, msg.readId, function(err, res) {
-                if (res.cancelled) res['numBytes'] = numBytes[msg.readId];
-                cb(null, res);
-            });
+        commander.on('info', function(msg, cb) {
+            controller.info(msg.resource, cb);
         });
 
         commander.on('read', function(msg, cb) {
             var params = msg;
 
-            var pipeline = params.pipeline;
-            if (msg.hasOwnProperty('pipeline')) delete params.pipeline;
+            var pipeline = params.resource;
             var summary = params.summary;
-            if (params.hasOwnProperty('summary')) delete params.summary;
+
+            delete params.resource;
+            delete params.summary;
 
             var readId;
 
@@ -109,25 +69,25 @@ var
                     numBytes[readId] = 0;
                     cb(err, res);
                 },
-                function(data) {
+                function(err, data, done) {
+                    if (err) console.log('TODO - handle data error in READ');
+
                     numBytes[readId] += data.length;
                     ws.send(data, { binary: true });
-                },
-                function() {
-                    if (summary) {
-                        ws.send(JSON.stringify({
-                            'command':  'summary',
-                            'status':   1,
-                            'readId':   readId,
-                            'numBytes': numBytes[readId]
-                        }),
-                        null,
-                        function() {
-                            delete numBytes[readId];
-                        });
-                    }
-                    else {
-                        delete numBytes[readId];
+
+                    if (done && summary) {
+                        ws.send(
+                            JSON.stringify({
+                                'command':  'summary',
+                                'status':   1,
+                                'readId':   readId,
+                                'numBytes': numBytes[readId]
+                            }),
+                            null,
+                            function() {
+                                delete numBytes[readId];
+                            }
+                        );
                     }
                 }
             );

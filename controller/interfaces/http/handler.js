@@ -1,195 +1,242 @@
 var
-    _ = require('lodash'),
+    Promise = require('bluebird'),
     fs = require('fs'),
     http = require('http'),
+    https = require('https'),
 	path = require('path'),
     express = require('express'),
+    session = require('express-session'),
+    morgan = require('morgan'),
     bodyParser = require('body-parser'),
-    methodOverride = require('method-override'),
     lessMiddleware = require('less-middleware'),
+    request = require('request'),
+    uuid = require('node-uuid'),
 
-    disco = require('../../../common').disco,
-    console = require('clim')()
+    console = require('clim')(),
 
-    controllerConfig = (require('../../../config').cn || { }),
-    httpConfig = (controllerConfig ? controllerConfig.http  : { }),
-    wsConfig   = (controllerConfig ? controllerConfig.ws    : { })
-    exposedHeaders =
-            'X-Greyhound-Num-Points,' +
-            'X-Greyhound-Read-ID,' +
-            'X-Greyhound-Raster-Meta'
-    ;
+    config = (require('../../../config').cn || { }),
+    httpConfig = (config ? config.http : { });
 
+if (config.auth) {
+    var maybeAddSlashTo = (s) => s.slice(-1) == '/' ? s : s + '/';
+    config.auth.path = maybeAddSlashTo(config.auth.path);
 
-if (
-        httpConfig.headers &&
-        httpConfig.headers['Access-Control-Expose-Headers'])
-{
-    exposedHeaders +=
-        ',' +
-        httpConfig.headers['Access-Control-Expose-Headers'];
-    delete httpConfig.headers['Access-Control-Expose-Headers'];
+    if (!config.auth.secret) config.auth.secret = uuid.v4();
+
+    if (typeof config.auth.cacheMinutes == 'number') {
+        config.auth.cacheMinutes = {
+            good: config.auth.cacheMinutes,
+            bad: config.auth.cacheMinutes
+        };
+    }
+
+    if (!config.auth.cacheMinutes.good) config.auth.cacheMinutes.good = 1;
+    if (!config.auth.cacheMinutes.bad)  config.auth.cacheMinutes.bad  = 1;
 }
+
+http.globalAgent.maxSockets = 1024;
 
 (function() {
     'use strict';
 
-    var HttpHandler = function(controller, port) {
+    var HttpHandler = function(controller, port, securePort, creds) {
         this.controller = controller;
         this.port = port;
+        this.securePort = securePort;
+        this.creds = creds;
     }
 
-    HttpHandler.prototype.start = function() {
-        var self = this;
+    HttpHandler.prototype.start = function(creds) {
         var app = express();
 
-        app.use(express.logger('dev'));
+        app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
-        app.use(methodOverride());
 
-        // Set the x-powered-by header
         app.use(function(req, res, next) {
+            if (config.auth) {
+                res.header(
+                    'Access-Control-Allow-Headers',
+                    'Content-Type, Authorization');
+                res.header(
+                    'Access-Control-Allow-Methods',
+                    'GET, OPTIONS');
+            }
+
             Object.keys(httpConfig.headers).map(function(key) {
                 res.header(key, httpConfig.headers[key]);
             });
             res.header('X-powered-by', 'Hobu, Inc.');
-            res.header('Access-Control-Expose-Headers', exposedHeaders);
-            res.header('Access-Control-Allow-Headers', 'Content-Type');
             next();
         });
 
-        // development only
-        if (app.get('env') == 'development') {
-            app.use(express.errorHandler());
+        if (httpConfig.enableStaticServe) registerStatic(app);
+        registerCommands(this.controller, app);
+
+        if (this.port) {
+            if (!config.auth) {
+                http.createServer(app).listen(this.port);
+                console.log('HTTP server running on port', this.port);
+            }
+            else {
+                console.log('HTTP server disabled due to auth specification');
+            }
         }
 
-        app.use(app.router);
-
-        if (httpConfig.enableStaticServe) {
-            app.set('views', __dirname + '/static/views');
-            app.set('view engine', 'jade');
-
-            var publicDir = '/static/public';
-            app.use(lessMiddleware(path.join(__dirname, publicDir)));
-            app.use(express.static(__dirname + publicDir));
-
-            app.get('/ws/:pipelineId', function(req, res) {
-                res.render('wsView');
-            });
-
-            app.get('/http/:pipelineId', function(req, res) {
-                res.render('httpView');
-            });
+        if (this.securePort) {
+            https.createServer(this.creds, app).listen(this.securePort);
+            console.log('HTTPS server running on port', this.securePort);
         }
+    }
 
-        registerCommands(self.controller, app);
+    var registerStatic = function(app) {
+        app.set('views', __dirname + '/static/views');
+        app.set('view engine', 'jade');
 
-        var server = http.createServer(app);
-        var port = httpConfig.port || 8081;
+        var publicDir = '/static/public';
+        app.use(lessMiddleware(path.join(__dirname, publicDir)));
+        app.use(express.static(__dirname + publicDir));
 
-        disco.register('web', port, function(err, service) {
-            if (err) return console.log("Failed to register service:", err);
-
-            server.listen(service.port, function () {
-                console.log('HTTP server running on port ' + port);
-            });
+        app.get('/ws/:resourceId', function(req, res) {
+            res.render('wsView');
         });
-    }
 
-    var extend = function(err, response, command) {
-        var common = {
-            status: !err,
-            command: command
-        }
-
-        if (err) common['reason'] = err.message;
-
-        return _.extend(response || { }, common);
-    }
-
-    var objectify = function(obj, key) {
-        if (obj[key]) {
-            obj[key] = JSON.parse(obj[key]);
-        }
-    }
+        app.get('/http/:resourceId', function(req, res) {
+            res.render('httpView');
+        });
+    };
 
     var registerCommands = function(controller, app) {
-        app.get('/pipeline/:pipeline/numPoints', function(req, res) {
-            controller.numPoints(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'numPoints'));
+        if (config.auth) {
+            console.log('Proxying auth requests to', config.auth.path);
+            var auths = { };
+
+            app.use(session({
+                cookie: {
+                    path: '/',
+                    domain: config.auth.domain,
+                    httpOnly: true,
+                    secure: true,
+                    maxAge: 1000 * 60 * 60 * 24 * 365,
+                },
+                genid: () => uuid.v4(),
+                name: 'greyhound-user',
+                resave: false,
+                rolling: false,
+                saveUninitialized: false,
+                secret: config.auth.secret,
+                unset: 'keep'
+            }));
+
+            app.use(function(req, res, next) {
+                if (!req.session.greyhoundId) {
+                    req.session.greyhoundId = uuid.v4();
+                }
+
+                next();
+            });
+
+            app.options('*', function(req, res) {
+                res.status(200).end();
+            });
+
+            app.use('/resource/:resource(*)/:call(info|read)',
+                    function(req, res, next)
+            {
+                var id = req.session.greyhoundId;
+                var resource = req.params.resource;
+
+                if (!auths[id]) auths[id] = { };
+
+                if (!auths[id][resource]) {
+                    console.log('Authing', id);
+                    var start = new Date();
+
+                    auths[id][resource] = new Promise((resolve, reject) => {
+                        var options = {
+                            url: config.auth.path + resource,
+                            rejectUnauthorized: false
+                        };
+
+                        req.pipe(request(options, (err, authResponse) => {
+                            if (err) {
+                                console.log('Auth proxy err:', err);
+                                return reject(500);
+                            }
+
+                            var code = authResponse.statusCode;
+                            var ok = Math.floor(code / 100) == 2;
+
+                            var time = (new Date() - start) / 1000;
+
+                            console.log('Authed', id, 'in', time, 's');
+
+                            var timeoutMinutes = ok ?
+                                config.auth.cacheMinutes.good :
+                                config.auth.cacheMinutes.bad;
+
+                            setTimeout(() => {
+                                delete auths[id][resource];
+                                if (!Object.keys(auths[id]).length) {
+                                    delete auths[id];
+                                }
+                            }, timeoutMinutes * 60000);
+
+                            if (ok) resolve();
+                            else reject(code);
+                        }));
+                    });
+                }
+
+                auths[id][resource].then(() => next())
+                .catch((statusCode) => res.status(statusCode).send());
+            });
+        }
+
+        app.get('/resource/:resource(*)/info', function(req, res) {
+            controller.info(req.params.resource, function(err, data) {
+                if (err) return res.status(err.code || 500).json(err.message);
+                else return res.json(data);
             });
         });
 
-        app.get('/pipeline/:pipeline/schema', function(req, res) {
-            controller.schema(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'schema'));
-            });
-        });
+        app.get('/resource/:resource(*)/read', function(req, res) {
+            // Terminate query on socket hangup.
+            var keepGoing = true;
+            req.on('close', () => keepGoing = false);
 
-        app.get('/pipeline/:pipeline/stats', function(req, res) {
-            controller.stats(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'stats'));
-            });
-        });
+            controller.read(
+                req.params.resource,
+                req.query,
+                function(err) {
+                    if (err) return res.json(err.code || 500, err.message);
+                    res.header('Content-Type', 'application/octet-stream');
+                },
+                function(err, data, done) {
+                    if (err) {
+                        console.error('Encountered data error');
+                        return res.status(err.code || 500).json(err.message);
+                    }
 
-        app.get('/pipeline/:pipeline/srs', function(req, res) {
-            controller.srs(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'srs'));
-            });
-        });
+                    res.write(data);
+                    if (done) res.end();
 
-        app.get('/pipeline/:pipeline/fills', function(req, res) {
-            controller.fills(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'fills'));
-            });
-        });
-
-        app.post('/pipeline/:pipeline/serialize', function(req, res) {
-            controller.serialize(req.params.pipeline, function(err, data) {
-                res.json(extend(err, data, 'serialize'));
-            });
-        });
-
-        app.delete('/pipeline/:pipeline/readId/:readId', function(req, res) {
-            controller.cancel(
-                req.params.pipeline,
-                req.params.readId,
-                function(err, data) {
-                    res.json(extend(err, data, 'cancel'));
+                    return keepGoing;
                 }
             );
         });
 
-        app.get('/pipeline/:pipeline/read', function(req, res) {
-            var params = req.query;
+        app.get('/resource/:resource(*)/hierarchy', function(req, res) {
+            var resource = req.params.resource;
+            var query = req.query;
 
-            objectify(params, 'bbox');
-            objectify(params, 'schema');
-            objectify(params, 'resolution');
-
-            controller.read(
-                req.params.pipeline,
-                params,
-                function(err, shRes) {
-                    if (err) return res.json(500, err);
-
-                    res.header('X-Greyhound-Num-Points', shRes.numPoints);
-                    res.header('X-Greyhound-Read-ID', shRes.readId);
-                    res.header('Content-Type', 'application/octet-stream');
-
-                    if (shRes.rasterMeta) {
-                        res.header(
-                            'X-Greyhound-Raster-Meta',
-                            JSON.stringify(shRes.rasterMeta));
-                    }
-                },
-                function(data) { res.write(data); },
-                function() { res.end(); }
-            );
+            controller.hierarchy(resource, query, (err, data) => {
+                if (err) return res.status(err.code || 500).json(err.message);
+                else return res.json(data);
+            });
         });
     }
 
-    module.exports.HttpHandler = HttpHandler;
+    module.exports.HttpHandler = HttpHandler
 })();
 

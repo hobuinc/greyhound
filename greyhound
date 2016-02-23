@@ -1,77 +1,22 @@
 #!/usr/bin/env bash
 
+LOGPATH=/var/log/supervisor/greyhound.log
+
 case $1 in
 start)
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        /etc/init.d/gh_fe start
-    fi
-    /etc/init.d/gh_cn start
-    /etc/init.d/gh_db start
-    /etc/init.d/gh_dist start
-    /etc/init.d/gh_sh start
-
-    if [ -e "/etc/init.d/gh_mongo" ]
-    then
-        /etc/init.d/gh_mongo start
-    fi
+    greyhound stop
+    supervisorctl start greyhound
     ;;
 stop)
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        /etc/init.d/gh_fe stop
-    fi
-    /etc/init.d/gh_cn stop
-    /etc/init.d/gh_db stop
-    /etc/init.d/gh_dist stop
-    /etc/init.d/gh_sh stop
-
-    if [ -e "/etc/init.d/gh_mongo" ]
-    then
-        /etc/init.d/gh_mongo stop
-    fi
-
-    echo -e "select 0\nflushdb" | redis-cli > /dev/null 2>&1;
+    supervisorctl stop greyhound
     ;;
-auto)
-    # Add auto-launch services.
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        update-rc.d gh_fe defaults 95 05
-    fi
-    update-rc.d gh_cn defaults 96 04
-    update-rc.d gh_db defaults 96 04
-    update-rc.d gh_dist defaults 96 04
-    update-rc.d gh_sh defaults 96 04
-
-    if [ -e "/etc/init.d/gh_mongo" ]
-    then
-        update-rc.d gh_mongo defaults 95 05
-    fi
+log)
+    touch $LOGPATH && tail -f $LOGPATH
     ;;
-rmauto)
-    # Remove all auto-launch services.
-    if [ -e "/etc/init.d/gh_fe" ]
-    then
-        update-rc.d -f gh_fe remove
-    fi
-    update-rc.d -f gh_cn remove
-    update-rc.d -f gh_db remove
-    update-rc.d -f gh_dist remove
-    update-rc.d -f gh_sh remove
-
-    if [ -e "/etc/init.d/gh_mongo" ]
-    then
-        update-rc.d -f gh_mongo remove
-    fi
-    ;;
-status)
-    for key in `echo "KEYS services/*" | redis-cli`; do
-        echo `echo "GET $key" | redis-cli`
-    done
+dockerstart)
+    supervisord -c /etc/supervisor/supervisord.conf
     ;;
 *)
-    echo "Usage: $0 {start|stop|auto|rmauto|status}" >&2
-
+    echo "Usage: $0 {start|stop|log}" >&2
 esac
 
