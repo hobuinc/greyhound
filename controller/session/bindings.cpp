@@ -286,6 +286,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     const auto& schemaArg   (args[i++]);
     const auto& compressArg (args[i++]);
     const auto& normalizeArg(args[i++]);
+    const auto& scaleArg    (args[i++]);
     const auto& queryArg    (args[i++]);
     const auto& initCbArg   (args[i++]);
     const auto& dataCbArg   (args[i++]);
@@ -296,6 +297,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
         errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
     if (!normalizeArg->IsBoolean()) errMsg += "\t'normalize' must be a boolean";
+    if (!scaleArg->IsNumber())      errMsg += "\t'scale' must be a number";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
     if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
@@ -307,6 +309,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
 
     const bool compress(compressArg->BooleanValue());
     const bool normalize(normalizeArg->BooleanValue());
+    const double scale(scaleArg->NumberValue());
     Local<Object> query(queryArg->ToObject());
 
     UniquePersistent<Function> initCb(
@@ -336,6 +339,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 schemaString,
                 compress,
                 normalize,
+                scale,
                 query,
                 std::move(initCb),
                 std::move(dataCb)));

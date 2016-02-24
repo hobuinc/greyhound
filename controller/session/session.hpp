@@ -69,6 +69,7 @@ public:
             const entwine::Schema& schema,
             bool compress,
             bool normalize,
+            double scale,
             const entwine::BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);

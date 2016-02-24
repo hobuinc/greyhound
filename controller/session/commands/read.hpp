@@ -28,6 +28,7 @@ public:
             ItcBufferPool& itcBufferPool,
             bool compress,
             bool normalize,
+            double scale,
             std::string schemaString,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
@@ -40,6 +41,7 @@ public:
             std::string schemaString,
             bool compress,
             bool normalize,
+            double scale,
             v8::Local<v8::Object> query,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
@@ -88,6 +90,7 @@ protected:
     std::shared_ptr<ItcBuffer> m_itcBuffer;
     const bool m_compress;
     const bool m_normalize;
+    const double m_scale;
     entwine::Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
@@ -126,6 +129,7 @@ public:
             ItcBufferPool& itcBufferPool,
             bool compress,
             bool normalize,
+            double scale,
             std::string schemaString,
             entwine::BBox bbox,
             std::size_t depthBegin,
