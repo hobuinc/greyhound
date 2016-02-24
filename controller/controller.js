@@ -108,11 +108,13 @@ console.log('Read paths:', paths);
         var normalize =
             query.hasOwnProperty('normalize') &&
             query.normalize.toLowerCase() == 'true';
+        var scale = query.hasOwnProperty('scale') ? parseFloat(query.scale) : 0;
 
         // Simplify our query decision tree for later.
         delete query.schema;
         delete query.compress;
         delete query.normalize;
+        delete query.scale;
 
         getSession(resource, function(err, session) {
             if (err) return onInit(err);
@@ -120,7 +122,8 @@ console.log('Read paths:', paths);
             var initCb = (err) => onInit(err);
             var dataCb = (err, data, done) => onData(err, data, done);
 
-            session.read(schema, compress, normalize, query, initCb, dataCb);
+            session.read(
+                schema, compress, normalize, scale, query, initCb, dataCb);
         });
     };
 
