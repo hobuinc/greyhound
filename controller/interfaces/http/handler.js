@@ -53,6 +53,7 @@ http.globalAgent.maxSockets = 1024;
         app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
+        app.use(cookieParser);
 
         app.use(function(req, res, next) {
             if (config.auth) {
