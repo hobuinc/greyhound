@@ -80,32 +80,14 @@ config.cn = {
     //
     // Authentication is not supported over the websocket interface.
     auth: {
-        // The cookie domain for Greyhound-specific session information.  If
-        // a different subdomain is expected to access Greyhound (for example
-        // renderer.my-domain.com talking to greyhound.my-domain.com), this
-        // should be considered here.
-        domain: '.my-domain.com',
+        // Greyhound will use the external application's session cookies for its
+        // session caching, and map this cookie to the auth server's response.
+        cookieName: 'my-application-session-id',
 
-        // Where to proxy Greyhound requests for authentication.  The
-        // authentication server should send a 2xx status code to allow access
-        // to this resource, or any other status if not.  An error status code
-        // will be returned to the client unmodified.
-        //
-        // Sample flow:
-        //          path: 'me.com/auth'
-        //
-        //  - Client requests greyhound-domain.com/resource/autzen/info
-        //  - Greyhound proxies request to me.com/auth/autzen
-        //  - If response is 2xx, user has access until 'good' auth timeout
-        //  - Otherwise, user is denied access until 'bad' auth timeout
-        //
-        //      Note that in this sample, me.com/auth would not receive any
-        //      cookies since Greyhound is on a different domain.  For methods
-        //      like basic auth this would be fine.
-        path: 'external-auth-server.my-domain.com/authenticate',
-
-        // Secret key to sign Greyhound session cookies.  Defaults to a UUIDv4.
-        secret: 'something to sign cookies A@jv9e$902jf9101!rji',
+        // True if the cookie is signed, otherwise false.  Greyhound will not
+        // inspect the cookie contents, so signed/encrypted cookies are fine.
+        // However, Greyhound does need to know if the cookie is signed or not.
+        signed: false,
 
         // Specify how long Greyhound caches responses for both successful and
         // unsuccessful authentication attempts.  If set to a number instead of
