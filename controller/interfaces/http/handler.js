@@ -53,7 +53,7 @@ http.globalAgent.maxSockets = 1024;
         app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
-        app.use(cookieParser);
+        app.use(cookieParser());
 
         app.use(function(req, res, next) {
             if (config.auth) {
@@ -78,11 +78,6 @@ http.globalAgent.maxSockets = 1024;
         if (this.port) {
             http.createServer(app).listen(this.port);
             console.log('HTTP server running on port', this.port);
-
-            if (config.auth) {
-                console.warn('Secure cookies disabled since HTTP is enabled');
-                console.log('Set http.port to null for secure cookies');
-            }
         }
 
         if (this.securePort) {
@@ -119,16 +114,13 @@ http.globalAgent.maxSockets = 1024;
                 res.status(200).end();
             });
 
-            app.use('/resource/:resource(*)/:call(info|read)',
+            app.use('/resource/:resource(*)/:call(info|read|hierarchy)',
                     function(req, res, next)
             {
-                var jar = config.auth.signed ? req.signedCookies : req.cookies;
-                var id = jar[config.auth.cookieName];
-
-                if (!id) res.status(401).send();
+                var id = req.cookies[config.auth.cookieName];
+                if (!id) return res.status(401).send();
 
                 var resource = req.params.resource;
-
                 if (!auths[id]) auths[id] = { };
 
                 if (!auths[id][resource]) {
