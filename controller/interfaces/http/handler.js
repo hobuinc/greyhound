@@ -70,16 +70,16 @@ http.globalAgent.maxSockets = 1024;
             next();
         });
 
-        if (httpConfig.enableStaticServe) registerStatic(app);
-        registerCommands(this.controller, app);
+        if (httpConfig.enableStaticServe) this.registerStatic(app);
+        this.registerCommands(app);
 
         if (this.port) {
-            if (!config.auth) {
-                http.createServer(app).listen(this.port);
-                console.log('HTTP server running on port', this.port);
-            }
-            else {
-                console.log('HTTP server disabled due to auth specification');
+            http.createServer(app).listen(this.port);
+            console.log('HTTP server running on port', this.port);
+
+            if (config.auth) {
+                console.warn('Secure cookies disabled since HTTP is enabled');
+                console.log('Set http.port to null for secure cookies');
             }
         }
 
@@ -89,7 +89,7 @@ http.globalAgent.maxSockets = 1024;
         }
     }
 
-    var registerStatic = function(app) {
+    HttpHandler.prototype.registerStatic = function(app) {
         app.set('views', __dirname + '/static/views');
         app.set('view engine', 'jade');
 
@@ -106,7 +106,9 @@ http.globalAgent.maxSockets = 1024;
         });
     };
 
-    var registerCommands = function(controller, app) {
+    HttpHandler.prototype.registerCommands = function(app) {
+        var controller = this.controller;
+
         if (config.auth) {
             console.log('Proxying auth requests to', config.auth.path);
             var auths = { };
@@ -116,7 +118,7 @@ http.globalAgent.maxSockets = 1024;
                     path: '/',
                     domain: config.auth.domain,
                     httpOnly: true,
-                    secure: true,
+                    secure: !this.port,
                     maxAge: 1000 * 60 * 60 * 24 * 365,
                 },
                 genid: () => uuid.v4(),
