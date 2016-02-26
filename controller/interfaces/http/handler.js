@@ -8,6 +8,7 @@ var
     session = require('express-session'),
     morgan = require('morgan'),
     bodyParser = require('body-parser'),
+    cookieParser = require('cookie-parser'),
     lessMiddleware = require('less-middleware'),
     request = require('request'),
     uuid = require('node-uuid'),
@@ -113,31 +114,6 @@ http.globalAgent.maxSockets = 1024;
             console.log('Proxying auth requests to', config.auth.path);
             var auths = { };
 
-            app.use(session({
-                cookie: {
-                    path: '/',
-                    domain: config.auth.domain,
-                    httpOnly: true,
-                    secure: !this.port,
-                    maxAge: 1000 * 60 * 60 * 24 * 365,
-                },
-                genid: () => uuid.v4(),
-                name: 'greyhound-user',
-                resave: false,
-                rolling: false,
-                saveUninitialized: false,
-                secret: config.auth.secret,
-                unset: 'keep'
-            }));
-
-            app.use(function(req, res, next) {
-                if (!req.session.greyhoundId) {
-                    req.session.greyhoundId = uuid.v4();
-                }
-
-                next();
-            });
-
             app.options('*', function(req, res) {
                 res.status(200).end();
             });
@@ -145,7 +121,11 @@ http.globalAgent.maxSockets = 1024;
             app.use('/resource/:resource(*)/:call(info|read)',
                     function(req, res, next)
             {
-                var id = req.session.greyhoundId;
+                var jar = config.auth.signed ? req.signedCookies : req.cookies;
+                var id = jar[config.auth.cookieName];
+
+                if (!id) res.status(401).send();
+
                 var resource = req.params.resource;
 
                 if (!auths[id]) auths[id] = { };
@@ -171,7 +151,7 @@ http.globalAgent.maxSockets = 1024;
 
                             var time = (new Date() - start) / 1000;
 
-                            console.log('Authed', id, 'in', time, 's');
+                            console.log('Authed', id, 'in', time, 's:', ok);
 
                             var timeoutMinutes = ok ?
                                 config.auth.cacheMinutes.good :
