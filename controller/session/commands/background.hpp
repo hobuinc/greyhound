@@ -15,6 +15,42 @@ static inline v8::Local<v8::String> toSymbol(
     return v8::String::NewFromUtf8(isolate, str.c_str());
 }
 
+static inline entwine::Point parsePoint(const v8::Local<v8::Value>& jsPoint)
+{
+    entwine::Point p(0, 0, 0);
+    if (!jsPoint->IsNull())
+    {
+        try
+        {
+            std::string pointStr(std::string(
+                        *v8::String::Utf8Value(jsPoint->ToString())));
+
+            Json::Reader reader;
+            Json::Value rawPoint;
+
+            reader.parse(pointStr, rawPoint, false);
+
+            if (rawPoint.isArray() && rawPoint.size() == 3)
+            {
+                p = entwine::Point(
+                        rawPoint[0].asDouble(),
+                        rawPoint[1].asDouble(),
+                        rawPoint[2].asDouble());
+            }
+            else
+            {
+                throw std::runtime_error("Invalid point");
+            }
+        }
+        catch (...)
+        {
+            std::cout << "Invalid point in query" << std::endl;
+        }
+    }
+
+    return p;
+}
+
 static inline entwine::BBox parseBBox(const v8::Local<v8::Value>& jsBBox)
 {
     entwine::BBox bbox;

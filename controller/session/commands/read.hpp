@@ -27,8 +27,8 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             bool compress,
-            bool normalize,
             double scale,
+            const entwine::Point& offset,
             std::string schemaString,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
@@ -40,8 +40,8 @@ public:
             ItcBufferPool& itcBufferPool,
             std::string schemaString,
             bool compress,
-            bool normalize,
             double scale,
+            const entwine::Point& offset,
             v8::Local<v8::Object> query,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
@@ -89,8 +89,8 @@ protected:
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
     const bool m_compress;
-    const bool m_normalize;
     const double m_scale;
+    const entwine::Point m_offset;
     entwine::Schema m_schema;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
@@ -128,8 +128,8 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             bool compress,
-            bool normalize,
             double scale,
+            const entwine::Point& offset,
             std::string schemaString,
             entwine::BBox bbox,
             std::size_t depthBegin,

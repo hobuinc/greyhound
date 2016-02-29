@@ -24,8 +24,8 @@ ReadCommand::ReadCommand(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const bool compress,
-        const bool normalize,
         const double scale,
+        const entwine::Point& offset,
         const std::string schemaString,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
@@ -33,8 +33,8 @@ ReadCommand::ReadCommand(
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
     , m_compress(compress)
-    , m_normalize(normalize)
     , m_scale(scale)
+    , m_offset(offset)
     , m_schema(schemaString.empty() ?
             session->schema() : entwine::Schema(schemaString))
     , m_numSent(0)
@@ -210,8 +210,8 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             session,
             itcBufferPool,
             compress,
-            false,              // No normalization for unindexed queries.
             0,
+            entwine::Point(),
             schemaString,
             std::move(initCb),
             std::move(dataCb))
@@ -221,8 +221,8 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         bool compress,
-        bool normalize,
         double scale,
+        const entwine::Point& offset,
         const std::string schemaString,
         entwine::BBox bbox,
         std::size_t depthBegin,
@@ -233,8 +233,8 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             session,
             itcBufferPool,
             compress,
-            normalize,
             scale,
+            offset,
             schemaString,
             std::move(initCb),
             std::move(dataCb))
@@ -253,8 +253,8 @@ void ReadCommandQuadIndex::query()
     m_readQuery = m_session->query(
             m_schema,
             m_compress,
-            m_normalize,
             m_scale,
+            m_offset,
             m_bbox,
             m_depthBegin,
             m_depthEnd);
@@ -266,8 +266,8 @@ ReadCommand* ReadCommand::create(
         ItcBufferPool& itcBufferPool,
         const std::string schemaString,
         bool compress,
-        bool normalize,
         double scale,
+        const entwine::Point& offset,
         v8::Local<v8::Object> query,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
@@ -320,8 +320,8 @@ ReadCommand* ReadCommand::create(
                     session,
                     itcBufferPool,
                     compress,
-                    normalize,
                     scale,
+                    offset,
                     schemaString,
                     bbox,
                     depthBegin,

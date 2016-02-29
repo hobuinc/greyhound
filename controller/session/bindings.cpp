@@ -285,8 +285,8 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     std::size_t i(0);
     const auto& schemaArg   (args[i++]);
     const auto& compressArg (args[i++]);
-    const auto& normalizeArg(args[i++]);
     const auto& scaleArg    (args[i++]);
+    const auto& offsetArg   (args[i++]);
     const auto& queryArg    (args[i++]);
     const auto& initCbArg   (args[i++]);
     const auto& dataCbArg   (args[i++]);
@@ -296,7 +296,6 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     if (!schemaArg->IsString() && !schemaArg->IsUndefined())
         errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
-    if (!normalizeArg->IsBoolean()) errMsg += "\t'normalize' must be a boolean";
     if (!scaleArg->IsNumber())      errMsg += "\t'scale' must be a number";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
@@ -308,8 +307,8 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 "");
 
     const bool compress(compressArg->BooleanValue());
-    const bool normalize(normalizeArg->BooleanValue());
     const double scale(scaleArg->NumberValue());
+    const entwine::Point offset(parsePoint(offsetArg));
     Local<Object> query(queryArg->ToObject());
 
     UniquePersistent<Function> initCb(
@@ -338,8 +337,8 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 obj->m_itcBufferPool,
                 schemaString,
                 compress,
-                normalize,
                 scale,
+                offset,
                 query,
                 std::move(initCb),
                 std::move(dataCb)));
