@@ -128,12 +128,18 @@ http.globalAgent.maxSockets = 1024;
                     var start = new Date();
 
                     auths[id][resource] = new Promise((resolve, reject) => {
+                        var jar = request.jar();
+                        var cookie = request.cookie(
+                            config.auth.cookieName + '=' + id);
+                        jar.setCookie(cookie, config.auth.path + resource);
+
                         var options = {
                             url: config.auth.path + resource,
-                            rejectUnauthorized: false
+                            rejectUnauthorized: false,
+                            jar: jar
                         };
 
-                        req.pipe(request(options, (err, authResponse) => {
+                        request(options, (err, authResponse) => {
                             if (err) {
                                 console.log('Auth proxy err:', err);
                                 return reject(500);
@@ -159,7 +165,7 @@ http.globalAgent.maxSockets = 1024;
 
                             if (ok) resolve();
                             else reject(code);
-                        }));
+                        });
                     });
                 }
 
