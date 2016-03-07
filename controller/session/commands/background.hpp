@@ -61,41 +61,10 @@ static inline entwine::BBox parseBBox(const v8::Local<v8::Value>& jsBBox)
                     *v8::String::Utf8Value(jsBBox->ToString())));
 
         Json::Reader reader;
-        Json::Value rawBounds;
+        Json::Value bounds;
 
-        reader.parse(bboxStr, rawBounds, false);
-
-        Json::Value json;
-        Json::Value& bounds(json["bounds"]);
-
-        if (rawBounds.size() == 4)
-        {
-            bounds.append(rawBounds[0].asDouble());
-            bounds.append(rawBounds[1].asDouble());
-            bounds.append(0);
-            bounds.append(rawBounds[2].asDouble());
-            bounds.append(rawBounds[3].asDouble());
-            bounds.append(0);
-
-            json["is3d"] = false;
-        }
-        else if (rawBounds.size() == 6)
-        {
-            bounds.append(rawBounds[0].asDouble());
-            bounds.append(rawBounds[1].asDouble());
-            bounds.append(rawBounds[2].asDouble());
-            bounds.append(rawBounds[3].asDouble());
-            bounds.append(rawBounds[4].asDouble());
-            bounds.append(rawBounds[5].asDouble());
-
-            json["is3d"] = true;
-        }
-        else
-        {
-            throw std::runtime_error("Invalid");
-        }
-
-        bbox = entwine::BBox(json);
+        reader.parse(bboxStr, bounds, false);
+        bbox = entwine::BBox(bounds);
     }
     catch (...)
     {
