@@ -99,7 +99,8 @@ bool Session::initialize(
             json["type"] = getTypeString(m_entwine->structure());
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_entwine->schema().toJson();
-            json["bounds"] = m_entwine->bbox().toJson()["bounds"];
+            json["bounds"] = m_entwine->bbox().toJson();
+            json["boundsConforming"] = m_entwine->bboxConforming().toJson();
             json["srs"] = m_entwine->srs();
             json["baseDepth"] =
                 static_cast<Json::UInt64>(
@@ -118,7 +119,7 @@ bool Session::initialize(
             json["type"] = "unindexed";
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_source->schema().toJson();
-            json["bounds"] = m_source->bbox().toJson()["bounds"];
+            json["bounds"] = m_source->bbox().toJson();
             json["srs"] = m_source->srs();
 
             m_info = json.toStyledString();
