@@ -3,14 +3,42 @@ process.title = 'greyhound';
 var console = require('clim')(),
     fs = require('fs'),
     path = require('path'),
-    config = (require('../config').cn || { }),
+    join = path.join,
+    minify = require('jsonminify'),
 
-    Controller = require('./controller').Controller,
-    WsHandler = require('./interfaces/ws/handler').WsHandler,
-    HttpHandler = require('./interfaces/http/handler').HttpHandler
+    Controller = require(join(__dirname, '/controller')).Controller,
+    WsHandler = require(join(__dirname, '/interfaces/ws/handler')).WsHandler,
+    HttpHandler = require(
+            join(__dirname, '/interfaces/http/handler')).HttpHandler,
+    configExists = (() => {
+        try { fs.accessSync(join(__dirname, '../config.json')); return true; }
+        catch (e) { return false; }
+    })(),
+    configPath = configExists ? '../config.json' : '../config.defaults.json',
+    config = (() => {
+        return JSON.parse(minify(fs.readFileSync(
+                    join(__dirname, configPath), { encoding: 'utf8' })));
+    })()
     ;
 
-var controller = new Controller();
+if (config.auth) {
+    var maybeAddSlashTo = (s) => s.slice(-1) == '/' ? s : s + '/';
+    config.auth.path = maybeAddSlashTo(config.auth.path);
+
+    if (typeof config.auth.cacheMinutes == 'number') {
+        config.auth.cacheMinutes = {
+            good: config.auth.cacheMinutes,
+            bad: config.auth.cacheMinutes
+        };
+    }
+
+    if (!config.auth.cacheMinutes.good) config.auth.cacheMinutes.good = 1;
+    if (!config.auth.cacheMinutes.bad)  config.auth.cacheMinutes.bad  = 1;
+}
+
+if (!configExists) console.log('Using default config');
+
+var controller = new Controller(config);
 
 process.nextTick(function() {
     if (config.ws && config.ws.port) {

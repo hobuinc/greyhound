@@ -44,8 +44,11 @@ install:
 	mkdir -p /var/greyhound
 	cp -R controller/ /var/greyhound
 	touch /var/log/supervisor/greyhound.log
-ifneq ("$(wildcard config.js)","")
-	cp config.js /var/greyhound/
+ifneq ("$(wildcard config.json)","")
+	cp config.json /var/greyhound/
+endif
+ifneq ("$(wildcard config.defaults.json)","")
+	cp config.defaults.json /var/greyhound/
 endif
 #
 # Copy launcher.

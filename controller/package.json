@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "dependencies": {
     "clim": "^1.0.0",
+    "jsonminify": "^0.4.1",
     "morgan": "^1.6.1"
   }
 }
