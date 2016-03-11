@@ -1,77 +1,75 @@
-var error = function(code, message) {
-    return { code: code, message: message };
-}
-
-var getTimeout = function(raw) {
-    if (raw != undefined && raw >= 0) return raw;
-    else return 30;
-}
-
 var console = require('clim')(),
     querystring = require('querystring'),
-
-    config = (require('../config').cn || { }),
-    paths = config.paths,
-    output = config.output,
-
-    chunkCacheSize = config.queryLimits.chunkCacheSize,
+    Session = require('./build/Release/session').Bindings,
     threads = Math.ceil(require('os').cpus().length * 1.2),
 
-    Session = require('./build/Release/session').Bindings,
-
     // resource name -> { session: session, accessed: Date }
-    resources = { },
-    timeoutMinutes = getTimeout(config.resourceTimeoutMinutes),
-    timeoutMs = timeoutMinutes * 60 * 1000
-    ;
-
-if (chunkCacheSize < 16) chunkCacheSize = 16;
-process.env.UV_THREADPOOL_SIZE = threads;
-
-console.log('Using');
-console.log('\tChunk cache size:', chunkCacheSize);
-console.log('\tLibuv threadpool size:', threads);
-
-var getSession = function(name, cb) {
-    var session;
-    var now = new Date();
-
-    if (resources[name]) {
-        session = resources[name].session;
-    }
-    else {
-        session = new Session();
-        resources[name] = { session: session };
-    }
-
-    resources[name].accessed = now;
-
-    // Call every time, even if this name was found in our session mapping, to
-    // ensure that initialization has finished before the session is used.
-    try {
-        session.create(name, paths, chunkCacheSize, function(err) {
-            if (err) {
-                console.warn(name, 'could not be created');
-                delete resources[name];
-            }
-
-            return cb(err, session);
-        });
-    }
-    catch (e) {
-        delete resources[name];
-        console.warn('Caught exception in CREATE:', e);
-
-        return cb(error(500, 'Unknown error during create'));
-    }
-};
-
-console.log('Read paths:', paths);
+    resources = { };
 
 (function() {
     'use strict';
 
-    var Controller = function() {
+    var Controller = function(config) {
+        this.config = config;
+
+        var error = function(code, message) {
+            return { code: code, message: message };
+        }
+
+        var getTimeout = function(raw) {
+            if (raw != undefined && raw >= 0) return raw;
+            else return 30;
+        }
+
+        var chunkCacheSize = config.queryLimits.chunkCacheSize;
+        var timeoutMinutes = getTimeout(config.resourceTimeoutMinutes);
+        var timeoutMs = timeoutMinutes * 60 * 1000;
+
+        if (chunkCacheSize < 16) chunkCacheSize = 16;
+        process.env.UV_THREADPOOL_SIZE = threads;
+
+        console.log('Using');
+        console.log('\tChunk cache size:', chunkCacheSize);
+        console.log('\tLibuv threadpool size:', threads);
+        console.log('Read paths:', this.config.paths);
+
+        this.getSession = (name, cb) => {
+            var session;
+            var now = new Date();
+
+            if (resources[name]) {
+                session = resources[name].session;
+            }
+            else {
+                session = new Session();
+                resources[name] = { session: session };
+            }
+
+            resources[name].accessed = now;
+
+            var paths = this.config.paths;
+
+            // Call every time, even if this name was found in our session
+            // mapping, to ensure that initialization has finished before the
+            // session is used.
+            try {
+                session.create(name, paths, chunkCacheSize, function(err) {
+                    if (err) {
+                        console.warn(name, 'could not be created');
+                        delete resources[name];
+                    }
+
+                    return cb(err, session);
+                });
+            }
+            catch (e) {
+                delete resources[name];
+                console.warn('Caught exception in CREATE:', e);
+
+                return cb(error(500, 'Unknown error during create'));
+            }
+        };
+
         var clean = () => {
             var now = new Date();
 
@@ -90,7 +88,7 @@ console.log('Read paths:', paths);
 
     Controller.prototype.info = function(resource, cb) {
         console.log('controller::info');
-        getSession(resource, function(err, session) {
+        this.getSession(resource, function(err, session) {
             if (err) return cb(err);
 
             try { return cb(null, JSON.parse(session.info())); }
@@ -117,7 +115,7 @@ console.log('Read paths:', paths);
         delete query.scale;
         delete query.offset;
 
-        getSession(resource, function(err, session) {
+        this.getSession(resource, function(err, session) {
             if (err) return onInit(err);
 
             var initCb = (err) => onInit(err);
@@ -131,7 +129,7 @@ console.log('Read paths:', paths);
     Controller.prototype.hierarchy = function(resource, query, cb) {
         console.log('controller::hierarchy');
 
-        getSession(resource, (err, session) => {
+        this.getSession(resource, (err, session) => {
             if (err) cb(err);
             else session.hierarchy(query, (err, string) => {
                 try { return cb(null, JSON.parse(string)); }

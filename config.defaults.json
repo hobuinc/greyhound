@@ -1,0 +1,15 @@
+{
+    "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 32 },
+    "paths": ["/opt/data"],
+    "resourceTimeoutMinutes": 30,
+    "http": {
+        "port": 80,
+        "enableStaticServe": true,
+        "headers": {
+            "Cache-Control":                  "public, max-age=300",
+            "Access-Control-Allow-Origin":    "*",
+            "Access-Control-Allow-Methods":   "GET,PUT,POST,DELETE"
+        }
+    }
+}
+

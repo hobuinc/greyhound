@@ -11,29 +11,7 @@ var
     cookieParser = require('cookie-parser'),
     lessMiddleware = require('less-middleware'),
     request = require('request'),
-    uuid = require('node-uuid'),
-
-    console = require('clim')(),
-
-    config = (require('../../../config').cn || { }),
-    httpConfig = (config ? config.http : { });
-
-if (config.auth) {
-    var maybeAddSlashTo = (s) => s.slice(-1) == '/' ? s : s + '/';
-    config.auth.path = maybeAddSlashTo(config.auth.path);
-
-    if (!config.auth.secret) config.auth.secret = uuid.v4();
-
-    if (typeof config.auth.cacheMinutes == 'number') {
-        config.auth.cacheMinutes = {
-            good: config.auth.cacheMinutes,
-            bad: config.auth.cacheMinutes
-        };
-    }
-
-    if (!config.auth.cacheMinutes.good) config.auth.cacheMinutes.good = 1;
-    if (!config.auth.cacheMinutes.bad)  config.auth.cacheMinutes.bad  = 1;
-}
+    console = require('clim')();
 
 http.globalAgent.maxSockets = 1024;
 
@@ -45,6 +23,8 @@ http.globalAgent.maxSockets = 1024;
         this.port = port;
         this.securePort = securePort;
         this.creds = creds;
+        this.config = this.controller.config;
+        this.httpConfig = this.config.http || { };
     }
 
     HttpHandler.prototype.start = function(creds) {
@@ -55,8 +35,9 @@ http.globalAgent.maxSockets = 1024;
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(cookieParser());
 
+        var self = this;
         app.use(function(req, res, next) {
-            if (config.auth) {
+            if (self.controller.config.auth) {
                 res.header(
                     'Access-Control-Allow-Headers',
                     'Content-Type, Authorization');
@@ -65,14 +46,14 @@ http.globalAgent.maxSockets = 1024;
                     'GET, OPTIONS');
             }
 
-            Object.keys(httpConfig.headers).map(function(key) {
-                res.header(key, httpConfig.headers[key]);
+            Object.keys(self.httpConfig.headers).map(function(key) {
+                res.header(key, self.httpConfig.headers[key]);
             });
             res.header('X-powered-by', 'Hobu, Inc.');
             next();
         });
 
-        if (httpConfig.enableStaticServe) this.registerStatic(app);
+        if (this.httpConfig.enableStaticServe) this.registerStatic(app);
         this.registerCommands(app);
 
         if (this.port) {
@@ -106,18 +87,19 @@ http.globalAgent.maxSockets = 1024;
     HttpHandler.prototype.registerCommands = function(app) {
         var controller = this.controller;
 
-        if (config.auth) {
-            console.log('Proxying auth requests to', config.auth.path);
+        if (this.config.auth) {
+            console.log('Proxying auth requests to', this.config.auth.path);
             var auths = { };
 
             app.options('*', function(req, res) {
                 res.status(200).end();
             });
 
+            var self = this;
             app.use('/resource/:resource(*)/:call(info|read|hierarchy)',
                     function(req, res, next)
             {
-                var id = req.cookies[config.auth.cookieName];
+                var id = req.cookies[self.config.auth.cookieName];
                 if (!id) return res.status(401).send();
 
                 var resource = req.params.resource;
@@ -130,11 +112,11 @@ http.globalAgent.maxSockets = 1024;
                     auths[id][resource] = new Promise((resolve, reject) => {
                         var jar = request.jar();
                         var cookie = request.cookie(
-                            config.auth.cookieName + '=' + id);
-                        jar.setCookie(cookie, config.auth.path + resource);
+                            self.config.auth.cookieName + '=' + id);
+                        jar.setCookie(cookie, self.config.auth.path + resource);
 
                         var options = {
-                            url: config.auth.path + resource,
+                            url: self.config.auth.path + resource,
                             rejectUnauthorized: false,
                             jar: jar
                         };
@@ -153,8 +135,8 @@ http.globalAgent.maxSockets = 1024;
                             console.log('Authed', id, 'in', time, 's:', ok);
 
                             var timeoutMinutes = ok ?
-                                config.auth.cacheMinutes.good :
-                                config.auth.cacheMinutes.bad;
+                                self.config.auth.cacheMinutes.good :
+                                self.config.auth.cacheMinutes.bad;
 
                             setTimeout(() => {
                                 delete auths[id][resource];

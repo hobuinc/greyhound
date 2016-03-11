@@ -1,6 +1,4 @@
-var config = { };
-
-config.cn = {
+{
     queryLimits: {
         // Maximum number of indexed chunks allowed to be fetched per query.
         // Smaller numbers result in faster query response times.  Must be no
@@ -109,7 +107,5 @@ config.cn = {
             bad: 1
         }
     }
-};
-
-module.exports = config;
+}
 

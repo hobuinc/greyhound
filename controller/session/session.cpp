@@ -146,10 +146,9 @@ std::string Session::hierarchy(
 {
     if (indexed())
     {
-        return m_entwine->hierarchy(
-                bbox,
-                depthBegin,
-                depthEnd).toStyledString();
+        Json::FastWriter writer;
+        return writer.write(
+                m_entwine->hierarchy(bbox, depthBegin, depthEnd));
     }
     else
     {
