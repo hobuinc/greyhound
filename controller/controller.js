@@ -12,7 +12,7 @@ var console = require('clim')(),
     var Controller = function(config) {
         this.config = config;
 
-        var error = function(code, message) {
+        this.error = function(code, message) {
             return { code: code, message: message };
         }
 
@@ -66,7 +66,7 @@ var console = require('clim')(),
                 delete resources[name];
                 console.warn('Caught exception in CREATE:', e);
 
-                return cb(error(500, 'Unknown error during create'));
+                return cb(this.error(500, 'Unknown error during create'));
             }
         };
 
@@ -92,7 +92,7 @@ var console = require('clim')(),
             if (err) return cb(err);
 
             try { return cb(null, JSON.parse(session.info())); }
-            catch (e) { return cb(error(500, 'Error parsing info')); }
+            catch (e) { return cb(this.error(500, 'Error parsing info')); }
         });
     };
 
@@ -132,8 +132,14 @@ var console = require('clim')(),
         this.getSession(resource, (err, session) => {
             if (err) cb(err);
             else session.hierarchy(query, (err, string) => {
-                try { return cb(null, JSON.parse(string)); }
-                catch (e) { return cb(error(500, 'Error parsing hierarchy')); }
+                try {
+                    return cb(null, JSON.parse(string));
+                }
+                catch (e) {
+                    return cb(this.error(
+                            500,
+                            'Error parsing hierarchy ' + string));
+                }
             });
         });
     }

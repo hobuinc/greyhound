@@ -60,7 +60,7 @@
 
     "ws": {
         // If null, no websocket interface will be supported.
-        "port": 8989,
+        "port": 8989
     },
 
     // Greyhound supports the use of an external authentication server to
