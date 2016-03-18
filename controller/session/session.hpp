@@ -70,7 +70,7 @@ public:
             bool compress,
             double scale,
             const entwine::Point& offset,
-            const entwine::BBox& bbox,
+            const entwine::BBox* bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 

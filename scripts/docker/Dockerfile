@@ -4,9 +4,9 @@ MAINTAINER Connor Manning <connor@hobu.co>
 ENV CC clang
 ENV CXX clang++
 
-RUN wget -qO- https://deb.nodesource.com/setup_4.x | bash -
-RUN apt-get install -y nodejs supervisor
-RUN rm -rf /var/lib/apt/lists/*
+RUN (wget -qO- https://deb.nodesource.com/setup_4.x | bash -) && \
+    apt-get install -y nodejs supervisor && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g node-gyp && npm update npm -g && npm cache clean
 

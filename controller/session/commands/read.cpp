@@ -224,7 +224,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         double scale,
         const entwine::Point& offset,
         const std::string schemaString,
-        entwine::BBox bbox,
+        std::unique_ptr<entwine::BBox> bbox,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::UniquePersistent<v8::Function> initCb,
@@ -238,7 +238,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             schemaString,
             std::move(initCb),
             std::move(dataCb))
-    , m_bbox(bbox)
+    , m_bbox(std::move(bbox))
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
 { }
@@ -255,7 +255,7 @@ void ReadCommandQuadIndex::query()
             m_compress,
             m_scale,
             m_offset,
-            m_bbox,
+            m_bbox.get(),
             m_depthBegin,
             m_depthEnd);
 }
@@ -305,16 +305,16 @@ ReadCommand* ReadCommand::create(
             query->Delete(depthSymbol);
         }
 
-        entwine::BBox bbox;
+        std::unique_ptr<entwine::BBox> bbox;
 
         if (query->HasOwnProperty(bboxSymbol))
         {
-            bbox = parseBBox(query->Get(bboxSymbol));
+            bbox.reset(new entwine::BBox(parseBBox(query->Get(bboxSymbol))));
         }
 
         query->Delete(bboxSymbol);
 
-        if (isEmpty(query) && bbox.exists())
+        if (isEmpty(query))
         {
             readCommand = new ReadCommandQuadIndex(
                     session,
@@ -323,7 +323,7 @@ ReadCommand* ReadCommand::create(
                     scale,
                     offset,
                     schemaString,
-                    bbox,
+                    std::move(bbox),
                     depthBegin,
                     depthEnd,
                     std::move(initCb),
