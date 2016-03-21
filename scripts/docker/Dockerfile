@@ -19,6 +19,8 @@ EXPOSE 80
 EXPOSE 443
 EXPOSE 8989
 
+CMD greyhound dockerstart && greyhound log
+
 # Sample invocation:
 #       docker run -it -p 80:80 -p 443:443 -p 8989:8989 \
 #           -v ~/greyhound/:/opt/greyhound \
