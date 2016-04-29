@@ -32,8 +32,8 @@ public:
     ~UnindexedReadQuery();
 
 private:
-    virtual bool readSome(ItcBuffer& buffer);
-    virtual uint64_t numPoints() const;
+    virtual bool readSome(ItcBuffer& buffer) override;
+    virtual uint64_t numPoints() const override;
 
     std::unique_ptr<pdal::Reader> m_reader;
     std::size_t m_numPoints;
