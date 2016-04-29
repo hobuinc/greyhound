@@ -10,6 +10,7 @@ RUN (wget -qO- https://deb.nodesource.com/setup_4.x | bash -) && \
 
 RUN npm install -g node-gyp && npm update npm -g && npm cache clean
 
+ADD http://www.timeapi.org/utc/now /tmp/bust-cache
 RUN git clone "https://github.com/hobu/greyhound.git" && \
     cd greyhound && \
     make && \

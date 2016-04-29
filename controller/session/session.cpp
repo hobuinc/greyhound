@@ -219,14 +219,21 @@ bool Session::resolveIndex(
 {
     for (std::string path : paths)
     {
+        std::string err;
+
         try
         {
             if (path.size() && path.back() != '/') path.push_back('/');
             arbiter::Endpoint endpoint(arbiter.getEndpoint(path + name));
             m_entwine.reset(new entwine::Reader(endpoint, arbiter, *cache));
         }
+        catch (const std::runtime_error& e)
+        {
+            err = e.what();
+        }
         catch (...)
         {
+            err = "unknown error";
             m_entwine.reset(0);
         }
 
@@ -238,7 +245,7 @@ bool Session::resolveIndex(
         }
         else
         {
-            std::cout << "fail" << std::endl;
+            std::cout << "fail - " << err << std::endl;
         }
     }
 
