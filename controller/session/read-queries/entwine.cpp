@@ -23,7 +23,7 @@ bool EntwineReadQuery::readSome(ItcBuffer& buffer)
     return m_query->done();
 }
 
-std::size_t EntwineReadQuery::numPoints() const
+std::uint64_t EntwineReadQuery::numPoints() const
 {
     return m_query->numPoints();
 }

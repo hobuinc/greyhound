@@ -21,8 +21,8 @@ public:
     ~EntwineReadQuery();
 
 private:
-    virtual bool readSome(ItcBuffer& buffer);
-    virtual std::size_t numPoints() const;
+    virtual bool readSome(ItcBuffer& buffer) override;
+    virtual uint64_t numPoints() const override;
 
     std::unique_ptr<entwine::Query> m_query;
 };
