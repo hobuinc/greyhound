@@ -48,7 +48,7 @@ public:
     bool initialize(
             const std::string& name,
             std::vector<std::string> paths,
-            std::shared_ptr<arbiter::Arbiter> arbiter,
+            std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache);
 
     // Returns stringified JSON response.
@@ -80,7 +80,7 @@ private:
     bool resolveIndex(
             const std::string& name,
             const std::vector<std::string>& paths,
-            arbiter::Arbiter& arbiter,
+            entwine::arbiter::Arbiter& arbiter,
             std::shared_ptr<entwine::Cache> cache);
 
     bool resolveSource(

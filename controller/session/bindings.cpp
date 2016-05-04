@@ -46,7 +46,7 @@ namespace
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
-    std::shared_ptr<arbiter::Arbiter> commonArbiter(0);
+    std::shared_ptr<entwine::arbiter::Arbiter> commonArbiter(0);
     std::shared_ptr<entwine::Cache> cache(0);
 
     std::vector<std::string> parsePathList(
@@ -90,7 +90,7 @@ namespace
 
         if (!commonArbiter)
         {
-            commonArbiter.reset(new arbiter::Arbiter());
+            commonArbiter.reset(new entwine::arbiter::Arbiter());
         }
     }
 }
