@@ -17,7 +17,7 @@ struct CreateData : public Background
             std::shared_ptr<Session> session,
             std::string name,
             const std::vector<std::string>& paths,
-            std::shared_ptr<arbiter::Arbiter> arbiter,
+            std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
             std::shared_ptr<entwine::Cache> cache,
             v8::UniquePersistent<v8::Function> callback)
         : session(session)
@@ -37,7 +37,7 @@ struct CreateData : public Background
     const std::shared_ptr<Session> session;
     const std::string name;
     const std::vector<std::string> paths;
-    std::shared_ptr<arbiter::Arbiter> arbiter;
+    std::shared_ptr<entwine::arbiter::Arbiter> arbiter;
     std::shared_ptr<entwine::Cache> cache;
 
     v8::UniquePersistent<v8::Function> callback;

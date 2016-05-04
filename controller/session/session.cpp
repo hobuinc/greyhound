@@ -82,7 +82,7 @@ Session::~Session()
 bool Session::initialize(
         const std::string& name,
         std::vector<std::string> paths,
-        std::shared_ptr<arbiter::Arbiter> arbiter,
+        std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
         std::shared_ptr<entwine::Cache> cache)
 {
     m_initOnce.ensure([this, &name, &paths, cache, arbiter]()
@@ -214,7 +214,7 @@ const entwine::Schema& Session::schema() const
 bool Session::resolveIndex(
         const std::string& name,
         const std::vector<std::string>& paths,
-        arbiter::Arbiter& arbiter,
+        entwine::arbiter::Arbiter& arbiter,
         std::shared_ptr<entwine::Cache> cache)
 {
     for (std::string path : paths)
@@ -224,7 +224,8 @@ bool Session::resolveIndex(
         try
         {
             if (path.size() && path.back() != '/') path.push_back('/');
-            arbiter::Endpoint endpoint(arbiter.getEndpoint(path + name));
+            entwine::arbiter::Endpoint endpoint(
+                    arbiter.getEndpoint(path + name));
             m_entwine.reset(new entwine::Reader(endpoint, arbiter, *cache));
         }
         catch (const std::runtime_error& e)
