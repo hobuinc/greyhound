@@ -24,10 +24,5 @@ VOLUME /opt/data
 CMD greyhound dockerstart && greyhound log
 
 # Sample invocation:
-#       docker run -it -p 80:80 -p 443:443 -p 8989:8989 \
-#           -v ~/greyhound/:/opt/greyhound \
-#           greyhound \
-#               /bin/bash -c \
-#               "cp /opt/greyhound/config.js /var/greyhound/ && \
-#               greyhound dockerstart && greyhound log"
+#       docker run -it -p 8080:80 -v ~/greyhound:/opt/data connormanning/greyhound
 
