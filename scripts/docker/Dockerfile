@@ -19,6 +19,7 @@ RUN git clone "https://github.com/hobu/greyhound.git" && \
 EXPOSE 80
 EXPOSE 443
 EXPOSE 8989
+VOLUME /opt/data
 
 CMD greyhound dockerstart && greyhound log
 
