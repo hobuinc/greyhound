@@ -25,6 +25,7 @@ http.globalAgent.maxSockets = 1024;
         this.creds = creds;
         this.config = this.controller.config;
         this.httpConfig = this.config.http || { };
+        this.auths = { };
     }
 
     HttpHandler.prototype.start = function(creds) {
@@ -89,7 +90,6 @@ http.globalAgent.maxSockets = 1024;
 
         if (this.config.auth) {
             console.log('Proxying auth requests to', this.config.auth.path);
-            var auths = { };
 
             app.options('*', function(req, res) {
                 res.status(200).end();
@@ -99,17 +99,17 @@ http.globalAgent.maxSockets = 1024;
             app.use('/resource/:resource(*)/:call(info|read|hierarchy)',
                     function(req, res, next)
             {
-                var id = req.cookies[self.config.auth.cookieName];
-                if (!id) return res.status(401).send();
+                var id = req.cookies[self.config.auth.cookieName] || 'anon';
 
                 var resource = req.params.resource;
-                if (!auths[id]) auths[id] = { };
+                if (!self.auths[id]) self.auths[id] = { };
 
-                if (!auths[id][resource]) {
+                if (!self.auths[id][resource]) {
                     console.log('Authing', id);
                     var start = new Date();
 
-                    auths[id][resource] = new Promise((resolve, reject) => {
+                    self.auths[id][resource] = new Promise((resolve, reject) =>
+                    {
                         var jar = request.jar();
                         var cookie = request.cookie(
                             self.config.auth.cookieName + '=' + id);
@@ -139,9 +139,9 @@ http.globalAgent.maxSockets = 1024;
                                 self.config.auth.cacheMinutes.bad;
 
                             setTimeout(() => {
-                                delete auths[id][resource];
-                                if (!Object.keys(auths[id]).length) {
-                                    delete auths[id];
+                                delete self.auths[id][resource];
+                                if (!Object.keys(self.auths[id]).length) {
+                                    delete self.auths[id];
                                 }
                             }, timeoutMinutes * 60000);
 
@@ -151,7 +151,7 @@ http.globalAgent.maxSockets = 1024;
                     });
                 }
 
-                auths[id][resource].then(() => next())
+                self.auths[id][resource].then(() => next())
                 .catch((statusCode) => res.status(statusCode).send());
             });
         }
