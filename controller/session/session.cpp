@@ -82,14 +82,14 @@ Session::~Session()
 bool Session::initialize(
         const std::string& name,
         std::vector<std::string> paths,
-        std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
+        entwine::OuterScope& outerScope,
         std::shared_ptr<entwine::Cache> cache)
 {
-    m_initOnce.ensure([this, &name, &paths, cache, arbiter]()
+    m_initOnce.ensure([this, &name, &paths, &cache, &outerScope]()
     {
         std::cout << "Discovering " << name << std::endl;
 
-        if (resolveIndex(name, paths, *arbiter, cache))
+        if (resolveIndex(name, paths, outerScope, cache))
         {
             std::cout << "\tIndex for " << name << " found" << std::endl;
 
@@ -214,7 +214,7 @@ const entwine::Schema& Session::schema() const
 bool Session::resolveIndex(
         const std::string& name,
         const std::vector<std::string>& paths,
-        entwine::arbiter::Arbiter& arbiter,
+        entwine::OuterScope& outerScope,
         std::shared_ptr<entwine::Cache> cache)
 {
     for (std::string path : paths)
@@ -225,8 +225,8 @@ bool Session::resolveIndex(
         {
             if (path.size() && path.back() != '/') path.push_back('/');
             entwine::arbiter::Endpoint endpoint(
-                    arbiter.getEndpoint(path + name));
-            m_entwine.reset(new entwine::Reader(endpoint, arbiter, *cache));
+                    outerScope.getArbiterPtr()->getEndpoint(path + name));
+            m_entwine.reset(new entwine::Reader(endpoint, *cache, outerScope));
         }
         catch (const std::runtime_error& e)
         {

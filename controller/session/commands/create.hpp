@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/cache.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/outer-scope.hpp>
 
 #include "commands/background.hpp"
 
@@ -17,13 +17,13 @@ struct CreateData : public Background
             std::shared_ptr<Session> session,
             std::string name,
             const std::vector<std::string>& paths,
-            std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
+            entwine::OuterScope& outerScope,
             std::shared_ptr<entwine::Cache> cache,
             v8::UniquePersistent<v8::Function> callback)
         : session(session)
         , name(name)
         , paths(paths)
-        , arbiter(arbiter)
+        , outerScope(outerScope)
         , cache(cache)
         , callback(std::move(callback))
     { }
@@ -37,7 +37,7 @@ struct CreateData : public Background
     const std::shared_ptr<Session> session;
     const std::string name;
     const std::vector<std::string> paths;
-    std::shared_ptr<entwine::arbiter::Arbiter> arbiter;
+    entwine::OuterScope& outerScope;
     std::shared_ptr<entwine::Cache> cache;
 
     v8::UniquePersistent<v8::Function> callback;

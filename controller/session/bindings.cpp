@@ -15,6 +15,7 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
@@ -47,7 +48,7 @@ namespace
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
-    std::shared_ptr<entwine::arbiter::Arbiter> commonArbiter(0);
+    entwine::OuterScope outerScope;
     std::shared_ptr<entwine::Cache> cache(0);
 
     std::vector<std::string> parsePathList(
@@ -89,11 +90,11 @@ namespace
             cache.reset(new entwine::Cache(maxCacheSize));
         }
 
-        if (!commonArbiter)
+        if (!outerScope.getArbiterPtr())
         {
             if (a.empty())
             {
-                commonArbiter.reset(new entwine::arbiter::Arbiter());
+                outerScope.getArbiter();
             }
             else
             {
@@ -107,8 +108,8 @@ namespace
                             r.getFormattedErrorMessages());
                 }
 
-                std::cout << "Using custom arbiter configuration." << std::endl;
-                commonArbiter.reset(new entwine::arbiter::Arbiter(json));
+                std::cout << "Using custom arbiter configuration" << std::endl;
+                outerScope.getArbiter(json);
             }
         }
     }
@@ -233,7 +234,7 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
             obj->m_session,
             name,
             paths,
-            commonArbiter,
+            outerScope,
             cache,
             std::move(callback));
 
@@ -249,7 +250,7 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
                 if (!createData->session->initialize(
                         createData->name,
                         createData->paths,
-                        createData->arbiter,
+                        createData->outerScope,
                         createData->cache))
                 {
                     createData->status.set(404, "Not found");
