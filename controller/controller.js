@@ -24,6 +24,7 @@ var console = require('clim')(),
         var chunkCacheSize = config.queryLimits.chunkCacheSize;
         var timeoutMinutes = getTimeout(config.resourceTimeoutMinutes);
         var timeoutMs = timeoutMinutes * 60 * 1000;
+        var a = JSON.stringify(this.config.arbiter) || '';
 
         if (chunkCacheSize < 16) chunkCacheSize = 16;
         process.env.UV_THREADPOOL_SIZE = threads;
@@ -53,7 +54,7 @@ var console = require('clim')(),
             // mapping, to ensure that initialization has finished before the
             // session is used.
             try {
-                session.create(name, paths, chunkCacheSize, function(err) {
+                session.create(name, paths, chunkCacheSize, a, function(err) {
                     if (err) {
                         console.warn(name, 'could not be created');
                         delete resources[name];

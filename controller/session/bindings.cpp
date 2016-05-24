@@ -12,6 +12,7 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/third/json/json.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
@@ -77,7 +78,7 @@ namespace
 
     std::mutex initMutex;
 
-    void initConfigurable(std::size_t maxCacheSize)
+    void initConfigurable(std::size_t maxCacheSize, std::string a)
     {
         std::lock_guard<std::mutex> lock(initMutex);
 
@@ -90,7 +91,25 @@ namespace
 
         if (!commonArbiter)
         {
-            commonArbiter.reset(new entwine::arbiter::Arbiter());
+            if (a.empty())
+            {
+                commonArbiter.reset(new entwine::arbiter::Arbiter());
+            }
+            else
+            {
+                Json::Reader r;
+                Json::Value json;
+
+                if (!r.parse(a, json, false))
+                {
+                    throw std::runtime_error(
+                            "Bad arbiter config entry:" +
+                            r.getFormattedErrorMessages());
+                }
+
+                std::cout << "Using custom arbiter configuration." << std::endl;
+                commonArbiter.reset(new entwine::arbiter::Arbiter(json));
+            }
         }
     }
 }
@@ -167,16 +186,17 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
 
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    if (args.Length() != 4)
+    if (args.Length() != 5)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
 
     std::size_t i(0);
-    const auto& nameArg     (args[i++]);
-    const auto& pathsArg    (args[i++]);
-    const auto& cacheArg    (args[i++]);
-    const auto& cbArg       (args[i++]);
+    const auto& nameArg (args[i++]);
+    const auto& pathsArg(args[i++]);
+    const auto& cacheArg(args[i++]);
+    const auto& arbArg  (args[i++]);
+    const auto& cbArg   (args[i++]);
 
     std::string errMsg("");
 
@@ -203,8 +223,9 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
     const std::vector<std::string> paths(parsePathList(isolate, pathsArg));
     const std::size_t maxCacheSize(cacheArg->IntegerValue());
+    const std::string arbiterCfg(*v8::String::Utf8Value(arbArg->ToString()));
 
-    initConfigurable(maxCacheSize);
+    initConfigurable(maxCacheSize, arbiterCfg);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
