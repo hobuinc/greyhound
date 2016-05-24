@@ -14,17 +14,13 @@ namespace pdal
     class StageFactory;
 }
 
-namespace arbiter
-{
-    class Arbiter;
-}
-
 namespace entwine
 {
     class BBox;
     class Cache;
-    class Schema;
+    class OuterScope;
     class Reader;
+    class Schema;
 }
 
 class ReadQuery;
@@ -48,7 +44,7 @@ public:
     bool initialize(
             const std::string& name,
             std::vector<std::string> paths,
-            std::shared_ptr<entwine::arbiter::Arbiter> arbiter,
+            entwine::OuterScope& outerScope,
             std::shared_ptr<entwine::Cache> cache);
 
     // Returns stringified JSON response.
@@ -80,7 +76,7 @@ private:
     bool resolveIndex(
             const std::string& name,
             const std::vector<std::string>& paths,
-            entwine::arbiter::Arbiter& arbiter,
+            entwine::OuterScope& outerScope,
             std::shared_ptr<entwine::Cache> cache);
 
     bool resolveSource(
