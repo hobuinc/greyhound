@@ -11,7 +11,7 @@ A simple [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer
 
 # How to hack?
 
-TODO Docker instructions.
+For now, see the usage instructions in the [entwine repository](https://github.com/connormanning/entwine).
 
 # License
 _Greyhound_ is under **MIT** license and is Copyright [Howard Butler](http://hobu.co), [Uday Verma](https://github.com/verma), and [Connor Manning](https://github.com/connormanning).
