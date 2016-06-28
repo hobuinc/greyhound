@@ -1,7 +1,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <glob.h>   // TODO
+#include <glob.h>
 
 #include <pdal/StageFactory.hpp>
 
@@ -10,7 +10,8 @@
 #include <entwine/reader/reader.hpp>
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/executor.hpp>
@@ -23,7 +24,6 @@
 
 namespace
 {
-    // TODO Put this somewhere else - platform dependent code.
     std::vector<std::string> resolve(
             const std::vector<std::string>& dirs,
             const std::string& name)
@@ -94,19 +94,19 @@ bool Session::initialize(
             std::cout << "\tIndex for " << name << " found" << std::endl;
 
             Json::Value json;
-            const std::size_t numPoints(m_entwine->numPoints());
+            const entwine::Metadata& metadata(m_entwine->metadata());
 
-            json["type"] = getTypeString(m_entwine->structure());
+            const std::size_t numPoints(
+                    metadata.manifest().pointStats().inserts());
+
+            json["type"] = getTypeString(metadata.structure());
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
-            json["schema"] = m_entwine->schema().toJson();
-            json["bounds"] = m_entwine->bbox().toJson();
-            json["boundsConforming"] = m_entwine->bboxConforming().toJson();
-            json["srs"] = m_entwine->srs();
-            json["baseDepth"] =
-                static_cast<Json::UInt64>(
-                    m_entwine->structure().baseIndexSpan() ?
-                        m_entwine->structure().baseDepthBegin() :
-                        m_entwine->structure().coldDepthBegin());
+            json["schema"] = metadata.schema().toJson();
+            json["bounds"] = metadata.bounds().toJson();
+            json["boundsConforming"] = metadata.boundsConforming().toJson();
+            json["srs"] = metadata.srs();
+            json["baseDepth"] = static_cast<Json::UInt64>(
+                    metadata.structure().nullDepthEnd());
 
             m_info = json.toStyledString();
         }
@@ -119,7 +119,7 @@ bool Session::initialize(
             json["type"] = "unindexed";
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = m_source->schema().toJson();
-            json["bounds"] = m_source->bbox().toJson();
+            json["bounds"] = m_source->bounds().toJson();
             json["srs"] = m_source->srs();
 
             m_info = json.toStyledString();
@@ -140,7 +140,7 @@ std::string Session::info() const
 }
 
 std::string Session::hierarchy(
-        const entwine::BBox& bbox,
+        const entwine::Bounds& bounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
@@ -148,7 +148,7 @@ std::string Session::hierarchy(
     {
         Json::FastWriter writer;
         return writer.write(
-                m_entwine->hierarchy(bbox, depthBegin, depthEnd));
+                m_entwine->hierarchy(bounds, depthBegin, depthEnd));
     }
     else
     {
@@ -179,7 +179,7 @@ std::shared_ptr<ReadQuery> Session::query(
         const bool compress,
         const double scale,
         const entwine::Point& offset,
-        const entwine::BBox* bbox,
+        const entwine::Bounds* bounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -191,7 +191,7 @@ std::shared_ptr<ReadQuery> Session::query(
                     compress,
                     m_entwine->query(
                         schema,
-                        bbox ? *bbox : m_entwine->bbox(),
+                        bounds ? *bounds : m_entwine->metadata().bounds(),
                         depthBegin,
                         depthEnd,
                         scale,
@@ -207,7 +207,7 @@ const entwine::Schema& Session::schema() const
 {
     check();
 
-    if (indexed()) return m_entwine->schema();
+    if (indexed()) return m_entwine->metadata().schema();
     else return m_source->schema();
 }
 
@@ -226,7 +226,11 @@ bool Session::resolveIndex(
             if (path.size() && path.back() != '/') path.push_back('/');
             entwine::arbiter::Endpoint endpoint(
                     outerScope.getArbiterPtr()->getEndpoint(path + name));
-            m_entwine.reset(new entwine::Reader(endpoint, *cache, outerScope));
+            m_entwine.reset(
+                    new entwine::Reader(
+                        endpoint,
+                        *outerScope.getArbiter(),
+                        *cache));
         }
         catch (const std::runtime_error& e)
         {
@@ -257,6 +261,8 @@ bool Session::resolveSource(
         const std::string& name,
         const std::vector<std::string>& paths)
 {
+    return false;
+    /*
     const auto sources(resolve(paths, name));
 
     if (sources.size() > 1)
@@ -302,5 +308,6 @@ bool Session::resolveSource(
     }
 
     return sourced();
+    */
 }
 

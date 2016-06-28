@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 
 #include "status.hpp"
 
@@ -51,27 +51,27 @@ static inline entwine::Point parsePoint(const v8::Local<v8::Value>& jsPoint)
     return p;
 }
 
-static inline entwine::BBox parseBBox(const v8::Local<v8::Value>& jsBBox)
+static inline entwine::Bounds parseBounds(const v8::Local<v8::Value>& jsBounds)
 {
-    entwine::BBox bbox;
+    entwine::Bounds bounds;
 
     try
     {
-        std::string bboxStr(std::string(
-                    *v8::String::Utf8Value(jsBBox->ToString())));
+        std::string boundsStr(std::string(
+                    *v8::String::Utf8Value(jsBounds->ToString())));
 
         Json::Reader reader;
-        Json::Value bounds;
+        Json::Value json;
 
-        reader.parse(bboxStr, bounds, false);
-        bbox = entwine::BBox(bounds);
+        reader.parse(boundsStr, json, false);
+        bounds = entwine::Bounds(json);
     }
     catch (...)
     {
-        std::cout << "Invalid BBox in query." << std::endl;
+        std::cout << "Invalid Bounds in query." << std::endl;
     }
 
-    return bbox;
+    return bounds;
 }
 
 class Background

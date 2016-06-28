@@ -16,7 +16,7 @@ namespace pdal
 
 namespace entwine
 {
-    class BBox;
+    class Bounds;
     class Cache;
     class OuterScope;
     class Reader;
@@ -50,7 +50,7 @@ public:
     // Returns stringified JSON response.
     std::string info() const;
     std::string hierarchy(
-            const entwine::BBox& bbox,
+            const entwine::Bounds& bounds,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
@@ -66,7 +66,7 @@ public:
             bool compress,
             double scale,
             const entwine::Point& offset,
-            const entwine::BBox* bbox,
+            const entwine::Bounds* bounds,
             std::size_t depthBegin,
             std::size_t depthEnd);
 

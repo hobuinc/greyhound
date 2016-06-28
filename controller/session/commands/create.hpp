@@ -4,7 +4,6 @@
 #include <vector>
 
 #include <entwine/reader/cache.hpp>
-#include <entwine/types/bbox.hpp>
 #include <entwine/types/outer-scope.hpp>
 
 #include "commands/background.hpp"

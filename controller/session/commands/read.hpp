@@ -9,7 +9,7 @@
 #include <v8.h>
 
 #include <pdal/Dimension.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/schema.hpp>
 
 #include "commands/background.hpp"
@@ -131,7 +131,7 @@ public:
             double scale,
             const entwine::Point& offset,
             std::string schemaString,
-            std::unique_ptr<entwine::BBox> bbox,
+            std::unique_ptr<entwine::Bounds> bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
             v8::UniquePersistent<v8::Function> initCb,
@@ -140,7 +140,7 @@ public:
 protected:
     virtual void query();
 
-    const std::unique_ptr<entwine::BBox> m_bbox;
+    const std::unique_ptr<entwine::Bounds> m_bounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 };
