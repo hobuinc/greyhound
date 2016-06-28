@@ -4,7 +4,7 @@
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -34,21 +34,21 @@ SourceManager::SourceManager(
     , m_factoryMutex(factoryMutex)
     , m_options(new pdal::Options())
     , m_driver(driver)
-    , m_schema(new entwine::Schema())
-    , m_bbox()
+    , m_schema()
+    , m_bounds()
     , m_numPoints(0)
     , m_srs()
 {
     m_options->add(pdal::Option("filename", path));
 
-    entwine::Executor executor(true);
+    entwine::Executor executor;
 
     auto preview(executor.preview(path, nullptr));
     if (preview)
     {
         m_numPoints = preview->numPoints;
         m_srs = preview->srs;
-        m_bbox.reset(new entwine::BBox(preview->bbox));
+        m_bounds.reset(new entwine::Bounds(preview->bounds));
 
         entwine::DimList dims;
         for (const auto& name : preview->dimNames)

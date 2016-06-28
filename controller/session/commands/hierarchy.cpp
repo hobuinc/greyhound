@@ -8,12 +8,12 @@ using namespace v8;
 
 HierarchyCommand::HierarchyCommand(
         std::shared_ptr<Session> session,
-        const entwine::BBox& bbox,
+        const entwine::Bounds& bounds,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::UniquePersistent<v8::Function> cb)
     : m_session(session)
-    , m_bbox(bbox)
+    , m_bounds(bounds)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_cb(std::move(cb))
@@ -24,7 +24,7 @@ HierarchyCommand::~HierarchyCommand()
 
 void HierarchyCommand::run()
 {
-    m_result = m_session->hierarchy(m_bbox, m_depthBegin, m_depthEnd);
+    m_result = m_session->hierarchy(m_bounds, m_depthBegin, m_depthEnd);
 }
 
 HierarchyCommand* HierarchyCommand::create(
@@ -37,25 +37,25 @@ HierarchyCommand* HierarchyCommand::create(
 
     const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
     const auto depthEndSymbol(toSymbol(isolate, "depthEnd"));
-    const auto bboxSymbol(toSymbol(isolate, "bounds"));
+    const auto boundsSymbol(toSymbol(isolate, "bounds"));
 
     if (
             query->HasOwnProperty(depthBeginSymbol) &&
             query->HasOwnProperty(depthEndSymbol) &&
-            query->HasOwnProperty(bboxSymbol))
+            query->HasOwnProperty(boundsSymbol))
     {
         const std::size_t depthBegin(
                 query->Get(depthBeginSymbol)->Uint32Value());
         const std::size_t depthEnd(
                 query->Get(depthEndSymbol)->Uint32Value());
 
-        const entwine::BBox bbox(parseBBox(query->Get(bboxSymbol)));
+        const entwine::Bounds bounds(parseBounds(query->Get(boundsSymbol)));
 
-        if (bbox.exists())
+        if (bounds.exists())
         {
             command = new HierarchyCommand(
                     session,
-                    bbox,
+                    bounds,
                     depthBegin,
                     depthEnd,
                     std::move(cb));

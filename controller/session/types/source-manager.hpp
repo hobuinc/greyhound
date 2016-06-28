@@ -13,7 +13,7 @@ namespace pdal
 
 namespace entwine
 {
-    class BBox;
+    class Bounds;
     class Schema;
 }
 
@@ -30,7 +30,7 @@ public:
 
     std::size_t numPoints() const { return m_numPoints; }
     const entwine::Schema& schema() const { return *m_schema; }
-    const entwine::BBox& bbox() const { return *m_bbox; }
+    const entwine::Bounds& bounds() const { return *m_bounds; }
     const std::string& srs() const { return m_srs; }
 
 private:
@@ -40,7 +40,7 @@ private:
 
     std::string m_driver;
     std::unique_ptr<entwine::Schema> m_schema;
-    std::unique_ptr<entwine::BBox> m_bbox;
+    std::unique_ptr<entwine::Bounds> m_bounds;
     std::size_t m_numPoints;
     std::string m_srs;
 };

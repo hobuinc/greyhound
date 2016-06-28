@@ -13,7 +13,6 @@
 #include <entwine/reader/reader.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/json/json.hpp>
-#include <entwine/types/bbox.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point.hpp>
@@ -49,7 +48,7 @@ namespace
     std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
 
     entwine::OuterScope outerScope;
-    std::shared_ptr<entwine::Cache> cache(0);
+    std::shared_ptr<entwine::Cache> cache(nullptr);
 
     std::vector<std::string> parsePathList(
             Isolate* isolate,

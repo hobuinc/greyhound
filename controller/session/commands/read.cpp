@@ -224,7 +224,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         double scale,
         const entwine::Point& offset,
         const std::string schemaString,
-        std::unique_ptr<entwine::BBox> bbox,
+        std::unique_ptr<entwine::Bounds> bounds,
         std::size_t depthBegin,
         std::size_t depthEnd,
         v8::UniquePersistent<v8::Function> initCb,
@@ -238,7 +238,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             schemaString,
             std::move(initCb),
             std::move(dataCb))
-    , m_bbox(std::move(bbox))
+    , m_bounds(std::move(bounds))
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
 { }
@@ -255,7 +255,7 @@ void ReadCommandQuadIndex::query()
             m_compress,
             m_scale,
             m_offset,
-            m_bbox.get(),
+            m_bounds.get(),
             m_depthBegin,
             m_depthEnd);
 }
@@ -277,7 +277,7 @@ ReadCommand* ReadCommand::create(
     const auto depthSymbol(toSymbol(isolate, "depth"));
     const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
     const auto depthEndSymbol(toSymbol(isolate, "depthEnd"));
-    const auto bboxSymbol(toSymbol(isolate, "bounds"));
+    const auto boundsSymbol(toSymbol(isolate, "bounds"));
 
     if (
             query->HasOwnProperty(depthSymbol) ||
@@ -305,14 +305,15 @@ ReadCommand* ReadCommand::create(
             query->Delete(depthSymbol);
         }
 
-        std::unique_ptr<entwine::BBox> bbox;
+        std::unique_ptr<entwine::Bounds> bounds;
 
-        if (query->HasOwnProperty(bboxSymbol))
+        if (query->HasOwnProperty(boundsSymbol))
         {
-            bbox.reset(new entwine::BBox(parseBBox(query->Get(bboxSymbol))));
+            bounds.reset(
+                    new entwine::Bounds(parseBounds(query->Get(boundsSymbol))));
         }
 
-        query->Delete(bboxSymbol);
+        query->Delete(boundsSymbol);
 
         if (isEmpty(query))
         {
@@ -323,7 +324,7 @@ ReadCommand* ReadCommand::create(
                     scale,
                     offset,
                     schemaString,
-                    std::move(bbox),
+                    std::move(bounds),
                     depthBegin,
                     depthEnd,
                     std::move(initCb),

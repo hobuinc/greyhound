@@ -5,7 +5,7 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/Compression.hpp>
 
-#include <entwine/compression/stream.hpp>
+#include <entwine/util/compression.hpp>
 
 namespace entwine
 {
