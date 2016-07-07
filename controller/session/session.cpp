@@ -11,6 +11,7 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -24,6 +25,7 @@
 
 namespace
 {
+    /*
     std::vector<std::string> resolve(
             const std::vector<std::string>& dirs,
             const std::string& name)
@@ -47,6 +49,7 @@ namespace
 
         return results;
     }
+    */
 
     std::string getTypeString(const entwine::Structure& structure)
     {
@@ -104,7 +107,7 @@ bool Session::initialize(
             json["schema"] = metadata.schema().toJson();
             json["bounds"] = metadata.bounds().toJson();
             json["boundsConforming"] = metadata.boundsConforming().toJson();
-            json["srs"] = metadata.srs();
+            json["srs"] = metadata.format().srs();
             json["baseDepth"] = static_cast<Json::UInt64>(
                     metadata.structure().nullDepthEnd());
 
