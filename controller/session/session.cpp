@@ -229,11 +229,7 @@ bool Session::resolveIndex(
             if (path.size() && path.back() != '/') path.push_back('/');
             entwine::arbiter::Endpoint endpoint(
                     outerScope.getArbiterPtr()->getEndpoint(path + name));
-            m_entwine.reset(
-                    new entwine::Reader(
-                        endpoint,
-                        *outerScope.getArbiter(),
-                        *cache));
+            m_entwine.reset(new entwine::Reader(endpoint, *cache));
         }
         catch (const std::runtime_error& e)
         {
