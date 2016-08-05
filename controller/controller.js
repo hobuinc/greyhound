@@ -130,6 +130,10 @@ var console = require('clim')(),
     Controller.prototype.hierarchy = function(resource, query, cb) {
         console.log('controller::hierarchy');
 
+        query.vertical =
+            query.hasOwnProperty('vertical') &&
+            query.vertical.toLowerCase() == 'true';
+
         this.getSession(resource, (err, session) => {
             if (err) cb(err);
             else session.hierarchy(query, (err, string) => {
