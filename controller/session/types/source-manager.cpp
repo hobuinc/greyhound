@@ -53,7 +53,7 @@ SourceManager::SourceManager(
         entwine::DimList dims;
         for (const auto& name : preview->dimNames)
         {
-            const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
+            const pdal::Dimension::Id id(pdal::Dimension::id(name));
             dims.emplace_back(name, id, pdal::Dimension::defaultType(id));
         }
 
