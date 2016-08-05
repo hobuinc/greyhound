@@ -145,13 +145,14 @@ std::string Session::info() const
 std::string Session::hierarchy(
         const entwine::Bounds& bounds,
         const std::size_t depthBegin,
-        const std::size_t depthEnd) const
+        const std::size_t depthEnd,
+        const bool vertical) const
 {
     if (indexed())
     {
         Json::FastWriter writer;
         return writer.write(
-                m_entwine->hierarchy(bounds, depthBegin, depthEnd));
+                m_entwine->hierarchy(bounds, depthBegin, depthEnd, vertical));
     }
     else
     {

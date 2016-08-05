@@ -11,11 +11,14 @@ HierarchyCommand::HierarchyCommand(
         const entwine::Bounds& bounds,
         std::size_t depthBegin,
         std::size_t depthEnd,
+        bool vertical,
         v8::UniquePersistent<v8::Function> cb)
     : m_session(session)
     , m_bounds(bounds)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
+    , m_vertical(vertical)
+    , m_result()
     , m_cb(std::move(cb))
 { }
 
@@ -24,7 +27,11 @@ HierarchyCommand::~HierarchyCommand()
 
 void HierarchyCommand::run()
 {
-    m_result = m_session->hierarchy(m_bounds, m_depthBegin, m_depthEnd);
+    m_result = m_session->hierarchy(
+            m_bounds,
+            m_depthBegin,
+            m_depthEnd,
+            m_vertical);
 }
 
 HierarchyCommand* HierarchyCommand::create(
@@ -38,6 +45,7 @@ HierarchyCommand* HierarchyCommand::create(
     const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
     const auto depthEndSymbol(toSymbol(isolate, "depthEnd"));
     const auto boundsSymbol(toSymbol(isolate, "bounds"));
+    const auto verticalSymbol(toSymbol(isolate, "vertical"));
 
     if (
             query->HasOwnProperty(depthBeginSymbol) &&
@@ -51,6 +59,10 @@ HierarchyCommand* HierarchyCommand::create(
 
         const entwine::Bounds bounds(parseBounds(query->Get(boundsSymbol)));
 
+        const bool vertical(
+                query->HasOwnProperty(verticalSymbol) &&
+                query->Get(verticalSymbol)->BooleanValue());
+
         if (bounds.exists())
         {
             command = new HierarchyCommand(
@@ -58,6 +70,7 @@ HierarchyCommand* HierarchyCommand::create(
                     bounds,
                     depthBegin,
                     depthEnd,
+                    vertical,
                     std::move(cb));
         }
     }

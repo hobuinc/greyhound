@@ -52,7 +52,8 @@ public:
     std::string hierarchy(
             const entwine::Bounds& bounds,
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd,
+            bool vertical) const;
 
     // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(

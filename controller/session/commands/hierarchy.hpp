@@ -14,6 +14,7 @@ public:
             const entwine::Bounds& bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
+            bool vertical,
             v8::UniquePersistent<v8::Function> cb);
 
     virtual ~HierarchyCommand();
@@ -33,6 +34,7 @@ private:
     const entwine::Bounds m_bounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
+    const bool m_vertical;
 
     std::string m_result;
 
