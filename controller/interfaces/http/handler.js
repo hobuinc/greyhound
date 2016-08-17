@@ -152,18 +152,21 @@ http.globalAgent.maxSockets = 1024;
                 }
 
                 self.auths[id][resource].then(() => next())
-                .catch((statusCode) => res.status(statusCode).send());
+                .catch((statusCode) => next({
+                    code: statusCode,
+                    message: 'Authentication error'
+                }));
             });
         }
 
-        app.get('/resource/:resource(*)/info', function(req, res) {
+        app.get('/resource/:resource(*)/info', function(req, res, next) {
             controller.info(req.params.resource, function(err, data) {
-                if (err) return res.status(err.code || 500).json(err.message);
+                if (err) return next(err);
                 else return res.json(data);
             });
         });
 
-        app.get('/resource/:resource(*)/read', function(req, res) {
+        app.get('/resource/:resource(*)/read', function(req, res, next) {
             // Terminate query on socket hangup.
             var keepGoing = true;
             req.on('close', () => keepGoing = false);
@@ -172,14 +175,11 @@ http.globalAgent.maxSockets = 1024;
                 req.params.resource,
                 req.query,
                 function(err) {
-                    if (err) return res.json(err.code || 500, err.message);
-                    res.header('Content-Type', 'application/octet-stream');
+                    if (err) return next(err);
+                    else res.header('Content-Type', 'application/octet-stream');
                 },
                 function(err, data, done) {
-                    if (err) {
-                        console.error('Encountered data error');
-                        return res.status(err.code || 500).json(err.message);
-                    }
+                    if (err) return next(err);
 
                     res.write(data);
                     if (done) res.end();
@@ -189,14 +189,19 @@ http.globalAgent.maxSockets = 1024;
             );
         });
 
-        app.get('/resource/:resource(*)/hierarchy', function(req, res) {
+        app.get('/resource/:resource(*)/hierarchy', function(req, res, next) {
             var resource = req.params.resource;
             var query = req.query;
 
             controller.hierarchy(resource, query, (err, data) => {
-                if (err) return res.status(err.code || 500).json(err.message);
+                if (err) return next(err);
                 else return res.json(data);
             });
+        });
+
+        app.use(function(err, req, res, next) {
+            res.header('Cache-Control', 'public, max-age=10');
+            res.status(err.code || 500).json(err.message || 'Unknown error');
         });
     }
 
