@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <curl/curl.h>
+#include <json/json.h>
 
 #include <pdal/PointLayout.hpp>
 #include <pdal/StageFactory.hpp>
@@ -12,7 +13,6 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/json/json.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point.hpp>
@@ -93,6 +93,7 @@ namespace
         {
             if (a.empty())
             {
+                Json::Value json;
                 outerScope.getArbiter();
             }
             else

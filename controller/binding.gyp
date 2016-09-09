@@ -20,7 +20,7 @@
                 './session/util/once.cpp'
             ],
             'include_dirs': [
-                './session'
+                './session', '/usr/include/jsoncpp'
             ],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
             'cflags_cc!': [ '-fno-exceptions', '-fno-rtti' ],
@@ -55,7 +55,8 @@
                 'libraries': [
                     '-lpdalcpp',
                     '-lentwine',
-                    '-pthread'
+                    '-pthread',
+                    '-ljsoncpp'
                 ]
             }
         }

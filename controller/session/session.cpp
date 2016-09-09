@@ -3,12 +3,13 @@
 
 #include <glob.h>
 
+#include <json/json.h>
+
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/reader/reader.hpp>
-#include <entwine/third/json/json.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/format.hpp>
