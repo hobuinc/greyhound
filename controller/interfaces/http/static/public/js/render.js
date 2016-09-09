@@ -230,7 +230,7 @@
 
         // setup material to use vertex colors
         var material = new THREE.PointCloudMaterial(
-                { size: .1, vertexColors: true });
+                { size: 0.5, vertexColors: true });
 
         var particleSystem = new THREE.PointCloud(geometry, material);
         scene.add(particleSystem);

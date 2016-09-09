@@ -1,5 +1,5 @@
 all:
-	node-gyp rebuild
+	node-gyp build
 
 clean:
 	node-gyp clean
