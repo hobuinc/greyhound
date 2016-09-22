@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LOGPATH=/var/log/supervisor/greyhound.log
+LOGPATH=/var/log/greyhound.log
 
 case $1 in
 start)

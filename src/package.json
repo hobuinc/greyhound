@@ -1,0 +1,14 @@
+{
+  "name": "greyhound",
+  "private": true,
+  "gypfile": true,
+  "version": "0.0.1",
+  "dependencies": {
+    "clim": "^1.0.0",
+    "forever-monitor": "^1.7.0",
+    "http-handler": "file:./interfaces/http",
+    "jsonminify": "^0.4.1",
+    "minimist": "^1.2.0",
+    "morgan": "^1.6.1"
+  }
+}

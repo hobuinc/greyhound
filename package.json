@@ -1,5 +1,13 @@
 {
-  "name": "greyhound",
+  "name": "greyhound-server",
   "private": true,
-  "version": "0.0.1"
+  "version": "0.0.1",
+  "license": "MIT",
+  "engines": { "node": ">=4.0.0" },
+  "bin": {
+    "greyhound": "./node_modules/greyhound/forever.js"
+  },
+  "dependencies": {
+    "greyhound": "file:./src"
+  }
 }

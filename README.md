@@ -2,7 +2,7 @@
 
 A pointcloud querying and streaming framework over HTTP or websockets for the web and your native apps.
 
-![pointcloud](pointcloud.png)
+![pointcloud](doc/logo.png)
 
 # Tell me more
 _Greyhound_ is powered by [PDAL](http://www.pointcloud.org/) which handles data abstraction for a wide variety of formats.  See the [client documentation](https://github.com/hobu/greyhound/blob/master/doc/clientDevelopment.rst) and the [administrator documentation](https://github.com/hobu/greyhound/blob/master/doc/administration.rst) for more details on development and deployment.

@@ -34,7 +34,7 @@
         // Set to true to serve static files at /data/ for testing/verification.
         "enableStaticServe": true,
 
-        // HTTP headers to be applied to Greyhound responses.  Likely uses
+        // HTTP headers to be applied to Greyhound responses.  Likely use-cases
         // include CORS settings and cache control.
         "headers": {
             "Cache-Control":                  "public, max-age=86400",
@@ -56,11 +56,6 @@
 
         // If null, no HTTPS interface will be supported.
         "securePort": 443
-    },
-
-    "ws": {
-        // If null, no websocket interface will be supported.
-        "port": 8989
     },
 
     // Greyhound supports the use of an external authentication server to
