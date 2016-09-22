@@ -1,11 +1,8 @@
 *node_modules*
 npm-debug.log
 doc/*.pdf
-controller/build
+src/build
 *.gypi
 
 data/*
 !data/autzen.las
-!data/half-dome.laz
-!data/read.xml
-!data/half-dome.xml

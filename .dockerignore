@@ -1,3 +1,3 @@
-examples/*
+data/*
 *node_modules*
-controller/build/*
+src/build/*
