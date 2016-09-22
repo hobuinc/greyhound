@@ -3,14 +3,5 @@
   "private": true,
   "version": "0.0.1",
   "dependencies": {
-    "bluebird": "^3.2.2",
-    "body-parser": "^1.14.2",
-    "cookie-parser": "^1.4.1",
-    "express": "^4.13.3",
-    "express-session": "^1.13.0",
-    "jade": "^1.11.0",
-    "less-middleware": "^1.0.4",
-    "node-uuid": "^1.4.7",
-    "request": "^2.69.0"
   }
 }

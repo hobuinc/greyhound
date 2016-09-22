@@ -1,7 +1,7 @@
 *node_modules*
 npm-debug.log
 doc/*.pdf
-src/build
+build/*
 *.gypi
 
 data/*

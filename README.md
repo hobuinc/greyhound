@@ -1,10 +1,16 @@
 # GREYHOUND
 
-A pointcloud querying and streaming framework over HTTP or websockets for the web and your native apps.
+An HTTP point cloud streaming framework for dynamic web services and native applications.
 
 ![pointcloud](doc/logo.png)
 
-# Tell me more
+# Getting started
+```
+npm install -g greyhound-server
+```
+
+# About the project
+_Greyhound_ provides dynamic querying and streaming over HTTP of [Entwine](https://github.com/connormanning/entwine) indexed data.  See it in action at [speck.ly](http://speck.ly) and [potree.entwine.io](http://potree.entwine.io).
 _Greyhound_ is powered by [PDAL](http://www.pointcloud.org/) which handles data abstraction for a wide variety of formats.  See the [client documentation](https://github.com/hobu/greyhound/blob/master/doc/clientDevelopment.rst) and the [administrator documentation](https://github.com/hobu/greyhound/blob/master/doc/administration.rst) for more details on development and deployment.
 
 A simple [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer) HTTP protocol, or its equivalent [WebSocket](https://www.websocket.org/) interface, is used to query and stream points in a format specified by the client.

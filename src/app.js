@@ -10,7 +10,7 @@ var console = require('clim')(),
     argv = require('minimist')(process.argv.slice(2)),
 
     Controller = require('./controller').Controller,
-    HttpHandler = require('http-handler').HttpHandler,
+    HttpHandler = require('./interfaces/http').HttpHandler,
     configPath = (() => {
         if (argv.c) {
             console.log('Using config at', argv.c);

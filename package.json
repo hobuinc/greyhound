@@ -3,11 +3,25 @@
   "private": false,
   "version": "0.0.1",
   "license": "MIT",
+  "gypfile": true,
   "engines": { "node": ">=4.0.0" },
   "bin": {
-    "greyhound": "./node_modules/greyhound/forever.js"
+    "greyhound": "./src/forever.js"
   },
   "dependencies": {
-    "greyhound": "file:./src"
+    "bluebird": "^3.2.2",
+    "body-parser": "^1.14.2",
+    "clim": "^1.0.0",
+    "cookie-parser": "^1.4.1",
+    "express": "^4.13.3",
+    "express-session": "^1.13.0",
+    "forever-monitor": "^1.7.0",
+    "jade": "^1.11.0",
+    "jsonminify": "^0.4.1",
+    "less-middleware": "^1.0.4",
+    "minimist": "^1.2.0",
+    "morgan": "^1.6.1",
+    "node-uuid": "^1.4.7",
+    "request": "^2.69.0"
   }
 }

@@ -1,6 +1,6 @@
 var console = require('clim')(),
     querystring = require('querystring'),
-    Session = require('./build/Release/session').Bindings,
+    Session = require('../build/Release/session').Bindings,
     threads = Math.ceil(require('os').cpus().length * 1.2),
 
     // resource name -> { session: session, accessed: Date }
