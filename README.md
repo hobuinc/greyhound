@@ -27,7 +27,7 @@ greyhound
 
 ## Streaming some data
 
-Now, browse to http://speck.ly/?s=http://localhost:8080/&r=autzen or http://potree.entwine.io/data/custom.html?s=localhost:8080&r=autzen to view a small publicly hosted point cloud, served by your locally running Greyhound.
+Now, browse to [this Plasio link](http://speck.ly/?s=http://localhost:8080/&r=autzen) or [this Potree link](http://potree.entwine.io/data/custom.html?s=localhost:8080&r=autzen) to view a small publicly hosted point cloud, served by your locally running Greyhound from an HTTP backend.
 
 ## Using your own data
 
@@ -42,7 +42,7 @@ docker run -it -p 8080:8080 -v ~/greyhound:/opt/data connormanning/entwine \
     -o /opt/data/red-rocks
 ```
 
-You've just indexed a LAZ file from the internet (data credit to [DroneMapper](https://dronemapper.com/sample_data)) and created a local Entwine dataset.  It's sitting at `~/greyhound/red-rocks`.  Now let's start Greyhound and take a look at it, and we'll map that output directory into Greyhound's default search path at `/opt/data`:
+You've just indexed a LAZ file from the internet (data credit to [DroneMapper](https://dronemapper.com/sample_data)) and created a local Entwine dataset.  It's sitting at `~/greyhound/red-rocks`.  Now let's start Greyhound and take a look at the data.  We'll be mapping that output directory into Greyhound's default search path at `/opt/data`:
 
 ```bash
 docker run -it -p 8080:8080 -v ~/greyhound:/opt/data connormanning/greyhound
