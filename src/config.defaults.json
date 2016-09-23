@@ -1,6 +1,6 @@
 {
-    "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 32 },
-    "paths": ["/opt/data", "http://greyhound.io"],
+    "chunkCacheSize": 32,
+    "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
     "resourceTimeoutMinutes": 30,
     "http": {
         "port": 8080,

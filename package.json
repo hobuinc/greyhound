@@ -1,7 +1,7 @@
 {
   "name": "greyhound-server",
   "private": false,
-  "version": "0.0.1",
+  "version": "0.0.3",
   "license": "MIT",
   "gypfile": true,
   "engines": { "node": ">=4.0.0" },

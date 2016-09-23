@@ -1,103 +1,140 @@
 ===============================================================================
-Greyhound - Usage and Deployment
+Greyhound - Administration and Deployment
 ===============================================================================
 
 :author: Connor Manning
 :email: connor@hobu.co
-:date: 08/17/2015
+:date: 09/22/2016
 
 Overview
 ===============================================================================
 
-Greyhound is a server architecture that provides dynamic level-of-detail point cloud streaming.
+Greyhound is an HTTP server that provides dynamic level-of-detail point cloud streaming.
 
-Dependencies
+Docker installation
+===============================================================================
+
+Fetch the latest docker image:
+
+``docker pull connormanning/greyhound``
+
+Run the server:
+``docker run -it -p 8080:8080 connormanning/greyhound``
+
+Native installation
 ===============================================================================
 
 External Dependencies
 -------------------------------------------------------------------------------
 
-These dependencies must be installed separately and independently from Greyhound.
+These dependencies must be installed prior to installing Greyhound.
 
 Dependencies:
  - `PDAL`_ compiled with `LazPerf`_ compression enabled (``-DWITH_LAZPERF=ON``)
- - `Node.js`_ 10.29 or greater
- - `HAProxy`_ (optional - used for front-end proxy)
+ - `Node.js`_ 4.0 or greater
  - C++11 compiler
 
 .. _`PDAL`: http://www.pdal.io/index.html
 .. _`Node.js`: http://nodejs.org/
-.. _`Haproxy`: http://www.haproxy.org/
 .. _`LazPerf`: https://github.com/verma/laz-perf
 
-Global NPM Dependencies
+Installing
 -------------------------------------------------------------------------------
 
-NPM dependencies may be installed via the Node.js package manager "npm", which is included with an installation of Node.js.
+Native greyhound installation is accomplished via NPM.
 
-NPM dependencies:
- - ``node-gyp``
- - ``nodeunit`` (unit testing module - optional)
+``npm install -g greyhound-server``
 
-These packages may be installed after Node.js is installed with ``npm install -g node-gyp nodeunit``.  The ``-g`` flag specifies global installation.
+Then to run Greyhound with a default configuration, simply run ``greyhound``.
 
-Obtaining, Building, and Installing
+Hello world
 ===============================================================================
 
-Greyhound building and installation is accomplished via Makefile.
+With Greyhound running, browse to http://speck.ly/?s=http://localhost:8080/&r=autzen or http://potree.entwine.io/data/custom.html?s=localhost:8080&r=autzen to view a small publicly hosted point cloud served from your locally-running Greyhound server.
 
-Minimum installation steps:
- - ``git clone https://github.com/hobu/greyhound.git && cd greyhound``
- - ``make``
- - ``cp config.template.js config.js`` - then configure this file with your port, path, and caching settings
- - ``make install``
- - ``greyhound auto`` - register Greyhound as an init.d service for Ubuntu (optional)
- - ``greyhound start``
-
-Makefile targets
--------------------------------------------------------------------------------
-
-Targets:
- - ``required`` - Install NPM dependencies for each Greyhound component and build the C++ session handler.  This is the default ``make`` target.
- - ``all`` - Perform ``make required`` and then build the C++ examples.
- - ``cpp`` - Build the C++ controller via ``node-gyp``.
- - ``npm`` - Install NPM dependencies for each Greyhound component as specified by the ``package.json`` file of each component.
- - ``clean`` - Clean executables from the session-handler and C++ examples.
- - ``install`` - Copy necessary Greyhound libraries to ``/var/greyhound/`` and install the ``greyhound`` utility command into ``/usr/bin/``.
- - ``install PROXY=OFF`` - Install without proxy, so that the HTTP/WS services are accessible over different public ports.
- - ``uninstall`` - Remove all traces of Greyhound installation (including log files).
-
-Commanding Greyhound
--------------------------------------------------------------------------------
-
-A utility command called ``greyhound`` is provided with the Greyhound installation.  This command provides simple access to some common Greyhound tasks.  Commands are of the format ``greyhound <COMMAND>``
-
-Commands:
- - ``start`` - Launch all Greyhound ``init.d`` services (requires root).
- - ``stop`` - Stop all Greyhound ``init.d`` services (requires root).
- - ``status`` - Display running Greyhound services and each of their listening ports.
- - ``auto`` - An *Ubuntu-specific* command to register Greyhound services for auto-launch on boot.
- - ``rmauto`` - An *Ubuntu-specific* command to unregister Greyhound services from auto-launching.
-
-Logging
--------------------------------------------------------------------------------
-
-Greyhound logs are written to ``/var/log/greyhound/``.
-
-Internal Configuration
+Configuration
 ===============================================================================
 
-Configuration file
+Greyhound accepts a JSON configuration file at launch with the ``-c`` command line flag: ``greyhound -c /var/greyhound/config.json``.
+
+A simple configuration file might look like this:
+
+::
+
+    {
+        "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 64 },
+        "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
+        "resourceTimeoutMinutes": 30,
+        "http": {
+            "port": 8080,
+            "enableStaticServe": true,
+            "headers": {
+                "Cache-Control":                  "public, max-age=300",
+                "Access-Control-Allow-Origin":    "*",
+                "Access-Control-Allow-Methods":   "GET,PUT,POST,DELETE"
+            }
+        }
+    }
+
+Configuration settings
 -------------------------------------------------------------------------------
 
-After installation, Greyhound may be configured through a JavaScript configuration file located at ``/var/greyhound/config.js``.  This file specifies parameters for each individual Greyhound component, and the configuration is used by Greyhound at startup (so changes to this file require Greyhound to be relaunched).
+- ``chunkCacheSize``: The maximum number of chunks that may be held in Greyhound's cache.  If set to a value less than ``16``, then this value will be set to ``16``.  Larger values may allow Greyhound to be more responsive, but will use more memory.  Default: ``32``.
+- ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper dredentials exist) are supported.
+- ``resourceTimeoutMinutes``: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: ``30``.
+- ``http.port``: Port on which to listen for HTTP requests.  If ``null`` or missing, HTTP requests will be disabled.  Default: ``8080``.
+- ``http.securePort``: Port on which to listen for HTTPS requests.  If ``null`` or missing, HTTPS requests will be disabled.  If this value is specified, ``http.keyFile`` and ``http.certFile`` must also be present.  Default: ``undefined``.
+- ``http.keyFile``: Path to HTTPS key file.
+- ``http.certFile``: Path to HTTPS certificate file.
+- ``http.headers``: An object with string-to-string key-value pairs representing headers that will be placed on all outbound response data from Greyhound.  Common use-cases for this field are CORS headers and cache control.  Defaults to the values shown in the sample configuration above.
+- ``http.enableStaticServe``: If set to ``true``, a simple static viewer will be enabled to view the results of a single query.  Default: ``true``.
 
-Each component configuration allows a ``port`` value to be defined, on which the specified server component will listen.  If the frontend-proxy is used, then the ``port`` parameters specified in ``config.js`` do not need to be accessible via the outside world.  For more information on web server settings, and on public-facing port definitions, see `Front-end Proxy Settings`_.
-
-Front-end Proxy Settings
+Authentication settings
 -------------------------------------------------------------------------------
 
-The *front-end proxy* allows connections over a single port (e.g. 80) to be used for both HTTP and WebSocket interfaces.
+Greyhound supports the use of a cookie-based external authentication server to authenticate users to their requested resources before serving any data related to that resource.  This is achieved by asking an external authentication server for access to a resource based on some configured cookie name.
 
-The proxy is configured via ``/var/greyhound/frontend-proxy/haproxy.cfg``.  If used, the values for back-end ports much match those specified in ``config.js``, and the `frontend fe` binding is the only public-facing Greyhound port.
+This places some domain restrictions on your hosting.  This is because the relevant cookie will only be sent to Greyhound if Greyhound and the authentication server are on the same top-level domain, and that the cookie domain is set loosely enough to be sent to the Greyhound server.
+
+For the examples below, we'll assume that Greyhound is hosted at https://server.greyhound.io, and that the authentication server is https://auth.greyhound.io
+
+- ``auth.path``: A string URL to which Greyhound will proxy requests.  Greyhound will add ``/<resource>`` to this path when requesting authentication.  If a user requests a resource called ``the-moon``, with our example settings, the authentication request will be sent to ``https://hello.io/the-moon``.
+
+- ``auth.cookieName``: The name of the cookie used as a unique ID by the authentication server.  This may be a login token, unique ID, a special Greyhound identifier, and may even be a secure cookie.  Greyhound will forward this cookie in its request to the authentication server, and will cache this value to identify future requests in accordance with the authentication cache settings.
+
+- ``auth.cacheMinutes``: This field specifies the maximum amount of time, in minutes, that Greyhound should cache the authentication server response for each unique user.  If this field is a number, then both allow (``2xx``) and deny (all other) responses will be cached for this many minutes.  This field can also be set to an object with ``good`` and ``bad`` keys, which will specify separately the duration for which a successful response and an unsuccessful response may be cached.
+
+Examples
+===============================================================================
+
+Configuration with HTTP disabled, HTTPS enabled, and external authentication
+-------------------------------------------------------------------------------
+
+::
+
+    {
+        "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 64 },
+        "paths": ["s3://my-app/entwine/"],
+        "resourceTimeoutMinutes": 30,
+        "http": {
+            "port": null,
+            "enableStaticServe": true,
+            "headers": {
+                "Cache-Control":                  "public, max-age=300",
+                "Access-Control-Allow-Origin":    "greyhound.io",
+                "Access-Control-Allow-Methods":   "GET,PUT,POST,DELETE"
+            },
+            "securePort": 443,
+            "keyFile": "/opt/keys/greyhound-key.pem",
+            "certFile": "/opt/keys/greyhound-cert.pem"
+        },
+        "auth": {
+            "path": "https://auth.greyhound.io",
+            "cookieName": "greyhound-user-id",
+            "cacheMinutes": {
+                "good": 10,
+                "bad": 1
+            }
+        }
+    }
 
