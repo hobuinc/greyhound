@@ -1,10 +1,6 @@
 # GREYHOUND
 
-A point cloud streaming framework for dynamic web services and native applications.
-
-![pointcloud](https://github.com/hobu/greyhound/raw/tooling/doc/logo.png)
-
-You can see it in action with the dynamic [Plas.io](http://speck.ly) client at [speck.ly](http://speck.ly) and the [Potree](http://potree.org) client at [potree.entwine.io](http://potree.entwine.io).
+A point cloud streaming framework for dynamic web services and native applications.  See it in action with the dynamic [Plas.io](http://speck.ly) client at [speck.ly](http://speck.ly) and the [Potree](http://potree.org) client at [potree.entwine.io](http://potree.entwine.io).
 
 # Usage
 
@@ -36,7 +32,7 @@ Greyhound uses data indexed by [Entwine](https://entwine.io/).  See [the instruc
 ```bash
 docker pull connormanning/entwine
 mkdir ~/greyhound
-docker run -it -p 8080:8080 -v ~/greyhound:/opt/data connormanning/entwine \
+docker run -it -v ~/greyhound:/opt/data connormanning/entwine \
     entwine build \
     -i https://entwine.io/sample-data/red-rocks.laz \
     -o /opt/data/red-rocks
