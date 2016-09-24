@@ -1,8 +1,0 @@
-{
-  "name": "get-points",
-  "description": "An example program demonstrating how to request points",
-  "dependencies": {
-    "querystring": "^0.2.0",
-    "ws": "*"
-  }
-}

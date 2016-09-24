@@ -1,0 +1,59 @@
+body {
+	background-color: #050505;
+	font-family: 'Lucida Grande', Arial, serif;
+}
+
+.custom-message(@color) {
+	color: @color;
+	position: absolute;
+	left: 5px;
+	bottom: 5px;
+	font-weight: bold;
+	margin: 0;
+	font-size: 12px;
+	text-transform: uppercase;
+}
+
+.error {
+	.custom-message(rgb(100, 0, 0));
+}
+
+.message {
+	.custom-message(rgb(0, 150, 0));
+}
+
+#container {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	bottom: 0px;
+	right: 0px;
+}
+
+#logo {
+	position: absolute;
+	bottom: 5px;
+	right: 5px;
+	font-weight: bold;
+	font-size: 12px;
+	text-transform: uppercase;
+	color: #777;
+}
+
+#stats {
+	position: absolute;
+	top: 50px;
+	right: 15px;
+	font-weight: bold;
+
+	#fps {
+		color: #eee;
+		font-size: 35px;
+		text-align: right;
+	}
+	#pointCount {
+		color: #999;
+		text-align: right;
+		font-size: 15px;
+	}
+}
