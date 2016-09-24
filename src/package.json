@@ -1,0 +1,8 @@
+{
+  "name": "greyhound",
+  "private": true,
+  "gypfile": true,
+  "version": "0.0.1",
+  "dependencies": {
+  }
+}

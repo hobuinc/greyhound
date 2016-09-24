@@ -4,23 +4,23 @@
         {
             'target_name': 'session',
             'sources': [
-                './session/bindings.cpp',
-                './session/session.cpp',
+                './src/session/bindings.cpp',
+                './src/session/session.cpp',
 
-                './session/commands/read.cpp',
-                './session/commands/hierarchy.cpp',
+                './src/session/commands/read.cpp',
+                './src/session/commands/hierarchy.cpp',
 
-                './session/read-queries/base.cpp',
-                './session/read-queries/entwine.cpp',
-                './session/read-queries/unindexed.cpp',
+                './src/session/read-queries/base.cpp',
+                './src/session/read-queries/entwine.cpp',
+                './src/session/read-queries/unindexed.cpp',
 
-                './session/types/source-manager.cpp',
+                './src/session/types/source-manager.cpp',
 
-                './session/util/buffer-pool.cpp',
-                './session/util/once.cpp'
+                './src/session/util/buffer-pool.cpp',
+                './src/session/util/once.cpp'
             ],
             'include_dirs': [
-                './session', '/usr/include/jsoncpp'
+                './src/session', '/usr/include/jsoncpp'
             ],
             'cflags!':    [ '-fno-exceptions', '-fno-rtti' ],
             'cflags_cc!': [ '-fno-exceptions', '-fno-rtti' ],

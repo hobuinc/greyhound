@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 process.title = 'greyhound';
 
 var console = require('clim')(),
@@ -5,20 +7,22 @@ var console = require('clim')(),
     path = require('path'),
     join = path.join,
     minify = require('jsonminify'),
+    argv = require('minimist')(process.argv.slice(2)),
 
-    Controller = require(join(__dirname, '/controller')).Controller,
-    WsHandler = require(join(__dirname, '/interfaces/ws/handler')).WsHandler,
-    HttpHandler = require(
-            join(__dirname, '/interfaces/http/handler')).HttpHandler,
-    configExists = (() => {
-        try { fs.accessSync(join(__dirname, '../config.json')); return true; }
-        catch (e) { return false; }
+    Controller = require('./controller').Controller,
+    HttpHandler = require('./interfaces/http').HttpHandler,
+    configPath = (() => {
+        if (argv.c) {
+            console.log('Using config at', argv.c);
+            return argv.c;
+        }
+        else {
+            console.log('Using default config');
+            return join(__dirname, 'config.defaults.json');
+        }
     })(),
-    configPath = configExists ? '../config.json' : '../config.defaults.json',
-    config = (() => {
-        return JSON.parse(minify(fs.readFileSync(
-                    join(__dirname, configPath), { encoding: 'utf8' })));
-    })()
+    config = JSON.parse(minify(fs.readFileSync(
+                    configPath, { encoding: 'utf8' })))
     ;
 
 if (config.auth) {
@@ -36,16 +40,9 @@ if (config.auth) {
     if (!config.auth.cacheMinutes.bad)  config.auth.cacheMinutes.bad  = 1;
 }
 
-if (!configExists) console.log('Using default config');
-
 var controller = new Controller(config);
 
 process.nextTick(function() {
-    if (config.ws && config.ws.port) {
-        var wsHandler = new WsHandler(controller, config.ws.port);
-        wsHandler.start();
-    }
-
     if (config.http && (config.http.port || config.http.securePort)) {
         var http = config.http;
         var creds = null;

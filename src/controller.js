@@ -1,6 +1,6 @@
 var console = require('clim')(),
     querystring = require('querystring'),
-    Session = require('./build/Release/session').Bindings,
+    Session = require('../build/Release/session').Bindings,
     threads = Math.ceil(require('os').cpus().length * 1.2),
 
     // resource name -> { session: session, accessed: Date }
@@ -21,7 +21,7 @@ var console = require('clim')(),
             else return 30;
         }
 
-        var chunkCacheSize = config.queryLimits.chunkCacheSize;
+        var chunkCacheSize = config.chunkCacheSize;
         var timeoutMinutes = getTimeout(config.resourceTimeoutMinutes);
         var timeoutMs = timeoutMinutes * 60 * 1000;
         var a = JSON.stringify(this.config.arbiter) || '';
