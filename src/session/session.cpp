@@ -181,6 +181,7 @@ std::shared_ptr<ReadQuery> Session::query(
 
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
+        const Json::Value& filter,
         const bool compress,
         const double scale,
         const entwine::Point& offset,
@@ -196,6 +197,7 @@ std::shared_ptr<ReadQuery> Session::query(
                     compress,
                     m_entwine->query(
                         schema,
+                        filter,
                         bounds ? *bounds : m_entwine->metadata().bounds(),
                         depthBegin,
                         depthEnd,

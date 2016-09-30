@@ -64,6 +64,7 @@ public:
     // depths to search.
     std::shared_ptr<ReadQuery> query(
             const entwine::Schema& schema,
+            const Json::Value& filter,
             bool compress,
             double scale,
             const entwine::Point& offset,

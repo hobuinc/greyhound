@@ -1,3 +1,5 @@
+#include <limits>
+
 #include <node_buffer.h>
 
 #include <pdal/PointLayout.hpp>
@@ -5,6 +7,7 @@
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/json.hpp>
 
 #include "session.hpp"
 
@@ -27,6 +30,8 @@ ReadCommand::ReadCommand(
         const double scale,
         const entwine::Point& offset,
         const std::string schemaString,
+        const std::string filterString,
+        uv_loop_t* loop,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
     : m_session(session)
@@ -37,7 +42,10 @@ ReadCommand::ReadCommand(
     , m_offset(offset)
     , m_schema(schemaString.empty() ?
             session->schema() : entwine::Schema(schemaString))
+    , m_filter(filterString.empty() ?
+            Json::Value() : entwine::parse(filterString))
     , m_numSent(0)
+    , m_loop(loop)
     , m_initAsync(new uv_async_t())
     , m_dataAsync(new uv_async_t())
     , m_initCb(std::move(initCb))
@@ -74,7 +82,7 @@ ReadCommand::ReadCommand(
 
 ReadCommand::~ReadCommand()
 {
-    getBufferPool().release(getBuffer());
+    if (getBuffer()) getBufferPool().release(getBuffer());
 
     uv_handle_t* initAsync(reinterpret_cast<uv_handle_t*>(m_initAsync));
     uv_handle_t* dataAsync(reinterpret_cast<uv_handle_t*>(m_dataAsync));
@@ -96,13 +104,15 @@ ReadCommand::~ReadCommand()
 void ReadCommand::registerInitCb()
 {
     uv_async_init(
-        uv_default_loop(),
+        m_loop,
         m_initAsync,
         ([](uv_async_t* async)->void
         {
             Isolate* isolate(Isolate::GetCurrent());
             HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
+            std::cout << "Calling init CB " << readCommand->status.code() <<
+                std::endl;
 
             const unsigned argc = 1;
             Local<Value> argv[argc] =
@@ -125,7 +135,7 @@ void ReadCommand::registerInitCb()
 void ReadCommand::registerDataCb()
 {
     uv_async_init(
-        uv_default_loop(),
+        m_loop,
         m_dataAsync,
         ([](uv_async_t* async)->void
         {
@@ -136,7 +146,6 @@ void ReadCommand::registerDataCb()
             if (readCommand->status.ok())
             {
                 /*
-
                 Ideally we'd pass kgFunction as arg 4 of this callback,
                 allowing JS-land to asyncly call us as long as their keepGoing
                 logic is truthy.  For now we'll make JS return a value from
@@ -213,6 +222,8 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             0,
             entwine::Point(),
             schemaString,
+            "",
+            nullptr,
             std::move(initCb),
             std::move(dataCb))
 { }
@@ -224,9 +235,11 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         double scale,
         const entwine::Point& offset,
         const std::string schemaString,
+        const std::string filterString,
         std::unique_ptr<entwine::Bounds> bounds,
         std::size_t depthBegin,
         std::size_t depthEnd,
+        uv_loop_t* loop,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
     : ReadCommand(
@@ -236,6 +249,8 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
             scale,
             offset,
             schemaString,
+            filterString,
+            loop,
             std::move(initCb),
             std::move(dataCb))
     , m_bounds(std::move(bounds))
@@ -252,6 +267,7 @@ void ReadCommandQuadIndex::query()
 {
     m_readQuery = m_session->query(
             m_schema,
+            m_filter,
             m_compress,
             m_scale,
             m_offset,
@@ -265,10 +281,12 @@ ReadCommand* ReadCommand::create(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const std::string schemaString,
+        const std::string filterString,
         bool compress,
         double scale,
         const entwine::Point& offset,
         v8::Local<v8::Object> query,
+        uv_loop_t* loop,
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
 {
@@ -278,66 +296,66 @@ ReadCommand* ReadCommand::create(
     const auto depthBeginSymbol(toSymbol(isolate, "depthBegin"));
     const auto depthEndSymbol(toSymbol(isolate, "depthEnd"));
     const auto boundsSymbol(toSymbol(isolate, "bounds"));
+    const auto filterSymbol(toSymbol(isolate, "filter"));
 
-    if (
-            query->HasOwnProperty(depthSymbol) ||
-            query->HasOwnProperty(depthBeginSymbol) ||
-            query->HasOwnProperty(depthEndSymbol))
+    std::size_t depthBegin(
+            query->HasOwnProperty(depthBeginSymbol) ?
+                query->Get(depthBeginSymbol)->Uint32Value() : 0);
+
+    std::size_t depthEnd(
+            query->HasOwnProperty(depthEndSymbol) ?
+                query->Get(depthEndSymbol)->Uint32Value() : 0);
+
+    if (depthBegin || depthEnd)
     {
-        std::size_t depthBegin(
-                query->HasOwnProperty(depthBeginSymbol) ?
-                    query->Get(depthBeginSymbol)->Uint32Value() : 0);
-
-        std::size_t depthEnd(
-                query->HasOwnProperty(depthEndSymbol) ?
-                    query->Get(depthEndSymbol)->Uint32Value() : 0);
-
-        if (depthBegin || depthEnd)
-        {
-            query->Delete(depthBeginSymbol);
-            query->Delete(depthEndSymbol);
-        }
-        else if (query->HasOwnProperty(depthSymbol))
-        {
-            depthBegin = query->Get(depthSymbol)->Uint32Value();
-            depthEnd = depthBegin + 1;
-
-            query->Delete(depthSymbol);
-        }
-
-        std::unique_ptr<entwine::Bounds> bounds;
-
-        if (query->HasOwnProperty(boundsSymbol))
-        {
-            bounds.reset(
-                    new entwine::Bounds(parseBounds(query->Get(boundsSymbol))));
-        }
-
-        query->Delete(boundsSymbol);
-
-        if (isEmpty(query))
-        {
-            readCommand = new ReadCommandQuadIndex(
-                    session,
-                    itcBufferPool,
-                    compress,
-                    scale,
-                    offset,
-                    schemaString,
-                    std::move(bounds),
-                    depthBegin,
-                    depthEnd,
-                    std::move(initCb),
-                    std::move(dataCb));
-        }
+        query->Delete(depthBeginSymbol);
+        query->Delete(depthEndSymbol);
     }
-    else if (isEmpty(query))
+    else if (query->HasOwnProperty(depthSymbol))
     {
-        readCommand = new ReadCommandUnindexed(
+        depthBegin = query->Get(depthSymbol)->Uint32Value();
+        depthEnd = depthBegin + 1;
+
+        query->Delete(depthSymbol);
+    }
+
+    if (!depthEnd) depthEnd = std::numeric_limits<uint32_t>::max();
+
+    std::cout << "D: " << depthBegin << " - " << depthEnd << std::endl;
+
+    std::unique_ptr<entwine::Bounds> bounds;
+
+    if (query->HasOwnProperty(boundsSymbol))
+    {
+        bounds.reset(
+                new entwine::Bounds(parseBounds(query->Get(boundsSymbol))));
+    }
+
+    query->Delete(boundsSymbol);
+
+    if (query->HasOwnProperty(filterSymbol))
+    {
+        std::cout <<
+            std::string(
+                    *v8::String::Utf8Value(
+                        query->Get(filterSymbol)->ToString())) <<
+            std::endl;
+    }
+
+    if (isEmpty(query))
+    {
+        readCommand = new ReadCommandQuadIndex(
                 session,
                 itcBufferPool,
                 compress,
+                scale,
+                offset,
                 schemaString,
+                filterString,
+                std::move(bounds),
+                depthBegin,
+                depthEnd,
+                loop,
                 std::move(initCb),
                 std::move(dataCb));
     }
