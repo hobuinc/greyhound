@@ -306,6 +306,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
 
     std::size_t i(0);
     const auto& schemaArg   (args[i++]);
+    const auto& filterArg   (args[i++]);
     const auto& compressArg (args[i++]);
     const auto& scaleArg    (args[i++]);
     const auto& offsetArg   (args[i++]);
@@ -317,6 +318,8 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
 
     if (!schemaArg->IsString() && !schemaArg->IsUndefined())
         errMsg += "\t'schema' must be a string or undefined";
+    if (!filterArg->IsString() && !filterArg->IsUndefined())
+        errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
     if (!scaleArg->IsNumber())      errMsg += "\t'scale' must be a number";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
@@ -326,6 +329,11 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     const std::string schemaString(
             schemaArg->IsString() ?
                 *v8::String::Utf8Value(schemaArg->ToString()) :
+                "");
+
+    const std::string filterString(
+            filterArg->IsString() ?
+                *v8::String::Utf8Value(filterArg->ToString()) :
                 "");
 
     const bool compress(compressArg->BooleanValue());
@@ -352,18 +360,33 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
         return;
     }
 
-    ReadCommand* readCommand(
-            ReadCommand::create(
+    ReadCommand* readCommand(nullptr);
+
+    try
+    {
+        readCommand = ReadCommand::create(
                 isolate,
                 obj->m_session,
                 obj->m_itcBufferPool,
                 schemaString,
+                filterString,
                 compress,
                 scale,
                 offset,
                 query,
+                uv_default_loop(),
                 std::move(initCb),
-                std::move(dataCb)));
+                std::move(dataCb));
+    }
+    catch (std::runtime_error& e)
+    {
+        std::cout << "Could not create read command: " << e.what() << std::endl;
+    }
+    catch (...)
+    {
+        std::cout << "Could not create read command - unknown error" <<
+            std::endl;
+    }
 
     if (!readCommand) return;
 
@@ -390,14 +413,22 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 }
                 catch (entwine::InvalidQuery& e)
                 {
+                    std::cout << "Caught inv query: " << e.what() << std::endl;
                     readCommand->status.set(400, e.what());
                 }
                 catch (WrongQueryType& e)
                 {
+                    std::cout << "Caught wrong query: " << e.what() << std::endl;
+                    readCommand->status.set(400, e.what());
+                }
+                catch (std::runtime_error& e)
+                {
+                    std::cout << "Caught runtime: " << e.what() << std::endl;
                     readCommand->status.set(400, e.what());
                 }
                 catch (...)
                 {
+                    std::cout << "Caught unknown" << std::endl;
                     readCommand->status.set(500, "Error during query");
                 }
             });
@@ -405,7 +436,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
             // Call initial informative callback.  If status is no good, we're
             // done here - don't continue for data.
             readCommand->doCb(readCommand->initAsync());
-            if (!readCommand->status.ok()) { return; }
+            if (!readCommand->status.ok()) return;
 
             readCommand->safe([readCommand]()->void
             {

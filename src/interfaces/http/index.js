@@ -1,5 +1,6 @@
 var
     Promise = require('bluebird'),
+    _ = require('lodash'),
     fs = require('fs'),
     http = require('http'),
     https = require('https'),
@@ -14,6 +15,22 @@ var
     console = require('clim')();
 
 http.globalAgent.maxSockets = 1024;
+
+var colorCodes = {
+    black:      "\x1b[30m",
+    red:        "\x1b[31m",
+    green:      "\x1b[32m",
+    yellow:     "\x1b[33m",
+    blue:       "\x1b[34m",
+    magenta:    "\x1b[35m",
+    cyan:       "\x1b[36m",
+    white:      "\x1b[37m"
+};
+
+var colors = Object.keys(colorCodes).reduce((p, k) => {
+    p[k] = (s) => colorCodes[k] + s + "\x1b[0m";
+    return p;
+}, { });
 
 (function() {
     'use strict';
@@ -31,7 +48,7 @@ http.globalAgent.maxSockets = 1024;
     HttpHandler.prototype.start = function(creds) {
         var app = express();
 
-        app.use(morgan('dev'));
+        // app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(cookieParser());
@@ -169,20 +186,47 @@ http.globalAgent.maxSockets = 1024;
         app.get('/resource/:resource(*)/read', function(req, res, next) {
             // Terminate query on socket hangup.
             var keepGoing = true;
-            req.on('close', () => keepGoing = false);
+
+            var q = _.merge({ }, req.query);
+
+            req.on('close', () => {
+                console.log('Socket closed - aborting read');
+                keepGoing = false;
+            });
+
+            var start = new Date();
 
             controller.read(
                 req.params.resource,
                 req.query,
-                function(err) {
+                (err) => {
                     if (err) return next(err);
                     else res.header('Content-Type', 'application/octet-stream');
                 },
-                function(err, data, done) {
+                (err, data, done) => {
                     if (err) return next(err);
+                    if (!data.length) return keepGoing;
 
-                    res.write(data);
-                    if (done) res.end();
+                    setImmediate(() => {
+                        res.write(data);
+                        if (done) {
+                            res.end();
+                            var end = new Date();
+
+                            console.log(
+                                    '/' + req.params.resource + '/read:',
+                                    colors.cyan(200),
+                                    end - start, 'ms',
+                                    'B:', (q.bounds ? q.bounds : '[all]'),
+                                    'D: [' + (
+                                        q.depthBegin || q.depthEnd ?
+                                            q.depthBegin + ', ' + q.depthEnd :
+                                        q.depth ? q.depth :
+                                        'all'
+                                    ) + ')',
+                                    'F:', (q.filter ? q.filter : 'none'));
+                        }
+                    });
 
                     return keepGoing;
                 }
@@ -200,6 +244,7 @@ http.globalAgent.maxSockets = 1024;
         });
 
         app.use(function(err, req, res, next) {
+            console.log('Error handling:', err);
             res.header('Cache-Control', 'public, max-age=10');
             res.status(err.code || 500).json(err.message || 'Unknown error');
         });

@@ -27,8 +27,11 @@ void ReadQuery::read(ItcBuffer& buffer)
     buffer.resize(0);
     m_done = readSome(buffer);
 
-    std::cout << "Read " << buffer.size() << " bytes.  Done? " << m_done <<
-        std::endl;
+    if (buffer.size())
+    {
+        std::cout << "Read " << buffer.size() << " bytes.  Done? " << m_done <<
+            std::endl;
+    }
 
     if (compress())
     {

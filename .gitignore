@@ -2,6 +2,7 @@
 npm-debug.log
 doc/*.pdf
 src/build/*
+build/*
 *.gypi
 
 data/*

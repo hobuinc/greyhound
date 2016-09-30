@@ -30,6 +30,8 @@ public:
             double scale,
             const entwine::Point& offset,
             std::string schemaString,
+            std::string filterString,
+            uv_loop_t* loop,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
     virtual ~ReadCommand();
@@ -39,10 +41,12 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             std::string schemaString,
+            std::string filterString,
             bool compress,
             double scale,
             const entwine::Point& offset,
             v8::Local<v8::Object> query,
+            uv_loop_t* loop,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
 
@@ -92,9 +96,11 @@ protected:
     const double m_scale;
     const entwine::Point m_offset;
     entwine::Schema m_schema;
+    Json::Value m_filter;
     std::size_t m_numSent;
     std::shared_ptr<ReadQuery> m_readQuery;
 
+    uv_loop_t* m_loop;
     uv_async_t* m_initAsync;
     uv_async_t* m_dataAsync;
     v8::UniquePersistent<v8::Function> m_initCb;
@@ -131,9 +137,11 @@ public:
             double scale,
             const entwine::Point& offset,
             std::string schemaString,
+            std::string filterString,
             std::unique_ptr<entwine::Bounds> bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
+            uv_loop_t* loop,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
 
