@@ -4,7 +4,10 @@
   "version": "0.0.7",
   "license": "MIT",
   "gypfile": true,
-  "engines": { "node": ">=4.0.0" },
+  "repository": "hobu/greyhound",
+  "engines": {
+    "node": ">=4.0.0"
+  },
   "bin": {
     "greyhound": "./src/forever.js"
   },
@@ -19,6 +22,7 @@
     "jade": "^1.11.0",
     "jsonminify": "^0.4.1",
     "less-middleware": "^1.0.4",
+    "lodash": "^4.16.2",
     "minimist": "^1.2.0",
     "morgan": "^1.6.1",
     "node-uuid": "^1.4.7",

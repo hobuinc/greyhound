@@ -101,6 +101,7 @@ var console = require('clim')(),
         console.log('controller::read');
 
         var schema = query.schema;
+        var filter = query.filter;
         var compress =
             query.hasOwnProperty('compress') &&
             query.compress.toLowerCase() == 'true';
@@ -112,6 +113,7 @@ var console = require('clim')(),
 
         // Simplify our query decision tree for later.
         delete query.schema;
+        delete query.filter;
         delete query.compress;
         delete query.scale;
         delete query.offset;
@@ -123,7 +125,7 @@ var console = require('clim')(),
             var dataCb = (err, data, done) => onData(err, data, done);
 
             session.read(
-                schema, compress, scale, offset, query, initCb, dataCb);
+                schema, filter, compress, scale, offset, query, initCb, dataCb);
         });
     };
 
