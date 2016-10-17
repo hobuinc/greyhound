@@ -1,7 +1,7 @@
 {
   "name": "greyhound-server",
   "private": false,
-  "version": "0.0.8",
+  "version": "0.0.9",
   "license": "MIT",
   "gypfile": true,
   "repository": "hobu/greyhound",
@@ -9,7 +9,8 @@
     "node": ">=4.0.0"
   },
   "bin": {
-    "greyhound": "./src/forever.js"
+    "greyhound": "./src/forever.js",
+    "greyhound-solo": "./src/app.js"
   },
   "dependencies": {
     "bluebird": "^3.2.2",

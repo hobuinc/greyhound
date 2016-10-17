@@ -98,6 +98,8 @@ public:
         }
     }
 
+    virtual ~Background() { }
+
     Status status;
 };
 
