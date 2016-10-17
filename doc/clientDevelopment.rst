@@ -14,7 +14,7 @@ Greyhound is a dynamic point cloud server architecture that performs progressive
 Using Greyhound
 -------------------------------------------------------------------------------
 
-Greyhound's provides a simple HTTP and `WebSocket`_ interface to request information and data from remote point cloud resources.
+Greyhound's provides a simple HTTP interface to request information and data from remote point cloud resources.
 
 .. _`WebSocket`: http://en.wikipedia.org/wiki/WebSocket
 
