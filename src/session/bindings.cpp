@@ -321,7 +321,6 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     if (!filterArg->IsString() && !filterArg->IsUndefined())
         errMsg += "\t'schema' must be a string or undefined";
     if (!compressArg->IsBoolean())  errMsg += "\t'compress' must be a boolean";
-    if (!scaleArg->IsNumber())      errMsg += "\t'scale' must be a number";
     if (!queryArg->IsObject())      errMsg += "\tInvalid query type";
     if (!initCbArg->IsFunction())   throw std::runtime_error("Invalid initCb");
     if (!dataCbArg->IsFunction())   throw std::runtime_error("Invalid dataCb");
@@ -337,8 +336,24 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 "");
 
     const bool compress(compressArg->BooleanValue());
-    const double scale(scaleArg->NumberValue());
-    const entwine::Point offset(parsePoint(offsetArg));
+
+    std::unique_ptr<entwine::Point> scale;
+    std::unique_ptr<entwine::Point> offset;
+
+    if (!scaleArg->IsNull())
+    {
+        scale = entwine::makeUnique<entwine::Point>(parsePoint(scaleArg));
+
+        if (!scale->x) scale->x = 1;
+        if (!scale->y) scale->y = 1;
+        if (!scale->z) scale->z = 1;
+    }
+
+    if (!offsetArg->IsNull())
+    {
+        offset = entwine::makeUnique<entwine::Point>(parsePoint(offsetArg));
+    }
+
     Local<Object> query(queryArg->ToObject());
 
     UniquePersistent<Function> initCb(
@@ -371,8 +386,8 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                 schemaString,
                 filterString,
                 compress,
-                scale,
-                offset,
+                scale.get(),
+                offset.get(),
                 query,
                 uv_default_loop(),
                 std::move(initCb),

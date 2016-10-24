@@ -62,7 +62,8 @@ A simple configuration file might look like this:
 ::
 
     {
-        "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 64 },
+        "chunksPerQuery": 16,
+        "chunkCacheSize": 64,
         "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
         "resourceTimeoutMinutes": 30,
         "http": {
@@ -80,7 +81,7 @@ Configuration settings
 -------------------------------------------------------------------------------
 
 - ``chunkCacheSize``: The maximum number of chunks that may be held in Greyhound's cache.  If set to a value less than ``16``, then this value will be set to ``16``.  Larger values may allow Greyhound to be more responsive, but will use more memory.  Default: ``32``.
-- ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper dredentials exist) are supported.
+- ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper credentials exist) are supported.
 - ``resourceTimeoutMinutes``: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: ``30``.
 - ``http.port``: Port on which to listen for HTTP requests.  If ``null`` or missing, HTTP requests will be disabled.  Default: ``8080``.
 - ``http.securePort``: Port on which to listen for HTTPS requests.  If ``null`` or missing, HTTPS requests will be disabled.  If this value is specified, ``http.keyFile`` and ``http.certFile`` must also be present.  Default: ``undefined``.
@@ -113,7 +114,8 @@ Configuration with HTTP disabled, HTTPS enabled, and external authentication
 ::
 
     {
-        "queryLimits": { "chunksPerQuery": 16, "chunkCacheSize": 64 },
+        "chunksPerQuery": 16,
+        "chunkCacheSize": 64,
         "paths": ["s3://my-app/entwine/"],
         "resourceTimeoutMinutes": 30,
         "http": {

@@ -108,7 +108,7 @@ var console = require('clim')(),
         var normalize =
             query.hasOwnProperty('normalize') &&
             query.normalize.toLowerCase() == 'true';
-        var scale = query.hasOwnProperty('scale') ? parseFloat(query.scale) : 0;
+        var scale = query.hasOwnProperty('scale') ? query.scale : null;
         var offset = query.hasOwnProperty('offset') ? query.offset : null;
 
         // Simplify our query decision tree for later.

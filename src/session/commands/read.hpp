@@ -27,8 +27,8 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             bool compress,
-            double scale,
-            const entwine::Point& offset,
+            const entwine::Point* scale,
+            const entwine::Point* offset,
             std::string schemaString,
             std::string filterString,
             uv_loop_t* loop,
@@ -43,8 +43,8 @@ public:
             std::string schemaString,
             std::string filterString,
             bool compress,
-            double scale,
-            const entwine::Point& offset,
+            const entwine::Point* scale,
+            const entwine::Point* offset,
             v8::Local<v8::Object> query,
             uv_loop_t* loop,
             v8::UniquePersistent<v8::Function> initCb,
@@ -93,8 +93,8 @@ protected:
     ItcBufferPool& m_itcBufferPool;
     std::shared_ptr<ItcBuffer> m_itcBuffer;
     const bool m_compress;
-    const double m_scale;
-    const entwine::Point m_offset;
+    std::unique_ptr<entwine::Point> m_scale;
+    std::unique_ptr<entwine::Point> m_offset;
     entwine::Schema m_schema;
     Json::Value m_filter;
     std::size_t m_numSent;
@@ -134,8 +134,8 @@ public:
             std::shared_ptr<Session> session,
             ItcBufferPool& itcBufferPool,
             bool compress,
-            double scale,
-            const entwine::Point& offset,
+            const entwine::Point* scale,
+            const entwine::Point* offset,
             std::string schemaString,
             std::string filterString,
             std::unique_ptr<entwine::Bounds> bounds,

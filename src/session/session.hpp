@@ -53,7 +53,9 @@ public:
             const entwine::Bounds& bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool vertical) const;
+            bool vertical,
+            const entwine::Scale* scale,
+            const entwine::Offset* offset) const;
 
     // Read a full unindexed data set.
     std::shared_ptr<ReadQuery> query(
@@ -66,8 +68,8 @@ public:
             const entwine::Schema& schema,
             const Json::Value& filter,
             bool compress,
-            double scale,
-            const entwine::Point& offset,
+            const entwine::Point* scale,
+            const entwine::Point* offset,
             const entwine::Bounds* bounds,
             std::size_t depthBegin,
             std::size_t depthEnd);

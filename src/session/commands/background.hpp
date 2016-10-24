@@ -16,9 +16,11 @@ static inline v8::Local<v8::String> toSymbol(
     return v8::String::NewFromUtf8(isolate, str.c_str());
 }
 
-static inline entwine::Point parsePoint(const v8::Local<v8::Value>& jsPoint)
+static inline entwine::Point parsePoint(
+        const v8::Local<v8::Value>& jsPoint,
+        const entwine::Point defaultPoint = entwine::Point())
 {
-    entwine::Point p(0, 0, 0);
+    entwine::Point p(defaultPoint);
     if (!jsPoint->IsNull())
     {
         try
@@ -38,14 +40,20 @@ static inline entwine::Point parsePoint(const v8::Local<v8::Value>& jsPoint)
                         rawPoint[1].asDouble(),
                         rawPoint[2].asDouble());
             }
+            else if (rawPoint.isNumeric())
+            {
+                const double d(rawPoint.asDouble());
+                p = entwine::Point(d, d, d);
+            }
             else
             {
+                std::cout << "Invalid: " << pointStr << std::endl;
                 throw std::runtime_error("Invalid point");
             }
         }
         catch (...)
         {
-            std::cout << "Invalid point in query" << std::endl;
+            std::cout << "Invalid point specification" << std::endl;
         }
     }
 

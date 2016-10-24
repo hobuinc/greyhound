@@ -12,6 +12,7 @@
 #include <entwine/reader/reader.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/delta.hpp>
 #include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -108,9 +109,26 @@ bool Session::initialize(
             json["schema"] = metadata.schema().toJson();
             json["bounds"] = metadata.bounds().toJson();
             json["boundsConforming"] = metadata.boundsConforming().toJson();
+            json["boundsNative"] = metadata.boundsNative().toJson();
             json["srs"] = metadata.format().srs();
             json["baseDepth"] = static_cast<Json::UInt64>(
                     metadata.structure().nullDepthEnd());
+
+            if (const entwine::Delta* delta = metadata.delta())
+            {
+                const entwine::Point& scale(delta->scale());
+
+                if (scale.x == scale.y && scale.x == scale.z)
+                {
+                    json["scale"] = scale.x;
+                }
+                else
+                {
+                    json["scale"] = scale.toJsonArray();
+                }
+
+                json["offset"] = delta->offset().toJsonArray();
+            }
 
             m_info = json.toStyledString();
         }
@@ -147,13 +165,21 @@ std::string Session::hierarchy(
         const entwine::Bounds& bounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool vertical) const
+        const bool vertical,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset) const
 {
     if (indexed())
     {
         Json::FastWriter writer;
         return writer.write(
-                m_entwine->hierarchy(bounds, depthBegin, depthEnd, vertical));
+                m_entwine->hierarchy(
+                    bounds,
+                    depthBegin,
+                    depthEnd,
+                    vertical,
+                    scale,
+                    offset));
     }
     else
     {
@@ -183,26 +209,40 @@ std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const Json::Value& filter,
         const bool compress,
-        const double scale,
-        const entwine::Point& offset,
-        const entwine::Bounds* bounds,
+        const entwine::Point* scale,
+        const entwine::Point* offset,
+        const entwine::Bounds* inBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     if (indexed())
     {
-        return std::shared_ptr<ReadQuery>(
-                new EntwineReadQuery(
+        std::unique_ptr<entwine::Query> q;
+
+        if (inBounds)
+        {
+            q = m_entwine->query(
                     schema,
-                    compress,
-                    m_entwine->query(
-                        schema,
-                        filter,
-                        bounds ? *bounds : m_entwine->metadata().bounds(),
-                        depthBegin,
-                        depthEnd,
-                        scale,
-                        offset)));
+                    filter,
+                    *inBounds,
+                    depthBegin,
+                    depthEnd,
+                    scale,
+                    offset);
+        }
+        else
+        {
+            q = m_entwine->query(
+                    schema,
+                    filter,
+                    depthBegin,
+                    depthEnd,
+                    scale,
+                    offset);
+        }
+
+        return std::shared_ptr<ReadQuery>(
+                new EntwineReadQuery(schema, compress, std::move(q)));
     }
     else
     {

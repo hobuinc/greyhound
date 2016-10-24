@@ -8,6 +8,7 @@
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 #include "session.hpp"
 
@@ -27,8 +28,8 @@ ReadCommand::ReadCommand(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         const bool compress,
-        const double scale,
-        const entwine::Point& offset,
+        const entwine::Point* scale,
+        const entwine::Point* offset,
         const std::string schemaString,
         const std::string filterString,
         uv_loop_t* loop,
@@ -38,8 +39,8 @@ ReadCommand::ReadCommand(
     , m_itcBufferPool(itcBufferPool)
     , m_itcBuffer()
     , m_compress(compress)
-    , m_scale(scale)
-    , m_offset(offset)
+    , m_scale(entwine::maybeClone(scale))
+    , m_offset(entwine::maybeClone(offset))
     , m_schema(schemaString.empty() ?
             session->schema() : entwine::Schema(schemaString))
     , m_filter(filterString.empty() ?
@@ -111,8 +112,6 @@ void ReadCommand::registerInitCb()
             Isolate* isolate(Isolate::GetCurrent());
             HandleScope scope(isolate);
             ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
-            std::cout << "Calling init CB " << readCommand->status.code() <<
-                std::endl;
 
             const unsigned argc = 1;
             Local<Value> argv[argc] =
@@ -219,8 +218,8 @@ ReadCommandUnindexed::ReadCommandUnindexed(
             session,
             itcBufferPool,
             compress,
-            0,
-            entwine::Point(),
+            nullptr,
+            nullptr,
             schemaString,
             "",
             nullptr,
@@ -232,8 +231,8 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<Session> session,
         ItcBufferPool& itcBufferPool,
         bool compress,
-        double scale,
-        const entwine::Point& offset,
+        const entwine::Point* scale,
+        const entwine::Point* offset,
         const std::string schemaString,
         const std::string filterString,
         std::unique_ptr<entwine::Bounds> bounds,
@@ -269,8 +268,8 @@ void ReadCommandQuadIndex::query()
             m_schema,
             m_filter,
             m_compress,
-            m_scale,
-            m_offset,
+            m_scale.get(),
+            m_offset.get(),
             m_bounds.get(),
             m_depthBegin,
             m_depthEnd);
@@ -283,8 +282,8 @@ ReadCommand* ReadCommand::create(
         const std::string schemaString,
         const std::string filterString,
         bool compress,
-        double scale,
-        const entwine::Point& offset,
+        const entwine::Point* scale,
+        const entwine::Point* offset,
         v8::Local<v8::Object> query,
         uv_loop_t* loop,
         v8::UniquePersistent<v8::Function> initCb,

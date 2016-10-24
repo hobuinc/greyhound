@@ -4,7 +4,7 @@ Greyhound - Client Development
 
 :author: Connor Manning
 :email: connor@hobu.co
-:date: 08/17/2015
+:date: 09/30/2016
 
 Overview
 ===============================================================================
@@ -14,9 +14,7 @@ Greyhound is a dynamic point cloud server architecture that performs progressive
 Using Greyhound
 -------------------------------------------------------------------------------
 
-Greyhound's provides a simple HTTP interface to request information and data from remote point cloud resources.
-
-.. _`WebSocket`: http://en.wikipedia.org/wiki/WebSocket
+Greyhound provides a simple HTTP interface to request information and data from remote point cloud resources.
 
 |
 
@@ -41,45 +39,9 @@ Command Set
 Making Requests
 -------------------------------------------------------------------------------
 
-HTTP Interface
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Greyhound's API is exposed via HTTP or HTTPS, using GET requests of the form ``http://<greyhound-server>/resource/<resource-name>/<command>?<options>``
 
-Greyhound's primary interface is over HTTP, using GET requests of the form ``http://<greyhound-server>/resource/<resource-name>/<command>?<options>``
-
-The HTTP body of Greyhound's response contains the result of the request, which is either a JSON object for the ``info`` query, or binary point data for the ``read`` query.  A response to ``read`` also contains some necessary information about the response as HTTP header data (see `The Read Query`_ for details).
-
-WebSocket Interface
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Greyhound communicates via JSON objects for its WebSocket interface.  Requests are of the form:
-
-+-----------------------------------------------------------------------------+
-| Command                                                                     |
-+---------------------+-------------+-----------------------------------------+
-| Key                 | Type        | Value                                   |
-+=====================+=============+=========================================+
-| ``"command"``       | String      | Command name - `"info"` or `"read"`.    |
-+---------------------+-------------+-----------------------------------------+
-| (command parameters)| Various     | Parameters for `"read"` command.        |
-+---------------------+-------------+-----------------------------------------+
-
-Responses from Greyhound look like:
-
-+-----------------------------------------------------------------------------------------+
-| Response                                                                                |
-+-----------------------+--------------+--------------------------------------------------+
-| Key                   | Type         | Value                                            |
-+=======================+==============+==================================================+
-| ``"command"``         | String       | Command name received in initial command.        |
-+-----------------------+--------------+--------------------------------------------------+
-| ``"status"``          | Integer      | ``1`` for success, else ``0``.                   |
-+-----------------------+--------------+--------------------------------------------------+
-| (``"message"``)       | String       | If success if ``0``, this may contain a reason.  |
-+-----------------------+--------------+--------------------------------------------------+
-| (response parameters) | Various      | Command-dependent values                         |
-+-----------------------+--------------+--------------------------------------------------+
-
-See the details for these commands for more information about command-dependent parameters and values.
+The HTTP body of Greyhound's response contains the result of the request, which is either a JSON object for the ``info`` and ``hierarchy`` queries, or binary point data for the ``read`` query.  A response to ``read`` also contains some necessary information about the response as HTTP header data (see `The Read Query`_ for details).
 
 |
 
@@ -111,6 +73,21 @@ bounds
 
 *Description*: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is ``[xMin, yMin, zMin, xMax, yMax, zMax]``.
 
+baseDepth
+-------------------------------------------------------------------------------
+
+*Type*: Integer
+
+*Description*: The first octree depth which contains point data.  If this value is non-zero, then no points exist in the depth range ``[0, baseDepth)``.
+
+srs
+-------------------------------------------------------------------------------
+
+*Type*: String
+
+*Description*: A well-known-text (WKT) string representing the spatial reference system of this resource.
+
+
 schema
 -------------------------------------------------------------------------------
 
@@ -131,56 +108,17 @@ schema
 An ``schema`` looks something like: ::
 
     [
-        {
-            "name": "X",
-            "type": "floating",
-            "size": "8"
-        },
-        {
-            "name": "Y",
-            "type": "floating",
-            "size": "8"
-        },
-        {
-            "name": "Z",
-            "type": "floating",
-            "size": "8"
-        },
-        {
-            "name": "Intensity",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Red",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Green",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "Blue",
-            "type": "unsigned",
-            "size": "2"
-        },
-        {
-            "name": "ReturnNumber",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
-            "name": "NumberOfReturns",
-            "type": "unsigned",
-            "size": "1"
-        },
-        {
-            "name": "Origin",
-            "type": "unsigned",
-            "size": "4"
-        }
+        { "name": "X",                  "type": "floating", "size": "8" },
+        { "name": "Y",                  "type": "floating", "size": "8" },
+        { "name": "Z",                  "type": "floating", "size": "8" },
+        { "name": "Intensity",          "type": "unsigned", "size": "2" },
+        { "name": "Red",                "type": "unsigned", "size": "2" },
+        { "name": "Green",              "type": "unsigned", "size": "2" },
+        { "name": "Blue",               "type": "unsigned", "size": "2" },
+        { "name": "ReturnNumber",       "type": "unsigned", "size": "1" },
+        { "name": "NumberOfReturns",    "type": "unsigned", "size": "1" },
+        { "name": "PointId",            "type": "unsigned", "size": "4" },
+        { "name": "OriginId",           "type": "unsigned", "size": "4" }
     ]
 
 |
@@ -190,20 +128,10 @@ The Read Query
 
 This query returns binary point data from a given resource.  Following the binary point data, 4 bytes that indicate the number of points in the response are appended.  These may be parsed as a 32-bit unsigned integer, transmitted in network byte order.  If the last 4 bytes are zero, then those 4 bytes shall be the only 4 bytes in the response.
 
-Unindexed
--------------------------------------------------------------------------------
-
-For unindexed resources (see `type`_), the only supported *read* query is a query for all available points in the resource.  Only `Read Options - Common`_ are supported.
-
-Indexed
--------------------------------------------------------------------------------
-
-For indexed resources, in addition to the common options, queries for tree depths and bounds subsets are supported.  This allows a client to progressively load points at higher levels of detail only where such detail is warranted.
-
 Depth Options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------------------------------------------
 
-Depth options allow a client to query varying levels of detail for a resource on demand.  A *depth* corresponds to a tree depth in a quad- or octree.  These depths correspond to a traditional tree starting at depth zero, which contains a single point (the center-most point in the set bounds).  Depth one contains 4 points (one in each quadrant) for a quadtree or 8 for an octree.  Assuming the data exists, each of those points contains its 4 or 8 child points, and so forth.  Each depth has 4\ :sup:`depth` points for a quadtree or 8\ :sup:`depth` points for an octree.
+Depth options allow a client to query varying levels of detail for a resource on demand.  A *depth* corresponds to a tree depth in a quad- or octree.  These depths correspond to a traditional tree starting at depth zero, which contains a single point (the center-most point in the set bounds).  Depth one contains 4 points (one in each quadrant) for a quadtree or 8 for an octree.  Assuming the data exists, each of those points contains its 4 or 8 child points, and so forth.  Each depth has 4\ :sup:`depth` points for a quadtree or 8\ :sup:`depth` points for an octree.  Point do not necessarily start at depth zero (see `baseDepth`_ for more information).
 
 Available options for depth selection are:
 
@@ -211,22 +139,61 @@ Available options for depth selection are:
 - ``depthEnd``: Query depths up to, but **not** including, this depth.  If ``depthBegin`` is not specified, then this query selects from depth zero until ``depthEnd``.
 - ``depthBegin``: Must be used with ``depthEnd``.  Queries run from ``depthBegin`` (inclusive) to ``depthEnd`` (non-inclusive).  A query containing ``depthBegin=6`` and ``depthEnd=7`` is identical to a query of ``depth=6``.
 
+If no depth parameters are present in a query, then all depths are selected.  This is only recommended if the spatial extents begin queried (see `Bounds option`_) are very small.
+
 Bounds option
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------------------------------------------
 
 The ``bounds`` option allows a client to select only a portion of the entire dataset's bounds, as given by the ``bounds`` field from The **Info** Query.  If this field is omitted, the total dataset bounds are queried.
 
 For a 3-dimensional query, the array may be of length 6, formatted as ``[xMin, yMin, zMin, xMax, yMax, zMax]``.  An array of length 4, formatted as ``[xMin, yMin, xMax, yMax]`` will query the entire Z-range of the dataset within the given XY bounds.
 
-Read Options - Common
+If omitted, then the entire resource bounds are selected.  This is only recommended if the depth range is very shallow.
+
+Transformation Options
 -------------------------------------------------------------------------------
 
-Common options are options available for any ``read`` query, regardless of the ``type`` of resource.
+Values for ``scale`` and/or ``offset`` may be supplied, which allows for the use of a transformed local coordinate system.  A common use would be requested scaled integer data centered around the origin.
+
+- ``scale`` - Either a non-zero number or an array of numbers of length 3, formatted as ``[xScale, yScale, zScale]``.  If this value is a number, then that number will be used for all three scale values.
+- ``offset`` - An array of 3 numbers, formatted as ``[xOffset, yOffset, zOffset]``.
+
+If one or both of these values are present, then the ``bounds`` of the query must already be transformed with these values.  For example, let's say that the ``info`` of a resource contains a bounds of ``[500, 500, 500, 700, 700, 700]``, and the client wants to receive data in a local coordinate system centered around the origin with a scale factor of ``0.1``.  In this case, a request might look like:
+
+``/resource/something/read?depth=8&bounds=[-1000,-1000,-1000,1000,1000,1000]&scale=0.01&offset=[600,600,600]``
+
+Filters
+-------------------------------------------------------------------------------
+
+An arbitrary filtering structure may be passed along with a ``read`` request, which can be used to filter out points that do not meet some criteria.  The syntax of the filter tree is the same as MongoDB's `Query`_ and `Logical`_ operator syntax, using the dimensions from `schema`_ as the column criteria.
+
+A filter tree might look like:
+.. code-block:: json
+    filter={"$or":[
+        {"Red":{"$gt":200}},
+        {"Blue":{"$gt":120,"$lt":130}},
+        {"Classification":{"$nin":[2,3]}}
+    ]}
+
+Data from original source files may be requested with the special ``Path`` pseudo-dimension (which does not appear in the `schema`_), which will be index-optimized:
+.. code-block:: json
+    filter={"Path":"tile-845.laz"}
+
+Selecting an input file by its ``OriginId`` dimension is also index-optimized:
+.. code-block:: json
+    filter={"Origin": 5}
+
+.. _`Query`: https://docs.mongodb.com/manual/reference/operator/query-comparison/
+.. _`Logical`: https://docs.mongodb.com/manual/reference/operator/query-logical/
+
+
+Other options
+-------------------------------------------------------------------------------
 
 - ``schema``: Formatted the same way as `schema`_.  This specifies the formatting of the binary data returned by Greyhound.  If any dimensions in the query result cannot be coerced into the specified type and size, an error occurs.  If any specified dimensions do not exist in the native schema, their positions will be zero-filled.  If this option is omitted, resulting data will be formatted in accordance with the native resource `schema`_.
 - ``compress``: If true, the resulting stream will be compressed with `laz-perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.  If omitted, data is returned uncompressed.
 
-.. _`laz-perf`: http://github.com/verma/laz-perf
+.. _`laz-perf`: http://github.com/hobu/laz-perf
 
 |
 
@@ -243,9 +210,11 @@ The hierarchy query is used to build a client-side version of the structure of p
 Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The hierarchy query accepts exactly three options, which are similar to those for the ``read`` query.
+The hierarchy query accepts options that are similar to those from the ``read`` query.
 
 - ``bounds``: The overall bounds to query.
+- ``scale``: Scale factor pre-applied to the requested ``bounds``.
+- ``offset``: Offset pre-applied to the requested ``bounds``.
 - ``depthBegin``: The starting depth to begin the query for the full specified ``bounds``.
 - ``depthEnd``: Similar to the ``read`` query, queries run from ``depthBegin`` (inclusive) to ``depthEnd`` (non-inclusive).
 

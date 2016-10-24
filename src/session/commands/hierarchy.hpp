@@ -4,6 +4,8 @@
 
 #include "commands/background.hpp"
 
+#include <entwine/types/defs.hpp>
+
 class Session;
 
 class HierarchyCommand : public Background
@@ -15,6 +17,8 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd,
             bool vertical,
+            const entwine::Scale* scale,
+            const entwine::Offset* offset,
             v8::UniquePersistent<v8::Function> cb);
 
     virtual ~HierarchyCommand();
@@ -35,6 +39,9 @@ private:
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
     const bool m_vertical;
+
+    std::unique_ptr<entwine::Scale> m_scale;
+    std::unique_ptr<entwine::Offset> m_offset;
 
     std::string m_result;
 
