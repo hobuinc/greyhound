@@ -13,7 +13,6 @@
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
-#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -110,7 +109,7 @@ bool Session::initialize(
             json["bounds"] = metadata.bounds().toJson();
             json["boundsConforming"] = metadata.boundsConforming().toJson();
             json["boundsNative"] = metadata.boundsNative().toJson();
-            json["srs"] = metadata.format().srs();
+            json["srs"] = metadata.srs();
             json["baseDepth"] = static_cast<Json::UInt64>(
                     metadata.structure().nullDepthEnd());
 
@@ -221,7 +220,7 @@ std::shared_ptr<ReadQuery> Session::query(
 
         if (inBounds)
         {
-            q = m_entwine->query(
+            q = m_entwine->getQuery(
                     schema,
                     filter,
                     *inBounds,
@@ -232,7 +231,7 @@ std::shared_ptr<ReadQuery> Session::query(
         }
         else
         {
-            q = m_entwine->query(
+            q = m_entwine->getQuery(
                     schema,
                     filter,
                     depthBegin,
@@ -275,7 +274,7 @@ bool Session::resolveIndex(
                     outerScope.getArbiterPtr()->getEndpoint(path + name));
             m_entwine.reset(new entwine::Reader(endpoint, *cache));
         }
-        catch (const std::runtime_error& e)
+        catch (const std::exception& e)
         {
             err = e.what();
         }
