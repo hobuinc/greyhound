@@ -10,7 +10,6 @@ See it in action with the dynamic [Plas.io](http://speck.ly) client at [speck.ly
 
 ### Using Docker
 ```bash
-docker pull connormanning/greyhound
 docker run -it -p 8080:8080 connormanning/greyhound
 ```
 
@@ -25,23 +24,20 @@ greyhound
 
 ## Indexing some data
 
-Greyhound uses data indexed by [Entwine](https://entwine.io/).  See [the instructions](https://github.com/connormanning/entwine) for how to use Entwine.  By default, Greyhound will look for indexed data in `~/greyhound` (natively) and `/opt/data` (dockerized).  If you are eager to get started, we have some publicly hosted data you can index and serve locally:
+Greyhound uses data indexed by [Entwine](https://entwine.io/).  See [the instructions](https://github.com/connormanning/entwine) for how to use Entwine.  If you are eager to get started, we have some publicly hosted data you can index and serve locally:
 
 ```bash
-docker pull connormanning/entwine
-mkdir ~/greyhound
-docker run -it -v ~/greyhound:/opt/data connormanning/entwine \
-    entwine build \
+docker run -it -v $HOME:$HOME connormanning/entwine build \
     -i https://entwine.io/sample-data/red-rocks.laz \
-    -o /opt/data/red-rocks
+    -o ~/greyhound/red-rocks
 ```
 
 ## Viewing the data
 
-You've just indexed a LAZ file from the internet (data credit to [DroneMapper](https://dronemapper.com/sample_data)) and created a local Entwine dataset.  It's sitting at `~/greyhound/red-rocks`.  Now let's start Greyhound and take a look at the data.  We'll be mapping that output directory into Greyhound's default search path at `/opt/data` within the container:
+You've just indexed a LAZ file from the internet (data credit to [DroneMapper](https://dronemapper.com/sample_data)) and created a local Entwine dataset.  It's sitting at `~/greyhound/red-rocks`.  Now let's start Greyhound and take a look at the data.  We'll map our top-level output directory into one of the default search paths for the Greyhound container.
 
 ```bash
-docker run -it -p 8080:8080 -v ~/greyhound:/opt/data connormanning/greyhound
+docker run -it -p 8080:8080 -v ~/greyhound:/greyhound connormanning/greyhound
 ```
 
 Now that Greyhound is awake, you should be able to browse your data with [Plasio](http://speck.ly/?s=http://localhost:8080/&r=red-rocks) or [Potree](http://potree.entwine.io/data/custom.html?s=localhost:8080&r=red-rocks).

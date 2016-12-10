@@ -10,15 +10,16 @@ RUN apt-get update && apt-get install -y wget && \
     rm -rf /var/lib/apt/lists/*
 
 ADD http://www.timeapi.org/utc/now /tmp/bust-cache
-RUN git clone https://github.com/hobu/greyhound.git && \
-    cd greyhound && \
+RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
+    cd /var/greyhound && \
     npm install -g .
 
 EXPOSE 8080
 EXPOSE 443
 VOLUME /opt/data
+VOLUME /greyhound
 
-CMD greyhound
+ENTRYPOINT ["greyhound"]
 
 # Sample invocation:
 #       docker run -it -p 8080:80 -v ~/greyhound:/opt/data connormanning/greyhound

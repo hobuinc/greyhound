@@ -1,6 +1,6 @@
 {
     "chunkCacheSize": 32,
-    "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
+    "paths": ["/greyhound", "~/greyhound", "/entwine", "~/entwine", "/opt/data"],
     "resourceTimeoutMinutes": 30,
     "http": {
         "port": 8080,
