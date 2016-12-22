@@ -93,7 +93,9 @@ schema
 
 *Type*: Array of Objects.
 
-*Description*: An array of dimension information representing the native schema of a resource.  Each dimension object contains entries for `name`, `type`, and `size`, as shown below.  The dimensions requested during a ``read`` request should be a subset of these dimensions, and their types may be altered to suit a given application (see `The Read Query`_ for details).
+*Description*: An array of dimension information representing the native schema of a resource.  Each dimension object contains entries for `name`, `type`, and `size`, as shown below.  The dimensions requested during a ``read`` request should be a subset of these dimensions, and their types may be altered to suit a given application (see `The Read Query`_ for details).  Known dimensions are described in the `PDAL dimension registry`_, however there may be other dimensions present in the schema (typically application or format-defined dimensions).
+
+.. _`PDAL dimension registry`: http://www.pdal.io/dimensions.html
 
 +---------------+--------------------------------------------------------------------------------+
 | Field         | Value                                                                          |
