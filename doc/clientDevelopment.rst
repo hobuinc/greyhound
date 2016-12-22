@@ -57,7 +57,7 @@ type
 
 *Type*: String
 
-*Description*: Equal to "unindexed", "quadtree", or "octree".  Resources fall into two classes, indexed and unindexed, and the rest of this document will refer to resources of type "octree" or "quadtree" as *indexed* resources.
+*Description*: Equal to "octree".  This key exists for future expansion.
 
 numPoints
 -------------------------------------------------------------------------------
@@ -71,7 +71,14 @@ bounds
 
 *Type*: Array of doubles.
 
-*Description*: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is ``[xMin, yMin, zMin, xMax, yMax, zMax]``.
+*Description*: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is ``[xMin, yMin, zMin, xMax, yMax, zMax]``.  This bounding box is a cube, and represents the bounds which are recursively bisected for the octree indexing.  Clients should use this bounds for dynamic level-of-detail loading.
+
+boundsConforming
+-------------------------------------------------------------------------------
+
+*Type*: Array of doubles.
+
+*Description*: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is ``[xMin, yMin, zMin, xMax, yMax, zMax]``.  This bounding box represents a bounds that tightly conforms to the points in the resource.
 
 baseDepth
 -------------------------------------------------------------------------------
@@ -123,6 +130,21 @@ An ``schema`` looks something like: ::
         { "name": "OriginId",           "type": "unsigned", "size": "4" }
     ]
 
+
+scale
+-------------------------------------------------------------------------------
+
+*Type*: A single double, or an array of three doubles.  This key is **optional**, and may not be present for absolutely positioned resources.
+
+*Description*: This field gives insight into the physical storage of the dataset.  If present, it generally corresponds to the resolution of the source data.  If this value is a scalar, like ``0.01``, then uniform scaling is implied - equivalent to the array ``[0.01, 0.01, 0.01]``.  The bounds information from the ``info`` call does not have this scale pre-applied, so ``bounds`` and ``boundsConforming`` are always absolutely positioned.
+
+offset
+-------------------------------------------------------------------------------
+
+*Type*: Array of doubles.  This key is **optional**, and may not be present for absolutely positioned resources.
+
+*Description*: This field gives insight into the physical storage of the dataset.  If present, then the data-on-disk is written with this offset applied.  The bounds information from the ``info`` call does not have this offset pre-applied, so ``bounds`` and ``boundsConforming`` are always absolutely positioned.
+
 |
 
 The Read Query
@@ -163,6 +185,8 @@ Values for ``scale`` and/or ``offset`` may be supplied, which allows for the use
 If one or both of these values are present, then the ``bounds`` of the query must already be transformed with these values.  For example, let's say that the ``info`` of a resource contains a bounds of ``[500, 500, 500, 700, 700, 700]``, and the client wants to receive data in a local coordinate system centered around the origin with a scale factor of ``0.1``.  In this case, a request might look like:
 
 ``/resource/something/read?depth=8&bounds=[-1000,-1000,-1000,1000,1000,1000]&scale=0.01&offset=[600,600,600]``
+
+If ``scale`` and ``offset`` values are passed, and they are exactly equivalent to those present in the ``info`` query, then this results in a no-op transformation on the server since the data is already in the desired local coordinate space under-the-hood.
 
 Filters
 -------------------------------------------------------------------------------
