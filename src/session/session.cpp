@@ -106,7 +106,7 @@ bool Session::initialize(
             json["type"] = getTypeString(metadata.structure());
             json["numPoints"] = static_cast<Json::UInt64>(numPoints);
             json["schema"] = metadata.schema().toJson();
-            json["bounds"] = metadata.boundsNative().toJson();
+            json["bounds"] = metadata.boundsNativeCubic().toJson();
             json["boundsConforming"] =
                 metadata.boundsNativeConforming().toJson();
             json["srs"] = metadata.srs();
