@@ -3,8 +3,18 @@
 (function(w) {
     'use strict';
 
+    var getQueryParam = function(name) {
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(window.location.href);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    };
+
     // get URL parameters
     var getUrlParameters = function(query) {
+        query = query || w.location.search;
         query = query.substring(1);
 
         var match,
@@ -129,24 +139,30 @@
 
     var downloadData = function(setStatus, cb) {
         var url = w.location.host;
-        var match = w.location.pathname.match('\/http[s]?\/([^\/]+)');
+        console.log('pathname', w.location.pathname);
+        var match = w.location.pathname.match('\/resource\/(.+)/static');
+        console.log('match', match);
         var resourceId = match ? match[1] : null;
-
-        if (!resourceId) {
-            return cb('No resource selected!');
-        }
+        if (!resourceId) resourceId = getQueryParam('r');
+        if (!resourceId) return cb('No resource selected!');
 
         var readUrl = '//' + url + '/resource/' + resourceId + '/read';
 
-        var query = w.location.search;
-        var sep = (query ? '&' : '?');
+        var query = getUrlParameters() || { };
+        delete query.r;
+        query = Object.keys(query).reduce((p, c) => {
+            if (c == 'compress' || c == 'schema') return p;
+            return p + (p.length ? '&' : '?') + c + '=' + query[c];
+        }, '');
+
+        query = query + (query.length ? '&' : '?') + 'schema=' + schema();
         setStatus("Read initiated, waiting for response...");
 
         $.ajax({
             dataType: 'binary',
             responseType: 'arraybuffer',
             type: 'GET',
-            url: readUrl + w.location.search + sep + 'schema=' + schema()
+            url: readUrl + query
         }).done(function(readRes, status, request) {
             var dataBuffer = new Int8Array(readRes);
 

@@ -93,11 +93,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
         app.use(lessMiddleware(path.join(__dirname, publicDir)));
         app.use(express.static(__dirname + publicDir));
 
-        app.get('/ws/:resourceId', function(req, res) {
-            res.render('wsView');
-        });
-
-        app.get('/http/:resourceId', function(req, res) {
+        app.get('/resource/:resourceId(*)/static', function(req, res) {
             res.render('httpView');
         });
     };
