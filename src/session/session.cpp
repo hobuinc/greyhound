@@ -14,6 +14,7 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/executor.hpp>
@@ -112,6 +113,11 @@ bool Session::initialize(
             json["srs"] = metadata.srs();
             json["baseDepth"] = static_cast<Json::UInt64>(
                     metadata.structure().nullDepthEnd());
+
+            if (const entwine::Reprojection* r = metadata.reprojection())
+            {
+                json["reprojection"] = r->toJson();
+            }
 
             if (const entwine::Delta* delta = metadata.delta())
             {
