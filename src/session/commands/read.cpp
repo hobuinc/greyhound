@@ -320,8 +320,6 @@ ReadCommand* ReadCommand::create(
 
     if (!depthEnd) depthEnd = std::numeric_limits<uint32_t>::max();
 
-    std::cout << "D: " << depthBegin << " - " << depthEnd << std::endl;
-
     std::unique_ptr<entwine::Bounds> bounds;
 
     if (query->HasOwnProperty(boundsSymbol))

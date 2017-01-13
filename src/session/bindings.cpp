@@ -17,6 +17,8 @@
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 #include "session.hpp"
 #include "commands/create.hpp"
@@ -45,10 +47,12 @@ namespace
     ItcBufferPool itcBufferPool(numBuffers);
 
     std::mutex factoryMutex;
-    std::unique_ptr<pdal::StageFactory> stageFactory(new pdal::StageFactory());
+    std::unique_ptr<pdal::StageFactory> stageFactory;
 
     entwine::OuterScope outerScope;
-    std::shared_ptr<entwine::Cache> cache(nullptr);
+    std::shared_ptr<entwine::Cache> cache;
+
+    std::vector<std::string> paths;
 
     std::vector<std::string> parsePathList(
             Isolate* isolate,
@@ -75,54 +79,10 @@ namespace
 
         return paths;
     }
-
-    std::mutex initMutex;
-
-    void initConfigurable(std::size_t maxCacheSize, std::string a)
-    {
-        std::lock_guard<std::mutex> lock(initMutex);
-
-        if (!cache)
-        {
-            signal(SIGSEGV, handler);
-
-            cache.reset(new entwine::Cache(maxCacheSize));
-        }
-
-        if (!outerScope.getArbiterPtr())
-        {
-            if (a.empty())
-            {
-                Json::Value json;
-                outerScope.getArbiter();
-            }
-            else
-            {
-                Json::Reader r;
-                Json::Value json;
-
-                if (!r.parse(a, json, false))
-                {
-                    throw std::runtime_error(
-                            "Bad arbiter config entry:" +
-                            r.getFormattedErrorMessages());
-                }
-
-                std::cout << "Using custom arbiter configuration" << std::endl;
-                outerScope.getArbiter(json);
-            }
-        }
-    }
 }
 
 namespace ghEnv
 {
-    Once curlOnce([]()->void {
-        std::cout << "Destructing global environment" << std::endl;
-        curl_global_cleanup();
-    });
-
-    Once cacheOnce;
 }
 
 Persistent<Function> Bindings::constructor;
@@ -130,12 +90,7 @@ Persistent<Function> Bindings::constructor;
 Bindings::Bindings()
     : m_session(new Session(*stageFactory, factoryMutex))
     , m_itcBufferPool(itcBufferPool)
-{
-    ghEnv::curlOnce.ensure([]()->void {
-        std::cout << "Initializing global environment" << std::endl;
-        curl_global_init(CURL_GLOBAL_ALL);
-    });
-}
+{ }
 
 Bindings::~Bindings()
 { }
@@ -146,8 +101,10 @@ void Bindings::init(v8::Handle<v8::Object> exports)
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl(v8::FunctionTemplate::New(isolate, construct));
-    tpl->SetClassName(String::NewFromUtf8(isolate, "Bindings"));
+    tpl->SetClassName(String::NewFromUtf8(isolate, "Session"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
+
+    NODE_SET_METHOD(exports, "global", global);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "construct", construct);
     NODE_SET_PROTOTYPE_METHOD(tpl, "create",    create);
@@ -157,10 +114,10 @@ void Bindings::init(v8::Handle<v8::Object> exports)
     NODE_SET_PROTOTYPE_METHOD(tpl, "hierarchy", hierarchy);
 
     constructor.Reset(isolate, tpl->GetFunction());
-    exports->Set(String::NewFromUtf8(isolate, "Bindings"), tpl->GetFunction());
+    exports->Set(String::NewFromUtf8(isolate, "Session"), tpl->GetFunction());
 }
 
-void Bindings::construct(const FunctionCallbackInfo<Value>& args)
+void Bindings::construct(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
@@ -180,29 +137,63 @@ void Bindings::construct(const FunctionCallbackInfo<Value>& args)
     }
 }
 
-void Bindings::create(const FunctionCallbackInfo<Value>& args)
+void Bindings::global(const Args& args)
+{
+    Isolate* isolate(args.GetIsolate());
+    HandleScope scope(isolate);
+
+    if (args.Length() != 3)
+    {
+        throw std::runtime_error("Wrong number of arguments to global");
+    }
+
+    if (stageFactory)
+    {
+        throw std::runtime_error("Multiple global initializations attempted");
+    }
+
+    std::size_t i(0);
+    const auto& pathsArg(args[i++]);
+    const auto& cacheSizeArg(args[i++]);
+    const auto& arbiterArg(args[i++]);
+
+    std::string errMsg;
+    if (!pathsArg->IsArray()) errMsg += "\t'paths' must be an array";
+    if (!cacheSizeArg->IsNumber()) errMsg += "\t'cacheSize' must be a number";
+    if (!arbiterArg->IsString()) errMsg += "\t'arbiter' must be a string";
+
+    paths = parsePathList(isolate, pathsArg);
+
+    const std::size_t cacheSize(cacheSizeArg->NumberValue());
+    cache = entwine::makeUnique<entwine::Cache>(cacheSize);
+
+    const std::string arbiterString(
+            *v8::String::Utf8Value(arbiterArg->ToString()));
+    outerScope.getArbiter(entwine::parse(arbiterString));
+
+    signal(SIGSEGV, handler);
+    curl_global_init(CURL_GLOBAL_ALL);
+    stageFactory = entwine::makeUnique<pdal::StageFactory>();
+}
+
+void Bindings::create(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
 
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    if (args.Length() != 5)
+    if (args.Length() != 2)
     {
         throw std::runtime_error("Wrong number of arguments to create");
     }
 
     std::size_t i(0);
     const auto& nameArg (args[i++]);
-    const auto& pathsArg(args[i++]);
-    const auto& cacheArg(args[i++]);
-    const auto& arbArg  (args[i++]);
     const auto& cbArg   (args[i++]);
 
-    std::string errMsg("");
-
+    std::string errMsg;
     if (!nameArg->IsString()) errMsg += "\t'name' must be a string";
-    if (!pathsArg->IsArray()) errMsg += "\t'paths' must be an array";
     if (!cbArg->IsFunction()) throw std::runtime_error("Invalid create CB");
 
     UniquePersistent<Function> callback(isolate, Local<Function>::Cast(cbArg));
@@ -222,11 +213,6 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
     }
 
     const std::string name(*v8::String::Utf8Value(nameArg->ToString()));
-    const std::vector<std::string> paths(parsePathList(isolate, pathsArg));
-    const std::size_t maxCacheSize(cacheArg->IntegerValue());
-    const std::string arbiterCfg(*v8::String::Utf8Value(arbArg->ToString()));
-
-    initConfigurable(maxCacheSize, arbiterCfg);
 
     // Store everything we'll need to perform initialization.
     uv_work_t* req(new uv_work_t);
@@ -279,7 +265,7 @@ void Bindings::create(const FunctionCallbackInfo<Value>& args)
     );
 }
 
-void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
+void Bindings::destroy(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
@@ -288,7 +274,7 @@ void Bindings::destroy(const FunctionCallbackInfo<Value>& args)
     obj->m_session.reset();
 }
 
-void Bindings::info(const FunctionCallbackInfo<Value>& args)
+void Bindings::info(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
@@ -298,7 +284,7 @@ void Bindings::info(const FunctionCallbackInfo<Value>& args)
     args.GetReturnValue().Set(String::NewFromUtf8(isolate, info.c_str()));
 }
 
-void Bindings::read(const FunctionCallbackInfo<Value>& args)
+void Bindings::read(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);
@@ -436,9 +422,9 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
                     std::cout << "Caught wrong query: " << e.what() << std::endl;
                     readCommand->status.set(400, e.what());
                 }
-                catch (std::runtime_error& e)
+                catch (std::exception& e)
                 {
-                    std::cout << "Caught runtime: " << e.what() << std::endl;
+                    std::cout << "Caught exception: " << e.what() << std::endl;
                     readCommand->status.set(400, e.what());
                 }
                 catch (...)
@@ -493,7 +479,7 @@ void Bindings::read(const FunctionCallbackInfo<Value>& args)
     );
 }
 
-void Bindings::hierarchy(const FunctionCallbackInfo<Value>& args)
+void Bindings::hierarchy(const Args& args)
 {
     Isolate* isolate(args.GetIsolate());
     HandleScope scope(isolate);

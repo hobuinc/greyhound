@@ -11,8 +11,7 @@ var
     bodyParser = require('body-parser'),
     cookieParser = require('cookie-parser'),
     lessMiddleware = require('less-middleware'),
-    request = require('request'),
-    console = require('clim')();
+    request = require('request');
 
 http.globalAgent.maxSockets = 1024;
 
@@ -48,7 +47,6 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
     HttpHandler.prototype.start = function(creds) {
         var app = express();
 
-        // app.use(morgan('dev'));
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(cookieParser());
@@ -213,14 +211,15 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                                     '/' + req.params.resource + '/read:',
                                     colors.cyan(200),
                                     end - start, 'ms',
-                                    'B:', (q.bounds ? q.bounds : '[all]'),
                                     'D: [' + (
                                         q.depthBegin || q.depthEnd ?
                                             q.depthBegin + ', ' + q.depthEnd :
                                         q.depth ? q.depth :
                                         'all'
                                     ) + ')',
-                                    'F:', (q.filter ? q.filter : 'none'));
+                                    'B:', (q.bounds ? q.bounds : '[all]'),
+                                    'S:', q.scale || '-', 'O:', q.offset || '-',
+                                    'F:', (q.filter ? q.filter : '-'));
                         }
                     });
 

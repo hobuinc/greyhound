@@ -1,10 +1,24 @@
-var console = require('clim')(),
+var bytes = require('bytes'),
     querystring = require('querystring'),
-    Session = require('../build/Release/session').Bindings,
-    threads = Math.ceil(require('os').cpus().length * 1.2),
+    Bindings = require('../build/Release/session'),
+    Session = Bindings.Session,
+    totalThreads = require('os').cpus().length,
+    threads = Math.max(Math.ceil(totalThreads * 0.6), 4),
+    error = (code, message) => ({ code: code, message: message }),
 
     // resource name -> { session: session, accessed: Date }
-    resources = { };
+    resources = { }
+    ;
+
+var clim = require('clim');
+clim.getTime = function() {
+    var now = new Date();
+    return (
+        ('0' + now.getHours()).slice(-2) + ':' +
+        ('0' + now.getMinutes()).slice(-2) + ':' +
+        ('0' + now.getSeconds()).slice(-2));
+};
+clim(console, true);
 
 (function() {
     'use strict';
@@ -12,27 +26,24 @@ var console = require('clim')(),
     var Controller = function(config) {
         this.config = config;
 
-        this.error = function(code, message) {
-            return { code: code, message: message };
-        }
+        if (!config.cacheSize) config.cacheSize = '500mb';
 
-        var getTimeout = function(raw) {
-            if (raw != undefined && raw >= 0) return raw;
-            else return 30;
-        }
+        var paths = config.paths;
+        var cacheSize = Math.max(bytes('' + config.cacheSize), bytes('500mb'));
+        var arbiter = JSON.stringify(config.arbiter || { });
+        var timeoutMs = Math.max(config.resourceTimeoutMinutes, 30) * 60 * 1000;
 
-        var chunkCacheSize = config.chunkCacheSize;
-        var timeoutMinutes = getTimeout(config.resourceTimeoutMinutes);
-        var timeoutMs = timeoutMinutes * 60 * 1000;
-        var a = JSON.stringify(this.config.arbiter) || '';
-
-        if (chunkCacheSize < 16) chunkCacheSize = 16;
-        process.env.UV_THREADPOOL_SIZE = threads;
-
+        // We've limited the libuv threadpool size to about half the number of
+        // physical CPUs since each of those threads may spawn its own child
+        // threads.
         console.log('Using');
-        console.log('\tChunk cache size:', chunkCacheSize);
-        console.log('\tLibuv threadpool size:', threads);
-        console.log('Read paths:', this.config.paths);
+        console.log('\tRead paths:', JSON.stringify(this.config.paths));
+        console.log('\tCache size:', cacheSize, '(' + bytes(cacheSize) + ')');
+        console.log('\tThreads identified:', totalThreads);
+
+        process.env.UV_THREADPOOL_SIZE = threads;
+        Bindings.global(paths, cacheSize, arbiter);
+        var s = new Session();
 
         this.getSession = (name, cb) => {
             var session;
@@ -48,13 +59,11 @@ var console = require('clim')(),
 
             resources[name].accessed = now;
 
-            var paths = this.config.paths;
-
             // Call every time, even if this name was found in our session
             // mapping, to ensure that initialization has finished before the
             // session is used.
             try {
-                session.create(name, paths, chunkCacheSize, a, function(err) {
+                session.create(name, function(err) {
                     if (err) {
                         console.warn(name, 'could not be created');
                         delete resources[name];
@@ -67,7 +76,7 @@ var console = require('clim')(),
                 delete resources[name];
                 console.warn('Caught exception in CREATE:', e);
 
-                return cb(this.error(500, 'Unknown error during create'));
+                return cb(error(500, 'Unknown error during create'));
             }
         };
 
@@ -88,18 +97,15 @@ var console = require('clim')(),
     };
 
     Controller.prototype.info = function(resource, cb) {
-        console.log('controller::info');
         this.getSession(resource, function(err, session) {
             if (err) return cb(err);
 
             try { return cb(null, JSON.parse(session.info())); }
-            catch (e) { return cb(this.error(500, 'Error parsing info')); }
+            catch (e) { return cb(error(500, 'Error parsing info')); }
         });
     };
 
     Controller.prototype.read = function(resource, query, onInit, onData) {
-        console.log('controller::read');
-
         var schema = query.schema;
         var filter = query.filter;
         var compress =
@@ -130,8 +136,6 @@ var console = require('clim')(),
     };
 
     Controller.prototype.hierarchy = function(resource, query, cb) {
-        console.log('controller::hierarchy');
-
         query.vertical =
             query.hasOwnProperty('vertical') &&
             query.vertical.toLowerCase() == 'true';
@@ -143,9 +147,7 @@ var console = require('clim')(),
                     return cb(null, JSON.parse(string));
                 }
                 catch (e) {
-                    return cb(this.error(
-                            500,
-                            'Error parsing hierarchy ' + string));
+                    return cb(error(500, 'Error parsing hierarchy ' + string));
                 }
             });
         });

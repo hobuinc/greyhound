@@ -25,9 +25,11 @@ private:
 
     static v8::Persistent<v8::Function> constructor;
 
-    typedef v8::FunctionCallbackInfo<v8::Value> Args;
+    using Args = v8::FunctionCallbackInfo<v8::Value>;
 
     static void construct(const Args& args);
+
+    static void global(const Args& args);
 
     static void create(const Args& args);
     static void destroy(const Args& args);

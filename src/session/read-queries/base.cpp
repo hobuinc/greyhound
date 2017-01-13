@@ -27,12 +27,6 @@ void ReadQuery::read(ItcBuffer& buffer)
     buffer.resize(0);
     m_done = readSome(buffer);
 
-    if (buffer.size())
-    {
-        std::cout << "Read " << buffer.size() << " bytes.  Done? " << m_done <<
-            std::endl;
-    }
-
     if (compress())
     {
         m_compressor->compress(buffer.data(), buffer.size());
@@ -42,7 +36,6 @@ void ReadQuery::read(ItcBuffer& buffer)
 
     if (m_done)
     {
-        std::cout << "Done.  NP: " << numPoints() << std::endl;
         const uint32_t points(numPoints());
         const char* pos(reinterpret_cast<const char*>(&points));
         buffer.push(pos, sizeof(uint32_t));
