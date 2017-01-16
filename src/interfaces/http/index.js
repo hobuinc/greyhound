@@ -1,6 +1,7 @@
 var
     Promise = require('bluebird'),
     _ = require('lodash'),
+    bytes = require('bytes'),
     fs = require('fs'),
     http = require('http'),
     https = require('https'),
@@ -189,6 +190,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
             });
 
             var start = new Date();
+            var size = 0;
 
             controller.read(
                 req.params.resource,
@@ -200,26 +202,27 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                 (err, data, done) => {
                     if (err) return next(err);
                     if (!data.length) return keepGoing;
+                    size += data.length;
 
                     setImmediate(() => {
-                        res.write(data);
+                        if (!done) res.write(data);
+                        else res.end(data);
+
                         if (done) {
                             res.end();
                             var end = new Date();
 
                             console.log(
-                                    '/' + req.params.resource + '/read:',
-                                    colors.cyan(200),
-                                    end - start, 'ms',
+                                    req.params.resource + '/' +
+                                    colors.cyan('read') + ':',
+                                    colors.magenta(end - start), 'ms',
+                                    'L:', bytes(size),
                                     'D: [' + (
                                         q.depthBegin || q.depthEnd ?
                                             q.depthBegin + ', ' + q.depthEnd :
                                         q.depth ? q.depth :
                                         'all'
-                                    ) + ')',
-                                    'B:', (q.bounds ? q.bounds : '[all]'),
-                                    'S:', q.scale || '-', 'O:', q.offset || '-',
-                                    'F:', (q.filter ? q.filter : '-'));
+                                    ) + ')');
                         }
                     });
 
@@ -230,9 +233,24 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
 
         app.get('/resource/:resource(*)/hierarchy', function(req, res, next) {
             var resource = req.params.resource;
-            var query = req.query;
+            var q = req.query;
 
-            controller.hierarchy(resource, query, (err, data) => {
+            var start = new Date();
+
+            controller.hierarchy(resource, q, (err, data) => {
+                if (!err) {
+                    var end = new Date();
+                    console.log(
+                            req.params.resource + '/' +
+                            colors.yellow('hier') + ':',
+                            colors.magenta(end - start), 'ms',
+                            'D: [' + (
+                                q.depthBegin || q.depthEnd ?
+                                    q.depthBegin + ', ' + q.depthEnd :
+                                q.depth ? q.depth : 'all'
+                            ) + ')');
+                }
+
                 if (err) return next(err);
                 else return res.json(data);
             });

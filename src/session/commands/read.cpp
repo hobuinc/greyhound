@@ -22,11 +22,18 @@ namespace
     {
         return object->GetOwnPropertyNames()->Length() == 0;
     }
+
+    BufferPool bufferPool(512);
+
+    void release(char* pos, void* hint)
+    {
+        bufferPool.release(pos);
+    }
 }
 
 ReadCommand::ReadCommand(
         std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
+        BufferPool& bufferPool,
         const bool compress,
         const entwine::Point* scale,
         const entwine::Point* offset,
@@ -36,8 +43,6 @@ ReadCommand::ReadCommand(
         v8::UniquePersistent<v8::Function> initCb,
         v8::UniquePersistent<v8::Function> dataCb)
     : m_session(session)
-    , m_itcBufferPool(itcBufferPool)
-    , m_itcBuffer()
     , m_compress(compress)
     , m_scale(entwine::maybeClone(scale))
     , m_offset(entwine::maybeClone(offset))
@@ -45,7 +50,6 @@ ReadCommand::ReadCommand(
             session->schema() : entwine::Schema(schemaString))
     , m_filter(filterString.empty() ?
             Json::Value() : entwine::parse(filterString))
-    , m_numSent(0)
     , m_loop(loop)
     , m_initAsync(new uv_async_t())
     , m_dataAsync(new uv_async_t())
@@ -62,7 +66,7 @@ ReadCommand::ReadCommand(
     {
         Json::Reader reader;
         Json::Value jsonSchema;
-        reader.parse("{\"schema\":" + schemaString + "}", jsonSchema);
+        reader.parse(schemaString, jsonSchema);
 
         if (reader.getFormattedErrorMessages().size())
         {
@@ -70,7 +74,7 @@ ReadCommand::ReadCommand(
             throw std::runtime_error("Could not parse requested schema");
         }
 
-        m_schema = entwine::Schema(jsonSchema["schema"]);
+        m_schema = entwine::Schema(jsonSchema);
     }
 
     // This allows us to unwrap our own ReadCommand during async CBs.
@@ -81,52 +85,31 @@ ReadCommand::ReadCommand(
     registerDataCb();
 }
 
-ReadCommand::~ReadCommand()
-{
-    if (getBuffer()) getBufferPool().release(getBuffer());
-
-    uv_handle_t* initAsync(reinterpret_cast<uv_handle_t*>(m_initAsync));
-    uv_handle_t* dataAsync(reinterpret_cast<uv_handle_t*>(m_dataAsync));
-
-    uv_close_cb closeCallback(
-        (uv_close_cb)([](uv_handle_t* async)->void
-        {
-            delete async;
-        })
-    );
-
-    uv_close(initAsync, closeCallback);
-    uv_close(dataAsync, closeCallback);
-
-    m_initCb.Reset();
-    m_dataCb.Reset();
-}
-
 void ReadCommand::registerInitCb()
 {
     uv_async_init(
         m_loop,
-        m_initAsync,
+        initAsync(),
         ([](uv_async_t* async)->void
         {
             Isolate* isolate(Isolate::GetCurrent());
             HandleScope scope(isolate);
-            ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
+            ReadCommand* self(static_cast<ReadCommand*>(async->data));
 
             const unsigned argc = 1;
             Local<Value> argv[argc] =
             {
-                readCommand->status.ok() ?
+                self->status.ok() ?
                     Local<Value>::New(isolate, Null(isolate)) : // err
-                    readCommand->status.toObject(isolate)
+                    self->status.toObject(isolate)
             };
 
             Local<Function> local(Local<Function>::New(
                     isolate,
-                    readCommand->initCb()));
+                    self->initCb()));
 
             local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
-            readCommand->notifyCb();
+            self->notifyCb();
         })
     );
 }
@@ -135,101 +118,79 @@ void ReadCommand::registerDataCb()
 {
     uv_async_init(
         m_loop,
-        m_dataAsync,
+        dataAsync(),
         ([](uv_async_t* async)->void
         {
             Isolate* isolate(Isolate::GetCurrent());
             HandleScope scope(isolate);
-            ReadCommand* readCommand(static_cast<ReadCommand*>(async->data));
+            ReadCommand* self(static_cast<ReadCommand*>(async->data));
 
-            if (readCommand->status.ok())
+            if (self->status.ok())
             {
-                /*
-                Ideally we'd pass kgFunction as arg 4 of this callback,
-                allowing JS-land to asyncly call us as long as their keepGoing
-                logic is truthy.  For now we'll make JS return a value from
-                their onData function, since we can't capture state with this
-                method.
+                bufferPool.capture(self->buffer());
 
-                auto keepGoingCb([](const FunctionCallbackInfo<Value>& args)
-                {
-                    std::cout << "Got keep going signal!" << std::endl;
-                });
-
-                Local<FunctionTemplate> kgTemplate(
-                        FunctionTemplate::New(isolate, keepGoingCb));
-                Local<Function> kgFunction(kgTemplate->GetFunction());
-                */
-
-                MaybeLocal<Object> buffer(
-                        node::Buffer::Copy(
+                MaybeLocal<Object> nodeBuffer(
+                        node::Buffer::New(
                             isolate,
-                            readCommand->getBuffer()->data(),
-                            readCommand->getBuffer()->size()));
+                            self->buffer().data(),
+                            self->buffer().size(),
+                            release,
+                            nullptr));
 
                 const unsigned argc = 3;
                 Local<Value>argv[argc] =
                 {
                     Local<Value>::New(isolate, Null(isolate)),
-                    Local<Value>::New(isolate, buffer.ToLocalChecked()),
+                    Local<Value>::New(isolate, nodeBuffer.ToLocalChecked()),
                     Local<Value>::New(
                             isolate,
-                            Number::New(isolate, readCommand->done()))
+                            Number::New(isolate, self->done()))
                 };
 
                 Local<Function> local(Local<Function>::New(
                         isolate,
-                        readCommand->dataCb()));
+                        self->dataCb()));
 
-                Local<Value> keepGoing =
+                Local<Value> keepGoingVal =
                     local->Call(
                             isolate->GetCurrentContext()->Global(),
                             argc,
                             argv);
 
-                readCommand->terminate(!keepGoing->BooleanValue());
+                const bool keepGoing(keepGoingVal->BooleanValue());
+                if (!keepGoing) self->terminate(true);
             }
             else
             {
                 const unsigned argc = 1;
-                Local<Value> argv[argc] =
-                    { readCommand->status.toObject(isolate) };
+                Local<Value> argv[argc] = { self->status.toObject(isolate) };
 
                 Local<Function> local(Local<Function>::New(
                         isolate,
-                        readCommand->dataCb()));
+                        self->dataCb()));
 
                 local->Call(isolate->GetCurrentContext()->Global(), argc, argv);
             }
 
-            readCommand->notifyCb();
+            self->notifyCb();
         })
     );
 }
 
-ReadCommandUnindexed::ReadCommandUnindexed(
-        std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
-        bool compress,
-        const std::string schemaString,
-        v8::UniquePersistent<v8::Function> initCb,
-        v8::UniquePersistent<v8::Function> dataCb)
-    : ReadCommand(
-            session,
-            itcBufferPool,
-            compress,
-            nullptr,
-            nullptr,
-            schemaString,
-            "",
-            nullptr,
-            std::move(initCb),
-            std::move(dataCb))
-{ }
+void ReadCommand::read()
+{
+    do
+    {
+        m_buffer = &bufferPool.acquire();
+        m_readQuery->read(*m_buffer);
+        doCb(dataAsync());
+    }
+    while (!done() && status.ok());
+}
 
 ReadCommandQuadIndex::ReadCommandQuadIndex(
         std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
+        BufferPool& bufferPool,
         bool compress,
         const entwine::Point* scale,
         const entwine::Point* offset,
@@ -243,7 +204,7 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
         v8::UniquePersistent<v8::Function> dataCb)
     : ReadCommand(
             session,
-            itcBufferPool,
+            bufferPool,
             compress,
             scale,
             offset,
@@ -256,11 +217,6 @@ ReadCommandQuadIndex::ReadCommandQuadIndex(
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
 { }
-
-void ReadCommandUnindexed::query()
-{
-    m_readQuery = m_session->query(m_schema, m_compress);
-}
 
 void ReadCommandQuadIndex::query()
 {
@@ -278,7 +234,7 @@ void ReadCommandQuadIndex::query()
 ReadCommand* ReadCommand::create(
         Isolate* isolate,
         std::shared_ptr<Session> session,
-        ItcBufferPool& itcBufferPool,
+        BufferPool& bufferPool,
         const std::string schemaString,
         const std::string filterString,
         bool compress,
@@ -343,7 +299,7 @@ ReadCommand* ReadCommand::create(
     {
         readCommand = new ReadCommandQuadIndex(
                 session,
-                itcBufferPool,
+                bufferPool,
                 compress,
                 scale,
                 offset,

@@ -20,7 +20,6 @@
 #include <entwine/util/executor.hpp>
 
 #include "read-queries/entwine.hpp"
-#include "read-queries/unindexed.hpp"
 #include "util/buffer-pool.hpp"
 
 #include "session.hpp"
@@ -189,24 +188,6 @@ std::string Session::hierarchy(
     else
     {
         throw std::runtime_error("Cannot get hierarchy from unindexed dataset");
-    }
-}
-
-std::shared_ptr<ReadQuery> Session::query(
-        const entwine::Schema& schema,
-        const bool compress)
-{
-    if (sourced())
-    {
-        return std::shared_ptr<ReadQuery>(
-                new UnindexedReadQuery(
-                    schema,
-                    compress,
-                    *m_source));
-    }
-    else
-    {
-        throw WrongQueryType();
     }
 }
 

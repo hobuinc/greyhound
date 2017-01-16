@@ -17,9 +17,9 @@ EntwineReadQuery::EntwineReadQuery(
 EntwineReadQuery::~EntwineReadQuery()
 { }
 
-bool EntwineReadQuery::readSome(ItcBuffer& buffer)
+bool EntwineReadQuery::readSome(std::vector<char>& buffer)
 {
-    m_query->next(buffer.vecRef());
+    m_query->next(buffer);
     return m_query->done();
 }
 

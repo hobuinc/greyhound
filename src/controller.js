@@ -16,7 +16,8 @@ clim.getTime = function() {
     return (
         ('0' + now.getHours()).slice(-2) + ':' +
         ('0' + now.getMinutes()).slice(-2) + ':' +
-        ('0' + now.getSeconds()).slice(-2));
+        ('0' + now.getSeconds()).slice(-2) + ':' +
+        ('0' + now.getMilliseconds()).slice(-2));
 };
 clim(console, true);
 
@@ -111,9 +112,6 @@ clim(console, true);
         var compress =
             query.hasOwnProperty('compress') &&
             query.compress.toLowerCase() == 'true';
-        var normalize =
-            query.hasOwnProperty('normalize') &&
-            query.normalize.toLowerCase() == 'true';
         var scale = query.hasOwnProperty('scale') ? query.scale : null;
         var offset = query.hasOwnProperty('offset') ? query.offset : null;
 
@@ -143,12 +141,8 @@ clim(console, true);
         this.getSession(resource, (err, session) => {
             if (err) cb(err);
             else session.hierarchy(query, (err, string) => {
-                try {
-                    return cb(null, JSON.parse(string));
-                }
-                catch (e) {
-                    return cb(error(500, 'Error parsing hierarchy ' + string));
-                }
+                try { return cb(null, JSON.parse(string)); }
+                catch (e) { return cb(error(500, e || 'Hierarchy error')); }
             });
         });
     }

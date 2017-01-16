@@ -57,11 +57,6 @@ public:
             const entwine::Scale* scale,
             const entwine::Offset* offset) const;
 
-    // Read a full unindexed data set.
-    std::shared_ptr<ReadQuery> query(
-            const entwine::Schema& schema,
-            bool compress);
-
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
     std::shared_ptr<ReadQuery> query(

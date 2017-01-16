@@ -20,32 +20,25 @@ ReadQuery::ReadQuery(
     , m_done(false)
 { }
 
-void ReadQuery::read(ItcBuffer& buffer)
+void ReadQuery::read(std::vector<char>& buffer)
 {
     if (m_done) throw std::runtime_error("Tried to call read() after done");
 
-    buffer.resize(0);
+    buffer.clear();
     m_done = readSome(buffer);
 
     if (compress())
     {
         m_compressor->compress(buffer.data(), buffer.size());
         if (m_done) m_compressor->done();
-        compressionSwap(buffer);
+        buffer = std::move(*m_compressionStream.data());
     }
 
     if (m_done)
     {
         const uint32_t points(numPoints());
         const char* pos(reinterpret_cast<const char*>(&points));
-        buffer.push(pos, sizeof(uint32_t));
+        buffer.insert(buffer.end(), pos, pos + sizeof(uint32_t));
     }
-}
-
-void ReadQuery::compressionSwap(ItcBuffer& buffer)
-{
-    std::unique_ptr<std::vector<char>> compressed(m_compressionStream.data());
-    buffer.resize(0);
-    buffer.push(compressed->data(), compressed->size());
 }
 

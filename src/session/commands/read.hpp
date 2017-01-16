@@ -16,16 +16,26 @@
 #include "read-queries/base.hpp"
 #include "util/buffer-pool.hpp"
 
-class ItcBufferPool;
-class ItcBuffer;
 class Session;
+
+struct AsyncDeleter
+{
+    void operator()(uv_async_t* async)
+    {
+        auto handle(reinterpret_cast<uv_handle_t*>(async));
+        uv_close(handle, (uv_close_cb)([](uv_handle_t* handle)
+        {
+            delete handle;
+        }));
+    }
+};
 
 class ReadCommand : public Background
 {
 public:
     ReadCommand(
             std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
+            BufferPool& bufferPool,
             bool compress,
             const entwine::Point* scale,
             const entwine::Point* offset,
@@ -34,12 +44,13 @@ public:
             uv_loop_t* loop,
             v8::UniquePersistent<v8::Function> initCb,
             v8::UniquePersistent<v8::Function> dataCb);
-    virtual ~ReadCommand();
+
+    virtual ~ReadCommand() { }
 
     static ReadCommand* create(
             v8::Isolate* isolate,
             std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
+            BufferPool& bufferPool,
             std::string schemaString,
             std::string filterString,
             bool compress,
@@ -53,22 +64,20 @@ public:
     void registerInitCb();
     void registerDataCb();
 
-    void read() { m_readQuery->read(*m_itcBuffer); }
-    void run() { query(); }
+    void init() { query(); }
+    void read();
 
-    std::shared_ptr<ItcBuffer> getBuffer() { return m_itcBuffer; }
-    ItcBufferPool& getBufferPool() { return m_itcBufferPool; }
+    std::vector<char>& buffer() { return *m_buffer; }
 
     bool done() const { return terminate() || m_readQuery->done(); }
     bool terminate() const { return m_terminate; }
     void terminate(bool val) { m_terminate = val; }
 
-    void acquire() { m_itcBuffer = m_itcBufferPool.acquire(); }
     v8::UniquePersistent<v8::Function>& initCb() { return m_initCb; }
     v8::UniquePersistent<v8::Function>& dataCb() { return m_dataCb; }
 
-    uv_async_t* initAsync() { return m_initAsync; }
-    uv_async_t* dataAsync() { return m_dataAsync; }
+    uv_async_t* initAsync() { return m_initAsync.get(); }
+    uv_async_t* dataAsync() { return m_dataAsync.get(); }
 
     void doCb(uv_async_t* async)
     {
@@ -78,7 +87,8 @@ public:
         m_cv.wait(lock, [this]()->bool { return !m_wait; });
     }
 
-    void notifyCb() {
+    void notifyCb()
+    {
         std::unique_lock<std::mutex> lock(m_mutex);
         m_wait = false;
         lock.unlock();
@@ -90,19 +100,19 @@ protected:
 
     std::shared_ptr<Session> m_session;
 
-    ItcBufferPool& m_itcBufferPool;
-    std::shared_ptr<ItcBuffer> m_itcBuffer;
+    std::vector<char>* m_buffer = nullptr;
+
     const bool m_compress;
     std::unique_ptr<entwine::Point> m_scale;
     std::unique_ptr<entwine::Point> m_offset;
     entwine::Schema m_schema;
     Json::Value m_filter;
-    std::size_t m_numSent;
+    std::size_t m_numSent = 0;
     std::shared_ptr<ReadQuery> m_readQuery;
 
     uv_loop_t* m_loop;
-    uv_async_t* m_initAsync;
-    uv_async_t* m_dataAsync;
+    std::unique_ptr<uv_async_t, AsyncDeleter> m_initAsync;
+    std::unique_ptr<uv_async_t, AsyncDeleter> m_dataAsync;
     v8::UniquePersistent<v8::Function> m_initCb;
     v8::UniquePersistent<v8::Function> m_dataCb;
 
@@ -112,27 +122,12 @@ protected:
     bool m_terminate;
 };
 
-class ReadCommandUnindexed : public ReadCommand
-{
-public:
-    ReadCommandUnindexed(
-            std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
-            bool compress,
-            std::string schemaString,
-            v8::UniquePersistent<v8::Function> initCb,
-            v8::UniquePersistent<v8::Function> dataCb);
-
-private:
-    virtual void query();
-};
-
 class ReadCommandQuadIndex : public ReadCommand
 {
 public:
     ReadCommandQuadIndex(
             std::shared_ptr<Session> session,
-            ItcBufferPool& itcBufferPool,
+            BufferPool& bufferPool,
             bool compress,
             const entwine::Point* scale,
             const entwine::Point* offset,

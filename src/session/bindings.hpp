@@ -7,7 +7,7 @@
 #include <v8.h>
 
 class Session;
-class ItcBufferPool;
+class BufferPool;
 
 struct CRYPTO_dynlock_value
 {
@@ -38,6 +38,6 @@ private:
     static void hierarchy(const Args& args);
 
     std::shared_ptr<Session> m_session;
-    ItcBufferPool& m_itcBufferPool;
+    BufferPool& m_bufferPool;
 };
 

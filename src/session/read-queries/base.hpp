@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/Compression.hpp>
@@ -13,8 +14,6 @@ namespace entwine
     class DimInfo;
 }
 
-class ItcBuffer;
-
 class ReadQuery
 {
 public:
@@ -24,16 +23,14 @@ public:
             std::size_t index = 0);
     virtual ~ReadQuery() { if (m_compressor) m_compressor->done(); }
 
-    void read(ItcBuffer& buffer);
+    void read(std::vector<char>& buffer);
     bool compress() const { return m_compressor.get() != 0; }
     bool done() const { return m_done; }
     virtual uint64_t numPoints() const = 0;
 
 protected:
     // Must return true if done, else false.
-    virtual bool readSome(ItcBuffer& buffer) = 0;
-
-    void compressionSwap(ItcBuffer& buffer);
+    virtual bool readSome(std::vector<char>& buffer) = 0;
 
     entwine::CompressionStream m_compressionStream;
     std::unique_ptr<pdal::LazPerfCompressor<

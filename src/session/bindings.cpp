@@ -43,8 +43,8 @@ namespace
         exit(1);
     }
 
-    const std::size_t numBuffers = 1024;
-    ItcBufferPool itcBufferPool(numBuffers);
+    const std::size_t numBuffers = 512;
+    BufferPool bufferPool(numBuffers);
 
     std::mutex factoryMutex;
     std::unique_ptr<pdal::StageFactory> stageFactory;
@@ -89,7 +89,7 @@ Persistent<Function> Bindings::constructor;
 
 Bindings::Bindings()
     : m_session(new Session(*stageFactory, factoryMutex))
-    , m_itcBufferPool(itcBufferPool)
+    , m_bufferPool(bufferPool)
 { }
 
 Bindings::~Bindings()
@@ -368,7 +368,7 @@ void Bindings::read(const Args& args)
         readCommand = ReadCommand::create(
                 isolate,
                 obj->m_session,
-                obj->m_itcBufferPool,
+                obj->m_bufferPool,
                 schemaString,
                 filterString,
                 compress,
@@ -403,14 +403,14 @@ void Bindings::read(const Args& args)
         {
             ReadCommand* readCommand(static_cast<ReadCommand*>(req->data));
 
-            // Run the query.  This will ensure indexing if needed, and
-            // will obtain everything needed to start streaming binary
-            // data to the client.
+            // Initialize the query.  This will ensure indexing if needed, and
+            // will obtain everything needed to start streaming binary data to
+            // the client.
             readCommand->safe([readCommand]()->void
             {
                 try
                 {
-                    readCommand->run();
+                    readCommand->init();
                 }
                 catch (entwine::InvalidQuery& e)
                 {
@@ -441,16 +441,9 @@ void Bindings::read(const Args& args)
 
             readCommand->safe([readCommand]()->void
             {
-                readCommand->acquire();
-
                 try
                 {
-                    do
-                    {
-                        readCommand->read();
-                        readCommand->doCb(readCommand->dataAsync());
-                    }
-                    while (!readCommand->done() && readCommand->status.ok());
+                    readCommand->read();
                 }
                 catch (std::runtime_error& e)
                 {

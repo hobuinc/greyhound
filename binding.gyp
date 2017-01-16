@@ -12,11 +12,9 @@
 
                 './src/session/read-queries/base.cpp',
                 './src/session/read-queries/entwine.cpp',
-                './src/session/read-queries/unindexed.cpp',
 
                 './src/session/types/source-manager.cpp',
 
-                './src/session/util/buffer-pool.cpp',
                 './src/session/util/once.cpp'
             ],
             'include_dirs': [
