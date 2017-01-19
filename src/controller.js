@@ -125,11 +125,8 @@ clim(console, true);
         this.getSession(resource, function(err, session) {
             if (err) return onInit(err);
 
-            var initCb = (err) => onInit(err);
-            var dataCb = (err, data, done) => onData(err, data, done);
-
             session.read(
-                schema, filter, compress, scale, offset, query, initCb, dataCb);
+                schema, filter, compress, scale, offset, query, onInit, onData);
         });
     };
 
