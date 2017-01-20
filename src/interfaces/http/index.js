@@ -172,7 +172,15 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
         }
 
         app.get('/resource/:resource(*)/info', function(req, res, next) {
+            var start = new Date();
+
             controller.info(req.params.resource, function(err, data) {
+                var end = new Date();
+                console.log(
+                        req.params.resource + '/' +
+                        colors.green('info') + ':',
+                        colors.magenta(end - start), 'ms');
+
                 if (err) return next(err);
                 else return res.json(data);
             });
@@ -184,10 +192,12 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
 
             var q = _.merge({ }, req.query);
 
+            /*
             req.on('close', () => {
                 console.log('Socket closed - aborting read');
                 keepGoing = false;
             });
+            */
 
             var start = new Date();
             var size = 0;
@@ -216,7 +226,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                                     req.params.resource + '/' +
                                     colors.cyan('read') + ':',
                                     colors.magenta(end - start), 'ms',
-                                    'L:', bytes(size),
+                                    'L:', bytes(size - 4),
                                     'D: [' + (
                                         q.depthBegin || q.depthEnd ?
                                             q.depthBegin + ', ' + q.depthEnd :
