@@ -348,6 +348,69 @@ Bounds-overlap query
 
 File metadata may also be selected by querying for a ``bounds``, in which case all overlapping files from the input will be selected.  This query looks like ``/files?bounds=[100, 200, 300, 1100, 1200, 1300]`` or ``/files?bounds=[100, 200, 1100, 1200]``.  The format is ``[x-min, y-min, z-min, x-max, y-max, z-max]`` or ``[x-min, y-min, x-max, y-max]``.  Again, if only one match is found, then the result will be an object - if multiple matches are found, an array - and if zero, null.
 
+Results
+-------------------------------------------------------------------------------
+
+A single result may look something like this, edited for brevity ::
+
+    {
+        "bounds": [635648.8200000001, 851234.24, 411.09, 636357.77, 852448.12, 556.69],
+        "metadata": {
+            "comp_spatialreference": "...",
+            "compressed": true,
+            "count": 591852,
+            "creation_doy": 271,
+            "creation_year": 2016,
+            "dataformat_id": 3,
+            "dataoffset": 1812,
+            "filesource_id": 0,
+            "global_encoding": 0,
+            "global_encoding_base64": "AAA=",
+            "header_size": 227,
+            "major_version": 1,
+            "maxx": 636357.77,
+            "maxy": 852448.12,
+            "maxz": 556.69,
+            "minor_version": 2,
+            "minx": 635648.82,
+            "miny": 851234.24,
+            "minz": 411.09,
+            "offset_x": 0,
+            "offset_y": 0,
+            "offset_z": 0,
+            "project_id": "00000000-0000-0000-0000-000000000000",
+            "scale_x": 0.01,
+            "scale_y": 0.01,
+            "scale_z": 0.01,
+            "software_id": "PDAL 1.3.0 (8a481e)",
+            "spatialreference": "...",
+            "srs": {
+                "compoundwkt": "...",
+                "horizontal": "...",
+                "isgeocentric": false,
+                "isgeographic": false,
+                "prettycompoundwkt": "...",
+                "prettywkt": "...",
+                "proj4": "+proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999999999 +y_0=0 +ellps=GRS80 +units=ft +no_defs",
+                "units": { "horizontal": "foot", "vertical": "" },
+                "vertical": "",
+                "wkt": "...",
+            },
+            "system_id": "PDAL",
+            "vlr_0": { "description": "http://laszip.org", "record_id": 22204, "user_id": "laszip encoded" },
+            "vlr_1": { ... },
+            "vlr_2": { ... }
+        },
+        "numPoints": 591852,
+        "origin": 1,
+        "path": "my-data/tile-10.laz",
+        "pointStats": { "inserts": 591852, "outOfBounds": 0, "overflows": 0 },
+        "srs": "...",
+        "status": "inserted"
+    }
+
+The ``metadata`` key is header metadata picked up by PDAL, so its contents are simply forwarded as-is.  Other keys are specific to Entwine's indexing.
+
 |
 
 Working with Greyhound
