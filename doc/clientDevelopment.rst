@@ -33,6 +33,8 @@ Command Set
 +---------------+-------------------------------------------------------------+
 | hierarchy     | Get a metadata hierarchy with point counts information.     |
 +---------------+-------------------------------------------------------------+
+| files         | Get the metadata for files from the unindexed dataset.      |
++---------------+-------------------------------------------------------------+
 
 |
 
@@ -312,6 +314,39 @@ This result indicates that at depth 8, for the entire queried bounds, there are 
 At depth 9, for the north-east-down (``ned``) bisected bounds, which would be ``[500, 500, 0, 1000, 1000, 500]``, there are 138599 points.  For ``neu`` at depth 9, being ``[500, 500, 500, 1000, 1000, 1000]``, there are 13653 points.
 
 At depth 10, starting from the ``ned`` bounds, the ``neu`` bounds of ``[750, 750, 250, 1000, 1000, 500]`` contains 13064 points.  Since there is no key for ``["ned"]["ned"]``, there are zero points at depth 10 for bounds ``[750, 750, 0, 1000, 1000, 250]``.
+
+|
+
+The Files Query
+===============================================================================
+
+Description
+-------------------------------------------------------------------------------
+
+This query returns a JSON structure containing the original metadata found in the selected input files which make up an indexed dataset.  The metadata for a single file may be returned as an object, or if multiple files are selected, an array of objects.  Files may be selected by their filename, their location in the index, or by selecting those files which overlap a queried bounds.
+
+Single-selection form
+-------------------------------------------------------------------------------
+
+One form of the ``files`` query selects the metadata for a single file from the input of an index.  This selection is accomplished via a string portion of a file-path or a number specifying a unique sequence-location within the output index.
+
+The file-path selection looks like ``/files/my-input-tile-42.laz``.  In this case, a substring match will be performed against the string ``my-input-tile-42.laz``.  The input to the ``files`` query must be specific enough to select only the file desired.  For example, if a dataset were comprised of files ``abc-1.laz`` and ``abc-2.laz``, a query of ``/files/abc`` could return either of those files.
+
+A sequence-location selection looks like ``/files/2718``, which would select the file with an ``OriginId`` of ``2718``.  For each input file, every point from that file is assigned a unique ``OriginId`` dimension, so this query may be derived from the point data for a point received from a ``read`` query.
+
+If no match can be made for either a partial path or an ``OriginId`` value, then ``null`` will be returned.
+
+Query form
+-------------------------------------------------------------------------------
+
+The single-selection queries above may be alternatively made with a more flexible query-parameter format using the query parameter ``search``.  For the above examples, the corresponding queries would be ``/files?search=my-input-tile-42.laz`` and ``files?search=2718``.
+
+In addition to the single-selection form, this form may also accept an array containing multiple queries similar to the above.  Their types may be mixed, for example the array may contain both file paths as well as ``OriginId`` values.  For example, ``/files?search=["my-input-tile-42.laz", 2718]``.  The array must be valid JSON, so strings must be quoted.  For each entry in the input query, the output will contain one entry, which may be null if no matches were found for an input entry.  If the query is of size one, then the result will be an object (or null if there are no results).
+
+Bounds-overlap query
+-------------------------------------------------------------------------------
+
+File metadata may also be selected by querying for a ``bounds``, in which case all overlapping files from the input will be selected.  This query looks like ``/files?bounds=[100, 200, 300, 1100, 1200, 1300]`` or ``/files?bounds=[100, 200, 1100, 1200]``.  The format is ``[x-min, y-min, z-min, x-max, y-max, z-max]`` or ``[x-min, y-min, x-max, y-max]``.  Again, if only one match is found, then the result will be an object - if multiple matches are found, an array - and if zero, null.
 
 |
 
