@@ -34,13 +34,15 @@ HierarchyCommand::~HierarchyCommand()
 
 void HierarchyCommand::run()
 {
-    m_result = m_session->hierarchy(
-            m_bounds,
-            m_depthBegin,
-            m_depthEnd,
-            m_vertical,
-            m_scale.get(),
-            m_offset.get());
+    Json::FastWriter fastWriter;
+    m_result = fastWriter.write(
+            m_session->hierarchy(
+                m_bounds,
+                m_depthBegin,
+                m_depthEnd,
+                m_vertical,
+                m_scale.get(),
+                m_offset.get()));
 }
 
 HierarchyCommand* HierarchyCommand::create(

@@ -110,6 +110,7 @@ void Bindings::init(v8::Handle<v8::Object> exports)
     NODE_SET_PROTOTYPE_METHOD(tpl, "create",    create);
     NODE_SET_PROTOTYPE_METHOD(tpl, "destroy",   destroy);
     NODE_SET_PROTOTYPE_METHOD(tpl, "info",      info);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "files",     files);
     NODE_SET_PROTOTYPE_METHOD(tpl, "read",      read);
     NODE_SET_PROTOTYPE_METHOD(tpl, "hierarchy", hierarchy);
 
@@ -280,8 +281,48 @@ void Bindings::info(const Args& args)
     HandleScope scope(isolate);
     Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
 
-    const std::string info(obj->m_session->info());
+    const std::string info(obj->m_session->info().toStyledString());
     args.GetReturnValue().Set(String::NewFromUtf8(isolate, info.c_str()));
+}
+
+void Bindings::files(const Args& args)
+{
+    Isolate* isolate(args.GetIsolate());
+    HandleScope scope(isolate);
+    Bindings* obj = ObjectWrap::Unwrap<Bindings>(args.Holder());
+
+    std::size_t i(0);
+    const auto& searchArg   (args[i++]);
+    const auto& scaleArg    (args[i++]);
+    const auto& offsetArg   (args[i++]);
+
+    std::unique_ptr<entwine::Point> scale;
+    std::unique_ptr<entwine::Point> offset;
+
+    if (!scaleArg->IsNull())
+    {
+        scale = entwine::makeUnique<entwine::Point>(parsePoint(scaleArg));
+
+        if (!scale->x) scale->x = 1;
+        if (!scale->y) scale->y = 1;
+        if (!scale->z) scale->z = 1;
+    }
+
+    if (!offsetArg->IsNull())
+    {
+        offset = entwine::makeUnique<entwine::Point>(parsePoint(offsetArg));
+    }
+
+    const std::string searchString(
+            searchArg->IsString() ?
+                *v8::String::Utf8Value(searchArg->ToString()) :
+                "");
+
+    const Json::Value searchJson(entwine::parse(searchString));
+    const Json::Value json(
+            obj->m_session->files(searchJson, scale.get(), offset.get()));
+    const std::string result(json.toStyledString());
+    args.GetReturnValue().Set(String::NewFromUtf8(isolate, result.c_str()));
 }
 
 void Bindings::read(const Args& args)

@@ -186,6 +186,77 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
             });
         });
 
+        app.get('/resource/:resource(*)/files/:search', function(req, res, next)
+        {
+            var start = new Date();
+
+            // If the search is a number (although it will still appear here as
+            // a string since it's a query parameter) convert it to an actual
+            // number so it will be JSONified correctly.
+            var s = req.params.search;
+            if (s.match(/^\d+$/)) s = +s;
+
+            var query = { search: s };
+
+            controller.files(req.params.resource, query, (err, data) => {
+                var end = new Date();
+
+                console.log(
+                        req.params.resource + '/' +
+                        colors.green('file') + ':',
+                        colors.magenta(end - start), 'ms',
+                        'Q:', query);
+
+                if (err) return next(err);
+                else return res.json(data);
+            });
+        });
+
+        app.get('/resource/:resource(*)/files', function(req, res, next) {
+            var start = new Date();
+
+            if (req.query.search && req.query.bounds) {
+                return next('Cannot specify both "search" and "bounds"');
+            }
+            else if (!req.query.search && !req.query.bounds) {
+                return next('Invalid files query - empty');
+            }
+
+            // The search parameter may be one of three things:
+            //      - a string representing a path
+            //      - a number representing an origin
+            //      - an array of some combination of the above two things
+            var s = req.query.search;
+            var b = req.query.bounds;
+            if (s) {
+                s = s && s.length ? s : null;
+                if (s) {
+                    if (s.match(/^\d+$/)) s = +s;
+                    else if (s.length && s[0] == '[') s = JSON.parse(s);
+                    req.query.search = s;
+                }
+                if (s) req.query.search = s;
+                else delete req.query.search;
+            }
+            else {
+                delete req.query.bounds;
+                req.query.search = { bounds: JSON.parse(b) };
+            }
+
+            controller.files(req.params.resource, req.query, (err, data) => {
+                var end = new Date();
+
+                console.log(
+                        req.params.resource + '/' +
+                        colors.green('file') + ':',
+                        colors.magenta(end - start), 'ms',
+                        'Q:', req.query);
+
+                if (err) return next(err);
+                else return res.json(data);
+            });
+        });
+
         app.get('/resource/:resource(*)/read', function(req, res, next) {
             // Terminate query on socket hangup.
             var keepGoing = true;

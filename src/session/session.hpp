@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "types/source-manager.hpp"
 #include "util/once.hpp"
 
 namespace pdal
@@ -47,13 +46,16 @@ public:
             entwine::OuterScope& outerScope,
             std::shared_ptr<entwine::Cache> cache);
 
-    // Returns stringified JSON response.
-    std::string info() const;
-    std::string hierarchy(
+    Json::Value info() const;
+    Json::Value hierarchy(
             const entwine::Bounds& bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
             bool vertical,
+            const entwine::Scale* scale,
+            const entwine::Offset* offset) const;
+    Json::Value files(
+            const Json::Value& search,
             const entwine::Scale* scale,
             const entwine::Offset* offset) const;
 
@@ -72,36 +74,30 @@ public:
     const entwine::Schema& schema() const;
 
 private:
+    Json::Value filesSingle(
+            const Json::Value& search,
+            const entwine::Scale* scale,
+            const entwine::Offset* offset) const;
+
+    void check() const
+    {
+        if (!m_entwine)
+        {
+            throw std::runtime_error("Session was not created");
+        }
+    }
+
     bool resolveIndex(
             const std::string& name,
             const std::vector<std::string>& paths,
             entwine::OuterScope& outerScope,
             std::shared_ptr<entwine::Cache> cache);
 
-    bool resolveSource(
-            const std::string& name,
-            const std::vector<std::string>& paths);
-
-    void resolveInfo();
-
     bool indexed() const { return m_entwine.get(); }
-    bool sourced() const { return m_source.get(); }
-
-    void check() const
-    {
-        if (!sourced() && !indexed())
-        {
-            throw std::runtime_error("Session has no backing data.");
-        }
-    }
-
-    pdal::StageFactory& m_stageFactory;
-    std::mutex& m_factoryMutex;
 
     Once m_initOnce;
-    std::unique_ptr<SourceManager> m_source;
     std::unique_ptr<entwine::Reader> m_entwine;
-    std::string m_info;
+    Json::Value m_info;
 
     // Disallow copy/assignment.
     Session(const Session&);

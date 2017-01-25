@@ -36,6 +36,7 @@ private:
     static void info(const Args& args);
     static void read(const Args& args);
     static void hierarchy(const Args& args);
+    static void files(const Args& args);
 
     std::shared_ptr<Session> m_session;
     BufferPool& m_bufferPool;

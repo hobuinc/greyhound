@@ -92,13 +92,9 @@ public:
         {
             f();
         }
-        catch (const std::runtime_error& e)
+        catch (const std::exception& e)
         {
             status.set(500, e.what());
-        }
-        catch (const std::bad_alloc& ba)
-        {
-            status.set(500, "Bad alloc");
         }
         catch (...)
         {

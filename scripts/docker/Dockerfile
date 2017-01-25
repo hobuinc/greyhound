@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y wget && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-ADD http://www.timeapi.org/utc/now /tmp/bust-cache
+ADD https://api.github.com/repos/hobu/greyhound/commits /tmp/bust-cache
 RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
     cd /var/greyhound && \
     npm install -g .

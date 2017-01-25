@@ -1,5 +1,4 @@
 var bytes = require('bytes'),
-    querystring = require('querystring'),
     Bindings = require('../build/Release/session'),
     Session = Bindings.Session,
     totalThreads = require('os').cpus().length,
@@ -103,6 +102,22 @@ clim(console, true);
 
             try { return cb(null, JSON.parse(session.info())); }
             catch (e) { return cb(error(500, 'Error parsing info')); }
+        });
+    };
+
+    Controller.prototype.files = function(resource, query, cb) {
+        var search = JSON.stringify(query.search);
+        var scale = query.hasOwnProperty('scale') ? query.scale : null;
+        var offset = query.hasOwnProperty('offset') ? query.offset : null;
+
+        this.getSession(resource, function(err, session) {
+            if (err) return cb(err);
+
+            try {
+                var result = JSON.parse(session.files(search, scale, offset));
+                return cb(null, result);
+            }
+            catch (e) { return cb(error(500, e || 'Files error')); }
         });
     };
 

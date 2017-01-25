@@ -73,10 +73,7 @@ namespace
 Session::Session(
         pdal::StageFactory& stageFactory,
         std::mutex& factoryMutex)
-    : m_stageFactory(stageFactory)
-    , m_factoryMutex(factoryMutex)
-    , m_initOnce()
-    , m_source()
+    : m_initOnce()
     , m_entwine()
 { }
 
@@ -134,21 +131,7 @@ bool Session::initialize(
                 json["offset"] = delta->offset().toJsonArray();
             }
 
-            m_info = json.toStyledString();
-        }
-        else if (resolveSource(name, paths))
-        {
-            std::cout << "\tSource for " << name << " found" << std::endl;
-            const std::size_t numPoints(m_source->numPoints());
-
-            Json::Value json;
-            json["type"] = "unindexed";
-            json["numPoints"] = static_cast<Json::UInt64>(numPoints);
-            json["schema"] = m_source->schema().toJson();
-            json["bounds"] = m_source->bounds().toJson();
-            json["srs"] = m_source->srs();
-
-            m_info = json.toStyledString();
+            m_info = json;
         }
         else
         {
@@ -156,16 +139,16 @@ bool Session::initialize(
         }
     });
 
-    return sourced() || indexed();
+    return !!m_entwine;
 }
 
-std::string Session::info() const
+Json::Value Session::info() const
 {
     check();
     return m_info;
 }
 
-std::string Session::hierarchy(
+Json::Value Session::hierarchy(
         const entwine::Bounds& bounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
@@ -173,75 +156,122 @@ std::string Session::hierarchy(
         const entwine::Scale* scale,
         const entwine::Offset* offset) const
 {
-    if (indexed())
+    check();
+    return m_entwine->hierarchy(
+            bounds,
+            depthBegin,
+            depthEnd,
+            vertical,
+            scale,
+            offset);
+}
+
+Json::Value Session::filesSingle(
+        const Json::Value& in,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset) const
+{
+    Json::Value result;
+    if (in.isNumeric())
     {
-        Json::FastWriter writer;
-        return writer.write(
-                m_entwine->hierarchy(
-                    bounds,
-                    depthBegin,
-                    depthEnd,
-                    vertical,
-                    scale,
-                    offset));
+        try { return m_entwine->files(in.asUInt64()).toJson(); }
+        catch (...) { return Json::nullValue; }
+    }
+    else if (in.isString())
+    {
+        try { return m_entwine->files(in.asString()).toJson(); }
+        catch (...) { return Json::nullValue; }
     }
     else
     {
-        throw std::runtime_error("Cannot get hierarchy from unindexed dataset");
+        throw std::runtime_error("Invalid file query: " + in.toStyledString());
     }
+}
+
+Json::Value Session::files(
+        const Json::Value& in,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset) const
+{
+    Json::Value result;
+    if (in.isArray())
+    {
+        for (const auto& f : in)
+        {
+            const auto current(filesSingle(f, scale, offset));
+            result.append(current);
+        }
+
+        return result.size() == 1 ? result[0] : result;
+    }
+    else if (in.isObject() && in.isMember("bounds"))
+    {
+        const entwine::Bounds b(in["bounds"]);
+        const auto fileInfo(m_entwine->files(b, scale, offset));
+        if (fileInfo.size() == 1)
+        {
+            result = fileInfo.front().toJson();
+        }
+        else if (fileInfo.size() > 1)
+        {
+            for (const auto& f : fileInfo)
+            {
+                result.append(f.toJson());
+            }
+        }
+        else return Json::nullValue;
+    }
+    else
+    {
+        return filesSingle(in, scale, offset);
+    }
+
+    return result;
 }
 
 std::shared_ptr<ReadQuery> Session::query(
         const entwine::Schema& schema,
         const Json::Value& filter,
         const bool compress,
-        const entwine::Point* scale,
-        const entwine::Point* offset,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset,
         const entwine::Bounds* inBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    if (indexed())
+    check();
+    std::unique_ptr<entwine::Query> q;
+
+    if (inBounds)
     {
-        std::unique_ptr<entwine::Query> q;
-
-        if (inBounds)
-        {
-            q = m_entwine->getQuery(
-                    schema,
-                    filter,
-                    *inBounds,
-                    depthBegin,
-                    depthEnd,
-                    scale,
-                    offset);
-        }
-        else
-        {
-            q = m_entwine->getQuery(
-                    schema,
-                    filter,
-                    depthBegin,
-                    depthEnd,
-                    scale,
-                    offset);
-        }
-
-        return std::shared_ptr<ReadQuery>(
-                new EntwineReadQuery(schema, compress, std::move(q)));
+        q = m_entwine->getQuery(
+                schema,
+                filter,
+                *inBounds,
+                depthBegin,
+                depthEnd,
+                scale,
+                offset);
     }
     else
     {
-        throw WrongQueryType();
+        q = m_entwine->getQuery(
+                schema,
+                filter,
+                depthBegin,
+                depthEnd,
+                scale,
+                offset);
     }
+
+    return std::shared_ptr<ReadQuery>(
+            new EntwineReadQuery(schema, compress, std::move(q)));
 }
 
 const entwine::Schema& Session::schema() const
 {
     check();
-
-    if (indexed()) return m_entwine->metadata().schema();
-    else return m_source->schema();
+    return m_entwine->metadata().schema();
 }
 
 bool Session::resolveIndex(
@@ -268,7 +298,7 @@ bool Session::resolveIndex(
         catch (...)
         {
             err = "unknown error";
-            m_entwine.reset(0);
+            m_entwine.reset();
         }
 
         std::cout << "\tTried resolving index at " << path << ": ";
@@ -283,60 +313,6 @@ bool Session::resolveIndex(
         }
     }
 
-    return indexed();
-}
-
-bool Session::resolveSource(
-        const std::string& name,
-        const std::vector<std::string>& paths)
-{
-    return false;
-    /*
-    const auto sources(resolve(paths, name));
-
-    if (sources.size() > 1)
-    {
-        std::cout << "\tFound competing unindexed sources for " << name <<
-            std::endl;
-    }
-
-    if (sources.size())
-    {
-        std::size_t i(0);
-
-        while (!m_source && i < sources.size())
-        {
-            const std::string path(sources[i++]);
-
-            std::unique_lock<std::mutex> lock(m_factoryMutex);
-            const std::string driver(
-                    m_stageFactory.inferReaderDriver(path));
-            lock.unlock();
-
-            if (driver.size())
-            {
-                try
-                {
-                    m_source.reset(
-                            new SourceManager(
-                                m_stageFactory,
-                                m_factoryMutex,
-                                path,
-                                driver));
-                }
-                catch (...)
-                {
-                    m_source.reset(0);
-                }
-            }
-
-            std::cout << "\tTried resolving unindexed at " << path << ": ";
-            if (m_source) std::cout << "SUCCESS" << std::endl;
-            else std::cout << "failed" << std::endl;
-        }
-    }
-
-    return sourced();
-    */
+    return !!m_entwine;
 }
 
