@@ -114,7 +114,7 @@ schema
 | ``"size"``    | Dimension size in bytes.  Possible values: ``"1"``, ``"2"``, ``"4"``, ``"8"``  |
 +---------------+--------------------------------------------------------------------------------+
 
-An ``schema`` looks something like: ::
+A ``schema`` looks something like: ::
 
     [
         { "name": "X",                  "type": "floating", "size": "8" },
@@ -193,20 +193,20 @@ Filters
 
 An arbitrary filtering structure may be passed along with a ``read`` request, which can be used to filter out points that do not meet some criteria.  The syntax of the filter tree is the same as MongoDB's `Query`_ and `Logical`_ operator syntax, using the dimensions from `schema`_ as the column criteria.
 
-A filter tree might look like:
-.. code-block:: json
+A filter tree might look like: ::
+
     filter={"$or":[
         {"Red":{"$gt":200}},
         {"Blue":{"$gt":120,"$lt":130}},
         {"Classification":{"$nin":[2,3]}}
     ]}
 
-Data from original source files may be requested with the special ``Path`` pseudo-dimension (which does not appear in the `schema`_), which will be index-optimized:
-.. code-block:: json
+Data from original source files may be requested with the special ``Path`` pseudo-dimension (which does not appear in the `schema`_), which will be index-optimized: ::
+
     filter={"Path":"tile-845.laz"}
 
-Selecting an input file by its ``OriginId`` dimension is also index-optimized:
-.. code-block:: json
+Selecting an input file by its ``OriginId`` dimension is also index-optimized: ::
+
     filter={"Origin": 5}
 
 .. _`Query`: https://docs.mongodb.com/manual/reference/operator/query-comparison/
