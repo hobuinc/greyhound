@@ -171,6 +171,30 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
             });
         }
 
+        app.use(function(req, res, next) {
+            if (req.query) {
+                req.query = Object.keys(req.query).reduce((p, k) => {
+                    var v = req.query[k];
+
+                    // Boolean values as query params may be strings (not JSON):
+                    //      ?param=true
+                    if (v == 'true' || v == 'false') p[k] = v == 'true';
+                    else {
+                        p[k] = JSON.parse(v);
+
+                        // We'll also accept the quoted strings 'true' and
+                        // 'false' to be boolean:
+                        //      ?param="true"
+                        if (p[k] === 'true') p[k] = true;
+                        else if (p[k] == 'false') p[k] = false;
+                    }
+
+                    return p;
+                }, { });
+            }
+            next();
+        });
+
         app.get('/resource/:resource(*)/info', function(req, res, next) {
             var start = new Date();
 
@@ -190,9 +214,8 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
         {
             var start = new Date();
 
-            // If the search is a number (although it will still appear here as
-            // a string since it's a query parameter) convert it to an actual
-            // number so it will be JSONified correctly.
+            // If the search is numeric, convert it to an actual number so it
+            // will be JSONified correctly.
             var s = req.params.search;
             if (s.match(/^\d+$/)) s = +s;
 
@@ -215,42 +238,23 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
         app.get('/resource/:resource(*)/files', function(req, res, next) {
             var start = new Date();
 
-            if (req.query.search && req.query.bounds) {
+            var q = req.query;
+
+            if (q.search && q.bounds) {
                 return next('Cannot specify both "search" and "bounds"');
             }
-            else if (!req.query.search && !req.query.bounds) {
+            else if (q.search == null && q.bounds == null) {
                 return next('Invalid files query - empty');
             }
 
-            // The search parameter may be one of three things:
-            //      - a string representing a path
-            //      - a number representing an origin
-            //      - an array of some combination of the above two things
-            var s = req.query.search;
-            var b = req.query.bounds;
-            if (s) {
-                s = s && s.length ? s : null;
-                if (s) {
-                    if (s.match(/^\d+$/)) s = +s;
-                    else if (s.length && s[0] == '[') s = JSON.parse(s);
-                    req.query.search = s;
-                }
-                if (s) req.query.search = s;
-                else delete req.query.search;
-            }
-            else {
-                delete req.query.bounds;
-                req.query.search = { bounds: JSON.parse(b) };
-            }
-
-            controller.files(req.params.resource, req.query, (err, data) => {
+            controller.files(req.params.resource, q, (err, data) => {
                 var end = new Date();
 
                 console.log(
                         req.params.resource + '/' +
                         colors.green('file') + ':',
                         colors.magenta(end - start), 'ms',
-                        'Q:', req.query);
+                        'Q:', q);
 
                 if (err) return next(err);
                 else return res.json(data);
@@ -272,16 +276,19 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
 
             var start = new Date();
             var size = 0;
+            var first = true;
 
             controller.read(
                 req.params.resource,
                 req.query,
-                (err) => {
-                    if (err) return next(err);
-                    else res.header('Content-Type', 'application/octet-stream');
-                },
                 (err, data, done) => {
                     if (err) return next(err);
+
+                    if (first) {
+                        res.header('Content-Type', 'application/octet-stream');
+                        first = false;
+                    }
+
                     if (!data.length) return keepGoing;
                     size += data.length;
 
@@ -315,6 +322,12 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
         app.get('/resource/:resource(*)/hierarchy', function(req, res, next) {
             var resource = req.params.resource;
             var q = req.query;
+
+            // If the 'vertical' parameter is passed as a quoted string, make
+            // it boolean.
+            if (q.vertical && typeof(q.vertical) == 'string') {
+                q.vertical = q.vertical == 'true';
+            }
 
             var start = new Date();
 

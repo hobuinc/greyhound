@@ -2,7 +2,7 @@ var bytes = require('bytes'),
     Bindings = require('../build/Release/session'),
     Session = Bindings.Session,
     totalThreads = require('os').cpus().length,
-    threads = Math.max(Math.ceil(totalThreads * 0.6), 4),
+    threads = Math.max(Math.ceil(totalThreads * 0.8), 4),
     error = (code, message) => ({ code: code, message: message }),
 
     // resource name -> { session: session, accessed: Date }
@@ -30,12 +30,11 @@ clim(console, true);
 
         var paths = config.paths;
         var cacheSize = Math.max(bytes('' + config.cacheSize), bytes('500mb'));
-        var arbiter = JSON.stringify(config.arbiter || { });
+        var arbiter = config.arbiter || { };
         var timeoutMs = Math.max(config.resourceTimeoutMinutes, 30) * 60 * 1000;
 
-        // We've limited the libuv threadpool size to about half the number of
-        // physical CPUs since each of those threads may spawn its own child
-        // threads.
+        // We've limited the libuv threadpool size since each of those threads
+        // may spawn its own child threads.
         console.log('Using');
         console.log('\tRead paths:', JSON.stringify(this.config.paths));
         console.log('\tCache size:', cacheSize, '(' + bytes(cacheSize) + ')');
@@ -43,7 +42,6 @@ clim(console, true);
 
         process.env.UV_THREADPOOL_SIZE = threads;
         Bindings.global(paths, cacheSize, arbiter);
-        var s = new Session();
 
         this.getSession = (name, cb) => {
             var session;
@@ -53,7 +51,7 @@ clim(console, true);
                 session = resources[name].session;
             }
             else {
-                session = new Session();
+                session = new Session(name);
                 resources[name] = { session: session };
             }
 
@@ -63,7 +61,7 @@ clim(console, true);
             // mapping, to ensure that initialization has finished before the
             // session is used.
             try {
-                session.create(name, function(err) {
+                session.create(function(err) {
                     if (err) {
                         console.warn(name, 'could not be created');
                         delete resources[name];
@@ -89,75 +87,38 @@ clim(console, true);
                     delete resources[name];
                 }
             });
-
-            setTimeout(clean, timeoutMs);
         };
 
-        setTimeout(clean, timeoutMs);
+        setInterval(clean, timeoutMs);
     };
 
     Controller.prototype.info = function(resource, cb) {
         this.getSession(resource, function(err, session) {
             if (err) return cb(err);
-
-            try { return cb(null, JSON.parse(session.info())); }
-            catch (e) { return cb(error(500, 'Error parsing info')); }
+            else session.info(cb);
         });
     };
 
     Controller.prototype.files = function(resource, query, cb) {
-        var search = JSON.stringify(query.search);
-        var scale = query.hasOwnProperty('scale') ? query.scale : null;
-        var offset = query.hasOwnProperty('offset') ? query.offset : null;
-
         this.getSession(resource, function(err, session) {
             if (err) return cb(err);
-
-            try {
-                var result = JSON.parse(session.files(search, scale, offset));
-                return cb(null, result);
-            }
-            catch (e) { return cb(error(500, e || 'Files error')); }
-        });
-    };
-
-    Controller.prototype.read = function(resource, query, onInit, onData) {
-        var schema = query.schema;
-        var filter = query.filter;
-        var compress =
-            query.hasOwnProperty('compress') &&
-            query.compress.toLowerCase() == 'true';
-        var scale = query.hasOwnProperty('scale') ? query.scale : null;
-        var offset = query.hasOwnProperty('offset') ? query.offset : null;
-
-        // Simplify our query decision tree for later.
-        delete query.schema;
-        delete query.filter;
-        delete query.compress;
-        delete query.scale;
-        delete query.offset;
-
-        this.getSession(resource, function(err, session) {
-            if (err) return onInit(err);
-
-            session.read(
-                schema, filter, compress, scale, offset, query, onInit, onData);
+            else session.files(query, cb);
         });
     };
 
     Controller.prototype.hierarchy = function(resource, query, cb) {
-        query.vertical =
-            query.hasOwnProperty('vertical') &&
-            query.vertical.toLowerCase() == 'true';
-
         this.getSession(resource, (err, session) => {
             if (err) cb(err);
-            else session.hierarchy(query, (err, string) => {
-                try { return cb(null, JSON.parse(string)); }
-                catch (e) { return cb(error(500, e || 'Hierarchy error')); }
-            });
+            else session.hierarchy(query, cb);
         });
     }
+
+    Controller.prototype.read = function(resource, query, cb) {
+        this.getSession(resource, function(err, session) {
+            if (err) return cb(err);
+            else session.read(query, cb);
+        });
+    };
 
     module.exports.Controller = Controller;
 })();

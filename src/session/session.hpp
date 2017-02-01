@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "util/once.hpp"
-
 namespace pdal
 {
     class PointContext;
@@ -18,6 +16,7 @@ namespace entwine
     class Bounds;
     class Cache;
     class OuterScope;
+    class Query;
     class Reader;
     class Schema;
 }
@@ -35,29 +34,42 @@ public:
 class Session
 {
 public:
-    Session(pdal::StageFactory& stageFactory, std::mutex& factoryMutex);
+    Session(
+            const std::string name,
+            const std::vector<std::string>& paths,
+            entwine::OuterScope& outerScope,
+            entwine::Cache& cache);
     ~Session();
 
     // Returns true if initialization was successful.  If false, this session
     // should not be used.
-    bool initialize(
-            const std::string& name,
-            std::vector<std::string> paths,
-            entwine::OuterScope& outerScope,
-            std::shared_ptr<entwine::Cache> cache);
+    bool initialize();
 
     Json::Value info() const;
     Json::Value hierarchy(
-            const entwine::Bounds& bounds,
+            const entwine::Bounds* bounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
             bool vertical,
             const entwine::Scale* scale,
             const entwine::Offset* offset) const;
+
+    Json::Value files(const Json::Value& search) const;
+
     Json::Value files(
-            const Json::Value& search,
+            const entwine::Bounds& bounds,
             const entwine::Scale* scale,
             const entwine::Offset* offset) const;
+
+    std::unique_ptr<ReadQuery> getQuery(
+            const entwine::Bounds* bounds,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const entwine::Scale* scale,
+            const entwine::Offset* offset,
+            const entwine::Schema* schema,
+            const Json::Value& filter,
+            bool compress) const;
 
     // Read quad-tree indexed data with a bounding box query and min/max tree
     // depths to search.
@@ -74,10 +86,7 @@ public:
     const entwine::Schema& schema() const;
 
 private:
-    Json::Value filesSingle(
-            const Json::Value& search,
-            const entwine::Scale* scale,
-            const entwine::Offset* offset) const;
+    Json::Value filesSingle(const Json::Value& search) const;
 
     void check() const
     {
@@ -87,15 +96,17 @@ private:
         }
     }
 
-    bool resolveIndex(
-            const std::string& name,
-            const std::vector<std::string>& paths,
-            entwine::OuterScope& outerScope,
-            std::shared_ptr<entwine::Cache> cache);
+    bool resolveIndex();
 
     bool indexed() const { return m_entwine.get(); }
 
-    Once m_initOnce;
+    const std::string m_name;
+    const std::vector<std::string>& m_paths;
+    entwine::OuterScope& m_outerScope;
+    entwine::Cache& m_cache;
+
+    std::once_flag m_initOnce;
+
     std::unique_ptr<entwine::Reader> m_entwine;
     Json::Value m_info;
 

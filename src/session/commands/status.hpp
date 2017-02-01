@@ -1,48 +1,103 @@
 #pragma once
 
+#include <memory>
 #include <string>
-#include <node.h>
+#include <vector>
+
+#include "types/js.hpp"
+
+class JsConvertible
+{
+public:
+    ~JsConvertible() { }
+    virtual Arg convert() const = 0;
+    virtual Json::Value toJson() const { return Json::nullValue; }
+};
+
+class JsonConvertible : public JsConvertible
+{
+public:
+    JsonConvertible() = default;
+    JsonConvertible(const Json::Value& json) : m_json(json) { }
+
+    virtual Arg convert() const override { return toJs(m_json); }
+    virtual Json::Value toJson() const override
+    {
+        return m_json;
+    }
+
+private:
+    const Json::Value m_json;
+};
+
+class BufferConvertible : public JsConvertible
+{
+public:
+    BufferConvertible(const std::vector<char>& buffer) : m_buffer(buffer) { }
+    virtual Arg convert() const override { return toJs(m_buffer); }
+
+private:
+    const std::vector<char>& m_buffer;
+};
 
 class Status
 {
 public:
-    Status() : m_code(200), m_message() { }
-    Status(int code, std::string message) : m_code(code), m_message(message)
-    { }
+    Status() : m_args{ std::make_shared<JsonConvertible>() } { }
 
-    void set(int code, const std::string& message)
+    void set(const Json::Value& json)
     {
-        m_code = code;
-        m_message = message;
+        m_args = {
+            std::make_shared<JsonConvertible>(),
+            std::make_shared<JsonConvertible>(json)
+        };
     }
 
-    int code() const { return m_code; }
-
-    bool ok() const { return m_code == 200; }
-
-    v8::Local<v8::Value> toObject(v8::Isolate* isolate) const
+    void set(const std::vector<char>& buffer, bool done)
     {
-        if (m_code == 200)
-        {
-            return v8::Local<v8::Value>::New(isolate, Null(isolate));
-        }
-        else
-        {
-            v8::Local<v8::Object> obj(v8::Object::New(isolate));
+        m_args = {
+            std::make_shared<JsonConvertible>(),
+            std::make_shared<BufferConvertible>(buffer),
+            std::make_shared<JsonConvertible>(done)
+        };
+    }
 
-            obj->Set(
-                    v8::String::NewFromUtf8(isolate, "code"),
-                    v8::Integer::New(isolate, m_code));
-            obj->Set(
-                    v8::String::NewFromUtf8(isolate, "message"),
-                    v8::String::NewFromUtf8(isolate, m_message.c_str()));
+    void setError(int code, std::string message)
+    {
+        Json::Value err;
+        err["code"] = code;
+        err["message"] = message;
+        m_args = { std::make_shared<JsonConvertible>(err) };
+    }
 
-            return obj;
-        }
+    bool ok() const
+    {
+        return m_args.size() && m_args.front()->toJson() != Json::nullValue;
+    }
+
+    Arg call(
+            v8::Isolate* isolate,
+            v8::UniquePersistent<v8::Function>& f) const
+    {
+        auto converted(toJs(isolate));
+        v8::Local<v8::Function> local(v8::Local<v8::Function>::New(isolate, f));
+        return local->Call(
+                isolate->GetCurrentContext()->Global(),
+                converted.size(),
+                converted.data());
+    }
+
+    std::vector<Arg> toJs(v8::Isolate* isolate) const
+    {
+        std::vector<Arg> js;
+        for (const auto& arg : m_args) js.push_back(arg->convert());
+        return js;
     }
 
 private:
-    int m_code;
-    std::string m_message;
+    // We can't just store Arg values here, since our native values might be
+    // defined within a different isolate context than the one at which we
+    // actually invoke a callback.
+    std::vector<std::shared_ptr<JsConvertible>> m_args;
 };
 

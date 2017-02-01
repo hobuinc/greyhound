@@ -1,44 +1,21 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include "commands/command.hpp"
 
-#include <entwine/reader/cache.hpp>
-#include <entwine/types/outer-scope.hpp>
-
-#include "commands/background.hpp"
-
-class Session;
-
-struct CreateData : public Background
+namespace command
 {
-    CreateData(
-            std::shared_ptr<Session> session,
-            std::string name,
-            const std::vector<std::string>& paths,
-            entwine::OuterScope& outerScope,
-            std::shared_ptr<entwine::Cache> cache,
-            v8::UniquePersistent<v8::Function> callback)
-        : session(session)
-        , name(name)
-        , paths(paths)
-        , outerScope(outerScope)
-        , cache(cache)
-        , callback(std::move(callback))
-    { }
 
-    ~CreateData()
+class Create : public Command
+{
+public:
+    Create(const Args& args) : Command(args) { }
+
+protected:
+    virtual void work() override
     {
-        callback.Reset();
+        if (!m_session.initialize()) m_status.setError(404, "Not found");
     }
-
-    // Inputs
-    const std::shared_ptr<Session> session;
-    const std::string name;
-    const std::vector<std::string> paths;
-    entwine::OuterScope& outerScope;
-    std::shared_ptr<entwine::Cache> cache;
-
-    v8::UniquePersistent<v8::Function> callback;
 };
+
+}
 

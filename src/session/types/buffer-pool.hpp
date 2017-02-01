@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <condition_variable>
+#include <iostream>
 #include <set>
 #include <stack>
 #include <mutex>
@@ -98,5 +99,17 @@ private:
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
+};
+
+// Because we need to access this from a stateless v8 callback, we need this
+// pooling to occur at the global scope.
+class ReadPool
+{
+public:
+    static BufferPool& get()
+    {
+        static BufferPool bufferPool(512);
+        return bufferPool;
+    }
 };
 

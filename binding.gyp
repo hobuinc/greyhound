@@ -5,17 +5,7 @@
             'target_name': 'session',
             'sources': [
                 './src/session/bindings.cpp',
-                './src/session/session.cpp',
-
-                './src/session/commands/read.cpp',
-                './src/session/commands/hierarchy.cpp',
-
-                './src/session/read-queries/base.cpp',
-                './src/session/read-queries/entwine.cpp',
-
-                './src/session/types/source-manager.cpp',
-
-                './src/session/util/once.cpp'
+                './src/session/session.cpp'
             ],
             'include_dirs': [
                 './src/session', '/usr/include/jsoncpp'

@@ -1,11 +1,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <glob.h>
-
 #include <json/json.h>
-
-#include <pdal/StageFactory.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/reader/query.hpp>
@@ -20,38 +16,12 @@
 #include <entwine/util/executor.hpp>
 
 #include "read-queries/entwine.hpp"
-#include "util/buffer-pool.hpp"
+#include "types/buffer-pool.hpp"
 
 #include "session.hpp"
 
 namespace
 {
-    /*
-    std::vector<std::string> resolve(
-            const std::vector<std::string>& dirs,
-            const std::string& name)
-    {
-        glob_t buffer;
-        for (std::size_t i(0); i < dirs.size(); ++i)
-        {
-            auto flags(GLOB_NOSORT | GLOB_TILDE);
-            if (i) flags |= GLOB_APPEND;
-
-            glob((dirs[i] + "/" + name + ".*").c_str(), flags, 0, &buffer);
-        }
-
-        std::vector<std::string> results;
-        for (std::size_t i(0); i < buffer.gl_pathc; ++i)
-        {
-            results.push_back(buffer.gl_pathv[i]);
-        }
-
-        globfree(&buffer);
-
-        return results;
-    }
-    */
-
     std::string getTypeString(const entwine::Structure& structure)
     {
         if (structure.dimensions() == 2)
@@ -71,28 +41,28 @@ namespace
 }
 
 Session::Session(
-        pdal::StageFactory& stageFactory,
-        std::mutex& factoryMutex)
-    : m_initOnce()
-    , m_entwine()
+        const std::string name,
+        const std::vector<std::string>& paths,
+        entwine::OuterScope& outerScope,
+        entwine::Cache& cache)
+    : m_name(name)
+    , m_paths(paths)
+    , m_outerScope(outerScope)
+    , m_cache(cache)
 { }
 
 Session::~Session()
 { }
 
-bool Session::initialize(
-        const std::string& name,
-        std::vector<std::string> paths,
-        entwine::OuterScope& outerScope,
-        std::shared_ptr<entwine::Cache> cache)
+bool Session::initialize()
 {
-    m_initOnce.ensure([this, &name, &paths, &cache, &outerScope]()
+    std::call_once(m_initOnce, [this]()
     {
-        std::cout << "Discovering " << name << std::endl;
+        std::cout << "Discovering " << m_name << std::endl;
 
-        if (resolveIndex(name, paths, outerScope, cache))
+        if (resolveIndex())
         {
-            std::cout << "\tIndex for " << name << " found" << std::endl;
+            std::cout << "\tIndex for " << m_name << " found" << std::endl;
 
             Json::Value json;
             const entwine::Metadata& metadata(m_entwine->metadata());
@@ -135,7 +105,8 @@ bool Session::initialize(
         }
         else
         {
-            std::cout << "\tBacking for " << name << " NOT found" << std::endl;
+            std::cout << "\tBacking for " << m_name << " NOT found" <<
+                std::endl;
         }
     });
 
@@ -149,7 +120,7 @@ Json::Value Session::info() const
 }
 
 Json::Value Session::hierarchy(
-        const entwine::Bounds& bounds,
+        const entwine::Bounds* inBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         const bool vertical,
@@ -157,6 +128,11 @@ Json::Value Session::hierarchy(
         const entwine::Offset* offset) const
 {
     check();
+    const auto& nativeBounds(m_entwine->metadata().boundsCubic());
+    const entwine::Delta delta(scale, offset);
+    const entwine::Bounds bounds(
+            inBounds ? *inBounds : nativeBounds.deltify(delta));
+
     return m_entwine->hierarchy(
             bounds,
             depthBegin,
@@ -166,10 +142,7 @@ Json::Value Session::hierarchy(
             offset);
 }
 
-Json::Value Session::filesSingle(
-        const Json::Value& in,
-        const entwine::Scale* scale,
-        const entwine::Offset* offset) const
+Json::Value Session::filesSingle(const Json::Value& in) const
 {
     Json::Value result;
     if (in.isNumeric())
@@ -188,45 +161,30 @@ Json::Value Session::filesSingle(
     }
 }
 
-Json::Value Session::files(
-        const Json::Value& in,
-        const entwine::Scale* scale,
-        const entwine::Offset* offset) const
+Json::Value Session::files(const Json::Value& search) const
 {
-    Json::Value result;
-    if (in.isArray())
+    if (search.isArray())
     {
-        for (const auto& f : in)
-        {
-            const auto current(filesSingle(f, scale, offset));
-            result.append(current);
-        }
-
-        return result.size() == 1 ? result[0] : result;
-    }
-    else if (in.isObject() && in.isMember("bounds"))
-    {
-        const entwine::Bounds b(in["bounds"]);
-        const auto fileInfo(m_entwine->files(b, scale, offset));
-        if (fileInfo.size() == 1)
-        {
-            result = fileInfo.front().toJson();
-        }
-        else if (fileInfo.size() > 1)
-        {
-            for (const auto& f : fileInfo)
-            {
-                result.append(f.toJson());
-            }
-        }
-        else return Json::nullValue;
+        Json::Value result;
+        for (const auto& f : search) result.append(filesSingle(f));
+        return result;
     }
     else
     {
-        return filesSingle(in, scale, offset);
+        return filesSingle(search);
     }
+}
 
-    return result;
+Json::Value Session::files(
+        const entwine::Bounds& bounds,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset) const
+{
+    const auto fileInfo(m_entwine->files(bounds, scale, offset));
+    if (fileInfo.empty()) return Json::nullValue;
+
+    const auto json(entwine::toJsonArrayOfObjects(fileInfo));
+    return json.size() == 1 ? json[0] : json;
 }
 
 std::shared_ptr<ReadQuery> Session::query(
@@ -265,7 +223,48 @@ std::shared_ptr<ReadQuery> Session::query(
     }
 
     return std::shared_ptr<ReadQuery>(
-            new EntwineReadQuery(schema, compress, std::move(q)));
+            new EntwineReadQuery(compress, std::move(q)));
+}
+
+std::unique_ptr<ReadQuery> Session::getQuery(
+        const entwine::Bounds* bounds,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd,
+        const entwine::Scale* scale,
+        const entwine::Offset* offset,
+        const entwine::Schema* inSchema,
+        const Json::Value& filter,
+        const bool compress) const
+{
+    check();
+    std::unique_ptr<entwine::Query> q;
+
+    const entwine::Schema& schema(
+            inSchema ? *inSchema : m_entwine->metadata().schema());
+
+    if (bounds)
+    {
+        q = m_entwine->getQuery(
+                schema,
+                filter,
+                *bounds,
+                depthBegin,
+                depthEnd,
+                scale,
+                offset);
+    }
+    else
+    {
+        q = m_entwine->getQuery(
+                schema,
+                filter,
+                depthBegin,
+                depthEnd,
+                scale,
+                offset);
+    }
+
+    return entwine::makeUnique<EntwineReadQuery>(compress, std::move(q));
 }
 
 const entwine::Schema& Session::schema() const
@@ -274,13 +273,9 @@ const entwine::Schema& Session::schema() const
     return m_entwine->metadata().schema();
 }
 
-bool Session::resolveIndex(
-        const std::string& name,
-        const std::vector<std::string>& paths,
-        entwine::OuterScope& outerScope,
-        std::shared_ptr<entwine::Cache> cache)
+bool Session::resolveIndex()
 {
-    for (std::string path : paths)
+    for (std::string path : m_paths)
     {
         std::string err;
 
@@ -288,8 +283,8 @@ bool Session::resolveIndex(
         {
             if (path.size() && path.back() != '/') path.push_back('/');
             entwine::arbiter::Endpoint endpoint(
-                    outerScope.getArbiterPtr()->getEndpoint(path + name));
-            m_entwine.reset(new entwine::Reader(endpoint, *cache));
+                    m_outerScope.getArbiterPtr()->getEndpoint(path + m_name));
+            m_entwine.reset(new entwine::Reader(endpoint, m_cache));
         }
         catch (const std::exception& e)
         {
