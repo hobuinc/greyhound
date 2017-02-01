@@ -42,7 +42,7 @@ protected:
         m_status.set(buffer, m_query->done());
     }
 
-    virtual bool done() override
+    virtual bool done() const override
     {
         return m_query->done();
     }

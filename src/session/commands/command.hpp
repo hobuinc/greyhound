@@ -22,14 +22,10 @@ class Command
 
 public:
     Command(const Args& args)
-        : Command(args, args[args.Length() - 1])
-    { }
-
-    Command(const Args& args, const Arg& cb)
         : m_args(args)
         , m_isolate(m_args.GetIsolate())
         , m_scope(m_isolate)
-        , m_cb(toFunction(m_isolate, cb))
+        , m_cb(getCallback(args))
         , m_bindings(*node::ObjectWrap::Unwrap<Bindings>(args.Holder()))
         , m_session(m_bindings.session())
         , m_json(args.Length() > 1 ? toJson(args[0]) : Json::nullValue)
@@ -61,18 +57,8 @@ protected:
 
     virtual void run() noexcept
     {
-        try
-        {
-            work();
-        }
-        catch (std::exception& e)
-        {
-            m_status.setError(400, e.what());
-        }
-        catch (...)
-        {
-            m_status.setError(500, "Unknown error");
-        }
+        const Status current(Status::safe([this]() { work(); }));
+        if (!current.ok()) m_status = current;
     }
 
     Status& status() { return m_status; }
@@ -109,7 +95,7 @@ public:
     { }
 
 protected:
-    virtual bool done() = 0;
+    virtual bool done() const = 0;
 
     void send(uv_async_t* async)
     {
@@ -141,8 +127,19 @@ public:
                 std::is_base_of<Command, T>::value,
                 "Commander::run requires a Command type");
 
-        // TODO Try/catch this, as invalid queries may throw on construction.
-        std::unique_ptr<Command> command(entwine::makeUnique<T>(args));
+        std::unique_ptr<Command> command;
+
+        const Status initStatus(Status::safe([&command, &args]()
+        {
+            command = entwine::makeUnique<T>(args);
+        }));
+
+        if (!initStatus.ok())
+        {
+            auto cb(getCallback(args));
+            initStatus.call(cb);
+            return;
+        }
 
         queue(
                 std::move(command),
@@ -186,15 +183,25 @@ public:
                 loopable->sent();
             });
 
-            while (!loopable->done())
+            while (loopable->status().ok() && !loopable->done())
             {
                 loopable->run();
                 loopable->send(async.get());
             }
         };
 
-        // TODO Try/catch this, as invalid queries may throw on construction.
-        std::unique_ptr<Loopable> loopable(entwine::makeUnique<T>(args));
+        std::unique_ptr<Loopable> loopable;
+        const Status initStatus(Status::safe([&loopable, &args]()
+        {
+            loopable = entwine::makeUnique<T>(args);
+        }));
+
+        if (!initStatus.ok())
+        {
+            auto cb(getCallback(args));
+            initStatus.call(cb);
+            return;
+        }
 
         queue(
                 std::move(loopable),
@@ -207,6 +214,13 @@ public:
                     std::unique_ptr<uv_work_t> work(req);
                     std::unique_ptr<Loopable> loopable(
                             static_cast<Loopable*>(req->data));
+
+                    // When looping, only send the status if it's bad.
+                    // Otherwise we've already been streaming binary data.
+                    if (!loopable->status().ok())
+                    {
+                        loopable->status().call(isolate, loopable->cb());
+                    }
                 }));
     }
 

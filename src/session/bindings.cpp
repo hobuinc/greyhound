@@ -19,6 +19,7 @@
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/stack-trace.hpp>
 #include <entwine/util/unique.hpp>
 
 #include "session.hpp"
@@ -32,16 +33,6 @@ using namespace v8;
 
 namespace
 {
-    void handler(int sig)
-    {
-        void* array[16];
-        const std::size_t size(backtrace(array, 16));
-
-        std::cout << "Got error " << sig << std::endl;
-        backtrace_symbols_fd(array, size, STDERR_FILENO);
-        exit(1);
-    }
-
     std::once_flag globalInitOnce;
 
     std::vector<std::string> paths;
@@ -82,7 +73,7 @@ void Bindings::init(v8::Handle<v8::Object> exports)
     NODE_SET_PROTOTYPE_METHOD(tpl, "hierarchy", hierarchy);
 
     constructor.Reset(isolate, tpl->GetFunction());
-    exports->Set(String::NewFromUtf8(isolate, "Session"), tpl->GetFunction());
+    exports->Set(toJs(isolate, "Session"), tpl->GetFunction());
 }
 
 void Bindings::construct(const Args& args)
@@ -93,7 +84,7 @@ void Bindings::construct(const Args& args)
     if (args.IsConstructCall())
     {
         // Invoked as constructor with 'new'.
-        const std::string name(*v8::String::Utf8Value(args[0]->ToString()));
+        const std::string name(toJson(isolate, args[0]).asString());
         Bindings* obj = new Bindings(name);
         obj->Wrap(args.Holder());
         args.GetReturnValue().Set(args.Holder());
@@ -130,8 +121,8 @@ void Bindings::global(const Args& args)
 
         outerScope.getArbiter(toJson(isolate, arbiterArg));
 
-        signal(SIGSEGV, handler);
-        signal(SIGBUS, handler);
+        entwine::stackTraceOn(SIGSEGV);
+        entwine::stackTraceOn(SIGBUS);
         curl_global_init(CURL_GLOBAL_ALL);
     });
 }

@@ -45,6 +45,16 @@ class Status
 public:
     Status() : m_args{ std::make_shared<JsonConvertible>() } { }
 
+    template<typename F>
+    static Status safe(F f) noexcept
+    {
+        Status status;
+        try { f(); }
+        catch (std::exception& e) { status.setError(400, e.what()); }
+        catch (...) { status.setError(500); }
+        return status;
+    }
+
     void set(const Json::Value& json)
     {
         m_args = {
@@ -62,6 +72,11 @@ public:
         };
     }
 
+    void setError(int code)
+    {
+        setError(code, "Unknown error");
+    }
+
     void setError(int code, std::string message)
     {
         Json::Value err;
@@ -72,7 +87,12 @@ public:
 
     bool ok() const
     {
-        return m_args.size() && m_args.front()->toJson() != Json::nullValue;
+        return m_args.empty() || m_args.front()->toJson() == Json::nullValue;
+    }
+
+    Arg call(v8::UniquePersistent<v8::Function>& f) const
+    {
+        return call(v8::Isolate::GetCurrent(), f);
     }
 
     Arg call(

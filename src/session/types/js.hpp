@@ -125,3 +125,8 @@ inline v8::UniquePersistent<v8::Function> toFunction(
             v8::Local<v8::Function>::Cast(arg));
 }
 
+inline v8::UniquePersistent<v8::Function> getCallback(const Args& args)
+{
+    return toFunction(args.GetIsolate(), args[args.Length() - 1]);
+}
+
