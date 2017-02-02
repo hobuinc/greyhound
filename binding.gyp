@@ -20,7 +20,8 @@
                 '-pedantic',
                 '-pthread',
                 '-fexceptions',
-                '-frtti'
+                '-frtti',
+                '-fPIC'
             ],
             "conditions": [
                 [ 'OS=="mac"', {
@@ -29,7 +30,8 @@
                             "-std=c++11",
                             "-stdlib=libc++",
                             "-frtti",
-                            "-fexceptions"
+                            "-fexceptions",
+                            "-fPIC"
                         ],
                         "OTHER_LDFLAGS": [ "-stdlib=libc++" ],
                         "MACOSX_DEPLOYMENT_TARGET": "10.7"
