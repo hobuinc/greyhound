@@ -127,19 +127,8 @@ public:
                 std::is_base_of<Command, T>::value,
                 "Commander::run requires a Command type");
 
-        std::unique_ptr<Command> command;
-
-        const Status initStatus(Status::safe([&command, &args]()
-        {
-            command = entwine::makeUnique<T>(args);
-        }));
-
-        if (!initStatus.ok())
-        {
-            auto cb(getCallback(args));
-            initStatus.call(cb);
-            return;
-        }
+        std::unique_ptr<Command> command(createSafe<T>(args));
+        if (!command) return;
 
         queue(
                 std::move(command),
@@ -166,6 +155,9 @@ public:
                 std::is_base_of<Loopable, T>::value,
                 "Commander::loop requires a Loopable type");
 
+        std::unique_ptr<Loopable> loopable(createSafe<T>(args));
+        if (!loopable) return;
+
         auto work = (uv_work_cb)[](uv_work_t* req) noexcept
         {
             Loopable* loopable(static_cast<Loopable*>(req->data));
@@ -189,19 +181,6 @@ public:
                 loopable->send(async.get());
             }
         };
-
-        std::unique_ptr<Loopable> loopable;
-        const Status initStatus(Status::safe([&loopable, &args]()
-        {
-            loopable = entwine::makeUnique<T>(args);
-        }));
-
-        if (!initStatus.ok())
-        {
-            auto cb(getCallback(args));
-            initStatus.call(cb);
-            return;
-        }
 
         queue(
                 std::move(loopable),
@@ -232,6 +211,25 @@ private:
         req->data = command.release();
 
         uv_queue_work(uv_default_loop(), req.release(), work, done);
+    }
+
+    template<typename T>
+    static std::unique_ptr<T> createSafe(const Args& args)
+    {
+        std::unique_ptr<T> t;
+
+        const Status status(Status::safe([&t, &args]()
+        {
+            t = entwine::makeUnique<T>(args);
+        }));
+
+        if (status.ok()) return t;
+        else
+        {
+            auto cb(getCallback(args));
+            status.call(cb);
+            return std::unique_ptr<T>();
+        }
     }
 
     struct AsyncDeleter

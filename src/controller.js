@@ -2,7 +2,6 @@ var bytes = require('bytes'),
     Bindings = require('../build/Release/session'),
     Session = Bindings.Session,
     totalThreads = require('os').cpus().length,
-    threads = Math.max(Math.ceil(totalThreads * 0.8), 4),
     error = (code, message) => ({ code: code, message: message }),
 
     // resource name -> { session: session, accessed: Date }
@@ -29,6 +28,8 @@ clim(console, true);
         if (!config.cacheSize) config.cacheSize = '500mb';
 
         var paths = config.paths;
+        var threadRatio = config.threadRatio || 0.6;
+        var threads = Math.max(Math.ceil(totalThreads * threadRatio), 4);
         var cacheSize = Math.max(bytes('' + config.cacheSize), bytes('500mb'));
         var arbiter = config.arbiter || { };
         var timeoutMs = Math.max(config.resourceTimeoutMinutes, 30) * 60 * 1000;
@@ -39,6 +40,7 @@ clim(console, true);
         console.log('\tRead paths:', JSON.stringify(this.config.paths));
         console.log('\tCache size:', cacheSize, '(' + bytes(cacheSize) + ')');
         console.log('\tThreads identified:', totalThreads);
+        console.log('\tUV pool size:', threads);
 
         process.env.UV_THREADPOOL_SIZE = threads;
         Bindings.global(paths, cacheSize, arbiter);
