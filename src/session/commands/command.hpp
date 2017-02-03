@@ -96,7 +96,10 @@ public:
     { }
 
 protected:
-    virtual bool done() const = 0;
+    virtual bool done() const
+    {
+        return !m_status.ok() || m_stop;
+    }
 
     void send(uv_async_t* async)
     {
@@ -114,9 +117,13 @@ protected:
         m_cv.notify_all();
     }
 
+    void stop() { m_stop = true; }
+    bool stopped() const { return m_stop; }
+
     std::mutex m_mutex;
     std::condition_variable m_cv;
     bool m_wait = false;
+    bool m_stop = false;
 };
 
 class Commander
@@ -172,7 +179,9 @@ public:
                 v8::HandleScope scope(isolate);
 
                 Loopable* loopable(static_cast<Loopable*>(async->data));
-                loopable->status().call(isolate, loopable->cb());
+
+                const auto s(loopable->status().call(isolate, loopable->cb()));
+                if (toJson(isolate, s).asBool()) loopable->stop();
                 loopable->sent();
             });
 
@@ -181,7 +190,7 @@ public:
                 loopable->run();
                 loopable->send(async.get());
             }
-            while (loopable->status().ok() && !loopable->done());
+            while (!loopable->done());
         };
 
         queue(
@@ -195,6 +204,11 @@ public:
                     std::unique_ptr<uv_work_t> work(req);
                     std::unique_ptr<Loopable> loopable(
                             static_cast<Loopable*>(req->data));
+
+                    if (loopable->stopped())
+                    {
+                        std::cout << "Read command was stopped" << std::endl;
+                    }
                 }));
     }
 

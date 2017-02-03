@@ -263,16 +263,14 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
 
         app.get('/resource/:resource(*)/read', function(req, res, next) {
             // Terminate query on socket hangup.
-            var keepGoing = true;
+            var stop = false;
 
             var q = _.merge({ }, req.query);
 
-            /*
             req.on('close', () => {
                 console.log('Socket closed - aborting read');
-                keepGoing = false;
+                stop = true;
             });
-            */
 
             var start = new Date();
             var size = 0;
@@ -289,7 +287,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                         first = false;
                     }
 
-                    if (!data.length) return keepGoing;
+                    if (!data.length) return true;
                     size += data.length;
 
                     setImmediate(() => {
@@ -314,7 +312,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                         }
                     });
 
-                    return keepGoing;
+                    return stop;
                 }
             );
         });

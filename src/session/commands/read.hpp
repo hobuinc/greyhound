@@ -44,7 +44,7 @@ protected:
 
     virtual bool done() const override
     {
-        return m_query->done();
+        return m_query->done() || Loopable::done();
     }
 
     bool m_compress;
