@@ -176,11 +176,12 @@ public:
                 loopable->sent();
             });
 
-            while (loopable->status().ok() && !loopable->done())
+            do
             {
                 loopable->run();
                 loopable->send(async.get());
             }
+            while (loopable->status().ok() && !loopable->done());
         };
 
         queue(
@@ -194,13 +195,6 @@ public:
                     std::unique_ptr<uv_work_t> work(req);
                     std::unique_ptr<Loopable> loopable(
                             static_cast<Loopable*>(req->data));
-
-                    // When looping, only send the status if it's bad.
-                    // Otherwise we've already been streaming binary data.
-                    if (!loopable->status().ok())
-                    {
-                        loopable->status().call(isolate, loopable->cb());
-                    }
                 }));
     }
 
@@ -228,7 +222,7 @@ private:
         else
         {
             auto cb(getCallback(args));
-            status.call(cb);
+            status.call(args.GetIsolate(), cb);
             return std::unique_ptr<T>();
         }
     }

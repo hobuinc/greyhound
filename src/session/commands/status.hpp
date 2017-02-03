@@ -97,11 +97,6 @@ public:
         return m_args.empty() || m_args.front()->toJson() == Json::nullValue;
     }
 
-    Arg call(v8::UniquePersistent<v8::Function>& f) const
-    {
-        return call(v8::Isolate::GetCurrent(), f);
-    }
-
     Arg call(
             v8::Isolate* isolate,
             v8::UniquePersistent<v8::Function>& f) const
