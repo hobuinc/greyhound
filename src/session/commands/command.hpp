@@ -103,9 +103,9 @@ protected:
 
     void send(uv_async_t* async)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         m_wait = true;
         uv_async_send(async);
-        std::unique_lock<std::mutex> lock(m_mutex);
         m_cv.wait(lock, [this]()->bool { return !m_wait; });
     }
 
