@@ -59,16 +59,6 @@ inline Arg toJs(v8::Isolate* isolate, const std::vector<char>& buffer)
     return Arg::New(isolate, nodeBuffer.ToLocalChecked());
 }
 
-inline Arg toJs(const Json::Value& json)
-{
-    return toJs(v8::Isolate::GetCurrent(), json);
-}
-
-inline Arg toJs(const std::vector<char>& buffer)
-{
-    return toJs(v8::Isolate::GetCurrent(), buffer);
-}
-
 inline Json::Value toJson(v8::Isolate* isolate, const Arg& arg)
 {
     if (arg->IsNull()) return Json::nullValue;
@@ -109,11 +99,6 @@ inline Json::Value toJson(v8::Isolate* isolate, const Arg& arg)
     }
 
     throw std::runtime_error("No JSON conversion exists");
-}
-
-inline Json::Value toJson(const Arg& arg)
-{
-    return toJson(v8::Isolate::GetCurrent(), arg);
 }
 
 inline v8::UniquePersistent<v8::Function> toFunction(

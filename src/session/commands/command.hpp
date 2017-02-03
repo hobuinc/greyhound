@@ -28,7 +28,8 @@ public:
         , m_cb(getCallback(args))
         , m_bindings(*node::ObjectWrap::Unwrap<Bindings>(args.Holder()))
         , m_session(m_bindings.session())
-        , m_json(args.Length() > 1 ? toJson(args[0]) : Json::nullValue)
+        , m_json(args.Length() > 1 ?
+                toJson(m_isolate, args[0]) : Json::nullValue)
         , m_bounds(entwine::maybeCreate<entwine::Bounds>(m_json["bounds"]))
         , m_scale(entwine::maybeCreate<entwine::Scale>(m_json["scale"]))
         , m_offset(entwine::maybeCreate<entwine::Offset>(m_json["offset"]))

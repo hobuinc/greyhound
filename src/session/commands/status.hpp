@@ -10,7 +10,7 @@ class JsConvertible
 {
 public:
     ~JsConvertible() { }
-    virtual Arg convert() const = 0;
+    virtual Arg convert(v8::Isolate* isolate) const = 0;
     virtual Json::Value toJson() const { return Json::nullValue; }
 };
 
@@ -20,7 +20,11 @@ public:
     JsonConvertible() = default;
     JsonConvertible(const Json::Value& json) : m_json(json) { }
 
-    virtual Arg convert() const override { return toJs(m_json); }
+    virtual Arg convert(v8::Isolate* isolate) const override
+    {
+        return toJs(isolate, m_json);
+    }
+
     virtual Json::Value toJson() const override
     {
         return m_json;
@@ -34,7 +38,10 @@ class BufferConvertible : public JsConvertible
 {
 public:
     BufferConvertible(const std::vector<char>& buffer) : m_buffer(buffer) { }
-    virtual Arg convert() const override { return toJs(m_buffer); }
+    virtual Arg convert(v8::Isolate* isolate) const override
+    {
+        return toJs(isolate, m_buffer);
+    }
 
 private:
     const std::vector<char>& m_buffer;
@@ -110,7 +117,7 @@ public:
     std::vector<Arg> toJs(v8::Isolate* isolate) const
     {
         std::vector<Arg> js;
-        for (const auto& arg : m_args) js.push_back(arg->convert());
+        for (const auto& arg : m_args) js.push_back(arg->convert(isolate));
         return js;
     }
 

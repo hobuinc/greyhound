@@ -56,7 +56,8 @@ Bindings::~Bindings()
 
 void Bindings::init(v8::Handle<v8::Object> exports)
 {
-    Isolate* isolate(Isolate::GetCurrent());
+    Isolate* isolate(exports->GetIsolate());
+    HandleScope scope(isolate);
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl(v8::FunctionTemplate::New(isolate, construct));
@@ -117,6 +118,7 @@ void Bindings::global(const Args& args)
         paths = entwine::extract<std::string>(toJson(isolate, pathsArg));
 
         const std::size_t cacheSize(toJson(isolate, cacheSizeArg).asUInt64());
+        isolate->AdjustAmountOfExternalAllocatedMemory(cacheSize);
         cache = entwine::makeUnique<entwine::Cache>(cacheSize);
 
         outerScope.getArbiter(toJson(isolate, arbiterArg));
