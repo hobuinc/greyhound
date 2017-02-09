@@ -11,6 +11,7 @@
   "scripts": {
     "start": "./src/forever.js",
     "debug": "NODE_ENV=debug node-gyp build --debug && ./src/app.js --debug",
+    "generate-test-data": "./scripts/generate-test-data.sh",
     "test": "mocha ./test --recursive --slow 5000 --timeout 5000"
   },
   "bin": {
