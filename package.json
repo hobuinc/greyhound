@@ -8,12 +8,17 @@
   "engines": {
     "node": ">=4.0.0"
   },
+  "scripts": {
+    "start": "./src/forever.js",
+    "debug": "NODE_ENV=debug node-gyp build --debug && ./src/app.js --debug",
+    "test": "mocha ./test --recursive --slow 5000 --timeout 5000"
+  },
   "bin": {
     "greyhound": "./src/forever.js",
     "greyhound-solo": "./src/app.js"
   },
   "dependencies": {
-    "bluebird": "^3.2.2",
+    "bluebird": "^3.4.7",
     "body-parser": "^1.14.2",
     "bytes": "^2.4.0",
     "clim": "^1.0.0",
@@ -29,5 +34,11 @@
     "morgan": "^1.6.1",
     "node-uuid": "^1.4.7",
     "request": "^2.69.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-http": "^3.0.0",
+    "mocha": "^3.2.0",
+    "sync-request": "^4.0.1"
   }
 }
