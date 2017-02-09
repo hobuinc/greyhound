@@ -95,25 +95,43 @@ public:
         : Command(args)
     { }
 
+    void initAsync()
+    {
+        m_async.reset(new uv_async_t());
+        m_async->data = this;
+        uv_async_init(uv_default_loop(), async(), [](uv_async_t* async)
+        {
+            v8::Isolate* isolate(v8::Isolate::GetCurrent());
+            v8::HandleScope scope(isolate);
+
+            Loopable* loopable(static_cast<Loopable*>(async->data));
+
+            const auto s(loopable->status().call(isolate, loopable->cb()));
+            if (toJson(isolate, s).asBool()) loopable->stop();
+            loopable->sent();
+        });
+    }
+
+    uv_async_t* async() { return m_async.get(); }
+
 protected:
     virtual bool done() const
     {
         return !m_status.ok() || m_stop;
     }
 
-    void send(uv_async_t* async)
+    void send()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         m_wait = true;
-        uv_async_send(async);
+        uv_async_send(async());
         m_cv.wait(lock, [this]()->bool { return !m_wait; });
     }
 
     void sent()
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
         m_wait = false;
-        lock.unlock();
         m_cv.notify_all();
     }
 
@@ -124,6 +142,22 @@ protected:
     std::condition_variable m_cv;
     bool m_wait = false;
     bool m_stop = false;
+
+    struct AsyncDeleter
+    {
+        void operator()(uv_async_t* async)
+        {
+            auto handle(reinterpret_cast<uv_handle_t*>(async));
+            uv_close(handle, (uv_close_cb)([](uv_handle_t* handle)
+            {
+                delete handle;
+            }));
+        }
+    };
+
+    using UniqueAsync = std::unique_ptr<uv_async_t, AsyncDeleter>;
+
+    UniqueAsync m_async;
 };
 
 class Commander
@@ -165,30 +199,16 @@ public:
 
         std::unique_ptr<Loopable> loopable(createSafe<T>(args));
         if (!loopable) return;
+        loopable->initAsync();
 
         auto work = (uv_work_cb)[](uv_work_t* req) noexcept
         {
             Loopable* loopable(static_cast<Loopable*>(req->data));
 
-            UniqueAsync async(new uv_async_t());
-            async->data = loopable;
-
-            uv_async_init(uv_default_loop(), async.get(), [](uv_async_t* async)
-            {
-                v8::Isolate* isolate(v8::Isolate::GetCurrent());
-                v8::HandleScope scope(isolate);
-
-                Loopable* loopable(static_cast<Loopable*>(async->data));
-
-                const auto s(loopable->status().call(isolate, loopable->cb()));
-                if (toJson(isolate, s).asBool()) loopable->stop();
-                loopable->sent();
-            });
-
             do
             {
                 loopable->run();
-                loopable->send(async.get());
+                loopable->send();
             }
             while (!loopable->done());
         };
@@ -240,19 +260,5 @@ private:
             return std::unique_ptr<T>();
         }
     }
-
-    struct AsyncDeleter
-    {
-        void operator()(uv_async_t* async)
-        {
-            auto handle(reinterpret_cast<uv_handle_t*>(async));
-            uv_close(handle, (uv_close_cb)([](uv_handle_t* handle)
-            {
-                delete handle;
-            }));
-        }
-    };
-
-    using UniqueAsync = std::unique_ptr<uv_async_t, AsyncDeleter>;
 };
 

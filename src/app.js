@@ -11,12 +11,14 @@ var console = require('clim')(),
 
     Controller = require('./controller').Controller,
     HttpHandler = require('./interfaces/http').HttpHandler,
+    usingDefaultConfig = false,
     configPath = (() => {
         if (argv.c) {
             console.log('Using config at', argv.c);
             return argv.c;
         }
         else {
+            usingDefaultConfig = true;
             console.log('Using default config');
             return join(__dirname, 'config.defaults.json');
         }
@@ -24,6 +26,10 @@ var console = require('clim')(),
     config = JSON.parse(minify(fs.readFileSync(
                     configPath, { encoding: 'utf8' })))
     ;
+
+if (usingDefaultConfig) {
+    config.paths.push(path.join(__dirname, '../', 'data'));
+}
 
 if (config.auth) {
     var maybeAddSlashTo = (s) => s.slice(-1) == '/' ? s : s + '/';

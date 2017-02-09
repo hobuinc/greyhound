@@ -51,8 +51,44 @@ protected:
     Json::Value m_filter;
     std::unique_ptr<entwine::Schema> m_schema;
     std::unique_ptr<ReadQuery> m_query;
+};
 
-    std::vector<char> m_buffer;
+class ReadSingle : public Command
+{
+public:
+    ReadSingle(const Args& args)
+        : Command(args)
+        , m_compress(m_json["compress"].asBool())
+        , m_filter(m_json["filter"])
+        , m_schema(entwine::maybeCreate<entwine::Schema>(m_json["schema"]))
+        , m_query(
+                m_session.getQuery(
+                    m_bounds.get(),
+                    m_depthBegin,
+                    m_depthEnd,
+                    m_scale.get(),
+                    m_offset.get(),
+                    m_schema.get(),
+                    m_filter,
+                    m_compress))
+    { }
+
+    virtual void work() override
+    {
+        auto& bufferPool(ReadPool::get());
+        std::vector<char>& buffer(bufferPool.acquire());
+
+        while (!m_query->done()) m_query->read(buffer);
+
+        bufferPool.capture(buffer);
+        m_status.set(buffer, m_query->done());
+    }
+
+protected:
+    bool m_compress;
+    Json::Value m_filter;
+    std::unique_ptr<entwine::Schema> m_schema;
+    std::unique_ptr<ReadQuery> m_query;
 };
 
 }

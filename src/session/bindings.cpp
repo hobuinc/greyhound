@@ -152,6 +152,7 @@ void Bindings::hierarchy(const Args& args)
 void Bindings::read(const Args& args)
 {
     Commander::loop<command::Read>(args);
+    // Commander::run<command::ReadSingle>(args);
 }
 
 Session& Bindings::session() { return *m_session; }

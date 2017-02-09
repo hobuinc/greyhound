@@ -37,7 +37,6 @@ public:
     {
         if (m_done) throw std::runtime_error("Tried to call read() after done");
 
-        buffer.clear();
         m_done = readSome(buffer);
 
         if (compress())

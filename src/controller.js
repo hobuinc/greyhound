@@ -1,5 +1,7 @@
 var bytes = require('bytes'),
-    Bindings = require('../build/Release/session'),
+    production = process.env.NODE_ENV != 'debug',
+    buildDir = production ? 'Release' : 'Debug',
+    Bindings = require('../build/' + buildDir + '/session'),
     Session = Bindings.Session,
     totalThreads = require('os').cpus().length,
     error = (code, message) => ({ code: code, message: message }),
@@ -28,7 +30,7 @@ clim(console, true);
         if (!config.cacheSize) config.cacheSize = '500mb';
 
         var paths = config.paths;
-        var threadRatio = config.threadRatio || 0.6;
+        var threadRatio = config.threadRatio || 1.0;
         var threads = Math.max(Math.ceil(totalThreads * threadRatio), 4);
         var cacheSize = Math.max(bytes('' + config.cacheSize), bytes('500mb'));
         var arbiter = config.arbiter || { };
@@ -36,7 +38,8 @@ clim(console, true);
 
         // We've limited the libuv threadpool size since each of those threads
         // may spawn its own child threads.
-        console.log('Using');
+        console.log('Using:');
+        console.log('\t' + (production ? 'Production' : 'Debug'), 'mode');
         console.log('\tRead paths:', JSON.stringify(this.config.paths));
         console.log('\tCache size:', cacheSize, '(' + bytes(cacheSize) + ')');
         console.log('\tThreads identified:', totalThreads);
