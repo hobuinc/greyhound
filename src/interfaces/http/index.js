@@ -70,7 +70,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
             next();
         });
 
-        if (this.httpConfig.enableStaticServe) this.registerStatic(app);
+        this.registerStatic(app);
         this.registerCommands(app);
 
         if (this.port) {

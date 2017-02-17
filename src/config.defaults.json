@@ -4,7 +4,6 @@
     "resourceTimeoutMinutes": 30,
     "http": {
         "port": 8080,
-        "enableStaticServe": true,
         "headers": {
             "Cache-Control":                  "public, max-age=300",
             "Access-Control-Allow-Origin":    "*",

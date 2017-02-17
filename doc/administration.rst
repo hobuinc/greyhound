@@ -68,7 +68,6 @@ A simple configuration file might look like this:
         "resourceTimeoutMinutes": 30,
         "http": {
             "port": 8080,
-            "enableStaticServe": true,
             "headers": {
                 "Cache-Control":                  "public, max-age=300",
                 "Access-Control-Allow-Origin":    "*",
@@ -88,7 +87,6 @@ Configuration settings
 - ``http.keyFile``: Path to HTTPS key file.
 - ``http.certFile``: Path to HTTPS certificate file.
 - ``http.headers``: An object with string-to-string key-value pairs representing headers that will be placed on all outbound response data from Greyhound.  Common use-cases for this field are CORS headers and cache control.  Defaults to the values shown in the sample configuration above.
-- ``http.enableStaticServe``: If set to ``true``, a simple static viewer will be enabled to view the results of a single query.  Default: ``true``.
 
 Authentication settings
 -------------------------------------------------------------------------------
@@ -120,7 +118,6 @@ Configuration with HTTP disabled, HTTPS enabled, and external authentication
         "resourceTimeoutMinutes": 30,
         "http": {
             "port": null,
-            "enableStaticServe": true,
             "headers": {
                 "Cache-Control":                  "public, max-age=300",
                 "Access-Control-Allow-Origin":    "greyhound.io",
