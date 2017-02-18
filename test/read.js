@@ -167,7 +167,7 @@ describe('read', () => {
         .then(() => done());
     });
 
-    it ('errors gracefully for out-of-range values', (done) => {
+    it('errors gracefully for out-of-range values', (done) => {
         // This dataset has intensity values of 255, which won't fit into a
         // signed byte.
         var schema = [
@@ -180,6 +180,52 @@ describe('read', () => {
         util.read({ depth: 4, schema: schema })
         .then((res) => {
             res.should.have.status(400);
+            done();
+        });
+    });
+
+    it('works when no spatial dimensions are specified', (done) => {
+        var schema = [{ name: 'Intensity', type: 'unsigned', size: 1 }];
+
+        util.read({ depth: 4, schema: schema })
+        .then((res) => {
+            res.should.have.status(200);
+
+            var numPoints = util.numPointsFrom(res.body, schema);
+            var pointSize = util.pointSizeFrom(schema);
+            var numBytes = numPoints * pointSize;
+
+            expect(numPoints).to.equal(numBytes);
+            done();
+        });
+    });
+
+    it('zeroes out unrecognized dimensions', (done) => {
+        var schema = [
+            { name: 'X', type: 'floating', size: 4 },
+            { name: 'Y', type: 'floating', size: 4 },
+            { name: 'Z', type: 'floating', size: 4 },
+            { name: 'DoesNotExist', type: 'unsigned', size: 1 }
+        ];
+
+        util.read({ depth: 4, schema: schema })
+        .then((res) => {
+            res.should.have.status(200);
+
+            var numPoints = util.numPointsFrom(res.body, schema);
+            var pointSize = util.pointSizeFrom(schema);
+            var numBytes = numPoints * pointSize;
+
+            expect(numPoints).to.be.above(0);
+
+            var view = new DataView(res.body);
+            var dimOffset = util.getOffset('DoesNotExist', schema);
+
+            for (var offset = 0; offset < numBytes; offset += pointSize)
+            {
+                expect(view.getUint8(offset + dimOffset, true)).to.equal(0);
+            }
+
             done();
         });
     });

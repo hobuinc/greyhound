@@ -86,6 +86,15 @@ var read = (query) => {
     });
 };
 
+var getOffset = (name, schema) => {
+    var offset = 0;
+    for (var i = 0; i < schema.length; ++i) {
+        if (schema[i].name == name) return offset;
+        else offset += schema[i].size;
+    }
+    throw new Error('No offset found for ' + name);
+};
+
 module.exports = {
     toArrayBuffer: toArrayBuffer,
     toString: toString,
@@ -94,6 +103,7 @@ module.exports = {
     split: split,
     httpSync: httpSync,
     xyz: xyz,
-    read: read
+    read: read,
+    getOffset: getOffset
 };
 

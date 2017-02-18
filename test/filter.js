@@ -26,15 +26,6 @@ schema[0].type = 'floating'; schema[0].size = 4;
 schema[1].type = 'floating'; schema[1].size = 4;
 schema[2].type = 'floating'; schema[2].size = 4;
 
-var getOffset = (name, schema) => {
-    var offset = 0;
-    for (var i = 0; i < schema.length; ++i) {
-        if (schema[i].name == name) return offset;
-        else offset += schema[i].size;
-    }
-    throw new Error('No offset found for ' + name);
-};
-
 var buffer = request(
         'GET', server + resource + '/read?schema=' + JSON.stringify(schema))
         .getBody().buffer;
@@ -95,7 +86,7 @@ describe('filter', () => {
             var numPoints = util.numPointsFrom(res.body, schema);
             var pointSize = util.pointSizeFrom(schema);
             var numBytes = numPoints * pointSize;
-            var originOffset = getOffset('OriginId', schema);
+            var originOffset = util.getOffset('OriginId', schema);
 
             expect(numPoints).to.equal(fileInfo.numPoints);
 
@@ -146,7 +137,7 @@ describe('filter', () => {
 
         Promise.all(checks).spread((lte, gt) => {
             var pointSize = util.pointSizeFrom(schema);
-            var offset = getOffset('Intensity', schema);
+            var offset = util.getOffset('Intensity', schema);
             var check = (buffer, validate) => {
                 var numPoints = util.numPointsFrom(buffer, schema);
                 var view = new DataView(buffer);
