@@ -17,6 +17,8 @@ var toArrayBuffer = (s) => {
     return b;
 };
 
+var toString = (b) => String.fromCharCode.apply(null, new Uint8Array(b));
+
 var parseBinary = (res, cb) => {
     res.setEncoding('binary');
     res.data = '';
@@ -86,6 +88,7 @@ var read = (query) => {
 
 module.exports = {
     toArrayBuffer: toArrayBuffer,
+    toString: toString,
     pointSizeFrom: pointSizeFrom,
     numPointsFrom: numPointsFrom,
     split: split,

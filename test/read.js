@@ -166,5 +166,22 @@ describe('read', () => {
         .then((numPoints) => expect(numPoints).to.equal(info.numPoints))
         .then(() => done());
     });
+
+    it ('errors gracefully for out-of-range values', (done) => {
+        // This dataset has intensity values of 255, which won't fit into a
+        // signed byte.
+        var schema = [
+            { name: 'X', type: 'floating', size: 4 },
+            { name: 'Y', type: 'floating', size: 4 },
+            { name: 'Z', type: 'floating', size: 4 },
+            { name: 'Intensity', type: 'signed', size: 1 }
+        ];
+
+        util.read({ depth: 4, schema: schema })
+        .then((res) => {
+            res.should.have.status(400);
+            done();
+        });
+    });
 });
 

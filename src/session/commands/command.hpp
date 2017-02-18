@@ -106,8 +106,21 @@ public:
 
             Loopable* loopable(static_cast<Loopable*>(async->data));
 
-            const auto s(loopable->status().call(isolate, loopable->cb()));
-            if (toJson(isolate, s).asBool()) loopable->stop();
+            try
+            {
+                const auto s(loopable->status().call(isolate, loopable->cb()));
+                if (toJson(isolate, s).asBool()) loopable->stop();
+            }
+            catch (std::exception& e)
+            {
+                const std::string s("During async send: ");
+                loopable->status().setError(500, s + e.what());
+            }
+            catch (...)
+            {
+                loopable->status().setError(500, "During async send: unknown");
+            }
+
             loopable->sent();
         });
     }

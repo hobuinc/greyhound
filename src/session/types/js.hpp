@@ -61,6 +61,7 @@ inline Arg toJs(v8::Isolate* isolate, const std::vector<char>& buffer)
 
 inline Json::Value toJson(v8::Isolate* isolate, const Arg& arg)
 {
+    if (arg->IsUndefined()) return Json::nullValue;
     if (arg->IsNull()) return Json::nullValue;
     if (arg->IsBoolean()) return arg->BooleanValue();
     if (arg->IsInt32()) return arg->Int32Value();
