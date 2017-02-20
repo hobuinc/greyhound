@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+mkdir -p $DIR/../data
 cd $DIR/../data
+mkdir -p tmp
 
 # Normally we'd glob here, but that's not possible with the HTTP interface.
 TESTING_SHALLOW=true entwine build \

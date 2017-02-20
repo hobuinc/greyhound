@@ -7,7 +7,8 @@ ENV CXX g++
 RUN apt-get update && apt-get install -y wget && \
     (wget -qO- https://deb.nodesource.com/setup_4.x | bash -) && \
     apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    npm install -g node-gyp mocha
 
 ADD https://api.github.com/repos/hobu/greyhound/commits /tmp/bust-cache
 RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
