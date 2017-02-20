@@ -1,5 +1,7 @@
 # GREYHOUND
 
+[![Build Status](https://api.travis-ci.org/hobu/greyhound.svg)](https://travis-ci.org/hobu/greyhound)
+
 A point cloud streaming framework for dynamic web services and native applications.
 
 See it in action with the dynamic [Plas.io](http://speck.ly) client at [speck.ly](http://speck.ly) and the [Potree](http://potree.org) client at [potree.entwine.io](http://potree.entwine.io).
