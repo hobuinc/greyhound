@@ -62,8 +62,7 @@ A simple configuration file might look like this:
 ::
 
     {
-        "chunksPerQuery": 16,
-        "chunkCacheSize": 64,
+        "cacheSize": "1 GB",
         "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
         "resourceTimeoutMinutes": 30,
         "http": {
@@ -79,7 +78,7 @@ A simple configuration file might look like this:
 Configuration settings
 -------------------------------------------------------------------------------
 
-- ``chunkCacheSize``: The maximum number of chunks that may be held in Greyhound's cache.  If set to a value less than ``16``, then this value will be set to ``16``.  Larger values may allow Greyhound to be more responsive, but will use more memory.  Default: ``32``.
+- ``cacheSize``: The cache size for Greyhound's data chunks.  This is not a maximal amount of memory that Greyhound may use, but is merely correlated with the amount of memory Greyhound will consume since it represents only a single piece of Greyhound's internal data usage.  This field may be specified as a number of bytes, but may also be a specified as a string containing a qualifier like ``MB`` or ``GB``.
 - ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper credentials exist) are supported.
 - ``resourceTimeoutMinutes``: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: ``30``.
 - ``http.port``: Port on which to listen for HTTP requests.  If ``null`` or missing, HTTP requests will be disabled.  Default: ``8080``.
@@ -112,8 +111,7 @@ Configuration with HTTP disabled, HTTPS enabled, and external authentication
 ::
 
     {
-        "chunksPerQuery": 16,
-        "chunkCacheSize": 64,
+        "cacheSize": "1 GB",
         "paths": ["s3://my-app/entwine/"],
         "resourceTimeoutMinutes": 30,
         "http": {
