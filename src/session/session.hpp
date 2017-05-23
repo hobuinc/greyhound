@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <entwine/types/defs.hpp>
+
 namespace pdal
 {
     class PointContext;

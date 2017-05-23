@@ -8,8 +8,10 @@
 #include <uv.h>
 #include <v8.h>
 
-#include <entwine/util/json.hpp>
 #include <entwine/reader/query.hpp>
+#include <entwine/types/defs.hpp>
+#include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 #include "bindings.hpp"
 #include "session.hpp"
