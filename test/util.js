@@ -95,6 +95,12 @@ var getOffset = (name, schema) => {
     throw new Error('No offset found for ' + name);
 };
 
+var getSize = (name, schema) => {
+    var d = schema.find((v) => v.name == name);
+    if (d) return d.size;
+    else throw new Error('No size found for ' + name);
+}
+
 module.exports = {
     toArrayBuffer: toArrayBuffer,
     toString: toString,
@@ -104,6 +110,7 @@ module.exports = {
     httpSync: httpSync,
     xyz: xyz,
     read: read,
-    getOffset: getOffset
+    getOffset: getOffset,
+    getSize: getSize
 };
 

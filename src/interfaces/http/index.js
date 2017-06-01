@@ -63,7 +63,7 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                     'GET, OPTIONS');
             }
 
-            Object.keys(self.httpConfig.headers).map(function(key) {
+            Object.keys(self.httpConfig.headers || { }).map(function(key) {
                 res.header(key, self.httpConfig.headers[key]);
             });
             res.header('X-powered-by', 'Hobu, Inc.');

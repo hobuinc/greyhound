@@ -87,11 +87,20 @@ describe('filter', () => {
             var pointSize = util.pointSizeFrom(schema);
             var numBytes = numPoints * pointSize;
             var originOffset = util.getOffset('OriginId', schema);
+            var originSize = util.getSize('OriginId', schema);
+            var getOrigin = (() => {
+                switch (originSize) {
+                    case 1: return view.getUint8.bind(view);
+                    case 2: return view.getUint16.bind(view);
+                    case 4: return view.getUint32.bind(view);
+                    case 8: return view.getUint64.bind(view);
+                }
+            })();
 
             expect(numPoints).to.equal(fileInfo.numPoints);
 
             for (var offset = 0; offset < numBytes; offset += pointSize) {
-                var v = view.getUint32(offset + originOffset, true);
+                var v = getOrigin(offset + originOffset, true);
                 expect(v).to.equal(origin);
             }
 
