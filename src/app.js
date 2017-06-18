@@ -27,7 +27,13 @@ var console = require('clim')(),
                     configPath, { encoding: 'utf8' })))
     ;
 
-if (usingDefaultConfig) {
+if (argv.p) {
+    if (Array.isArray(argv.p)) {
+        argv.p.forEach((v) => config.paths.push(v));
+    }
+    else config.paths.push(argv.p);
+}
+else if (usingDefaultConfig) {
     config.paths.push(path.join(__dirname, '../', 'data'));
 }
 
