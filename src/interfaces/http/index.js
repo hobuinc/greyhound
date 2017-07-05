@@ -246,12 +246,6 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                     message: 'Cannot specify both "search" and "bounds"'
                 });
             }
-            else if (q.search == null && q.bounds == null) {
-                return next({
-                    code: 400,
-                    message: 'Invalid files query - empty'
-                });
-            }
 
             controller.files(req.params.resource, q, (err, data) => {
                 var end = new Date();

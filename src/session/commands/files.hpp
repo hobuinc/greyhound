@@ -19,7 +19,7 @@ public:
         }
         else if (!m_search && !m_bounds)
         {
-            throw std::runtime_error("Empty query");
+            m_search.reset(new Json::Value());
         }
     }
 

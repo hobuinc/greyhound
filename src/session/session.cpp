@@ -155,6 +155,10 @@ Json::Value Session::filesSingle(const Json::Value& in) const
         try { return m_entwine->files(in.asString()).toJson(); }
         catch (...) { return Json::nullValue; }
     }
+    else if (in.isNull())
+    {
+        return Json::UInt64(m_entwine->metadata().manifest().size());
+    }
     else
     {
         throw std::runtime_error("Invalid file query: " + in.toStyledString());
