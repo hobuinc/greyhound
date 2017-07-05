@@ -17,10 +17,12 @@ describe('files', () => {
         });
     });
 
-    it('400s empty searches', (done) => {
+    it('Returns the file count on empty searches', (done) => {
         chai.request(server).get(resource + '/files')
         .end((err, res) => {
-            res.should.have.status(400);
+            res.should.have.status(200);
+            res.body.should.be.a('number');
+            res.body.should.equal(8);
             done();
         });
     });
