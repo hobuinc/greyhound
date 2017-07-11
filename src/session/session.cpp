@@ -85,6 +85,8 @@ bool Session::initialize()
                 json["reprojection"] = r->toJson();
             }
 
+            if (metadata.density()) json["density"] = metadata.density();
+
             if (const entwine::Delta* delta = metadata.delta())
             {
                 const entwine::Point& scale(delta->scale());
