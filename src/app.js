@@ -27,6 +27,8 @@ var console = require('clim')(),
                     configPath, { encoding: 'utf8' })))
     ;
 
+if (!config.paths) config.paths = [];
+
 if (argv.p) {
     if (Array.isArray(argv.p)) {
         argv.p.forEach((v) => config.paths.push(v));
