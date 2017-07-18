@@ -180,13 +180,21 @@ var colors = Object.keys(colorCodes).reduce((p, k) => {
                     //      ?param=true
                     if (v == 'true' || v == 'false') p[k] = v == 'true';
                     else {
-                        p[k] = JSON.parse(v);
+                        try {
+                            p[k] = JSON.parse(v);
 
-                        // We'll also accept the quoted strings 'true' and
-                        // 'false' to be boolean:
-                        //      ?param="true"
-                        if (p[k] === 'true') p[k] = true;
-                        else if (p[k] == 'false') p[k] = false;
+                            // We'll also accept the quoted strings 'true' and
+                            // 'false' to be boolean:
+                            //      ?param="true"
+                            if (p[k] === 'true') p[k] = true;
+                            else if (p[k] == 'false') p[k] = false;
+                        }
+                        catch (e) {
+                            return next({
+                                code: 400,
+                                message: 'Invalid query param: ' + k
+                            });
+                        }
                     }
 
                     return p;
