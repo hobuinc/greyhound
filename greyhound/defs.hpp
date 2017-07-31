@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -49,6 +50,8 @@ public:
         HttpError(HttpStatusCode::client_error_bad_request, message)
     { }
 };
+
+using TimePoint = std::chrono::high_resolution_clock::time_point;
 
 } // namespace greyhound
 

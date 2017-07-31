@@ -12,6 +12,7 @@ set(HEADERS
 set(SOURCES
     "${BASE}/configuration.cpp"
     "${BASE}/main.cpp"
+    "${BASE}/manager.cpp"
     "${BASE}/resource.cpp"
 )
 

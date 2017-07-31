@@ -1,7 +1,13 @@
 #pragma once
 
+#include <chrono>
+#include <condition_variable>
+#include <map>
 #include <mutex>
-#include <set>
+#include <string>
+
+#include <entwine/reader/cache.hpp>
+#include <entwine/types/outer-scope.hpp>
 
 #include <greyhound/configuration.hpp>
 #include <greyhound/defs.hpp>
@@ -10,48 +16,27 @@
 namespace greyhound
 {
 
+class TimedResource
+{
+public:
+    TimedResource(SharedResource resource);
+
+    SharedResource& get() { return m_resource; }
+    void touch();
+    std::size_t since() const;
+
+private:
+    SharedResource m_resource;
+    TimePoint m_touched;
+};
+
 class Manager
 {
 public:
-    Manager(const Configuration& config)
-        : m_cache(config["cacheBytes"].asUInt64())
-        , m_paths(entwine::extract<std::string>(config["paths"]))
-    {
-        std::cout << "Paths" << std::endl;
-        for (const auto p : m_paths) std::cout << "\t" << p << std::endl;
+    Manager(const Configuration& config);
+    ~Manager();
 
-        m_outerScope.getArbiter(config["arbiter"]);
-
-        for (const auto key : config["http"]["headers"].getMemberNames())
-        {
-            std::cout << key << ": " <<
-                config["http"]["headers"][key].asString() << std::endl;
-
-            m_headers.emplace(key, config["http"]["headers"][key].asString());
-        }
-
-        m_headers.emplace("Connection", "keep-alive");
-        m_headers.emplace("X-powered-by", "Hobu, Inc.");
-        m_headers.emplace("Access-Control-Allow-Headers", "Content-Type");
-    }
-
-    SharedResource get(std::string name)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-
-        // TODO Authorization check would be here.
-
-        auto it(m_resources.find(name));
-        if (it == m_resources.end())
-        {
-            if (auto resource = Resource::create(*this, name))
-            {
-                it = m_resources.insert(std::make_pair(name, resource)).first;
-            }
-            else return SharedResource();
-        }
-        return it->second;
-    }
+    SharedResource get(std::string name);
 
     entwine::Cache& cache() const { return m_cache; }
     entwine::OuterScope& outerScope() const { return m_outerScope; }
@@ -59,15 +44,23 @@ public:
     const Headers& headers() const { return m_headers; }
 
 private:
+    void sweep();
+
     mutable entwine::Cache m_cache;
     mutable entwine::OuterScope m_outerScope;
 
     Paths m_paths;
     Headers m_headers;
 
-    std::map<std::string, SharedResource> m_resources;
+    std::map<std::string, TimedResource> m_resources;
 
     mutable std::mutex m_mutex;
+
+    bool m_done = false;
+    std::size_t m_timeoutSeconds;
+    TimePoint m_lastSweep;
+    mutable std::condition_variable m_cv;
+    std::thread m_sweepThread;
 };
 
 } // namespace greyhound

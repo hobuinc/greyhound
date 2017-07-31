@@ -30,6 +30,8 @@ public:
         , m_reader(std::move(reader))
     { }
 
+    entwine::Reader& reader() { return *m_reader; }
+
 private:
     Json::Value parseQuery(Req& req) const;
 
