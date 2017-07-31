@@ -71,7 +71,7 @@ public:
 
     void start()
     {
-        std::cout << "HTTP server running on port " << m_http.config.port <<
+        std::cout << "HTTP port: " << m_http.config.port <<
             std::endl;
         m_http.start();
     }

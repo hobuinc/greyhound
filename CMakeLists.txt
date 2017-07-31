@@ -81,6 +81,7 @@ mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
 include_directories(${PDAL_INCLUDE_DIRS})
 include_directories(${LAZPERF_INCLUDE_DIR})
+include_directories(${SIMPLE_WEB_SERVER_INCLUDE_DIR})
 
 if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries

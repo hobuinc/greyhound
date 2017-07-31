@@ -57,7 +57,7 @@ private:
     mutable std::mutex m_mutex;
 
     bool m_done = false;
-    std::size_t m_timeoutSeconds;
+    std::size_t m_timeoutSeconds = 0;
     TimePoint m_lastSweep;
     mutable std::condition_variable m_cv;
     std::thread m_sweepThread;
