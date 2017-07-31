@@ -17,12 +17,13 @@ describe('files', () => {
         });
     });
 
-    it('Returns the file count on empty searches', (done) => {
+    it('Returns a list of file paths on empty searches', (done) => {
         chai.request(server).get(resource + '/files')
         .end((err, res) => {
             res.should.have.status(200);
-            res.body.should.be.a('number');
-            res.body.should.equal(8);
+            res.body.should.be.an('array');
+            res.body.should.have.lengthOf(8);
+            res.body.forEach((v) => expect(v).to.be.a.string);
             done();
         });
     });
