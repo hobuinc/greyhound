@@ -115,29 +115,6 @@ Manager::~Manager()
     m_sweepThread.join();
 }
 
-SharedResource Manager::get(std::string name, Req& req)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    if (m_auth)
-    {
-        const auto code(m_auth->check(name, req));
-        if (!ok(code)) throw HttpError(code, "Authorization failure");
-    }
-
-    auto it(m_resources.find(name));
-    if (it == m_resources.end())
-    {
-        if (auto resource = Resource::create(*this, name))
-        {
-            it = m_resources.insert(std::make_pair(name, resource)).first;
-        }
-        else return SharedResource();
-    }
-    it->second.touch();
-    return it->second.get();
-}
-
 void Manager::sweep()
 {
     m_lastSweep = getNow();

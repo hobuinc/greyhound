@@ -6,7 +6,6 @@
 
 #include <greyhound/defs.hpp>
 #include <greyhound/configuration.hpp>
-#include <greyhound/timing.hpp>
 
 namespace greyhound
 {
@@ -24,6 +23,7 @@ public:
         const Configuration& config,
         const entwine::arbiter::Arbiter& a);
 
+    template<typename Req>
     HttpStatusCode check(const std::string& name, Req& req);
 
     std::string path() const { return m_ep.prefixedRoot(); }

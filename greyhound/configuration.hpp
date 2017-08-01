@@ -5,8 +5,6 @@
 
 #include <json/json.h>
 
-#include <greyhound/defs.hpp>
-
 namespace greyhound
 {
 

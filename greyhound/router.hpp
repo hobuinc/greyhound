@@ -2,7 +2,6 @@
 
 #include <greyhound/defs.hpp>
 #include <greyhound/manager.hpp>
-#include <greyhound/auth.hpp>
 
 namespace routes
 {
@@ -20,24 +19,38 @@ const std::string hierarchy(resourceBase + "/hierarchy$");
 namespace greyhound
 {
 
+template<typename S>
 class Router
 {
+    using Req = typename S::Request;
+    using Res = typename S::Response;
+    using ReqPtr = std::shared_ptr<typename S::Request>;
+    using ResPtr = std::shared_ptr<typename S::Response>;
+
 public:
-    Router(const Configuration& config)
-        : m_manager(config)
+    template<typename... Args>
+    Router(Manager& manager, unsigned int port, Args&&... args)
+        : m_manager(manager)
+        , m_server(std::forward<Args>(args)...)
     {
-        m_http.config.port = config["http"]["port"].asUInt();
-        m_http.config.thread_pool_size = 8;
-        m_http.default_resource["GET"] = [](ResPtr res, ReqPtr req)
+        m_server.config.port = port;
+        m_server.config.thread_pool_size = 8;
+
+        m_server.default_resource["GET"] = [](ResPtr res, ReqPtr req)
         {
             res->write(HttpStatusCode::client_error_not_found);
+        };
+
+        m_server.on_error = [](ReqPtr req, const SimpleWeb::error_code& ec)
+        {
+            std::cout << "Error: " << ec << std::endl;
         };
     }
 
     template<typename F>
     void get(std::string match, F f)
     {
-        m_http.resource[match]["GET"] = [this, &f](ResPtr res, ReqPtr req)
+        m_server.resource[match]["GET"] = [this, &f](ResPtr res, ReqPtr req)
         {
             try
             {
@@ -70,17 +83,13 @@ public:
         };
     }
 
-    void start()
-    {
-        std::cout << "HTTP port: " << m_http.config.port <<
-            std::endl;
-        m_http.start();
-    }
+    void start() { m_server.start(); }
+    void stop() { m_server.stop(); }
+    unsigned int port() const { return m_server.config.port; }
 
 private:
-    HttpServer m_http;
-    HttpsServer m_https;
-    Manager m_manager;
+    Manager& m_manager;
+    S m_server;
 };
 
 } // namespace greyhound

@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <json/json.h>
-
 #include <greyhound/defs.hpp>
 
 namespace entwine { class Reader; }
@@ -16,26 +14,21 @@ class Manager;
 class Resource
 {
 public:
-    void info(Req& req, Res& res);
-    void hierarchy(Req& req, Res& res);
-    void files(Req& req, Res& res);
-    void read(Req& req, Res& res);
+    template<typename Req, typename Res> void info(Req& req, Res& res);
+    template<typename Req, typename Res> void hierarchy(Req& req, Res& res);
+    template<typename Req, typename Res> void files(Req& req, Res& res);
+    template<typename Req, typename Res> void read(Req& req, Res& res);
 
     static std::shared_ptr<Resource> create(
             const Manager& manager,
             const std::string name);
 
-    Resource(const Manager& manager, std::unique_ptr<entwine::Reader> reader)
-        : m_manager(manager)
-        , m_reader(std::move(reader))
-    { }
+    Resource(const Headers& headers, std::unique_ptr<entwine::Reader> reader);
 
     entwine::Reader& reader() { return *m_reader; }
 
 private:
-    Json::Value parseQuery(Req& req) const;
-
-    const Manager& m_manager;
+    const Headers& m_headers;
     std::unique_ptr<entwine::Reader> m_reader;
 };
 

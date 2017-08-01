@@ -1,6 +1,6 @@
 #include <greyhound/resource.hpp>
 
-#include <regex>
+#include <json/json.h>
 
 #include <pdal/Compression.hpp>
 
@@ -17,21 +17,39 @@
 #include <greyhound/chunker.hpp>
 #include <greyhound/manager.hpp>
 
-namespace
-{
-    std::string dense(const Json::Value& json)
-    {
-        auto s = Json::FastWriter().write(json);
-        s.pop_back();
-        return s;
-    }
-
-    const std::regex onlyNumeric("^\\d+$");
-}
-
 namespace greyhound
 {
 
+namespace
+{
+
+std::string dense(const Json::Value& json)
+{
+    auto s = Json::FastWriter().write(json);
+    s.pop_back();
+    return s;
+}
+
+template<typename Req> Json::Value parseQuery(Req& req)
+{
+    Json::Value q;
+    for (const auto& p : req.parse_query_string())
+    {
+        q[p.first] = entwine::parse(p.second);
+    }
+    return q;
+}
+
+} // unnamed namespace
+
+Resource::Resource(
+        const Headers& headers,
+        std::unique_ptr<entwine::Reader> reader)
+    : m_headers(headers)
+    , m_reader(std::move(reader))
+{ }
+
+template<typename Req, typename Res>
 void Resource::info(Req& req, Res& res)
 {
     Json::Value json;
@@ -49,22 +67,24 @@ void Resource::info(Req& req, Res& res)
     if (m.density()) json["density"] = m.density();
     if (const auto d = m.delta()) d->insertInto(json);
 
-    auto h(m_manager.headers());
+    auto h(m_headers);
     h.emplace("Content-Type", "application/json");
     res.write(json.toStyledString(), h);
 }
 
+template<typename Req, typename Res>
 void Resource::hierarchy(Req& req, Res& res)
 {
     const Json::Value result(m_reader->hierarchy(parseQuery(req)));
-    auto h(m_manager.headers());
+    auto h(m_headers);
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
 }
 
+template<typename Req, typename Res>
 void Resource::files(Req& req, Res& res)
 {
-    auto h(m_manager.headers());
+    auto h(m_headers);
     h.emplace("Content-Type", "application/json");
 
     std::string root(req.path_match[2]);
@@ -75,7 +95,7 @@ void Resource::files(Req& req, Res& res)
         // Transform /files/42 -> /files?search=42
         if (query.isNull())
         {
-            if (std::regex_match(root, onlyNumeric))
+            if (std::all_of(root.begin(), root.end(), ::isdigit))
             {
                 query["search"] = Json::UInt64(std::stoul(root));
             }
@@ -140,6 +160,7 @@ void Resource::files(Req& req, Res& res)
     else throw Http400("Invalid files query");
 }
 
+template<typename Req, typename Res>
 void Resource::read(Req& req, Res& res)
 {
     const Json::Value params(parseQuery(req));
@@ -155,7 +176,7 @@ void Resource::read(Req& req, Res& res)
                 query->schema().pdalLayout().dimTypes());
     }
 
-    Chunker chunker(res, m_manager.headers());
+    Chunker<Res> chunker(res, m_headers);
     auto& data(chunker.data());
 
     while (!query->done())
@@ -200,7 +221,9 @@ SharedResource Resource::create(const Manager& manager, const std::string name)
                         manager.cache()))
             {
                 std::cout << "SUCCESS" << std::endl;
-                return std::make_shared<Resource>(manager, std::move(r));
+                return std::make_shared<Resource>(
+                        manager.headers(),
+                        std::move(r));
             }
             else std::cout << "fail - null result received" << std::endl;
         }
@@ -217,15 +240,15 @@ SharedResource Resource::create(const Manager& manager, const std::string name)
     return SharedResource();
 }
 
-Json::Value Resource::parseQuery(Req& req) const
-{
-    Json::Value q;
-    for (const auto& p : req.parse_query_string())
-    {
-        q[p.first] = entwine::parse(p.second);
-    }
-    return q;
-}
+template void Resource::info(Http::Request&, Http::Response&);
+template void Resource::hierarchy(Http::Request&, Http::Response&);
+template void Resource::files(Http::Request&, Http::Response&);
+template void Resource::read(Http::Request&, Http::Response&);
+
+template void Resource::info(Https::Request&, Https::Response&);
+template void Resource::hierarchy(Https::Request&, Https::Response&);
+template void Resource::files(Https::Request&, Https::Response&);
+template void Resource::read(Https::Request&, Https::Response&);
 
 } // namespace greyhound
 

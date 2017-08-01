@@ -13,7 +13,6 @@
 #include <greyhound/configuration.hpp>
 #include <greyhound/defs.hpp>
 #include <greyhound/resource.hpp>
-#include <greyhound/timing.hpp>
 
 namespace greyhound
 {
@@ -38,6 +37,7 @@ public:
     Manager(const Configuration& config);
     ~Manager();
 
+    template<typename Req>
     SharedResource get(std::string name, Req& req);
 
     entwine::Cache& cache() const { return m_cache; }
@@ -65,6 +65,30 @@ private:
     mutable std::condition_variable m_cv;
     std::thread m_sweepThread;
 };
+
+template<typename Req>
+SharedResource Manager::get(std::string name, Req& req)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (m_auth)
+    {
+        const auto code(m_auth->check(name, req));
+        if (!ok(code)) throw HttpError(code, "Authorization failure");
+    }
+
+    auto it(m_resources.find(name));
+    if (it == m_resources.end())
+    {
+        if (auto resource = Resource::create(*this, name))
+        {
+            it = m_resources.insert(std::make_pair(name, resource)).first;
+        }
+        else return SharedResource();
+    }
+    it->second.touch();
+    return it->second.get();
+}
 
 } // namespace greyhound
 

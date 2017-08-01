@@ -1,6 +1,7 @@
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(HEADERS
+    "${BASE}/app.hpp"
     "${BASE}/auth.hpp"
     "${BASE}/chunker.hpp"
     "${BASE}/configuration.hpp"
@@ -8,10 +9,10 @@ set(HEADERS
     "${BASE}/manager.hpp"
     "${BASE}/resource.hpp"
     "${BASE}/router.hpp"
-    "${BASE}/timing.hpp"
 )
 
 set(SOURCES
+    "${BASE}/app.cpp"
     "${BASE}/auth.cpp"
     "${BASE}/configuration.cpp"
     "${BASE}/main.cpp"

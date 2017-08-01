@@ -2,7 +2,6 @@
 
 #include <cctype>
 
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace greyhound
@@ -23,8 +22,7 @@ std::string trim(std::string s)
     return s;
 }
 
-using Cookies = std::map<std::string, std::string>;
-
+template<typename Req>
 Cookies parseCookies(Req& req)
 {
     Cookies cookies;
@@ -70,6 +68,7 @@ Auth::Auth(
     , m_bad(std::max<std::size_t>(bad, 60))
 { }
 
+template<typename Req>
 HttpStatusCode Auth::check(const std::string& resource, Req& req)
 {
     const auto cookies(parseCookies(req));
@@ -122,6 +121,9 @@ std::unique_ptr<Auth> Auth::maybeCreate(
     }
     else return std::unique_ptr<Auth>();
 }
+
+template HttpStatusCode Auth::check(const std::string&, Http::Request&);
+template HttpStatusCode Auth::check(const std::string&, Https::Request&);
 
 } // namespace greyhound
 

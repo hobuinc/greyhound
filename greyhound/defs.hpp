@@ -13,12 +13,8 @@
 namespace greyhound
 {
 
-using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
-using HttpsServer = SimpleWeb::Server<SimpleWeb::HTTPS>;
-using Req = HttpServer::Request;
-using Res = HttpServer::Response;
-using ReqPtr = std::shared_ptr<Req>;
-using ResPtr = std::shared_ptr<Res>;
+using Http = SimpleWeb::Server<SimpleWeb::HTTP>;
+using Https = SimpleWeb::Server<SimpleWeb::HTTPS>;
 using HttpStatusCode = SimpleWeb::StatusCode;
 
 inline bool ok(HttpStatusCode c) { return static_cast<int>(c) / 100 == 2; }
@@ -27,11 +23,12 @@ using ArbiterHttpResponse = entwine::arbiter::http::Response;
 using ArbiterHeaders = std::map<std::string, std::string>;
 
 using Headers = SimpleWeb::CaseInsensitiveMultimap;
-using Cookies = SimpleWeb::CaseInsensitiveMultimap;
+using Cookies = std::map<std::string, std::string>;
 
 using Paths = std::vector<std::string>;
-
 using Data = std::vector<char>;
+
+using TimePoint = std::chrono::high_resolution_clock::time_point;
 
 class HttpError : public std::runtime_error
 {
@@ -60,7 +57,22 @@ public:
     { }
 };
 
-using TimePoint = std::chrono::high_resolution_clock::time_point;
+inline TimePoint getNow()
+{
+    return std::chrono::high_resolution_clock::now();
+}
+
+inline std::size_t secondsSince(TimePoint start)
+{
+    std::chrono::duration<double> d(getNow() - start);
+    return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+}
+
+inline std::size_t secondsBetween(TimePoint start, TimePoint end)
+{
+    std::chrono::duration<double> d(end - start);
+    return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+}
 
 } // namespace greyhound
 

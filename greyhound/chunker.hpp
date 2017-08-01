@@ -1,5 +1,10 @@
 #pragma once
 
+#include <condition_variable>
+#include <mutex>
+
+#include <greyhound/defs.hpp>
+
 namespace greyhound
 {
 
@@ -25,6 +30,7 @@ private:
     std::vector<char> m_data;
 };
 
+template<typename Res>
 class Chunker
 {
 public:

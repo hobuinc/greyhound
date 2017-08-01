@@ -96,19 +96,13 @@ Json::Value Configuration::fromArgs(Json::Value json, const Args& args)
     for (const auto a : args)
     {
         if (a.front() == '-') flag = a;
-        else
-        {
-            if (flag == "-c")
-            {
-                // We already handled the config-path flag.
-            }
-            else if (flag == "-p") json["http"]["port"] = std::stoi(a);
-            else if (flag == "-d") json["paths"].append(a);
-            else
-            {
-                std::cout << "Ignored argument: " << a << std::endl;
-            }
-        }
+        else if (flag == "-c") { /* Already handled the config-path flag. */ }
+        else if (flag == "-p") json["http"]["port"] = std::stoi(a);
+        else if (flag == "-s") json["http"]["securePort"] = std::stoi(a);
+        else if (flag == "-k") json["http"]["keyFile"] = a;
+        else if (flag == "-c") json["http"]["certFile"] = a;
+        else if (flag == "-d") json["paths"].append(a);
+        else std::cout << "Ignored argument: " << a << std::endl;
     }
     return json;
 }
