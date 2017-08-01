@@ -1,8 +1,11 @@
 #pragma once
 
 #include <chrono>
+#include <map>
 #include <stdexcept>
 #include <string>
+
+#include <entwine/third/arbiter/arbiter.hpp>
 
 #include <simple-web-server/server_http.hpp>
 #include <simple-web-server/server_https.hpp>
@@ -18,7 +21,13 @@ using ReqPtr = std::shared_ptr<Req>;
 using ResPtr = std::shared_ptr<Res>;
 using HttpStatusCode = SimpleWeb::StatusCode;
 
+inline bool ok(HttpStatusCode c) { return static_cast<int>(c) / 100 == 2; }
+
+using ArbiterHttpResponse = entwine::arbiter::http::Response;
+using ArbiterHeaders = std::map<std::string, std::string>;
+
 using Headers = SimpleWeb::CaseInsensitiveMultimap;
+using Cookies = SimpleWeb::CaseInsensitiveMultimap;
 
 using Paths = std::vector<std::string>;
 

@@ -11,17 +11,6 @@ namespace greyhound
 
 namespace
 {
-    TimePoint now()
-    {
-        return std::chrono::high_resolution_clock::now();
-    }
-
-    std::size_t secondsSince(TimePoint start)
-    {
-        std::chrono::duration<double> d(now() - start);
-        return std::chrono::duration_cast<std::chrono::seconds>(d).count();
-    }
-
     std::size_t parseBytes(std::string s)
     {
         s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
@@ -47,10 +36,10 @@ namespace
 
 TimedResource::TimedResource(SharedResource resource)
     : m_resource(resource)
-    , m_touched(now())
+    , m_touched(getNow())
 { }
 
-void TimedResource::touch() { m_touched = now(); }
+void TimedResource::touch() { m_touched = getNow(); }
 std::size_t TimedResource::since() const { return secondsSince(m_touched); }
 
 Manager::Manager(const Configuration& config)
@@ -61,6 +50,7 @@ Manager::Manager(const Configuration& config)
     , m_paths(entwine::extract<std::string>(config["paths"]))
 {
     m_outerScope.getArbiter(config["arbiter"]);
+    m_auth = Auth::maybeCreate(config, *m_outerScope.getArbiter());
 
     for (const auto key : config["http"]["headers"].getMemberNames())
     {
@@ -73,7 +63,7 @@ Manager::Manager(const Configuration& config)
 
     m_timeoutSeconds = std::max<double>(
             60.0 * config["resourceTimeoutMinutes"].asDouble(), 30);
-    m_lastSweep = now();
+    m_lastSweep = getNow();
 
     auto loop([this]()
     {
@@ -102,6 +92,17 @@ Manager::Manager(const Configuration& config)
         std::cout << "\t" << key << ": " <<
             config["http"]["headers"][key].asString() << std::endl;
     }
+
+    if (m_auth)
+    {
+        std::cout << "Auth:" << std::endl;
+        std::cout << "\tPath: " << m_auth->path() << std::endl;
+        std::cout << "\tCookie: " << m_auth->cookieName() << std::endl;
+        std::cout << "\tSuccess timeout: " << m_auth->goodSeconds() << "s" <<
+            std::endl;
+        std::cout << "\tFailure timeout: " << m_auth->badSeconds() << "s" <<
+            std::endl;
+    }
 }
 
 Manager::~Manager()
@@ -114,11 +115,15 @@ Manager::~Manager()
     m_sweepThread.join();
 }
 
-SharedResource Manager::get(std::string name)
+SharedResource Manager::get(std::string name, Req& req)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    // TODO Authorization check would be here.
+    if (m_auth)
+    {
+        const auto code(m_auth->check(name, req));
+        if (!ok(code)) throw HttpError(code, "Authorization failure");
+    }
 
     auto it(m_resources.find(name));
     if (it == m_resources.end())
@@ -135,7 +140,7 @@ SharedResource Manager::get(std::string name)
 
 void Manager::sweep()
 {
-    m_lastSweep = now();
+    m_lastSweep = getNow();
     auto it(m_resources.begin());
     while (it != m_resources.end())
     {

@@ -9,9 +9,11 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/types/outer-scope.hpp>
 
+#include <greyhound/auth.hpp>
 #include <greyhound/configuration.hpp>
 #include <greyhound/defs.hpp>
 #include <greyhound/resource.hpp>
+#include <greyhound/timing.hpp>
 
 namespace greyhound
 {
@@ -36,7 +38,7 @@ public:
     Manager(const Configuration& config);
     ~Manager();
 
-    SharedResource get(std::string name);
+    SharedResource get(std::string name, Req& req);
 
     entwine::Cache& cache() const { return m_cache; }
     entwine::OuterScope& outerScope() const { return m_outerScope; }
@@ -53,6 +55,7 @@ private:
     Headers m_headers;
 
     std::map<std::string, TimedResource> m_resources;
+    std::unique_ptr<Auth> m_auth;
 
     mutable std::mutex m_mutex;
 

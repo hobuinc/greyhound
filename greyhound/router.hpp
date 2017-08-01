@@ -2,6 +2,7 @@
 
 #include <greyhound/defs.hpp>
 #include <greyhound/manager.hpp>
+#include <greyhound/auth.hpp>
 
 namespace routes
 {
@@ -41,7 +42,7 @@ public:
             try
             {
                 const std::string name(req->path_match[1]);
-                if (auto resource = m_manager.get(name))
+                if (auto resource = m_manager.get(name, *req))
                 {
                     f(*resource, *req, *res);
                 }
@@ -78,6 +79,7 @@ public:
 
 private:
     HttpServer m_http;
+    HttpsServer m_https;
     Manager m_manager;
 };
 

@@ -20,6 +20,8 @@ public:
         return m_json[s];
     }
 
+    const Json::Value& json() const { return m_json; }
+
     using Args = std::vector<std::string>;
 
 private:
