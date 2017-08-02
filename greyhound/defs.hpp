@@ -68,6 +68,12 @@ inline std::size_t secondsSince(TimePoint start)
     return std::chrono::duration_cast<std::chrono::seconds>(d).count();
 }
 
+inline std::size_t msSince(TimePoint start)
+{
+    std::chrono::duration<double> d(getNow() - start);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+}
+
 inline std::size_t secondsBetween(TimePoint start, TimePoint end)
 {
     std::chrono::duration<double> d(end - start);

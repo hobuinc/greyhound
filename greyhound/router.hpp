@@ -3,19 +3,6 @@
 #include <greyhound/defs.hpp>
 #include <greyhound/manager.hpp>
 
-namespace routes
-{
-
-const std::string resourceBase("^/resource/(.*)");
-
-const std::string info(resourceBase + "/info$");
-const std::string filesRoot(resourceBase + "/files$");
-const std::string files(resourceBase + "/files/(.*)$");
-const std::string read(resourceBase + "/read$");
-const std::string hierarchy(resourceBase + "/hierarchy$");
-
-}
-
 namespace greyhound
 {
 
@@ -43,7 +30,7 @@ public:
 
         m_server.on_error = [](ReqPtr req, const SimpleWeb::error_code& ec)
         {
-            std::cout << "Error: " << ec << std::endl;
+            std::cout << "Error " << ec << ": " << ec.message() << std::endl;
         };
     }
 

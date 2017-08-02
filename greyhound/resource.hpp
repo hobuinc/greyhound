@@ -21,13 +21,17 @@ public:
 
     static std::shared_ptr<Resource> create(
             const Manager& manager,
-            const std::string name);
+            const std::string& name);
 
-    Resource(const Headers& headers, std::unique_ptr<entwine::Reader> reader);
+    Resource(
+            const std::string& name,
+            const Headers& headers,
+            std::unique_ptr<entwine::Reader> reader);
 
     entwine::Reader& reader() { return *m_reader; }
 
 private:
+    const std::string m_name;
     const Headers& m_headers;
     std::unique_ptr<entwine::Reader> m_reader;
 };

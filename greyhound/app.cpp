@@ -3,6 +3,19 @@
 namespace greyhound
 {
 
+namespace routes
+{
+
+const std::string resourceBase("^/resource/(.*)");
+
+const std::string info(resourceBase + "/info$");
+const std::string filesRoot(resourceBase + "/files$");
+const std::string files(resourceBase + "/files/(.*)$");
+const std::string read(resourceBase + "/read$");
+const std::string hierarchy(resourceBase + "/hierarchy$");
+
+}
+
 App::App(const Configuration& config)
     : m_config(config)
     , m_manager(config)

@@ -40,54 +40,114 @@ template<typename Req> Json::Value parseQuery(Req& req)
     return q;
 }
 
+enum class Color
+{
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White
+};
+
+const std::map<Color, std::string> colorCodes {
+    { Color::Black,     "\x1b[30m" },
+    { Color::Red,       "\x1b[31m" },
+    { Color::Green,     "\x1b[32m" },
+    { Color::Yellow,    "\x1b[33m" },
+    { Color::Blue,      "\x1b[34m" },
+    { Color::Magenta,   "\x1b[35m" },
+    { Color::Cyan,      "\x1b[36m" },
+    { Color::White,     "\x1b[37m" }
+};
+
+std::string color(const std::string& s, Color c)
+{
+    return colorCodes.at(c) + s + "\x1b[0m";
+}
+
+std::mutex m;
+
 } // unnamed namespace
 
 Resource::Resource(
+        const std::string& name,
         const Headers& headers,
         std::unique_ptr<entwine::Reader> reader)
-    : m_headers(headers)
+    : m_name(name)
+    , m_headers(headers)
     , m_reader(std::move(reader))
 { }
 
 template<typename Req, typename Res>
 void Resource::info(Req& req, Res& res)
 {
+    const auto start(getNow());
+
     Json::Value json;
-    const auto& m(m_reader->metadata());
+    const auto& meta(m_reader->metadata());
 
     json["type"] = "octree";
-    json["numPoints"] = Json::UInt64(m.manifest().pointStats().inserts());
-    json["schema"] = m.schema().toJson();
-    json["bounds"] = m.boundsNativeCubic().toJson();
-    json["boundsConforming"] = m.boundsNativeConforming().toJson();
-    json["srs"] = m.srs();
-    json["baseDepth"] = Json::UInt64(m.structure().baseDepthBegin());
+    json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
+    json["schema"] = meta.schema().toJson();
+    json["bounds"] = meta.boundsNativeCubic().toJson();
+    json["boundsConforming"] = meta.boundsNativeConforming().toJson();
+    json["srs"] = meta.srs();
+    json["baseDepth"] = Json::UInt64(meta.structure().baseDepthBegin());
 
-    if (const auto r = m.reprojection()) json["reprojection"] = r->toJson();
-    if (m.density()) json["density"] = m.density();
-    if (const auto d = m.delta()) d->insertInto(json);
+    if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
+    if (meta.density()) json["density"] = meta.density();
+    if (const auto d = meta.delta()) d->insertInto(json);
 
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
     res.write(json.toStyledString(), h);
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("info", Color::Green) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms" <<
+        std::endl;
 }
 
 template<typename Req, typename Res>
 void Resource::hierarchy(Req& req, Res& res)
 {
-    const Json::Value result(m_reader->hierarchy(parseQuery(req)));
+    const auto start(getNow());
+
+    const Json::Value q(parseQuery(req));
+    const Json::Value result(m_reader->hierarchy(q));
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("hier", Color::Yellow) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms ";
+
+    std::cout << "D: [";
+    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
+    else std::cout << "all";
+
+    std::cout << ", ";
+    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
+    else std::cout << "all";
+
+    std::cout << ")" << std::endl;
 }
 
 template<typename Req, typename Res>
 void Resource::files(Req& req, Res& res)
 {
+    const auto start(getNow());
+
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
 
-    std::string root(req.path_match[2]);
+    const std::string root(req.path_match[2]);
     Json::Value query(parseQuery(req));
 
     if (root.size())
@@ -158,18 +218,26 @@ void Resource::files(Req& req, Res& res)
         res.write(dense(result), h);
     }
     else throw Http400("Invalid files query");
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("file", Color::Green) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms " <<
+        "Q: " << (root.size() ? root : dense(query)) <<
+        std::endl;
 }
 
 template<typename Req, typename Res>
 void Resource::read(Req& req, Res& res)
 {
-    const Json::Value params(parseQuery(req));
-    auto query(m_reader->getQuery(params));
+    const auto start(getNow());
+
+    const Json::Value q(parseQuery(req));
+    auto query(m_reader->getQuery(q));
 
     using Compressor = pdal::LazPerfCompressor<Stream>;
     Stream stream;
     std::unique_ptr<Compressor> compressor;
-    if (params["compress"].asBool())
+    if (q["compress"].asBool())
     {
         compressor = entwine::makeUnique<Compressor>(
                 stream,
@@ -178,6 +246,8 @@ void Resource::read(Req& req, Res& res)
 
     Chunker<Res> chunker(res, m_headers);
     auto& data(chunker.data());
+
+    uint32_t points(0);
 
     while (!query->done())
     {
@@ -192,16 +262,33 @@ void Resource::read(Req& req, Res& res)
 
         if (query->done())
         {
-            const uint32_t points(query->numPoints());
+            points = query->numPoints();
             const char* pos(reinterpret_cast<const char*>(&points));
             data.insert(data.end(), pos, pos + sizeof(uint32_t));
         }
 
         chunker.write(query->done());
     }
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms";
+
+    std::cout << " D: [";
+    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
+    else std::cout << "all";
+
+    std::cout << ", ";
+    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
+    else std::cout << "all";
+
+    std::cout << ")";
+    std::cout << " P: " << points << std::endl;
 }
 
-SharedResource Resource::create(const Manager& manager, const std::string name)
+SharedResource Resource::create(const Manager& manager, const std::string& name)
 {
     using namespace entwine;
     std::cout << "Creating " << name << std::endl;
@@ -222,6 +309,7 @@ SharedResource Resource::create(const Manager& manager, const std::string name)
             {
                 std::cout << "SUCCESS" << std::endl;
                 return std::make_shared<Resource>(
+                        name,
                         manager.headers(),
                         std::move(r));
             }
