@@ -1,5 +1,7 @@
 #pragma once
 
+#define GREYHOUND_INSTALL_PREFIX "@CMAKE_INSTALL_PREFIX@"
+
 #include <chrono>
 #include <map>
 #include <stdexcept>
@@ -12,6 +14,8 @@
 
 namespace greyhound
 {
+
+inline std::string installPrefix() { return GREYHOUND_INSTALL_PREFIX; }
 
 using Http = SimpleWeb::Server<SimpleWeb::HTTP>;
 using Https = SimpleWeb::Server<SimpleWeb::HTTPS>;

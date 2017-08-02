@@ -88,6 +88,7 @@ if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0042 NEW) # osx rpath
 endif()
 
+include_directories(BEFORE "${CMAKE_CURRENT_BINARY_DIR}")
 include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(greyhound)

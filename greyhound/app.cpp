@@ -1,7 +1,33 @@
 #include <greyhound/app.hpp>
 
+#include <fstream>
+
+#include <entwine/third/arbiter/arbiter.hpp>
+
 namespace greyhound
 {
+
+namespace
+{
+
+bool exists(const std::string path)
+{
+    return std::ifstream(path).good();
+}
+
+const std::string publicRoot(([]()->std::string
+{
+    const std::string ins(installPrefix() + "/include/greyhound/public");
+    const std::string cwd(
+            entwine::arbiter::util::join(
+                entwine::arbiter::util::getNonBasename(__FILE__), "public"));
+
+    if (exists(entwine::arbiter::util::join(ins, "index.html"))) return ins;
+    if (exists(entwine::arbiter::util::join(cwd, "index.html"))) return cwd;
+    return "";
+})());
+
+}
 
 namespace routes
 {
@@ -13,6 +39,9 @@ const std::string filesRoot(resourceBase + "/files$");
 const std::string files(resourceBase + "/files/(.*)$");
 const std::string read(resourceBase + "/read$");
 const std::string hierarchy(resourceBase + "/hierarchy$");
+
+const std::string renderRoot(resourceBase + "/static$");
+const std::string render(resourceBase + "/static/(.*)$");
 
 }
 
@@ -94,30 +123,55 @@ void App::registerRoutes(Router<S>& r)
     using Req = typename S::Request;
     using Res = typename S::Response;
 
-    r.get(routes::info, [&](Resource& resource, Req& req, Res& res)
+    r.get(routes::info, [this](Resource& resource, Req& req, Res& res)
     {
         resource.info(req, res);
     });
 
-    r.get(routes::hierarchy, [&](Resource& resource, Req& req, Res& res)
+    r.get(routes::hierarchy, [this](Resource& resource, Req& req, Res& res)
     {
         resource.hierarchy(req, res);
     });
 
-    r.get(routes::read, [&](Resource& resource, Req& req, Res& res)
+    r.get(routes::read, [this](Resource& resource, Req& req, Res& res)
     {
         resource.read(req, res);
     });
 
-    r.get(routes::filesRoot, [&](Resource& resource, Req& req, Res& res)
+    r.get(routes::filesRoot, [this](Resource& resource, Req& req, Res& res)
     {
         resource.files(req, res);
     });
 
-    r.get(routes::files, [&](Resource& resource, Req& req, Res& res)
+    r.get(routes::files, [this](Resource& resource, Req& req, Res& res)
     {
         resource.files(req, res);
     });
+
+    std::cout << "Static serve:\n\t";
+    if (publicRoot.size()) std::cout << publicRoot << std::endl;
+    else
+    {
+        std::cout << "(not found)" << std::endl;;
+        return;
+    }
+
+    auto render([](Resource& resource, Req& req, Res& res)
+    {
+        std::string p(req.path_match[2]);
+        if (p.empty()) p = "index.html";
+
+        const std::string path(entwine::arbiter::util::join(publicRoot, p));
+        auto ifs = std::make_shared<std::ifstream>(
+                path,
+                std::ifstream::in | std::ios::binary | std::ios::ate);
+
+        if (ifs->good()) res.write(*ifs);
+        else res.write(HttpStatusCode::client_error_not_found);
+    });
+
+    r.get(routes::render, render);
+    r.get(routes::renderRoot, render);
 }
 
 template void App::registerRoutes(Router<Http>&);
