@@ -30,7 +30,11 @@ public:
 
         m_server.on_error = [](ReqPtr req, const SimpleWeb::error_code& ec)
         {
-            std::cout << "Error " << ec << ": " << ec.message() << std::endl;
+            if (ec && ec != SimpleWeb::errc::operation_canceled)
+            {
+                std::cout << "Error " << ec << ": " << ec.message() <<
+                    std::endl;
+            }
         };
     }
 
