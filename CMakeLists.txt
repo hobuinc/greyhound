@@ -39,6 +39,7 @@ find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 find_package(Threads REQUIRED)
 find_package(LazPerf REQUIRED)
 find_package(Curl)
+find_package(JsonCpp)
 find_package(OpenSSL)
 find_package(Simple-Web-Server REQUIRED)
 
@@ -82,6 +83,7 @@ mark_as_advanced(CLEAR PDAL_LIBRARIES)
 include_directories(${PDAL_INCLUDE_DIRS})
 include_directories(${LAZPERF_INCLUDE_DIR})
 include_directories(${SIMPLE_WEB_SERVER_INCLUDE_DIR})
+include_directories(${JSONCPP_INCLUDE_DIRS})
 
 if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries

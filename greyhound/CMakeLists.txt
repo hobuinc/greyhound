@@ -31,6 +31,7 @@ target_link_libraries(app ${Boost_LIBRARIES})
 target_link_libraries(app jsoncpp)
 target_link_libraries(app entwine)
 target_link_libraries(app pdalcpp)
+target_link_libraries(app dl pthread)
 
 if (${GREYHOUND_OPENSSL})
     target_link_libraries(app ${OPENSSL_LIBRARIES})
