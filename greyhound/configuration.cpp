@@ -12,7 +12,7 @@ namespace
 Json::Value defaults()
 {
     Json::Value json;
-    json["cacheSize"] = static_cast<Json::UInt64>(52224288000);
+    json["cacheSize"] = "200MB";
     json["paths"] = entwine::toJsonArray(
             std::vector<std::string>{
                 "/greyhound", "~/greyhound",
