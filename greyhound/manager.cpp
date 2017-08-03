@@ -48,6 +48,7 @@ Manager::Manager(const Configuration& config)
                 parseBytes(config["cacheSize"].asString()) :
                 config["cacheSize"].asUInt64())
     , m_paths(entwine::extract<std::string>(config["paths"]))
+    , m_threads(std::max<std::size_t>(config["threads"].asUInt(), 4))
 {
     m_outerScope.getArbiter(config["arbiter"]);
     m_auth = Auth::maybeCreate(config, *m_outerScope.getArbiter());
@@ -80,8 +81,10 @@ Manager::Manager(const Configuration& config)
 
     m_sweepThread = std::thread(loop);
 
-    std::cout << "Cache size: " << m_cache.maxBytes() << " bytes" << std::endl;
-    std::cout << "Resource timeout: " <<
+    std::cout << "Settings:" << std::endl;
+    std::cout << "\tCache: " << m_cache.maxBytes() << " bytes" << std::endl;
+    std::cout << "\tThreads: " << m_threads << std::endl;
+    std::cout << "\tResource timeout: " <<
         (m_timeoutSeconds / 60.0)  << " minutes" << std::endl;
     std::cout << "Paths:" << std::endl;
     for (const auto p : m_paths) std::cout << "\t" << p << std::endl;

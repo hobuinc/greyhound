@@ -44,6 +44,7 @@ public:
     entwine::OuterScope& outerScope() const { return m_outerScope; }
     const Paths& paths() const { return m_paths; }
     const Headers& headers() const { return m_headers; }
+    std::size_t threads() const { return m_threads; }
 
 private:
     void sweep();
@@ -53,6 +54,7 @@ private:
 
     Paths m_paths;
     Headers m_headers;
+    const std::size_t m_threads;
 
     std::map<std::string, TimedResource> m_resources;
     std::unique_ptr<Auth> m_auth;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <entwine/util/pool.hpp>
+
 #include <greyhound/defs.hpp>
 #include <greyhound/manager.hpp>
 
@@ -19,9 +21,11 @@ public:
     Router(Manager& manager, unsigned int port, Args&&... args)
         : m_manager(manager)
         , m_server(std::forward<Args>(args)...)
+        , m_pool(m_manager.threads())
     {
         m_server.config.port = port;
-        m_server.config.thread_pool_size = 8;
+        m_server.config.timeout_request = 0;
+        m_server.config.timeout_content = 0;
 
         m_server.default_resource["GET"] = [](ResPtr res, ReqPtr req)
         {
@@ -43,44 +47,51 @@ public:
     {
         m_server.resource[match]["GET"] = [this, &f](ResPtr res, ReqPtr req)
         {
-            try
+            m_pool.add([this, &f, req, res]()
             {
-                const std::string name(req->path_match[1]);
-                if (auto resource = m_manager.get(name, *req))
+                try
                 {
-                    f(*resource, *req, *res);
+                    const std::string name(req->path_match[1]);
+                    if (auto resource = m_manager.get(name, *req))
+                    {
+                        f(*resource, *req, *res);
+                    }
+                    else
+                    {
+                        throw HttpError(
+                                HttpStatusCode::client_error_not_found,
+                                name + " could not be created");
+                    }
                 }
-                else
+                catch (HttpError& e)
                 {
-                    throw HttpError(
-                            HttpStatusCode::client_error_not_found,
-                            name + " could not be created");
+                    res->write(e.code(), e.what());
                 }
-            }
-            catch (HttpError& e)
-            {
-                res->write(e.code(), e.what());
-            }
-            catch (std::exception& e)
-            {
-                res->write(HttpStatusCode::client_error_bad_request, e.what());
-            }
-            catch (...)
-            {
-                res->write(
-                        HttpStatusCode::server_error_internal_server_error,
-                        "Unknown error");
-            }
+                catch (std::exception& e)
+                {
+                    res->write(
+                            HttpStatusCode::client_error_bad_request,
+                            e.what());
+                }
+                catch (...)
+                {
+                    res->write(
+                            HttpStatusCode::server_error_internal_server_error,
+                            "Unknown error");
+                }
+            });
         };
     }
 
     void start() { m_server.start(); }
-    void stop() { m_server.stop(); }
+    void stop() { m_server.stop(); m_pool.join(); }
     unsigned int port() const { return m_server.config.port; }
 
 private:
     Manager& m_manager;
     S m_server;
+
+    entwine::Pool m_pool;
 };
 
 } // namespace greyhound
