@@ -101,6 +101,13 @@ void Resource::info(Req& req, Res& res)
     if (meta.density()) json["density"] = meta.density();
     if (const auto d = meta.delta()) d->insertInto(json);
 
+    if (const auto s = m_reader->additional())
+    {
+        entwine::DimList dims(meta.schema().dims());
+        dims.insert(dims.end(), s->dims().begin(), s->dims().end());
+        json["schema"] = entwine::Schema(dims).toJson();
+    }
+
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
     res.write(json.toStyledString(), h);
@@ -285,7 +292,52 @@ void Resource::read(Req& req, Res& res)
     else std::cout << "all";
 
     std::cout << ")";
-    std::cout << " P: " << points << std::endl;
+    std::cout << " P: " << points;
+
+    if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
+
+    std::cout << std::endl;
+}
+
+template<typename Req, typename Res>
+void Resource::write(Req& req, Res& res)
+{
+    const auto start(getNow());
+
+    const Json::Value q(parseQuery(req));
+    const std::size_t size(req.content.size());
+
+    std::vector<char> data;
+    data.reserve(size);
+    data.assign(
+            (std::istreambuf_iterator<char>(req.content)),
+            std::istreambuf_iterator<char>());
+    if (data.size() != size) throw std::runtime_error("Invalid size");
+
+    const std::size_t points(m_reader->write(q["name"].asString(), data, q));
+
+    res.write("");
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("write", Color::Yellow) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms";
+
+    std::cout << " D: [";
+    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
+    else std::cout << "all";
+
+    std::cout << ", ";
+    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
+    else std::cout << "all";
+
+    std::cout << ")";
+    std::cout << " P: " << points;
+
+    if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
+
+    std::cout << std::endl;
 }
 
 SharedResource Resource::create(const Manager& manager, const std::string& name)
@@ -332,11 +384,13 @@ template void Resource::info(Http::Request&, Http::Response&);
 template void Resource::hierarchy(Http::Request&, Http::Response&);
 template void Resource::files(Http::Request&, Http::Response&);
 template void Resource::read(Http::Request&, Http::Response&);
+template void Resource::write(Http::Request&, Http::Response&);
 
 template void Resource::info(Https::Request&, Https::Response&);
 template void Resource::hierarchy(Https::Request&, Https::Response&);
 template void Resource::files(Https::Request&, Https::Response&);
 template void Resource::read(Https::Request&, Https::Response&);
+template void Resource::write(Https::Request&, Https::Response&);
 
 } // namespace greyhound
 

@@ -44,7 +44,18 @@ public:
 
     ~Chunker()
     {
-        if (!m_done && m_headersSent) done();
+        try
+        {
+            if (!m_done && m_headersSent) done();
+        }
+        catch (std::exception& e)
+        {
+            std::cout << "~Chunker: " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cout << "~Chunker: unknown error" << std::endl;
+        }
     }
 
     void write(bool last = false)
@@ -106,14 +117,14 @@ private:
     {
         m_res.send([this](const SimpleWeb::error_code& ec)
         {
-            if (ec) m_error = ec.message();
+            // if (ec) m_error = ec.message();
             m_data.clear();
             m_cv.notify_all();
         });
 
         std::unique_lock<std::mutex> lock(m_mutex);
         m_cv.wait(lock, [this]() { return m_data.empty(); });
-        if (m_error.size()) throw HttpError(m_error);
+        // if (m_error.size()) throw HttpError(m_error);
     }
 
     Res& m_res;

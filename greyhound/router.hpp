@@ -43,9 +43,15 @@ public:
     }
 
     template<typename F>
-    void get(std::string match, F f)
+    void get(std::string match, F f) { route("GET", match, f); }
+
+    template<typename F>
+    void put(std::string match, F f) { route("PUT", match, f); }
+
+    template<typename F>
+    void route(std::string method, std::string match, F f)
     {
-        m_server.resource[match]["GET"] = [this, &f](ResPtr res, ReqPtr req)
+        m_server.resource[match][method] = [this, &f](ResPtr res, ReqPtr req)
         {
             m_pool.add([this, &f, req, res]()
             {

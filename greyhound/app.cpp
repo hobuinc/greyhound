@@ -43,6 +43,8 @@ const std::string hierarchy(resourceBase + "/hierarchy$");
 const std::string renderRoot(resourceBase + "/static$");
 const std::string render(resourceBase + "/static/(.*)$");
 
+const std::string write(resourceBase + "/write$");
+
 }
 
 App::App(const Configuration& config)
@@ -122,6 +124,11 @@ void App::registerRoutes(Router<S>& r)
 {
     using Req = typename S::Request;
     using Res = typename S::Response;
+
+    r.put(routes::write, [this](Resource& resource, Req& req, Res& res)
+    {
+        resource.write(req, res);
+    });
 
     r.get(routes::info, [this](Resource& resource, Req& req, Res& res)
     {

@@ -19,6 +19,8 @@ public:
     template<typename Req, typename Res> void files(Req& req, Res& res);
     template<typename Req, typename Res> void read(Req& req, Res& res);
 
+    template<typename Req, typename Res> void write(Req& req, Res& res);
+
     static std::shared_ptr<Resource> create(
             const Manager& manager,
             const std::string& name);
