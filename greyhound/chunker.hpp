@@ -92,6 +92,8 @@ public:
     }
 
     Data& data() { return m_data; }
+    bool canceled() const { return m_ec == SimpleWeb::errc::broken_pipe; }
+    bool cancelled() const { return canceled(); }
 
 private:
     void done()
@@ -117,14 +119,15 @@ private:
     {
         m_res.send([this](const SimpleWeb::error_code& ec)
         {
-            // if (ec) m_error = ec.message();
+            m_ec = ec;
             m_data.clear();
             m_cv.notify_all();
         });
 
         std::unique_lock<std::mutex> lock(m_mutex);
         m_cv.wait(lock, [this]() { return m_data.empty(); });
-        // if (m_error.size()) throw HttpError(m_error);
+        if (canceled()) m_done = true;
+        // if (m_ec) std::cout << m_ec << " - " << m_ec.message() << std::endl;
     }
 
     Res& m_res;
@@ -132,7 +135,7 @@ private:
 
     Data m_data;
 
-    std::string m_error;
+    SimpleWeb::error_code m_ec;
     bool m_headersSent = false;
     bool m_done = false;
     std::condition_variable m_cv;

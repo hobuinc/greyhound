@@ -101,12 +101,14 @@ void Resource::info(Req& req, Res& res)
     if (meta.density()) json["density"] = meta.density();
     if (const auto d = meta.delta()) d->insertInto(json);
 
+    /*
     if (const auto s = m_reader->additional())
     {
         entwine::DimList dims(meta.schema().dims());
         dims.insert(dims.end(), s->dims().begin(), s->dims().end());
         json["schema"] = entwine::Schema(dims).toJson();
     }
+    */
 
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
@@ -256,7 +258,7 @@ void Resource::read(Req& req, Res& res)
 
     uint32_t points(0);
 
-    while (!query->done())
+    while (!query->done() && !chunker.canceled())
     {
         query->next(data);
 
@@ -295,6 +297,7 @@ void Resource::read(Req& req, Res& res)
     std::cout << " P: " << points;
 
     if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
+    if (chunker.canceled()) std::cout << " " << color("canceled", Color::Red);
 
     std::cout << std::endl;
 }
@@ -302,6 +305,8 @@ void Resource::read(Req& req, Res& res)
 template<typename Req, typename Res>
 void Resource::write(Req& req, Res& res)
 {
+    throw Http400("/write not yet supported");
+    /*
     const auto start(getNow());
 
     const Json::Value q(parseQuery(req));
@@ -338,6 +343,7 @@ void Resource::write(Req& req, Res& res)
     if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
 
     std::cout << std::endl;
+    */
 }
 
 SharedResource Resource::create(const Manager& manager, const std::string& name)

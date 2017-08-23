@@ -34,7 +34,11 @@ public:
 
         m_server.on_error = [](ReqPtr req, const SimpleWeb::error_code& ec)
         {
-            if (ec && ec != SimpleWeb::errc::operation_canceled)
+            if (
+                    ec &&
+                    ec != SimpleWeb::errc::operation_canceled &&
+                    ec != SimpleWeb::errc::broken_pipe &&
+                    ec != SimpleWeb::asio::error::eof)
             {
                 std::cout << "Error " << ec << ": " << ec.message() <<
                     std::endl;
@@ -53,6 +57,7 @@ public:
     {
         m_server.resource[match][method] = [this, &f](ResPtr res, ReqPtr req)
         {
+            // res->close_connection_after_response = true;
             m_pool.add([this, &f, req, res]()
             {
                 try
