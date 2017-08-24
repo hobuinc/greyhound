@@ -1,11 +1,10 @@
-docker run -t \
-    -v $TRAVIS_BUILD_DIR:/opt/greyhound \
-    --entrypoint /bin/bash \
-    connormanning/greyhound -c " \
-        NODE_ENV=debug cd /opt/greyhound && npm run generate-test-data && \
-        npm install && node-gyp configure && \
-        node-gyp build --debug && \
-        (NODE_ENV=debug nohup ./src/app.js --debug > greyhound-log.txt &) && \
-        echo Starting Greyhound tests in a few seconds... && sleep 10 && \
-        npm test"
+docker run -t -v $TRAVIS_BUILD_DIR:/opt/greyhound \
+    --entrypoint bash \
+    connormanning/greyhound:cpp -c " \
+        cd /opt/greyhound && mkdir -p build && cd build && \
+        cmake -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
+        make -j4 &&
+        ../scripts/generate-test-data.sh && \
+        (nohup ./greyhound/greyhound -d ../data > greyhound-log.txt &) && \
+        cd ../test && npm install && npm test"
 

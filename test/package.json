@@ -1,0 +1,19 @@
+{
+  "name": "greyhound-tests",
+  "private": false,
+  "version": "1.0.2",
+  "license": "MIT",
+  "repository": "hobu/greyhound",
+  "engines": {
+    "node": ">=4.0.0"
+  },
+  "scripts": {
+    "test": "mocha *.js --slow 60000 --timeout 60000"
+  },
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "chai": "^4.1.1",
+    "chai-http": "^3.0.0",
+    "sync-request": "^4.1.0"
+  }
+}

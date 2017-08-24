@@ -4,6 +4,13 @@ MAINTAINER Connor Manning <connor@hobu.co>
 ENV CC gcc
 ENV CXX g++
 
+# Node.js is used only for testing - it is not a Greyhound dependency.
+RUN apt-get update && apt-get install -y wget && \
+    (wget -qO- https://deb.nodesource.com/setup_6.x | bash -) && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/* && \
+    npm install -g mocha
+
 RUN apt-get update && apt-get install -y libboost-all-dev
 RUN git clone https://github.com/eidheim/Simple-Web-Server.git \
     /var/simple-web && \
