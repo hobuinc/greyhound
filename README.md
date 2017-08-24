@@ -1,6 +1,6 @@
 # GREYHOUND
 
-[![Build Status](https://api.travis-ci.org/hobu/greyhound.svg)](https://travis-ci.org/hobu/greyhound)
+[![Build Status](https://api.travis-ci.org/hobu/greyhound.svg?branch=master)](https://travis-ci.org/hobu/greyhound)
 
 A point cloud streaming framework for dynamic web services and native applications.
 
