@@ -127,7 +127,6 @@ private:
         std::unique_lock<std::mutex> lock(m_mutex);
         m_cv.wait(lock, [this]() { return m_data.empty(); });
         if (canceled()) m_done = true;
-        // if (m_ec) std::cout << m_ec << " - " << m_ec.message() << std::endl;
     }
 
     Res& m_res;

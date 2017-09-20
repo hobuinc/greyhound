@@ -38,12 +38,12 @@ const std::string info(resourceBase + "/info$");
 const std::string filesRoot(resourceBase + "/files$");
 const std::string files(resourceBase + "/files/(.*)$");
 const std::string read(resourceBase + "/read$");
+const std::string count(resourceBase + "/count$");
 const std::string hierarchy(resourceBase + "/hierarchy$");
+const std::string write(resourceBase + "/write$");
 
 const std::string renderRoot(resourceBase + "/static$");
 const std::string render(resourceBase + "/static/(.*)$");
-
-const std::string write(resourceBase + "/write$");
 
 }
 
@@ -143,6 +143,11 @@ void App::registerRoutes(Router<S>& r)
     r.get(routes::read, [this](Resource& resource, Req& req, Res& res)
     {
         resource.read(req, res);
+    });
+
+    r.get(routes::count, [this](Resource& resource, Req& req, Res& res)
+    {
+        resource.count(req, res);
     });
 
     r.get(routes::filesRoot, [this](Resource& resource, Req& req, Res& res)

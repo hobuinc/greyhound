@@ -89,9 +89,16 @@ void Resource::info(Req& req, Res& res)
     Json::Value json;
     const auto& meta(m_reader->metadata());
 
+    // TODO These shouldn't be combined - separate into a new key.
+    entwine::Schema schema(meta.schema());
+    for (const auto& p : m_reader->appends())
+    {
+        schema = schema.append(entwine::Schema(p.second));
+    }
+
     json["type"] = "octree";
     json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
-    json["schema"] = meta.schema().toJson();
+    json["schema"] = schema.toJson();
     json["bounds"] = meta.boundsNativeCubic().toJson();
     json["boundsConforming"] = meta.boundsNativeConforming().toJson();
     json["srs"] = meta.srs();
@@ -100,15 +107,6 @@ void Resource::info(Req& req, Res& res)
     if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
     if (meta.density()) json["density"] = meta.density();
     if (const auto d = meta.delta()) d->insertInto(json);
-
-    /*
-    if (const auto s = m_reader->additional())
-    {
-        entwine::DimList dims(meta.schema().dims());
-        dims.insert(dims.end(), s->dims().begin(), s->dims().end());
-        json["schema"] = entwine::Schema(dims).toJson();
-    }
-    */
 
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");
@@ -248,9 +246,8 @@ void Resource::read(Req& req, Res& res)
     std::unique_ptr<Compressor> compressor;
     if (q["compress"].asBool())
     {
-        compressor = entwine::makeUnique<Compressor>(
-                stream,
-                query->schema().pdalLayout().dimTypes());
+        const auto dimTypes(query->schema().pdalLayout().dimTypes());
+        compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
     }
 
     Chunker<Res> chunker(res, m_headers);
@@ -260,7 +257,8 @@ void Resource::read(Req& req, Res& res)
 
     while (!query->done() && !chunker.canceled())
     {
-        query->next(data);
+        query->next();
+        data = std::move(query->data());
 
         if (compressor)
         {
@@ -303,13 +301,59 @@ void Resource::read(Req& req, Res& res)
 }
 
 template<typename Req, typename Res>
-void Resource::write(Req& req, Res& res)
+void Resource::count(Req& req, Res& res)
 {
-    throw Http400("/write not yet supported");
-    /*
     const auto start(getNow());
 
     const Json::Value q(parseQuery(req));
+    auto query(m_reader->getCountQuery(q));
+    query->run();
+    const uint32_t points(query->numPoints());
+
+    Json::Value result;
+    result["points"] = points;
+    result["chunks"] = static_cast<uint64_t>(query->chunks());
+
+    auto h(m_headers);
+    h.emplace("Content-Type", "application/json");
+    res.write(dense(result), h);
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("count", Color::Cyan) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms";
+
+    std::cout << " D: [";
+    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
+    else std::cout << "all";
+
+    std::cout << ", ";
+    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
+    else std::cout << "all";
+
+    std::cout << ")";
+    std::cout << " P: " << points;
+
+    if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
+
+    std::cout << std::endl;
+}
+
+template<typename Req, typename Res>
+void Resource::write(Req& req, Res& res)
+{
+    const auto start(getNow());
+
+    const Json::Value q(parseQuery(req));
+
+    const std::string name(q["name"].asString());
+
+    if (q.isMember("schema"))
+    {
+        m_reader->registerAppend(name, entwine::Schema(q["schema"]));
+    }
+
     const std::size_t size(req.content.size());
 
     std::vector<char> data;
@@ -319,9 +363,11 @@ void Resource::write(Req& req, Res& res)
             std::istreambuf_iterator<char>());
     if (data.size() != size) throw std::runtime_error("Invalid size");
 
-    const std::size_t points(m_reader->write(q["name"].asString(), data, q));
+    const std::size_t points(m_reader->write(name, data, q));
 
     res.write("");
+
+    if (!points) return;
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("write", Color::Yellow) << ": " <<
@@ -343,7 +389,6 @@ void Resource::write(Req& req, Res& res)
     if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
 
     std::cout << std::endl;
-    */
 }
 
 SharedResource Resource::create(const Manager& manager, const std::string& name)
@@ -390,12 +435,14 @@ template void Resource::info(Http::Request&, Http::Response&);
 template void Resource::hierarchy(Http::Request&, Http::Response&);
 template void Resource::files(Http::Request&, Http::Response&);
 template void Resource::read(Http::Request&, Http::Response&);
+template void Resource::count(Http::Request&, Http::Response&);
 template void Resource::write(Http::Request&, Http::Response&);
 
 template void Resource::info(Https::Request&, Https::Response&);
 template void Resource::hierarchy(Https::Request&, Https::Response&);
 template void Resource::files(Https::Request&, Https::Response&);
 template void Resource::read(Https::Request&, Https::Response&);
+template void Resource::count(Https::Request&, Https::Response&);
 template void Resource::write(Https::Request&, Https::Response&);
 
 } // namespace greyhound

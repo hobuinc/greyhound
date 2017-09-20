@@ -18,6 +18,7 @@ public:
     template<typename Req, typename Res> void hierarchy(Req& req, Res& res);
     template<typename Req, typename Res> void files(Req& req, Res& res);
     template<typename Req, typename Res> void read(Req& req, Res& res);
+    template<typename Req, typename Res> void count(Req& req, Res& res);
 
     template<typename Req, typename Res> void write(Req& req, Res& res);
 
