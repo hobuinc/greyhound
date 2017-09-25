@@ -76,16 +76,19 @@ public:
                 }
                 catch (HttpError& e)
                 {
+                    std::cout << "HTTP error: " << e.what() << std::endl;
                     res->write(e.code(), e.what());
                 }
                 catch (std::exception& e)
                 {
+                    std::cout << "Caught: " << e.what() << std::endl;
                     res->write(
                             HttpStatusCode::client_error_bad_request,
                             e.what());
                 }
                 catch (...)
                 {
+                    std::cout << "Caught unknown error" << std::endl;
                     res->write(
                             HttpStatusCode::server_error_internal_server_error,
                             "Unknown error");

@@ -19,7 +19,7 @@ var bounds = {
 
 describe('read', () => {
     it('404s nonexistent resources', (done) => {
-        chai.request(server).get('/resource/asdf/read')
+        chai.request(server).get('/resource/i-do-not-exist/read')
         .end((err, res) => {
             res.should.have.status(404);
             done();

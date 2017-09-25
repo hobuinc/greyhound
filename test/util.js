@@ -86,6 +86,20 @@ var read = (query) => {
     });
 };
 
+var write = (query, data) => {
+    if (!query) query = { };
+    if (!data) data = new ArrayBuffer(0);
+    var path = resource + '/write' + Object.keys(query).reduce((p, c) => {
+        return p + (p.length ? '&' : '?') + c + '=' + JSON.stringify(query[c]);
+    }, '');
+
+    return new Promise((resolve, reject) => {
+        chai.request(server).put(path)
+        .send(data)
+        .end((err, res) => resolve(res));
+    });
+};
+
 var getOffset = (name, schema) => {
     var offset = 0;
     for (var i = 0; i < schema.length; ++i) {
@@ -110,6 +124,7 @@ module.exports = {
     httpSync: httpSync,
     xyz: xyz,
     read: read,
+    write: write,
     getOffset: getOffset,
     getSize: getSize
 };

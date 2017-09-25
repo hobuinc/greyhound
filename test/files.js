@@ -10,7 +10,7 @@ chai.use(chaiHttp);
 
 describe('files', () => {
     it('404s nonexistent resources', (done) => {
-        chai.request(server).get('/resource/asdf/files/0')
+        chai.request(server).get('/resource/i-do-not-exist/files/0')
         .end((err, res) => {
             res.should.have.status(404);
             done();
