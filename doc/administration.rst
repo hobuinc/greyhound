@@ -30,20 +30,26 @@ External Dependencies
 These dependencies must be installed prior to installing Greyhound.
 
 Dependencies:
- - `PDAL`_ compiled with `LazPerf`_ compression enabled (``-DWITH_LAZPERF=ON``)
- - `Node.js`_ 4.0 or greater
  - C++11 compiler
+ - `PDAL`_ compiled with `LazPerf`_ compression enabled (``-DWITH_LAZPERF=ON``)
+ - `Simple-Web-Server`_
+ - `Node.js`_ 4.0 or greater (for unit testing only - not a Greyhound requirement)
 
 .. _`PDAL`: http://www.pdal.io/index.html
-.. _`Node.js`: http://nodejs.org/
 .. _`LazPerf`: https://github.com/verma/laz-perf
+.. _`Simple-Web-Server`: https://github.com/eidheim/Simple-Web-Server
+.. _`Node.js`: http://nodejs.org/
 
 Installing
 -------------------------------------------------------------------------------
 
-Native greyhound installation is accomplished via NPM.
+Native greyhound installation is accomplished via cmake.  On Unix:
 
-``npm install -g greyhound-server``
+::
+
+    mkdir build && cd build
+    cmake -G "Unix Makefiles" ..
+    make && make install
 
 Then to run Greyhound with a default configuration, simply run ``greyhound``.
 
