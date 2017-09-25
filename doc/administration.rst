@@ -53,6 +53,21 @@ Native greyhound installation is accomplished via cmake.  On Unix:
 
 Then to run Greyhound with a default configuration, simply run ``greyhound``.
 
+Testing
+-------------------------------------------------------------------------------
+
+::
+
+    # From <greyhound-root>/build:
+    # Generate testing resource.
+    ../scripts/generate-test-data.sh
+    # Run Greyhound.
+    ./greyhound/greyhound
+    # Then, in new tab:
+    cd ../test
+    npm install
+    npm run test
+
 Hello world
 ===============================================================================
 
