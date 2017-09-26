@@ -308,11 +308,11 @@ void Resource::count(Req& req, Res& res)
     const Json::Value q(parseQuery(req));
     auto query(m_reader->getCountQuery(q));
     query->run();
-    const uint32_t points(query->numPoints());
+    const auto points(query->numPoints());
 
     Json::Value result;
-    result["points"] = points;
-    result["chunks"] = static_cast<uint64_t>(query->chunks());
+    result["points"] = static_cast<Json::UInt64>(points);
+    result["chunks"] = static_cast<Json::UInt64>(query->chunks());
 
     auto h(m_headers);
     h.emplace("Content-Type", "application/json");

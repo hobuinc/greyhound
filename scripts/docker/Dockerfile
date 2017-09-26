@@ -21,10 +21,9 @@ RUN git clone https://github.com/eidheim/Simple-Web-Server.git \
     make -j4 && \
     make install
 
-ADD https://api.github.com/repos/hobu/greyhound/commits?sha=cpp /tmp/bust-cache
+ADD https://api.github.com/repos/hobu/greyhound/commits /tmp/bust-cache
 RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
     cd /var/greyhound && mkdir build && cd build && \
-    git checkout cpp && \
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=Release .. && \
