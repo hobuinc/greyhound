@@ -127,7 +127,8 @@ void App::registerRoutes(Router<S>& r)
 
     r.put(routes::write, [this](Resource& resource, Req& req, Res& res)
     {
-        resource.write(req, res);
+        if (m_config["allowWrite"].asBool()) resource.write(req, res);
+        else throw std::runtime_error("/write not allowed");
     });
 
     r.get(routes::info, [this](Resource& resource, Req& req, Res& res)
