@@ -31,6 +31,8 @@ Command Set
 +---------------+-------------------------------------------------------------+
 | read          | Read points from a resource.                                |
 +---------------+-------------------------------------------------------------+
+| count         | Count points for a query without downloading them.          |
++---------------+-------------------------------------------------------------+
 | hierarchy     | Get a metadata hierarchy with point counts information.     |
 +---------------+-------------------------------------------------------------+
 | files         | Get the metadata for files from the unindexed dataset.      |
@@ -222,6 +224,20 @@ Other options
 - ``compress``: If true, the resulting stream will be compressed with `laz-perf`_.  The ``schema`` parameter, if provided, is respected by the compressed stream.  If omitted, data is returned uncompressed.
 
 .. _`laz-perf`: http://github.com/hobu/laz-perf
+
+|
+
+The Count Query
+===============================================================================
+
+The format of this query matches the ``read`` query, and performs this query internally to the server without streaming any point data to the client.  The result is an accurate number of points for this query as well as the number of chunks used to perform this query: ::
+
+    {
+        "points": 19700,
+        "chunks": 1
+    }
+
+The value of ``chunks`` doesn't have much meaning in absolute terms, but may be used to compare the server-side weight of queries in comparison to one another.  A "chunk" represents a server-side fetch of indexed point cloud data from the storage back-end for the requested resource.  Note that due to server caching, repeatedly queried chunks do not need to be fetched every time their data is accessed.
 
 |
 
