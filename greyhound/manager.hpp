@@ -46,6 +46,8 @@ public:
     const Headers& headers() const { return m_headers; }
     std::size_t threads() const { return m_threads; }
 
+    const Configuration& config() const { return m_config; }
+
 private:
     void sweep();
 
@@ -55,6 +57,8 @@ private:
     Paths m_paths;
     Headers m_headers;
     const std::size_t m_threads;
+
+    const Configuration& m_config;
 
     std::map<std::string, TimedResource> m_resources;
     std::unique_ptr<Auth> m_auth;

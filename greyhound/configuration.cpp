@@ -19,6 +19,7 @@ Json::Value defaults()
                 "/entwine", "~/entwine",
                 "/opt/data"
             });
+    json["tmp"] = ".";
     json["resourceTimeoutMinutes"] = 30;
     json["http"]["port"] = 8080;
 
@@ -102,6 +103,7 @@ Json::Value Configuration::fromArgs(Json::Value json, const Args& args)
         else if (flag == "-k") json["http"]["keyFile"] = a;
         else if (flag == "-c") json["http"]["certFile"] = a;
         else if (flag == "-d") json["paths"].append(a);
+        else if (flag == "-a") json["tmp"] = a;
         else std::cout << "Ignored argument: " << a << std::endl;
     }
     return json;

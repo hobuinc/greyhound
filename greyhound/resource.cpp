@@ -406,8 +406,13 @@ SharedResource Resource::create(const Manager& manager, const std::string& name)
                     manager.outerScope().getArbiterPtr()->getEndpoint(
                         entwine::arbiter::util::join(path, name)));
 
+            entwine::arbiter::Endpoint tmp(
+                    manager.outerScope().getArbiterPtr()->getEndpoint(
+                        manager.config()["tmp"].asString()));
+
             if (auto r = entwine::makeUnique<entwine::Reader>(
                         endpoint,
+                        tmp,
                         manager.cache()))
             {
                 std::cout << "SUCCESS" << std::endl;

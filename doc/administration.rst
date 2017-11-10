@@ -101,6 +101,7 @@ Configuration settings
 
 - ``cacheSize``: The cache size for Greyhound's data chunks.  This is not a maximal amount of memory that Greyhound may use, but is merely correlated with the amount of memory Greyhound will consume since it represents only a single piece of Greyhound's internal data usage.  This field may be specified as a number of bytes, but may also be a specified as a string containing a qualifier like ``MB`` or ``GB``.
 - ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper credentials exist) are supported.
+- ``tmp``: A string path for Greyhound to use for any temporary files.
 - ``resourceTimeoutMinutes``: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: ``30``.
 - ``http.port``: Port on which to listen for HTTP requests.  If ``null`` or missing, HTTP requests will be disabled.  Default: ``8080``.
 - ``http.securePort``: Port on which to listen for HTTPS requests.  If ``null`` or missing, HTTPS requests will be disabled.  If this value is specified, ``http.keyFile`` and ``http.certFile`` must also be present.  Default: ``undefined``.
