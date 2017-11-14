@@ -1,7 +1,7 @@
 #include <greyhound/configuration.hpp>
 
-#include <entwine/util/json.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/util/json.hpp>
 
 namespace greyhound
 {
@@ -19,7 +19,7 @@ Json::Value defaults()
                 "/entwine", "~/entwine",
                 "/opt/data"
             });
-    json["tmp"] = ".";
+    json["tmp"] = entwine::arbiter::fs::getTempPath();
     json["resourceTimeoutMinutes"] = 30;
     json["http"]["port"] = 8080;
 
@@ -79,16 +79,21 @@ Json::Value Configuration::fromFile(const Args& args)
         }
     }
 
+    Json::Value config(defaults());
+
     if (configPath.size())
     {
         std::cout << "Using configuration at " << configPath << std::endl;
-        return entwine::parse(entwine::arbiter::Arbiter().get(configPath));
+        entwine::recMerge(
+                config,
+                entwine::parse(entwine::arbiter::Arbiter().get(configPath)));
     }
     else
     {
         std::cout << "Using default config" << std::endl;
-        return defaults();
     }
+
+    return config;
 }
 
 Json::Value Configuration::fromArgs(Json::Value json, const Args& args)
