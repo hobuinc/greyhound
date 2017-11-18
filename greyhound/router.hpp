@@ -60,6 +60,22 @@ public:
             // res->close_connection_after_response = true;
             m_pool.add([this, &f, req, res]()
             {
+                auto error(
+                        [this, &res](HttpStatusCode code, std::string message)
+                {
+                    // Don't cache errors.  This is a multi-map, so remove any
+                    // existing Cache-Control setting.
+                    Headers h(m_manager.headers());
+                    for (auto it(h.begin()); it != h.end(); )
+                    {
+                        if (it->first == "Cache-Control") it = h.erase(it);
+                        else ++it;
+                    }
+
+                    h.emplace("Cache-Control", "public, max-age=0");
+                    res->write(code, message, h);
+                });
+
                 try
                 {
                     const std::string name(req->path_match[1]);
@@ -77,21 +93,19 @@ public:
                 catch (HttpError& e)
                 {
                     std::cout << "HTTP error: " << e.what() << std::endl;
-                    res->write(e.code(), e.what());
+                    error(e.code(), e.what());
                 }
                 catch (std::exception& e)
                 {
                     std::cout << "Caught: " << e.what() << std::endl;
-                    res->write(
-                            HttpStatusCode::client_error_bad_request,
-                            e.what());
+                    error(HttpStatusCode::client_error_bad_request, e.what());
                 }
                 catch (...)
                 {
                     std::cout << "Caught unknown error" << std::endl;
-                    res->write(
+                    error(
                             HttpStatusCode::server_error_internal_server_error,
-                            "Unknown error");
+                            "Internal server error");
                 }
             });
         };

@@ -365,7 +365,7 @@ void Resource::write(Req& req, Res& res)
 
     const std::size_t points(m_reader->write(name, data, q));
 
-    res.write("");
+    res.write("", m_headers);
 
     if (!points) return;
 
