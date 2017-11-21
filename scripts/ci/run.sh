@@ -1,6 +1,6 @@
 docker run -t -v $TRAVIS_BUILD_DIR:/opt/greyhound \
     --entrypoint bash \
-    connormanning/greyhound:cpp -c " \
+    connormanning/greyhound -c " \
         cd /opt/greyhound && mkdir -p build && cd build && \
         cmake -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
         make -j4 &&
