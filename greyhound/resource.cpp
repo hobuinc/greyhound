@@ -72,33 +72,107 @@ std::mutex m;
 
 } // unnamed namespace
 
+SharedReader& TimedReader::get()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_touched = getNow();
+    if (m_reader) return m_reader;
+
+    create();
+
+    if (!m_reader)
+    {
+        throw HttpError(
+                HttpStatusCode::client_error_not_found,
+                "Not found: " + m_name);
+    }
+    else return m_reader;
+}
+
+void TimedReader::create()
+{
+    std::cout << "Creating " << m_name << std::endl;
+
+    for (const auto& path : m_manager.paths())
+    {
+        std::cout << "\tTrying " << path << ": ";
+
+        try
+        {
+            entwine::arbiter::Endpoint ep(
+                    m_manager.outerScope().getArbiterPtr()->getEndpoint(
+                        entwine::arbiter::util::join(path, m_name)));
+
+            entwine::arbiter::Endpoint tmp(
+                    m_manager.outerScope().getArbiterPtr()->getEndpoint(
+                        m_manager.config()["tmp"].asString()));
+
+            auto& cache(m_manager.cache());
+
+            if (auto r = std::make_shared<entwine::Reader>(ep, tmp, cache))
+            {
+                std::cout << "SUCCESS" << std::endl;
+                m_reader = r;
+                return;
+            }
+            else std::cout << "fail - null result received" << std::endl;
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "fail - " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cout << "fail - unknown error" << std::endl;
+        }
+    }
+}
+
+void TimedReader::reset()
+{
+    if (m_reader)
+    {
+        m_manager.cache().release(*m_reader);
+        m_reader.reset();
+    }
+}
+
 Resource::Resource(
+        const Manager& manager,
         const std::string& name,
-        const Headers& headers,
-        std::unique_ptr<entwine::Reader> reader)
-    : m_name(name)
-    , m_headers(headers)
-    , m_reader(std::move(reader))
+        std::vector<TimedReader*> readers)
+    : m_manager(manager)
+    , m_name(name)
+    , m_readers(readers)
 { }
+
 
 template<typename Req, typename Res>
 void Resource::info(Req& req, Res& res)
 {
+    if (m_readers.size() > 1)
+    {
+        infoMulti(req, res);
+        return;
+    }
+
     const auto start(getNow());
 
     Json::Value json;
-    const auto& meta(m_reader->metadata());
+    SharedReader reader(m_readers.front()->get());
+    const auto& meta(reader->metadata());
 
-    // TODO These shouldn't be combined - separate into a new key.
     entwine::Schema schema(meta.schema());
-    for (const auto& p : m_reader->appends())
+    entwine::Schema addons;
+    for (const auto& p : reader->appends())
     {
-        schema = schema.append(entwine::Schema(p.second));
+        addons = addons.append(entwine::Schema(p.second));
     }
 
     json["type"] = "octree";
     json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
     json["schema"] = schema.toJson();
+    if (addons.pointSize()) json["addons"] = addons.toJson();
     json["bounds"] = meta.boundsNativeCubic().toJson();
     json["boundsConforming"] = meta.boundsNativeConforming().toJson();
     json["srs"] = meta.srs();
@@ -108,7 +182,7 @@ void Resource::info(Req& req, Res& res)
     if (meta.density()) json["density"] = meta.density();
     if (const auto d = meta.delta()) d->insertInto(json);
 
-    auto h(m_headers);
+    auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
     res.write(json.toStyledString(), h);
 
@@ -119,13 +193,82 @@ void Resource::info(Req& req, Res& res)
 }
 
 template<typename Req, typename Res>
+void Resource::infoMulti(Req& req, Res& res)
+{
+    // TODO.
+    /*
+    const auto start(getNow());
+
+    entwine::Schema schema;
+    entwine::Schema addons;
+    entwine::Bounds bounds(entwine::Bounds::expander());
+    entwine::Bounds boundsConforming(entwine::Bounds::expander());
+    std::vector<std::string> srsList;
+    std::size_t numPoints(0);
+    std::size_t baseDepth(0);
+    double density(0);
+    entwine::Scale scale(1);
+
+    for (const auto& tr : m_readers)
+    {
+        auto r(tr->get());
+
+        const auto& meta(r->metadata());
+        schema = schema.merge(meta.schema());
+        for (const auto& a : r->appends()) addons = addons.append(a.second);
+        bounds.grow(meta.boundsNativeCubic());
+        boundsConforming.grow(meta.boundsNativeConforming());
+        srsList.push_back(meta.srs());
+        numPoints += meta.manifest().pointStats().inserts();
+        baseDepth = std::max(baseDepth, meta.structure().baseDepthBegin());
+        density = std::max(density, meta.density());
+        if (const auto d = meta.delta())
+        {
+            scale = entwine::Point::min(scale, d->scale());
+        }
+    }
+
+    Json::Value json;
+    json["type"] = "octree";
+    json["schema"] = schema.toJson();
+    json["bounds"] = bounds.cubeify().toJson();
+    json["numPoints"] = Json::UInt64(numPoints);
+    json["boundsConforming"] = boundsConforming.toJson();
+    json["srs"] = srsList.front();   // TODO
+    json["baseDepth"] = Json::UInt64(baseDepth);
+
+    // if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
+    if (meta.density()) json["density"] = density;
+    if (const auto d = meta.delta())
+    {
+        d->offset() = bounds.mid();
+        d->insertInto(json);
+    }
+
+    auto h(m_headers);
+    h.emplace("Content-Type", "application/json");
+    res.write(json.toStyledString(), h);
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("info", Color::Green) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms" <<
+        std::endl;
+    */
+}
+
+template<typename Req, typename Res>
 void Resource::hierarchy(Req& req, Res& res)
 {
     const auto start(getNow());
 
+    if (m_readers.size() != 1)
+    {
+        throw std::runtime_error("Hierarchy not allowed for multi-resource");
+    }
+
     const Json::Value q(parseQuery(req));
-    const Json::Value result(m_reader->hierarchy(q));
-    auto h(m_headers);
+    const Json::Value result(m_readers.front()->get()->hierarchy(q));
+    auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
 
@@ -151,7 +294,13 @@ void Resource::files(Req& req, Res& res)
 {
     const auto start(getNow());
 
-    auto h(m_headers);
+    if (m_readers.size() != 1)
+    {
+        throw std::runtime_error("Files not allowed for multi-resource");
+    }
+
+    SharedReader reader(m_readers.front()->get());
+    auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
 
     const std::string root(req.path_match[2]);
@@ -174,7 +323,7 @@ void Resource::files(Req& req, Res& res)
     if (query.isNull())
     {
         // For a root-level /files query, return a JSON array of all paths.
-        const auto paths(m_reader->metadata().manifest().paths());
+        const auto paths(reader->metadata().manifest().paths());
         res.write(dense(entwine::toJsonArray(paths)), h);
     }
     else if (query.isObject())
@@ -193,25 +342,25 @@ void Resource::files(Req& req, Res& res)
             if (auto delta = entwine::Delta::maybeCreate(query))
             {
                 result = toJson(
-                        m_reader->files(
+                        reader->files(
                             bounds,
                             &delta->scale(),
                             &delta->offset()));
             }
-            else result = toJson(m_reader->files(bounds));
+            else result = toJson(reader->files(bounds));
         }
         else if (query.isMember("search"))
         {
-            auto single([this](const Json::Value& v)->Json::Value
+            auto single([&reader](const Json::Value& v)->Json::Value
             {
                 if (v.isIntegral())
                 {
-                    try { return m_reader->files(v.asUInt64()).toJson(); }
+                    try { return reader->files(v.asUInt64()).toJson(); }
                     catch (...) { return Json::nullValue; }
                 }
                 else if (v.isString())
                 {
-                    try { return m_reader->files(v.asString()).toJson(); }
+                    try { return reader->files(v.asString()).toJson(); }
                     catch (...) { return Json::nullValue; }
                 }
                 else throw Http400("Invalid files query");
@@ -239,7 +388,9 @@ void Resource::read(Req& req, Res& res)
     const auto start(getNow());
 
     const Json::Value q(parseQuery(req));
-    auto query(m_reader->getQuery(q));
+
+    SharedReader reader(m_readers.front()->get());
+    auto query(reader->getQuery(q));
 
     using Compressor = pdal::LazPerfCompressor<Stream>;
     Stream stream;
@@ -250,7 +401,7 @@ void Resource::read(Req& req, Res& res)
         compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
     }
 
-    Chunker<Res> chunker(res, m_headers);
+    Chunker<Res> chunker(res, m_manager.headers());
     auto& data(chunker.data());
 
     uint32_t points(0);
@@ -306,7 +457,8 @@ void Resource::count(Req& req, Res& res)
     const auto start(getNow());
 
     const Json::Value q(parseQuery(req));
-    auto query(m_reader->getCountQuery(q));
+    SharedReader reader(m_readers.front()->get());
+    auto query(reader->getCountQuery(q));
     query->run();
     const auto points(query->numPoints());
 
@@ -314,7 +466,7 @@ void Resource::count(Req& req, Res& res)
     result["points"] = static_cast<Json::UInt64>(points);
     result["chunks"] = static_cast<Json::UInt64>(query->chunks());
 
-    auto h(m_headers);
+    auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
 
@@ -348,10 +500,11 @@ void Resource::write(Req& req, Res& res)
     const Json::Value q(parseQuery(req));
 
     const std::string name(q["name"].asString());
+    SharedReader reader(m_readers.front()->get());
 
     if (q.isMember("schema"))
     {
-        m_reader->registerAppend(name, entwine::Schema(q["schema"]));
+        reader->registerAppend(name, entwine::Schema(q["schema"]));
     }
 
     const std::size_t size(req.content.size());
@@ -363,9 +516,9 @@ void Resource::write(Req& req, Res& res)
             std::istreambuf_iterator<char>());
     if (data.size() != size) throw std::runtime_error("Invalid size");
 
-    const std::size_t points(m_reader->write(name, data, q));
+    const std::size_t points(reader->write(name, data, q));
 
-    res.write("", m_headers);
+    res.write("", m_manager.headers());
 
     if (!points) return;
 
@@ -389,51 +542,6 @@ void Resource::write(Req& req, Res& res)
     if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
 
     std::cout << std::endl;
-}
-
-SharedResource Resource::create(const Manager& manager, const std::string& name)
-{
-    using namespace entwine;
-    std::cout << "Creating " << name << std::endl;
-
-    for (const auto& path : manager.paths())
-    {
-        std::cout << "\tTrying " << path << ": ";
-
-        try
-        {
-            entwine::arbiter::Endpoint endpoint(
-                    manager.outerScope().getArbiterPtr()->getEndpoint(
-                        entwine::arbiter::util::join(path, name)));
-
-            entwine::arbiter::Endpoint tmp(
-                    manager.outerScope().getArbiterPtr()->getEndpoint(
-                        manager.config()["tmp"].asString()));
-
-            if (auto r = entwine::makeUnique<entwine::Reader>(
-                        endpoint,
-                        tmp,
-                        manager.cache()))
-            {
-                std::cout << "SUCCESS" << std::endl;
-                return std::make_shared<Resource>(
-                        name,
-                        manager.headers(),
-                        std::move(r));
-            }
-            else std::cout << "fail - null result received" << std::endl;
-        }
-        catch (const std::exception& e)
-        {
-            std::cout << "fail - " << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            std::cout << "fail - unknown error" << std::endl;
-        }
-    }
-
-    return SharedResource();
 }
 
 template void Resource::info(Http::Request&, Http::Response&);

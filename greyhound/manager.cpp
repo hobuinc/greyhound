@@ -34,14 +34,6 @@ namespace
     }
 }
 
-TimedResource::TimedResource(SharedResource resource)
-    : m_resource(resource)
-    , m_touched(getNow())
-{ }
-
-void TimedResource::touch() { m_touched = getNow(); }
-std::size_t TimedResource::since() const { return secondsSince(m_touched); }
-
 Manager::Manager(const Configuration& config)
     : m_cache(
             config["cacheSize"].isString() ?
@@ -64,23 +56,7 @@ Manager::Manager(const Configuration& config)
     m_headers.emplace("Access-Control-Allow-Headers", "Content-Type");
 
     m_timeoutSeconds = std::max<double>(
-            60.0 * config["resourceTimeoutMinutes"].asDouble(), 30);
-    m_lastSweep = getNow();
-
-    auto loop([this]()
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        while (!m_done)
-        {
-            m_cv.wait_for(lock, std::chrono::seconds(m_timeoutSeconds), [this]()
-            {
-                return m_done || secondsSince(m_lastSweep) > m_timeoutSeconds;
-            });
-            sweep();
-        }
-    });
-
-    m_sweepThread = std::thread(loop);
+            60.0 * config["resourceTimeoutMinutes"].asDouble(), 15);
 
     std::cout << "Settings:" << std::endl;
     std::cout << "\tCache: " << m_cache.maxBytes() << " bytes" << std::endl;
@@ -108,6 +84,23 @@ Manager::Manager(const Configuration& config)
         std::cout << "\tFailure timeout: " << m_auth->badSeconds() << "s" <<
             std::endl;
     }
+
+    m_lastSweep = getNow();
+
+    auto loop([this]()
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        while (!m_done)
+        {
+            m_cv.wait_for(lock, std::chrono::seconds(m_timeoutSeconds), [this]()
+            {
+                return m_done || secondsSince(m_lastSweep) > m_timeoutSeconds;
+            });
+            sweep();
+        }
+    });
+
+    m_sweepThread = std::thread(loop);
 }
 
 Manager::~Manager()
@@ -123,16 +116,15 @@ Manager::~Manager()
 void Manager::sweep()
 {
     m_lastSweep = getNow();
-    auto it(m_resources.begin());
-    while (it != m_resources.end())
+    for (auto it(m_readers.begin()); it != m_readers.end(); ++it)
     {
-        if (it->second.since() > m_timeoutSeconds)
+        TimedReader& tr(it->second);
+        std::lock_guard<std::mutex> lock(tr.mutex());
+        if (tr.exists() && tr.since() > m_timeoutSeconds)
         {
-            std::cout << "Purging " << it->first << std::endl;
-            m_cache.release(it->second.get()->reader());
-            it = m_resources.erase(it);
+            tr.reset();
+            return;
         }
-        else ++it;
     }
 }
 

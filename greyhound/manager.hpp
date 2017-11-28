@@ -17,20 +17,6 @@
 namespace greyhound
 {
 
-class TimedResource
-{
-public:
-    TimedResource(SharedResource resource);
-
-    SharedResource& get() { return m_resource; }
-    void touch();
-    std::size_t since() const;
-
-private:
-    SharedResource m_resource;
-    TimePoint m_touched;
-};
-
 class Manager
 {
 public:
@@ -49,6 +35,13 @@ public:
     const Configuration& config() const { return m_config; }
 
 private:
+    std::vector<std::string> resolve(std::string name) const
+    {
+        // TODO If this name refers to a multi-resource, aggregate its
+        // constituent names here.  For now, this is one-to-one.
+        return std::vector<std::string>{ name };
+    }
+
     void sweep();
 
     mutable entwine::Cache m_cache;
@@ -60,7 +53,8 @@ private:
 
     const Configuration& m_config;
 
-    std::map<std::string, TimedResource> m_resources;
+    std::map<std::string, TimedReader> m_readers;
+    std::map<std::string, SharedResource> m_resources;
     std::unique_ptr<Auth> m_auth;
 
     mutable std::mutex m_mutex;
@@ -75,25 +69,57 @@ private:
 template<typename Req>
 SharedResource Manager::get(std::string name, Req& req)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    if (m_auth)
-    {
-        const auto code(m_auth->check(name, req));
-        if (!ok(code)) throw HttpError(code, "Authorization failure");
-    }
+    std::unique_lock<std::mutex> lock(m_mutex);
 
     auto it(m_resources.find(name));
     if (it == m_resources.end())
     {
-        if (auto resource = Resource::create(*this, name))
+        std::vector<TimedReader*> readers;
+
+        for (const auto s : resolve(name))
         {
-            it = m_resources.insert(std::make_pair(name, resource)).first;
+            auto rit(m_readers.find(s));
+            if (rit == m_readers.end())
+            {
+                rit = m_readers.emplace(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(s),
+                        std::forward_as_tuple(*this, s)).first;
+            }
+
+            readers.push_back(&rit->second);
         }
-        else return SharedResource();
+
+        it = m_resources.emplace(
+                name,
+                std::make_shared<Resource>(*this, name, readers)).first;
     }
-    it->second.touch();
-    return it->second.get();
+
+    SharedResource resource(it->second);
+
+    lock.unlock();
+
+    for (TimedReader* reader : resource->readers())
+    {
+        const auto name(reader->name());
+        if (m_auth)
+        {
+            const auto code(m_auth->check(name, req));
+            if (!ok(code))
+            {
+                throw HttpError(code, "Authorization failure: " + name);
+            }
+        }
+
+        if (!reader->get())
+        {
+            throw HttpError(
+                    HttpStatusCode::client_error_not_found,
+                    "Not found: " + name);
+        }
+    }
+
+    return resource;
 }
 
 } // namespace greyhound
