@@ -31,6 +31,8 @@ Command Set
 +---------------+-------------------------------------------------------------+
 | read          | Read points from a resource.                                |
 +---------------+-------------------------------------------------------------+
+| static        | Read and display points from a resource.                    |
++---------------+-------------------------------------------------------------+
 | count         | Count points for a query without downloading them.          |
 +---------------+-------------------------------------------------------------+
 | hierarchy     | Get a metadata hierarchy with point counts information.     |
@@ -238,6 +240,13 @@ The format of this query matches the ``read`` query, and performs this query int
     }
 
 The value of ``chunks`` doesn't have much meaning in absolute terms, but may be used to compare the server-side weight of queries in comparison to one another.  A "chunk" represents a server-side fetch of indexed point cloud data from the storage back-end for the requested resource.  Note that due to server caching, repeatedly queried chunks do not need to be fetched every time their data is accessed.
+
+|
+
+The Static Query
+===============================================================================
+
+This query forwards any query parameters to its corresponding `read` query (excluding the `schema`) and displays the result within a static renderer.
 
 |
 
