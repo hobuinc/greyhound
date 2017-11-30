@@ -161,6 +161,11 @@
         var bounds = getBounds(asDataView, recordSize, hasIntensity, hasColor);
         console.log(bounds);
 
+        console.log(JSON.stringify([
+                bounds.mx, bounds.my, bounds.mz,
+                bounds.xx, bounds.xy, bounds.xz
+        ]));
+
         var maxBound = Math.max(bounds.xx - bounds.mx,
                                 Math.max(bounds.xy - bounds.my,
                                          bounds.xz - bounds.mz));
