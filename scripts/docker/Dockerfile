@@ -26,7 +26,7 @@ RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
     cd /var/greyhound && mkdir build && cd build && \
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release .. && \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
     make install
 
 EXPOSE 8080

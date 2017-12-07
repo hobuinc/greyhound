@@ -165,7 +165,7 @@ void App::registerRoutes(Router<S>& r)
     if (publicRoot.size()) std::cout << publicRoot << std::endl;
     else
     {
-        std::cout << "(not found)" << std::endl;;
+        std::cout << "(not found)" << std::endl;
         return;
     }
 

@@ -144,20 +144,11 @@ Resource::Resource(
     : m_manager(manager)
     , m_name(name)
     , m_readers(readers)
+    , m_info(isSingle() ? infoSingle() : infoMulti())
 { }
 
-
-template<typename Req, typename Res>
-void Resource::info(Req& req, Res& res)
+Json::Value Resource::infoSingle() const
 {
-    if (m_readers.size() > 1)
-    {
-        infoMulti(req, res);
-        return;
-    }
-
-    const auto start(getNow());
-
     Json::Value json;
     SharedReader reader(m_readers.front()->get());
     const auto& meta(reader->metadata());
@@ -182,28 +173,16 @@ void Resource::info(Req& req, Res& res)
     if (meta.density()) json["density"] = meta.density();
     if (const auto d = meta.delta()) d->insertInto(json);
 
-    auto h(m_manager.headers());
-    h.emplace("Content-Type", "application/json");
-    res.write(json.toStyledString(), h);
-
-    std::lock_guard<std::mutex> lock(m);
-    std::cout << m_name << "/" << color("info", Color::Green) << ": " <<
-        color(std::to_string(msSince(start)), Color::Magenta) << " ms" <<
-        std::endl;
+    return json;
 }
 
-template<typename Req, typename Res>
-void Resource::infoMulti(Req& req, Res& res)
+Json::Value Resource::infoMulti() const
 {
-    // TODO.
-    /*
-    const auto start(getNow());
-
     entwine::Schema schema;
     entwine::Schema addons;
     entwine::Bounds bounds(entwine::Bounds::expander());
     entwine::Bounds boundsConforming(entwine::Bounds::expander());
-    std::vector<std::string> srsList;
+    std::set<std::string> srsList;
     std::size_t numPoints(0);
     std::size_t baseDepth(0);
     double density(0);
@@ -218,7 +197,7 @@ void Resource::infoMulti(Req& req, Res& res)
         for (const auto& a : r->appends()) addons = addons.append(a.second);
         bounds.grow(meta.boundsNativeCubic());
         boundsConforming.grow(meta.boundsNativeConforming());
-        srsList.push_back(meta.srs());
+        if (!meta.srs().empty()) srsList.insert(meta.srs());
         numPoints += meta.manifest().pointStats().inserts();
         baseDepth = std::max(baseDepth, meta.structure().baseDepthBegin());
         density = std::max(density, meta.density());
@@ -234,26 +213,29 @@ void Resource::infoMulti(Req& req, Res& res)
     json["bounds"] = bounds.cubeify().toJson();
     json["numPoints"] = Json::UInt64(numPoints);
     json["boundsConforming"] = boundsConforming.toJson();
-    json["srs"] = srsList.front();   // TODO
+    if (srsList.size() == 1) json["srs"] = *srsList.begin();
     json["baseDepth"] = Json::UInt64(baseDepth);
 
     // if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
-    if (meta.density()) json["density"] = density;
-    if (const auto d = meta.delta())
-    {
-        d->offset() = bounds.mid();
-        d->insertInto(json);
-    }
+    if (density) json["density"] = density;
+    if (scale != entwine::Scale(1)) json["scale"] = scale.toJson();
 
-    auto h(m_headers);
+    return json;
+}
+
+template<typename Req, typename Res>
+void Resource::info(Req& req, Res& res)
+{
+    const auto start(getNow());
+
+    auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
-    res.write(json.toStyledString(), h);
+    res.write(m_info.toStyledString(), h);
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("info", Color::Green) << ": " <<
         color(std::to_string(msSince(start)), Color::Magenta) << " ms" <<
         std::endl;
-    */
 }
 
 template<typename Req, typename Res>
@@ -387,45 +369,64 @@ void Resource::read(Req& req, Res& res)
 {
     const auto start(getNow());
 
-    const Json::Value q(parseQuery(req));
+    Json::Value q(parseQuery(req));
 
-    SharedReader reader(m_readers.front()->get());
-    auto query(reader->getQuery(q));
+    if (q.isMember("depthBegin") && q.isMember("depthEnd"))
+    {
+        if (q["depthBegin"].asUInt64() == 0 && q["depthEnd"].asUInt64() == 30)
+        {
+            q["depthEnd"] = Json::UInt64(1);
+        }
+    }
+
+    if (!q.isMember("schema")) q["schema"] = m_info["schema"];
 
     using Compressor = pdal::LazPerfCompressor<Stream>;
     Stream stream;
     std::unique_ptr<Compressor> compressor;
-    if (q["compress"].asBool())
+    if (q.isMember("compress") && q["compress"].asBool())
     {
-        const auto dimTypes(query->schema().pdalLayout().dimTypes());
+        const entwine::Schema schema(q["schema"]);
+        const auto dimTypes(schema.pdalLayout().dimTypes());
         compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
     }
 
     Chunker<Res> chunker(res, m_manager.headers());
     auto& data(chunker.data());
 
+    bool done(false);
     uint32_t points(0);
 
-    while (!query->done() && !chunker.canceled())
+    for (std::size_t i(0); i < m_readers.size(); ++i)
     {
-        query->next();
-        data = std::move(query->data());
+        TimedReader* reader(m_readers.at(i));
+        auto query(reader->get()->getQuery(q));
 
-        if (compressor)
+        while (!query->done() && !chunker.canceled())
         {
-            compressor->compress(data.data(), data.size());
-            if (query->done()) compressor->done();
-            data = std::move(stream.data());
+            query->next();
+            done = (i == m_readers.size() - 1) && query->done();
+            data = std::move(query->data());
+
+            if (compressor)
+            {
+                compressor->compress(data.data(), data.size());
+                if (done) compressor->done();
+                data = std::move(stream.data());
+            }
+
+            if (query->done()) points += query->numPoints();
+
+            if (done)
+            {
+                const char* pos(reinterpret_cast<const char*>(&points));
+                data.insert(data.end(), pos, pos + sizeof(uint32_t));
+            }
+
+            chunker.write(done);
         }
 
-        if (query->done())
-        {
-            points = query->numPoints();
-            const char* pos(reinterpret_cast<const char*>(&points));
-            data.insert(data.end(), pos, pos + sizeof(uint32_t));
-        }
-
-        chunker.write(query->done());
+        if (chunker.canceled()) break;
     }
 
     std::lock_guard<std::mutex> lock(m);
@@ -456,15 +457,22 @@ void Resource::count(Req& req, Res& res)
 {
     const auto start(getNow());
 
+    uint64_t points(0);
+    uint64_t chunks(0);
+
     const Json::Value q(parseQuery(req));
-    SharedReader reader(m_readers.front()->get());
-    auto query(reader->getCountQuery(q));
-    query->run();
-    const auto points(query->numPoints());
+
+    for (TimedReader* reader : m_readers)
+    {
+        auto query(reader->get()->getCountQuery(q));
+        query->run();
+        points += query->numPoints();
+        chunks += query->chunks();
+    }
 
     Json::Value result;
     result["points"] = static_cast<Json::UInt64>(points);
-    result["chunks"] = static_cast<Json::UInt64>(query->chunks());
+    result["chunks"] = static_cast<Json::UInt64>(chunks);
 
     auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");

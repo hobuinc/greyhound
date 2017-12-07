@@ -5,6 +5,7 @@
 #include <thread>
 
 #include <entwine/reader/reader.hpp>
+#include <entwine/util/json.hpp>
 
 namespace greyhound
 {
@@ -72,6 +73,14 @@ Manager::Manager(const Configuration& config)
     {
         std::cout << "\t" << key << ": " <<
             config["http"]["headers"][key].asString() << std::endl;
+    }
+
+    if (config.json().isMember("aliases"))
+    {
+        for (const std::string k : config["aliases"].getMemberNames())
+        {
+            m_aliases[k] = entwine::extract<std::string>(config["aliases"][k]);
+        }
     }
 
     if (m_auth)

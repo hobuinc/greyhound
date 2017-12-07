@@ -65,10 +65,18 @@ public:
     template<typename Req, typename Res> void countMulti(Req& req, Res& res);
     template<typename Req, typename Res> void writeMulti(Req& req, Res& res);
 
+    bool isSingle() const { return m_readers.size() == 1; }
+    bool isMulti() const { return !isSingle(); }
+
 private:
     const Manager& m_manager;
     const std::string m_name;
     std::vector<TimedReader*> m_readers;
+
+    Json::Value infoSingle() const;
+    Json::Value infoMulti() const;
+
+    Json::Value m_info;
 };
 
 using SharedResource = std::shared_ptr<Resource>;

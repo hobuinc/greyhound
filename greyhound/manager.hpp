@@ -37,9 +37,8 @@ public:
 private:
     std::vector<std::string> resolve(std::string name) const
     {
-        // TODO If this name refers to a multi-resource, aggregate its
-        // constituent names here.  For now, this is one-to-one.
-        return std::vector<std::string>{ name };
+        if (m_aliases.count(name)) return m_aliases.at(name);
+        else return std::vector<std::string>{ name };
     }
 
     void sweep();
@@ -52,6 +51,7 @@ private:
     const std::size_t m_threads;
 
     const Configuration& m_config;
+    std::map<std::string, std::vector<std::string>> m_aliases;
 
     std::map<std::string, TimedReader> m_readers;
     std::map<std::string, SharedResource> m_resources;
