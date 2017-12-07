@@ -406,7 +406,11 @@ void Resource::read(Req& req, Res& res)
         {
             query->next();
             done = (i == m_readers.size() - 1) && query->done();
-            data = std::move(query->data());
+
+            auto& qdata(query->data());
+            if (data.empty()) data = std::move(qdata);
+            else data.insert(data.end(), qdata.begin(), qdata.end());
+            qdata.clear();
 
             if (compressor)
             {
