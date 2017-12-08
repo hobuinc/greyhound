@@ -144,7 +144,6 @@ Resource::Resource(
     : m_manager(manager)
     , m_name(name)
     , m_readers(readers)
-    , m_info(isSingle() ? infoSingle() : infoMulti())
 { }
 
 Json::Value Resource::infoSingle() const
@@ -230,7 +229,7 @@ void Resource::info(Req& req, Res& res)
 
     auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
-    res.write(m_info.toStyledString(), h);
+    res.write(getInfo().toStyledString(), h);
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("info", Color::Green) << ": " <<
@@ -379,7 +378,7 @@ void Resource::read(Req& req, Res& res)
         }
     }
 
-    if (!q.isMember("schema")) q["schema"] = m_info["schema"];
+    if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
     using Compressor = pdal::LazPerfCompressor<Stream>;
     Stream stream;

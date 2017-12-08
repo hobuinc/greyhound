@@ -67,6 +67,10 @@ public:
 
     bool isSingle() const { return m_readers.size() == 1; }
     bool isMulti() const { return !isSingle(); }
+    Json::Value getInfo() const
+    {
+        return isSingle() ? infoSingle() : infoMulti();
+    }
 
 private:
     const Manager& m_manager;
@@ -75,8 +79,6 @@ private:
 
     Json::Value infoSingle() const;
     Json::Value infoMulti() const;
-
-    Json::Value m_info;
 };
 
 using SharedResource = std::shared_ptr<Resource>;
