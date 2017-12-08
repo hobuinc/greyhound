@@ -101,9 +101,9 @@ Manager::Manager(const Configuration& config)
         std::unique_lock<std::mutex> lock(m_mutex);
         while (!m_done)
         {
-            m_cv.wait_for(lock, std::chrono::seconds(m_timeoutSeconds), [this]()
+            m_cv.wait_for(lock, std::chrono::seconds(60), [this]()
             {
-                return m_done || secondsSince(m_lastSweep) > m_timeoutSeconds;
+                return m_done || secondsSince(m_lastSweep) > 60;
             });
             sweep();
         }
@@ -131,7 +131,9 @@ void Manager::sweep()
         std::lock_guard<std::mutex> lock(tr.mutex());
         if (tr.exists() && tr.since() > m_timeoutSeconds)
         {
+            std::cout << "Sweeping " << tr.name() << "..." << std::flush;
             tr.reset();
+            std::cout << " done" << std::endl;
             return;
         }
     }
