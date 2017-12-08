@@ -24,8 +24,8 @@ public:
         , m_pool(m_manager.threads())
     {
         m_server.config.port = port;
-        m_server.config.timeout_request = 0;
-        m_server.config.timeout_content = 0;
+        m_server.config.timeout_request = 30;
+        m_server.config.timeout_content = 120;
 
         m_server.default_resource["GET"] = [](ResPtr res, ReqPtr req)
         {
@@ -58,7 +58,7 @@ public:
         m_server.resource[match][method] = [this, &f](ResPtr res, ReqPtr req)
         {
             // res->close_connection_after_response = true;
-            m_pool.add([this, &f, req, res]()
+            m_pool.add([this, &f, req, res]() mutable
             {
                 auto error(
                         [this, &res](HttpStatusCode code, std::string message)
@@ -107,6 +107,11 @@ public:
                             HttpStatusCode::server_error_internal_server_error,
                             "Internal server error");
                 }
+
+                res.reset();
+                req.reset();
+                if (res) std::cout << "Nonzero res" << std::endl;
+                if (req) std::cout << "Nonzero req" << std::endl;
             });
         };
     }
