@@ -33,6 +33,13 @@ namespace
 
         return n * m;
     }
+
+    std::string dense(const Json::Value& json)
+    {
+        auto s = Json::FastWriter().write(json);
+        s.pop_back();
+        return s;
+    }
 }
 
 Manager::Manager(const Configuration& config)
@@ -87,7 +94,16 @@ Manager::Manager(const Configuration& config)
     {
         std::cout << "Auth:" << std::endl;
         std::cout << "\tPath: " << m_auth->path() << std::endl;
-        std::cout << "\tCookie: " << m_auth->cookieName() << std::endl;
+        if (m_auth->cookies().size())
+        {
+            std::cout << "\tCookies: " <<
+                dense(entwine::toJsonArray(m_auth->cookies())) << std::endl;
+        }
+        if (m_auth->queries().size())
+        {
+            std::cout << "\tQuery params: " <<
+                dense(entwine::toJsonArray(m_auth->queries())) << std::endl;
+        }
         std::cout << "\tSuccess timeout: " << m_auth->goodSeconds() << "s" <<
             std::endl;
         std::cout << "\tFailure timeout: " << m_auth->badSeconds() << "s" <<

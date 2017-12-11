@@ -15,7 +15,8 @@ class Auth
 public:
     Auth(
             const entwine::arbiter::Endpoint& ep,
-            const std::string& cookieName,
+            std::vector<std::string> cookies,
+            std::vector<std::string> queries,
             std::size_t good,
             std::size_t bad);
 
@@ -26,8 +27,10 @@ public:
     template<typename Req>
     HttpStatusCode check(const std::string& name, Req& req);
 
+    const std::vector<std::string>& cookies() const { return m_cookies; }
+    const std::vector<std::string>& queries() const { return m_queries; }
+
     std::string path() const { return m_ep.prefixedRoot(); }
-    const std::string& cookieName() const { return m_cookieName; }
     std::size_t goodSeconds() const { return m_good; }
     std::size_t badSeconds() const { return m_bad; }
 
@@ -53,7 +56,8 @@ public:
 
 private:
     const entwine::arbiter::Endpoint m_ep;
-    const std::string m_cookieName;
+    std::vector<std::string> m_cookies;
+    std::vector<std::string> m_queries;
     const std::size_t m_good;
     const std::size_t m_bad;
 
