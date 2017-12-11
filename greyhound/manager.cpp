@@ -103,7 +103,7 @@ Manager::Manager(const Configuration& config)
         {
             m_cv.wait_for(lock, std::chrono::seconds(60), [this]()
             {
-                return m_done || secondsSince(m_lastSweep) > 60;
+                return m_done || secondsSince(m_lastSweep) >= 60;
             });
             sweep();
         }

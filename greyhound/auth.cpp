@@ -88,7 +88,11 @@ HttpStatusCode Auth::check(const std::string& resource, Req& req)
             (!entry.ok() && secondsBetween(entry.checked(), now) > m_bad))
     {
         ArbiterHeaders h(req.header.begin(), req.header.end());
-        entry.set(m_ep.httpGet(resource, h).code());
+
+        const Query inQuery(req.parse_query_string());
+        const ArbiterQuery q(inQuery.begin(), inQuery.end());
+
+        entry.set(m_ep.httpGet(resource, h, q).code());
     }
 
     return entry.code();

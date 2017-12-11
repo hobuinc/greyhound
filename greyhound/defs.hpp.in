@@ -25,8 +25,10 @@ inline bool ok(HttpStatusCode c) { return static_cast<int>(c) / 100 == 2; }
 
 using ArbiterHttpResponse = entwine::arbiter::http::Response;
 using ArbiterHeaders = std::map<std::string, std::string>;
+using ArbiterQuery = std::map<std::string, std::string>;
 
 using Headers = SimpleWeb::CaseInsensitiveMultimap;
+using Query = SimpleWeb::CaseInsensitiveMultimap;
 using Cookies = std::map<std::string, std::string>;
 
 using Paths = std::vector<std::string>;
