@@ -387,6 +387,25 @@ void Resource::read(Req& req, Res& res)
 
     uint32_t points(0);
 
+    {
+        query->run();
+        data = std::move(query->data());
+
+        if (compressor)
+        {
+            compressor->compress(data.data(), data.size());
+            if (query->done()) compressor->done();
+            data = std::move(stream.data());
+        }
+
+        points = query->numPoints();
+        const char* pos(reinterpret_cast<const char*>(&points));
+        data.insert(data.end(), pos, pos + sizeof(uint32_t));
+
+        chunker.write(true);
+    }
+
+    /*
     while (!query->done() && !chunker.canceled())
     {
         query->next();
@@ -408,6 +427,7 @@ void Resource::read(Req& req, Res& res)
 
         chunker.write(query->done());
     }
+    */
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
