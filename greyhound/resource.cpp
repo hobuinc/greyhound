@@ -368,6 +368,75 @@ void Resource::read(Req& req, Res& res)
 {
     const auto start(getNow());
 
+    const Json::Value q(parseQuery(req));
+
+    SharedReader reader(m_readers.front()->get());
+    auto query(reader->getQuery(q));
+
+    using Compressor = pdal::LazPerfCompressor<Stream>;
+    Stream stream;
+    std::unique_ptr<Compressor> compressor;
+    if (q["compress"].asBool())
+    {
+        const auto dimTypes(query->schema().pdalLayout().dimTypes());
+        compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
+    }
+
+    Chunker<Res> chunker(res, m_manager.headers());
+    auto& data(chunker.data());
+
+    uint32_t points(0);
+
+    while (!query->done() && !chunker.canceled())
+    {
+        query->next();
+        data = std::move(query->data());
+
+        if (compressor)
+        {
+            compressor->compress(data.data(), data.size());
+            if (query->done()) compressor->done();
+            data = std::move(stream.data());
+        }
+
+        if (query->done())
+        {
+            points = query->numPoints();
+            const char* pos(reinterpret_cast<const char*>(&points));
+            data.insert(data.end(), pos, pos + sizeof(uint32_t));
+        }
+
+        chunker.write(query->done());
+    }
+
+    std::lock_guard<std::mutex> lock(m);
+    std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
+        color(std::to_string(msSince(start)), Color::Magenta) << " ms";
+
+    std::cout << " D: [";
+    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
+    else std::cout << "all";
+
+    std::cout << ", ";
+    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
+    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
+    else std::cout << "all";
+
+    std::cout << ")";
+    std::cout << " P: " << points;
+
+    if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
+    if (chunker.canceled()) std::cout << " " << color("canceled", Color::Red);
+
+    std::cout << std::endl;
+}
+/*
+template<typename Req, typename Res>
+void Resource::read(Req& req, Res& res)
+{
+    const auto start(getNow());
+
     Json::Value q(parseQuery(req));
 
     if (q.isMember("depthBegin") && q.isMember("depthEnd"))
@@ -454,6 +523,7 @@ void Resource::read(Req& req, Res& res)
 
     std::cout << std::endl;
 }
+*/
 
 template<typename Req, typename Res>
 void Resource::count(Req& req, Res& res)
