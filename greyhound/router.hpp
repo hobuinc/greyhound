@@ -24,8 +24,8 @@ public:
         , m_pool(m_manager.threads())
     {
         m_server.config.port = port;
-        m_server.config.timeout_request = 30;
-        m_server.config.timeout_content = 120;
+        m_server.config.timeout_request = 0;
+        m_server.config.timeout_content = 0;
 
         m_server.default_resource["GET"] = [](ResPtr res, ReqPtr req)
         {
