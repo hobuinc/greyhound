@@ -103,11 +103,37 @@ Configuration settings
 - ``paths``: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are ``/opt/data`` for easy Docker mapping, ``~/greyhound`` for a default native location, and ``http://greyhound.io`` for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper credentials exist) are supported.
 - ``tmp``: A string path for Greyhound to use for any temporary files.
 - ``resourceTimeoutMinutes``: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: ``30``.
+- ``aliases``: Alias list for multi-resource specification.
 - ``http.port``: Port on which to listen for HTTP requests.  If ``null`` or missing, HTTP requests will be disabled.  Default: ``8080``.
 - ``http.securePort``: Port on which to listen for HTTPS requests.  If ``null`` or missing, HTTPS requests will be disabled.  If this value is specified, ``http.keyFile`` and ``http.certFile`` must also be present.  Default: ``undefined``.
 - ``http.keyFile``: Path to HTTPS key file.
 - ``http.certFile``: Path to HTTPS certificate file.
 - ``http.headers``: An object with string-to-string key-value pairs representing headers that will be placed on all outbound response data from Greyhound.  Common use-cases for this field are CORS headers and cache control.  Defaults to the values shown in the sample configuration above.
+
+Multi-resource aliases
+-------------------------------------------------------------------------------
+
+This setting allows multiple resources to be accessible as if they were a single resource - with the exception that ``hierarchy`` queries are not supported.  This may be useful for programmatic access of large datasets organized as sub-resources.  This field is an object, for which string keys are aliased as a list of sub-resources.  For example:
+
+::
+
+    {
+        "aliases": {
+            "midwest": ["iowa", "minnesota", "illinois"],
+            "the-moon": ["dark-side", "light-side"]
+        },
+        "cacheSize": "1 GB",
+        "paths": ["/opt/data", "~/greyhound", "http://greyhound.io"],
+        "resourceTimeoutMinutes": 30,
+        "http": {
+            "port": 8080,
+            "headers": {
+                "Cache-Control":                  "public, max-age=300",
+                "Access-Control-Allow-Origin":    "*",
+                "Access-Control-Allow-Methods":   "GET,PUT,POST,DELETE"
+            }
+        }
+    }
 
 Authentication settings
 -------------------------------------------------------------------------------
