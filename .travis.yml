@@ -1,7 +1,17 @@
 sudo: required
 services: docker
 notifications:
-    email: false
-script:
-    ./scripts/ci/run.sh
+  email: false
+before_install: "./scripts/ci/before_install.sh"
+script: "./scripts/ci/run.sh"
+after_success:
+- echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
+  # Update the TRAVIS_BRANCH value as necessary to force the build/deploy of the website
+  # if both CXX==g++ and TRAVIS_BRANCH==value
+- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "hobu-website-updates"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
+  $TRAVIS_BUILD_DIR/doc/build; fi'
+env:
+  global:
+  - secure: INQ5c8x+mSk1gsniJrhVss/iV0DZ2g0T3SvWvAj4gsZXAmzNKOb6BApptoiZvlu3LefnW2wAVAmqdoGGyiwTiYAudR6bKQTyIXVToEc3Phl5p/YnjDyojLmNutgbrxOsX9rHZJY43pwLDSNxCoN5s17x0Mnxg5ZKJmXMGHMciiQ=
+  - secure: TZJoljebl73a6IIDqtZbPl+dj8HnW1hIqsUYiMZCAkMbTCn1Azdkm18jCYNLznLAAh/4RwIR04/EgE3EQpfwtSacyKuBNvHgHOw0gBB5WH3e3UI8cbdgDVa3eNVOLfE6zb6HbHJxYNil/1Ikn86qMomAojKZU8P4GUQpAekXbTQ=
 
