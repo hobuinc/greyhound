@@ -1,10 +1,11 @@
 .. _home:
 
 ******************************************************************************
-Entwine
+Greyhound
 ******************************************************************************
 
 .. image:: ../logo/greyhound_logo_withIO/PNG/greyhound_logo_Blue2746.png
+   :target: https://greyhound.io
    :alt: Greyhound logo
    :align: right
 
@@ -12,7 +13,7 @@ Entwine
 License
 --------------------------------------------------------------------------------
 
-Entwine is available under the `Apache License 2.0`_.
+Greyhound is available under the `Apache License 2.0`_.
 
 .. _`PDAL`: http://pdal.io
 .. _`Docker`: http://docker.com
@@ -24,35 +25,32 @@ Entwine is available under the `Apache License 2.0`_.
 News
 --------------------------------------------------------------------------------
 
-**03-03-2017**
+**12-04-2017**
 ................................................................................
 
-Entwine 1.0 is now released. See :ref:`download` to obtain a copy of the source
+Greyhound 1.1.0 is now released. See :ref:`download` to obtain a copy of the source
 code.
 
 
-**08-18-2016**
+**12-01-2017**
 ................................................................................
 
-See `Connor Manning`_ present "`500+ Billion Points: Organizing Point Clouds as
-Infrastructure`_ at `FOSS4G 2016`_ in Bonn, Germany on August 26th, 2016.
+See `Connor Manning`_ present "`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`_
+Infrastructure`_ at `FOSS4G 2016`_ in Boston, MA USA in August 2017.
 
-.. _`500+ Billion Points\: Organizing Point Clouds as Infrastructure`: http://2016.foss4g.org/talks.html#204
+.. _`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`: https://vimeo.com/245073446
 .. _`FOSS4G 2016`: http://2016.foss4g.org/conference-programme.html
 .. _`Connor Manning`: https://github.com/connormanning
 
-.. note::
-
-    Catch up with Connor to get a :ref:`PDAL <pdal:home>` or :ref:`Entwine <home>` sticker.
 
 
-Quickstart
+Administration
 --------------------------------------------------------------------------------
 
 .. toctree::
    :maxdepth: 1
 
-   quickstart
+   administration
 
 Download
 --------------------------------------------------------------------------------
@@ -61,6 +59,14 @@ Download
    :maxdepth: 2
 
    download
+
+Client
+--------------------------------------------------------------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   clientDevelopment
 
 Community
 --------------------------------------------------------------------------------

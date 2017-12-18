@@ -14,21 +14,20 @@ Current Release(s)
 ------------------------------------------------------------------------------
 
 
-* **2017-03-01** `entwine-1.0.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
+* **2017-12-04** `greyhound-1.1.0-src.tar.gz`_ `Release Notes`_
 
-.. _`Release Notes`: https://github.com/connormanning/entwine/releases/tag/1.0.0
-.. _`entwine-1.0.0-src.tar.gz`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz
-.. _`md5`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz.md5
+.. _`Release Notes`: https://github.com/hobu/greyhound/releases/tag/1.1.0
+.. _`greyhound-1.1.0-src.tar.gz`: https://github.com/hobu/greyhound/archive/1.1.0.tar.gz
 
 
 Development Source
 ------------------------------------------------------------------------------
 
-The main repository for Entwine is located on github at https://github.com/connormanning/entwine
+The main repository for Greyhound is located on GitHub at https://github.com/hobu/greyhound
 
 You can obtain a copy of the active source code by issuing the following command::
 
-    git clone https://github.com/connormanning/entwine.git entwine
+    git clone https://github.com/hobu/greyhound.git
 
 
 
@@ -43,5 +42,5 @@ The fastest way to get going with Entwine is to use the Docker build.  See the
 
 ::
 
-    docker pull connormanning/entwine
+    docker pull connormanning/greyhound
 
