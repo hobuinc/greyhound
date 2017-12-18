@@ -99,6 +99,8 @@ SharedResource Manager::get(std::string name, Req& req)
 
     lock.unlock();
 
+    entwine::Pool pool(threads());
+
     for (TimedReader* reader : resource->readers())
     {
         const auto name(reader->name());
@@ -111,13 +113,18 @@ SharedResource Manager::get(std::string name, Req& req)
             }
         }
 
-        if (!reader->get())
+        pool.add([reader, name]()
         {
-            throw HttpError(
-                    HttpStatusCode::client_error_not_found,
-                    "Not found: " + name);
-        }
+            if (!reader->get())
+            {
+                throw HttpError(
+                        HttpStatusCode::client_error_not_found,
+                        "Not found: " + name);
+            }
+        });
     }
+
+    pool.join();
 
     return resource;
 }

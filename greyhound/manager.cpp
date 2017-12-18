@@ -84,8 +84,14 @@ Manager::Manager(const Configuration& config)
 
     if (config.json().isMember("aliases"))
     {
+        if (config["aliases"].size())
+        {
+            std::cout << "Registering alias:" << std::endl;
+        }
+
         for (const std::string k : config["aliases"].getMemberNames())
         {
+            std::cout << "\t" << k << std::endl;
             m_aliases[k] = entwine::extract<std::string>(config["aliases"][k]);
         }
     }

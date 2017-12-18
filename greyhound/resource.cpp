@@ -363,6 +363,7 @@ void Resource::files(Req& req, Res& res)
         std::endl;
 }
 
+/*
 template<typename Req, typename Res>
 void Resource::read(Req& req, Res& res)
 {
@@ -387,6 +388,7 @@ void Resource::read(Req& req, Res& res)
 
     uint32_t points(0);
 
+    // TODO Remove this branch.
     {
         query->run();
         data = std::move(query->data());
@@ -405,7 +407,6 @@ void Resource::read(Req& req, Res& res)
         chunker.write(true);
     }
 
-    /*
     while (!query->done() && !chunker.canceled())
     {
         query->next();
@@ -427,7 +428,6 @@ void Resource::read(Req& req, Res& res)
 
         chunker.write(query->done());
     }
-    */
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
@@ -451,7 +451,8 @@ void Resource::read(Req& req, Res& res)
 
     std::cout << std::endl;
 }
-/*
+*/
+
 template<typename Req, typename Res>
 void Resource::read(Req& req, Res& res)
 {
@@ -482,9 +483,33 @@ void Resource::read(Req& req, Res& res)
     Chunker<Res> chunker(res, m_manager.headers());
     auto& data(chunker.data());
 
-    bool done(false);
     uint32_t points(0);
 
+    for (std::size_t i(0); i < m_readers.size(); ++i)
+    {
+        TimedReader* reader(m_readers.at(i));
+        auto query(reader->get()->getQuery(q));
+
+        query->run();
+        data.insert(data.end(), query->data().begin(), query->data().end());
+        points += query->numPoints();
+
+        if (chunker.canceled()) break;
+    }
+
+    if (compressor)
+    {
+        compressor->compress(data.data(), data.size());
+        compressor->done();
+        data = std::move(stream.data());
+    }
+
+    const char* pos(reinterpret_cast<const char*>(&points));
+    data.insert(data.end(), pos, pos + sizeof(uint32_t));
+
+    chunker.write(true);
+
+    /*
     for (std::size_t i(0); i < m_readers.size(); ++i)
     {
         TimedReader* reader(m_readers.at(i));
@@ -520,6 +545,7 @@ void Resource::read(Req& req, Res& res)
 
         if (chunker.canceled()) break;
     }
+    */
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
@@ -543,7 +569,6 @@ void Resource::read(Req& req, Res& res)
 
     std::cout << std::endl;
 }
-*/
 
 template<typename Req, typename Res>
 void Resource::count(Req& req, Res& res)
