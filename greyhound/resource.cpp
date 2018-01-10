@@ -460,14 +460,6 @@ void Resource::read(Req& req, Res& res)
 
     Json::Value q(parseQuery(req));
 
-    if (q.isMember("depthBegin") && q.isMember("depthEnd"))
-    {
-        if (q["depthBegin"].asUInt64() == 0 && q["depthEnd"].asUInt64() == 30)
-        {
-            q["depthEnd"] = Json::UInt64(1);
-        }
-    }
-
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
     using Compressor = pdal::LazPerfCompressor<Stream>;
