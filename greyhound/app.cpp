@@ -125,38 +125,37 @@ void App::registerRoutes(Router<S>& r)
     using Req = typename S::Request;
     using Res = typename S::Response;
 
-    r.put(routes::write, [this](Resource& resource, Req& req, Res& res)
+    r.put(routes::write, [](Resource& resource, Req& req, Res& res)
     {
-        if (m_config["allowWrite"].asBool()) resource.write(req, res);
-        else throw std::runtime_error("/write not allowed");
+        resource.write(req, res);
     });
 
-    r.get(routes::info, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::info, [](Resource& resource, Req& req, Res& res)
     {
         resource.info(req, res);
     });
 
-    r.get(routes::hierarchy, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::hierarchy, [](Resource& resource, Req& req, Res& res)
     {
         resource.hierarchy(req, res);
     });
 
-    r.get(routes::read, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::read, [](Resource& resource, Req& req, Res& res)
     {
         resource.read(req, res);
     });
 
-    r.get(routes::count, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::count, [](Resource& resource, Req& req, Res& res)
     {
         resource.count(req, res);
     });
 
-    r.get(routes::filesRoot, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::filesRoot, [](Resource& resource, Req& req, Res& res)
     {
         resource.files(req, res);
     });
 
-    r.get(routes::files, [this](Resource& resource, Req& req, Res& res)
+    r.get(routes::files, [](Resource& resource, Req& req, Res& res)
     {
         resource.files(req, res);
     });

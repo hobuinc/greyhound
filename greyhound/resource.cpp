@@ -2,8 +2,6 @@
 
 #include <json/json.h>
 
-#include <pdal/Compression.hpp>
-
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/manifest.hpp>
@@ -152,17 +150,24 @@ Json::Value Resource::infoSingle() const
     SharedReader reader(m_readers.front()->get());
     const auto& meta(reader->metadata());
 
-    entwine::Schema schema(meta.schema());
+    json["type"] = "octree";
+    json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
+
+    json["schema"] = meta.schema().toJson();
+
     entwine::Schema addons;
     for (const auto& p : reader->appends())
     {
         addons = addons.append(entwine::Schema(p.second));
     }
 
-    json["type"] = "octree";
-    json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
-    json["schema"] = schema.toJson();
-    if (addons.pointSize()) json["addons"] = addons.toJson();
+    for (const entwine::DimInfo dim : addons.dims())
+    {
+        Json::Value j(dim.toJson());
+        j["addon"] = true;
+        json["schema"].append(j);
+    }
+
     json["bounds"] = meta.boundsNativeCubic().toJson();
     json["boundsConforming"] = meta.boundsNativeConforming().toJson();
     json["srs"] = meta.srs();
@@ -209,6 +214,12 @@ Json::Value Resource::infoMulti() const
     Json::Value json;
     json["type"] = "octree";
     json["schema"] = schema.toJson();
+    for (const entwine::DimInfo dim : addons.dims())
+    {
+        Json::Value j(dim.toJson());
+        j["addon"] = true;
+        json["schema"].append(j);
+    }
     json["bounds"] = bounds.cubeify().toJson();
     json["numPoints"] = Json::UInt64(numPoints);
     json["boundsConforming"] = boundsConforming.toJson();
@@ -228,6 +239,11 @@ void Resource::info(Req& req, Res& res)
     const auto start(getNow());
 
     auto h(m_manager.headers());
+
+    // Because appended dimensions can potentially change the info result,
+    // make this response non-cacheable.
+    h.erase("Cache-Control");
+    h.emplace("Cache-Control", "public, max-age=1");
     h.emplace("Content-Type", "application/json");
     res.write(getInfo().toStyledString(), h);
 
@@ -363,96 +379,6 @@ void Resource::files(Req& req, Res& res)
         std::endl;
 }
 
-/*
-template<typename Req, typename Res>
-void Resource::read(Req& req, Res& res)
-{
-    const auto start(getNow());
-
-    const Json::Value q(parseQuery(req));
-
-    SharedReader reader(m_readers.front()->get());
-    auto query(reader->getQuery(q));
-
-    using Compressor = pdal::LazPerfCompressor<Stream>;
-    Stream stream;
-    std::unique_ptr<Compressor> compressor;
-    if (q["compress"].asBool())
-    {
-        const auto dimTypes(query->schema().pdalLayout().dimTypes());
-        compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
-    }
-
-    Chunker<Res> chunker(res, m_manager.headers());
-    auto& data(chunker.data());
-
-    uint32_t points(0);
-
-    // TODO Remove this branch.
-    {
-        query->run();
-        data = std::move(query->data());
-
-        if (compressor)
-        {
-            compressor->compress(data.data(), data.size());
-            if (query->done()) compressor->done();
-            data = std::move(stream.data());
-        }
-
-        points = query->numPoints();
-        const char* pos(reinterpret_cast<const char*>(&points));
-        data.insert(data.end(), pos, pos + sizeof(uint32_t));
-
-        chunker.write(true);
-    }
-
-    while (!query->done() && !chunker.canceled())
-    {
-        query->next();
-        data = std::move(query->data());
-
-        if (compressor)
-        {
-            compressor->compress(data.data(), data.size());
-            if (query->done()) compressor->done();
-            data = std::move(stream.data());
-        }
-
-        if (query->done())
-        {
-            points = query->numPoints();
-            const char* pos(reinterpret_cast<const char*>(&points));
-            data.insert(data.end(), pos, pos + sizeof(uint32_t));
-        }
-
-        chunker.write(query->done());
-    }
-
-    std::lock_guard<std::mutex> lock(m);
-    std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
-        color(std::to_string(msSince(start)), Color::Magenta) << " ms";
-
-    std::cout << " D: [";
-    if (q.isMember("depthBegin")) std::cout << q["depthBegin"].asUInt();
-    else if (q.isMember("depth")) std::cout << q["depth"].asUInt();
-    else std::cout << "all";
-
-    std::cout << ", ";
-    if (q.isMember("depthEnd")) std::cout << q["depthEnd"].asUInt();
-    else if (q.isMember("depth")) std::cout << q["depth"].asUInt() + 1;
-    else std::cout << "all";
-
-    std::cout << ")";
-    std::cout << " P: " << points;
-
-    if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
-    if (chunker.canceled()) std::cout << " " << color("canceled", Color::Red);
-
-    std::cout << std::endl;
-}
-*/
-
 template<typename Req, typename Res>
 void Resource::read(Req& req, Res& res)
 {
@@ -462,6 +388,7 @@ void Resource::read(Req& req, Res& res)
 
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
+    /*
     using Compressor = pdal::LazPerfCompressor<Stream>;
     Stream stream;
     std::unique_ptr<Compressor> compressor;
@@ -471,6 +398,7 @@ void Resource::read(Req& req, Res& res)
         const auto dimTypes(schema.pdalLayout().dimTypes());
         compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
     }
+    */
 
     Chunker<Res> chunker(res, m_manager.headers());
     auto& data(chunker.data());
@@ -489,12 +417,19 @@ void Resource::read(Req& req, Res& res)
         if (chunker.canceled()) break;
     }
 
+    if (q.isMember("compress") && q["compress"].asBool())
+    {
+        const entwine::Schema schema(q["schema"]);
+        data = *entwine::Compression::compress(data, schema);
+    }
+    /*
     if (compressor)
     {
         compressor->compress(data.data(), data.size());
         compressor->done();
         data = std::move(stream.data());
     }
+    */
 
     const char* pos(reinterpret_cast<const char*>(&points));
     data.insert(data.end(), pos, pos + sizeof(uint32_t));
@@ -613,17 +548,20 @@ void Resource::count(Req& req, Res& res)
 template<typename Req, typename Res>
 void Resource::write(Req& req, Res& res)
 {
+    if (!m_manager.config()["allowWrite"].asBool())
+    {
+        throw std::runtime_error("/write not allowed");
+    }
+
     const auto start(getNow());
 
     const Json::Value q(parseQuery(req));
 
     const std::string name(q["name"].asString());
     SharedReader reader(m_readers.front()->get());
+    const entwine::Schema schema(q["schema"]);
 
-    if (q.isMember("schema"))
-    {
-        reader->registerAppend(name, entwine::Schema(q["schema"]));
-    }
+    if (schema.pointSize()) reader->registerAppend(name, schema);
 
     const std::size_t size(req.content.size());
 
@@ -633,6 +571,20 @@ void Resource::write(Req& req, Res& res)
             (std::istreambuf_iterator<char>(req.content)),
             std::istreambuf_iterator<char>());
     if (data.size() != size) throw std::runtime_error("Invalid size");
+
+    if (q.isMember("compress") && q["compress"].asBool())
+    {
+        std::size_t np(0);
+        const auto npIt(req.header.find("NumPoints"));
+        if (npIt != req.header.end()) np = std::stoull(npIt->second);
+        else throw std::runtime_error("NumPoints header is missing");
+
+        if (const auto d = entwine::Compression::decompress(data, schema, np))
+        {
+            data = std::move(*d);
+        }
+        else throw std::runtime_error("Could not decompress buffer");
+    }
 
     const std::size_t points(reader->write(name, data, q));
 
