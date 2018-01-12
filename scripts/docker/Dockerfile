@@ -1,33 +1,40 @@
-FROM connormanning/entwine
+FROM connormanning/entwine:latest
 MAINTAINER Connor Manning <connor@hobu.co>
 
-ENV CC gcc
-ENV CXX g++
-
-# Node.js is used only for testing - it is not a Greyhound dependency.
-RUN apt-get update && apt-get install -y wget && \
-    (wget -qO- https://deb.nodesource.com/setup_6.x | bash -) && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/* && \
-    npm install -g mocha
-
-RUN apt-get update && apt-get install -y libboost-all-dev
-RUN git clone https://github.com/eidheim/Simple-Web-Server.git \
-    /var/simple-web && \
-    cd /var/simple-web && mkdir build && cd build && \
+RUN \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories; \
+    apk update; \
+    apk add --no-cache --virtual .build-deps \
+        alpine-sdk \
+        libexecinfo-dev \
+        libunwind-dev \
+        boost-dev \
+        laz-perf-dev \
+        curl-dev \
+        git openssh; \
+    apk add --no-cache \
+        nodejs-npm \
+        libexecinfo \
+        libunwind \
+        boost \
+        curl \
+        nodejs; \
+    npm install -g mocha; \
+    git clone https://github.com/eidheim/Simple-Web-Server.git /var/simple-web;\
+    /var/simple-web ;\
+    cd /var/simple-web && mkdir build && cd build ;\
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release .. && \
-    make -j4 && \
-    make install
-
-ADD https://api.github.com/repos/hobu/greyhound/commits /tmp/bust-cache
-RUN git clone https://github.com/hobu/greyhound.git /var/greyhound && \
-    cd /var/greyhound && mkdir build && cd build && \
+        -DCMAKE_BUILD_TYPE=Release .. ;\
+    make -j4 ;\
+    make install; \
+    git clone https://github.com/hobu/greyhound.git /var/greyhound ;\
+    cd /var/greyhound && mkdir build && cd build ;\
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
-    make install
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo .. ;\
+    make install; \
+    apk del .build-deps;
 
 EXPOSE 8080
 EXPOSE 8443
