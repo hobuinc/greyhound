@@ -1,8 +1,9 @@
-FROM connormanning/entwine:latest
+FROM connormanning/entwine
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN \
-    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories; \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> \
+        /etc/apk/repositories; \
     apk update; \
     apk add --no-cache --virtual .build-deps \
         alpine-sdk \
