@@ -45,5 +45,5 @@ docker run -it -p 8080:8080 -v ~/greyhound:/greyhound connormanning/greyhound
 Now that Greyhound is awake, you should be able to browse your data with [Plasio](http://speck.ly/?s=http://localhost:8080/&r=red-rocks) or [Potree](http://potree.entwine.io/data/custom.html?s=localhost:8080&r=red-rocks).
 
 # Further reading
-See the [client documentation](https://github.com/hobu/greyhound/blob/master/doc/clientDevelopment.rst) if you are interested in developing an application that streams data from Greyhound.  For instructions regarding configuring and deploying Greyhound, see the [administrator documentation](https://github.com/hobu/greyhound/blob/master/doc/administration.rst).
+See the [client documentation](https://github.com/hobu/greyhound/blob/master/doc/source/clientDevelopment.rst) if you are interested in developing an application that streams data from Greyhound.  For instructions regarding configuring and deploying Greyhound, see the [administrator documentation](https://github.com/hobu/greyhound/blob/master/doc/source/administration.rst).
 
