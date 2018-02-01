@@ -101,7 +101,8 @@ Json::Value Configuration::fromArgs(Json::Value json, const Args& args)
     std::string flag;
     for (const auto a : args)
     {
-        if (a.front() == '-') flag = a;
+        if (a == "-w") { json["allowWrite"] = true; flag = ""; }
+        else if (a.front() == '-') flag = a;
         else if (flag == "-c") { /* Already handled the config-path flag. */ }
         else if (flag == "-p") json["http"]["port"] = std::stoi(a);
         else if (flag == "-s") json["http"]["securePort"] = std::stoi(a);

@@ -96,6 +96,9 @@ Manager::Manager(const Configuration& config)
         }
     }
 
+    std::cout << "Writes " << (config["allowWrite"].asBool() ? "are" : "NOT") <<
+            " allowed" << std::endl;
+
     if (m_auth)
     {
         std::cout << "Auth:" << std::endl;
