@@ -2,6 +2,8 @@
 
 #include <json/json.h>
 
+#include <pdal/compression/LazPerfCompression.hpp>
+
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/manifest.hpp>
@@ -126,13 +128,18 @@ void TimedReader::create()
     }
 }
 
-void TimedReader::reset()
+bool TimedReader::sweep()
 {
-    if (m_reader)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_reader && secondsSince(m_touched) > m_manager.timeoutSeconds())
     {
+        std::cout << "Sweeping " << m_name << "..." << std::flush;
         m_manager.cache().release(*m_reader);
         m_reader.reset();
+        std::cout << " done" << std::endl;
+        return true;
     }
+    return false;
 }
 
 Resource::Resource(
@@ -388,22 +395,68 @@ void Resource::read(Req& req, Res& res)
 
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
-    /*
-    using Compressor = pdal::LazPerfCompressor<Stream>;
-    Stream stream;
-    std::unique_ptr<Compressor> compressor;
+    std::unique_ptr<pdal::LazPerfCompressor> compressor;
+    std::vector<char> compressed;
+
     if (q.isMember("compress") && q["compress"].asBool())
     {
         const entwine::Schema schema(q["schema"]);
         const auto dimTypes(schema.pdalLayout().dimTypes());
-        compressor = entwine::makeUnique<Compressor>(stream, dimTypes);
+        auto cb([&compressed](char* p, std::size_t s)
+        {
+            compressed.insert(compressed.end(), p, p + s);
+        });
+        compressor = entwine::makeUnique<pdal::LazPerfCompressor>(cb, dimTypes);
     }
-    */
 
     Chunker<Res> chunker(res, m_manager.headers());
     auto& data(chunker.data());
 
     uint32_t points(0);
+
+    for (std::size_t i(0); i < m_readers.size(); ++i)
+    {
+        TimedReader* reader(m_readers.at(i));
+        auto query(reader->get()->getQuery(q));
+        const bool last(i == m_readers.size() - 1);
+
+        while (!query->done() && !chunker.canceled())
+        {
+            query->next();
+            const bool allDone(last && query->done());
+
+            auto& qdata(query->data());
+
+            if (compressor)
+            {
+                compressor->compress(qdata.data(), qdata.size());
+                if (allDone) compressor->done();
+                data.insert(data.end(), compressed.begin(), compressed.end());
+                compressed.clear();
+            }
+            else
+            {
+                data.insert(data.end(), qdata.begin(), qdata.end());
+            }
+
+            qdata.clear();
+
+            if (query->done()) points += query->numPoints();
+
+            if (allDone)
+            {
+                const char* pos(reinterpret_cast<const char*>(&points));
+                data.insert(data.end(), pos, pos + sizeof(uint32_t));
+            }
+
+            chunker.write(allDone);
+        }
+
+        if (chunker.canceled()) break;
+    }
+
+    /*
+    // Stopgap non-streaming version:
 
     for (std::size_t i(0); i < m_readers.size(); ++i)
     {
@@ -422,56 +475,11 @@ void Resource::read(Req& req, Res& res)
         const entwine::Schema schema(q["schema"]);
         data = *entwine::Compression::compress(data, schema);
     }
-    /*
-    if (compressor)
-    {
-        compressor->compress(data.data(), data.size());
-        compressor->done();
-        data = std::move(stream.data());
-    }
-    */
 
     const char* pos(reinterpret_cast<const char*>(&points));
     data.insert(data.end(), pos, pos + sizeof(uint32_t));
 
     chunker.write(true);
-
-    /*
-    for (std::size_t i(0); i < m_readers.size(); ++i)
-    {
-        TimedReader* reader(m_readers.at(i));
-        auto query(reader->get()->getQuery(q));
-
-        while (!query->done() && !chunker.canceled())
-        {
-            query->next();
-            done = (i == m_readers.size() - 1) && query->done();
-
-            auto& qdata(query->data());
-            if (data.empty()) data = std::move(qdata);
-            else data.insert(data.end(), qdata.begin(), qdata.end());
-            qdata.clear();
-
-            if (compressor)
-            {
-                compressor->compress(data.data(), data.size());
-                if (done) compressor->done();
-                data = std::move(stream.data());
-            }
-
-            if (query->done()) points += query->numPoints();
-
-            if (done)
-            {
-                const char* pos(reinterpret_cast<const char*>(&points));
-                data.insert(data.end(), pos, pos + sizeof(uint32_t));
-            }
-
-            chunker.write(done);
-        }
-
-        if (chunker.canceled()) break;
-    }
     */
 
     std::lock_guard<std::mutex> lock(m);

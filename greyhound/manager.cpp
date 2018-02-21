@@ -50,6 +50,7 @@ Manager::Manager(const Configuration& config)
     , m_paths(entwine::extract<std::string>(config["paths"]))
     , m_threads(std::max<std::size_t>(config["threads"].asUInt(), 4))
     , m_config(config)
+    , m_swept(getNow())
 {
     m_outerScope.getArbiter(config["arbiter"]);
     m_auth = Auth::maybeCreate(config, *m_outerScope.getArbiter());
@@ -118,49 +119,16 @@ Manager::Manager(const Configuration& config)
         std::cout << "\tFailure timeout: " << m_auth->badSeconds() << "s" <<
             std::endl;
     }
-
-    m_lastSweep = getNow();
-
-    auto loop([this]()
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        while (!m_done)
-        {
-            m_cv.wait_for(lock, std::chrono::seconds(60), [this]()
-            {
-                return m_done || secondsSince(m_lastSweep) >= 60;
-            });
-            sweep();
-        }
-    });
-
-    m_sweepThread = std::thread(loop);
-}
-
-Manager::~Manager()
-{
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_done = true;
-    }
-    m_cv.notify_all();
-    m_sweepThread.join();
 }
 
 void Manager::sweep()
 {
-    m_lastSweep = getNow();
+    if (secondsSince(m_swept) < m_timeoutSeconds) return;
+
     for (auto it(m_readers.begin()); it != m_readers.end(); ++it)
     {
         TimedReader& tr(it->second);
-        std::lock_guard<std::mutex> lock(tr.mutex());
-        if (tr.exists() && tr.since() > m_timeoutSeconds)
-        {
-            std::cout << "Sweeping " << tr.name() << "..." << std::flush;
-            tr.reset();
-            std::cout << " done" << std::endl;
-            return;
-        }
+        if (tr.sweep()) return;
     }
 }
 

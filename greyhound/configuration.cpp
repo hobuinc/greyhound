@@ -20,7 +20,7 @@ Json::Value defaults()
                 "/opt/data"
             });
     json["tmp"] = entwine::arbiter::fs::getTempPath();
-    json["resourceTimeoutMinutes"] = 30;
+    json["resourceTimeoutMinutes"] = 2;
     json["http"]["port"] = 8080;
 
     Json::Value headers;

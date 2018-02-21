@@ -25,14 +25,11 @@ public:
 
     const std::string& name() const { return m_name; }
     SharedReader& get();
-    std::size_t since() const { return secondsSince(m_touched); }
-    std::mutex& mutex() { return m_mutex; }
-
-    bool exists() const { return !!m_reader; }
-    void reset();
+    bool sweep();
 
 private:
     void create();
+    void reset();
 
     Manager& m_manager;
     std::string m_name;

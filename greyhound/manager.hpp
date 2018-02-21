@@ -1,7 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <string>
@@ -21,7 +20,6 @@ class Manager
 {
 public:
     Manager(const Configuration& config);
-    ~Manager();
 
     template<typename Req>
     SharedResource get(std::string name, Req& req);
@@ -31,8 +29,10 @@ public:
     const Paths& paths() const { return m_paths; }
     const Headers& headers() const { return m_headers; }
     std::size_t threads() const { return m_threads; }
+    std::size_t timeoutSeconds() const { return m_timeoutSeconds; }
 
     const Configuration& config() const { return m_config; }
+    void sweep();
 
 private:
     std::vector<std::string> resolve(std::string name) const
@@ -40,8 +40,6 @@ private:
         if (m_aliases.count(name)) return m_aliases.at(name);
         else return std::vector<std::string>{ name };
     }
-
-    void sweep();
 
     mutable entwine::Cache m_cache;
     mutable entwine::OuterScope m_outerScope;
@@ -59,11 +57,8 @@ private:
 
     mutable std::mutex m_mutex;
 
-    bool m_done = false;
+    TimePoint m_swept;
     std::size_t m_timeoutSeconds = 0;
-    TimePoint m_lastSweep;
-    mutable std::condition_variable m_cv;
-    std::thread m_sweepThread;
 };
 
 template<typename Req>

@@ -39,8 +39,6 @@ RUN \
 
 EXPOSE 8080
 EXPOSE 8443
-VOLUME /opt/data
-VOLUME /greyhound
 
 ENTRYPOINT ["greyhound"]
 

@@ -5,6 +5,8 @@
 #include <greyhound/app.hpp>
 #include <greyhound/configuration.hpp>
 
+#define BOOST_SPIRIT_THREADSAFE
+
 int main(int argv, char** argc)
 {
     signal(SIGINT, [](int sig) { exit(1); });
