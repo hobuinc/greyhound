@@ -55,6 +55,8 @@ else()
     message("Curl NOT found")
 endif()
 
+add_definitions("-DPDAL_HAVE_LAZPERF")
+
 if (OPENSSL_FOUND)
     message("Found OpenSSL ${OPENSSL_VERSION}")
     include_directories(${OPENSSL_INCLUDE_DIR})
