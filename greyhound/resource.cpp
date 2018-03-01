@@ -451,36 +451,7 @@ void Resource::read(Req& req, Res& res)
 
             chunker.write(allDone);
         }
-
-        if (chunker.canceled()) break;
     }
-
-    /*
-    // Stopgap non-streaming version:
-
-    for (std::size_t i(0); i < m_readers.size(); ++i)
-    {
-        TimedReader* reader(m_readers.at(i));
-        auto query(reader->get()->getQuery(q));
-
-        query->run();
-        data.insert(data.end(), query->data().begin(), query->data().end());
-        points += query->numPoints();
-
-        if (chunker.canceled()) break;
-    }
-
-    if (q.isMember("compress") && q["compress"].asBool())
-    {
-        const entwine::Schema schema(q["schema"]);
-        data = *entwine::Compression::compress(data, schema);
-    }
-
-    const char* pos(reinterpret_cast<const char*>(&points));
-    data.insert(data.end(), pos, pos + sizeof(uint32_t));
-
-    chunker.write(true);
-    */
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<

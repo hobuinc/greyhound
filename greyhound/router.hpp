@@ -26,7 +26,7 @@ public:
         m_server.config.port = port;
         m_server.config.timeout_request = 0;
         m_server.config.timeout_content = 0;
-        m_server.config.thread_pool_size = m_manager.threads();
+        // m_server.config.thread_pool_size = m_manager.threads();
 
         m_server.default_resource["GET"] = [](ResPtr res, ReqPtr req)
         {
@@ -60,8 +60,8 @@ public:
         {
             // res->close_connection_after_response = true;
 
-            // m_pool.add([this, &f, req, res]() mutable
-            // {
+            m_pool.add([this, &f, req, res]() mutable
+            {
                 auto error(
                         [this, &res](HttpStatusCode code, std::string message)
                 {
@@ -114,7 +114,7 @@ public:
                 req.reset();
 
                 m_manager.sweep();
-            // });
+            });
         };
     }
 
