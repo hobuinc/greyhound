@@ -4,7 +4,7 @@
 
 #include <pdal/compression/LazPerfCompression.hpp>
 
-#include <entwine/reader/reader.hpp>
+#include <entwine/new-reader/new-reader.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
@@ -107,9 +107,10 @@ void TimedReader::create()
                     m_manager.outerScope().getArbiterPtr()->getEndpoint(
                         m_manager.config()["tmp"].asString()));
 
-            auto& cache(m_manager.cache());
+            // auto& cache(m_manager.cache());
 
-            if (auto r = std::make_shared<entwine::Reader>(ep, tmp, cache))
+            if (auto r = std::make_shared<entwine::NewReader>(
+                        entwine::arbiter::util::join(path, m_name)))
             {
                 std::cout << "SUCCESS" << std::endl;
                 m_reader = r;
@@ -130,11 +131,12 @@ void TimedReader::create()
 
 bool TimedReader::sweep()
 {
+    return false;
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_reader && secondsSince(m_touched) > m_manager.timeoutSeconds())
     {
         std::cout << "Sweeping " << m_name << "..." << std::flush;
-        m_manager.cache().release(*m_reader);
+        // m_manager.cache().release(*m_reader);
         m_reader.reset();
         std::cout << " done" << std::endl;
         return true;
@@ -158,10 +160,11 @@ Json::Value Resource::infoSingle() const
     const auto& meta(reader->metadata());
 
     json["type"] = "octree";
-    json["numPoints"] = Json::UInt64(meta.manifest().pointStats().inserts());
+    json["numPoints"] = Json::UInt64(meta.files().pointStats().inserts());
 
     json["schema"] = meta.schema().toJson();
 
+    /*
     entwine::Schema addons;
     for (const auto& p : reader->appends())
     {
@@ -174,11 +177,12 @@ Json::Value Resource::infoSingle() const
         j["addon"] = true;
         json["schema"].append(j);
     }
+    */
 
     json["bounds"] = meta.boundsNativeCubic().toJson();
     json["boundsConforming"] = meta.boundsNativeConforming().toJson();
     json["srs"] = meta.srs();
-    json["baseDepth"] = Json::UInt64(meta.structure().baseDepthBegin());
+    json["baseDepth"] = Json::UInt64(meta.structure().body()); // TODO.
 
     if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
     if (meta.density()) json["density"] = meta.density();
@@ -189,6 +193,9 @@ Json::Value Resource::infoSingle() const
 
 Json::Value Resource::infoMulti() const
 {
+    throw std::runtime_error("EPT multi not implemented");
+
+    /*
     entwine::Schema schema;
     entwine::Schema addons;
     entwine::Bounds bounds(entwine::Bounds::expander());
@@ -238,6 +245,7 @@ Json::Value Resource::infoMulti() const
     if (scale != entwine::Scale(1)) json["scale"] = scale.toJson();
 
     return json;
+    */
 }
 
 template<typename Req, typename Res>
@@ -271,7 +279,7 @@ void Resource::hierarchy(Req& req, Res& res)
     }
 
     const Json::Value q(parseQuery(req));
-    const Json::Value result(m_readers.front()->get()->hierarchy(q));
+    const Json::Value result(m_readers.front()->get()->fakeHierarchy(q));
     auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
@@ -327,7 +335,13 @@ void Resource::files(Req& req, Res& res)
     if (query.isNull())
     {
         // For a root-level /files query, return a JSON array of all paths.
-        const auto paths(reader->metadata().manifest().paths());
+        std::vector<std::string> paths;
+        const auto& files(reader->metadata().files());
+        for (std::size_t i(0); i < files.size(); ++i)
+        {
+            paths.push_back(files.get(i).path());
+        }
+        // const auto paths(reader->metadata().files().paths());
         res.write(dense(entwine::toJsonArray(paths)), h);
     }
     else if (query.isObject())
@@ -339,6 +353,7 @@ void Resource::files(Req& req, Res& res)
             throw Http400("Invalid query - cannot specify bounds and search");
         }
 
+        /*
         if (query.isMember("bounds"))
         {
             const entwine::Bounds bounds(query["bounds"]);
@@ -374,6 +389,7 @@ void Resource::files(Req& req, Res& res)
             if (!search.isArray()) result = single(search);
             else for (const auto& v : search) result.append(single(v));
         }
+        */
 
         res.write(dense(result), h);
     }
@@ -392,6 +408,20 @@ void Resource::read(Req& req, Res& res)
     const auto start(getNow());
 
     Json::Value q(parseQuery(req));
+
+    // TODO One-off adjustments.
+    if (q.isMember("depth") && q["depth"].asUInt64() > 0)
+    {
+        q["depth"] = q["depth"].asUInt64() - 1;
+    }
+    if (q.isMember("depthBegin") && q["depthBegin"].asUInt64() > 0)
+    {
+        q["depthBegin"] = q["depthBegin"].asUInt64() - 1;
+    }
+    if (q.isMember("depthEnd") && q["depthEnd"].asUInt64() > 0)
+    {
+        q["depthEnd"] = q["depthEnd"].asUInt64() - 1;
+    }
 
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
@@ -414,6 +444,27 @@ void Resource::read(Req& req, Res& res)
 
     uint32_t points(0);
 
+    SharedReader reader(m_readers.front()->get());
+    auto query(reader->read(q));
+    query->run();
+    const auto& qdata(query->data());
+
+    if (compressor)
+    {
+        compressor->compress(qdata.data(), qdata.size());
+        compressor->done();
+        data = compressed;
+    }
+    else data = qdata;
+
+    points = query->numPoints();
+
+    const char* pos(reinterpret_cast<const char*>(&points));
+    data.insert(data.end(), pos, pos + sizeof(uint32_t));
+
+    chunker.write(true);
+
+    /*
     for (std::size_t i(0); i < m_readers.size(); ++i)
     {
         TimedReader* reader(m_readers.at(i));
@@ -452,6 +503,7 @@ void Resource::read(Req& req, Res& res)
             chunker.write(allDone);
         }
     }
+    */
 
     std::lock_guard<std::mutex> lock(m);
     std::cout << m_name << "/" << color("read", Color::Cyan) << ": " <<
@@ -488,10 +540,10 @@ void Resource::count(Req& req, Res& res)
 
     for (TimedReader* reader : m_readers)
     {
-        auto query(reader->get()->getCountQuery(q));
+        auto query(reader->get()->count(q));
         query->run();
         points += query->numPoints();
-        chunks += query->chunks();
+        // chunks += query->chunks();
     }
 
     Json::Value result;
@@ -527,6 +579,8 @@ void Resource::count(Req& req, Res& res)
 template<typename Req, typename Res>
 void Resource::write(Req& req, Res& res)
 {
+    throw std::runtime_error("/write not allowed");
+    /*
     if (!m_manager.config()["allowWrite"].asBool())
     {
         throw std::runtime_error("/write not allowed");
@@ -591,6 +645,7 @@ void Resource::write(Req& req, Res& res)
     if (q.isMember("filter")) std::cout << " F: " << dense(q["filter"]);
 
     std::cout << std::endl;
+    */
 }
 
 template void Resource::info(Http::Request&, Http::Response&);

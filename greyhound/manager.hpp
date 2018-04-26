@@ -5,7 +5,7 @@
 #include <mutex>
 #include <string>
 
-#include <entwine/reader/cache.hpp>
+#include <entwine/new-reader/new-cache.hpp>
 #include <entwine/types/outer-scope.hpp>
 
 #include <greyhound/auth.hpp>
@@ -24,7 +24,7 @@ public:
     template<typename Req>
     SharedResource get(std::string name, Req& req);
 
-    entwine::Cache& cache() const { return m_cache; }
+    entwine::NewCache& cache() const { return m_cache; }
     entwine::OuterScope& outerScope() const { return m_outerScope; }
     const Paths& paths() const { return m_paths; }
     const Headers& headers() const { return m_headers; }
@@ -41,7 +41,7 @@ private:
         else return std::vector<std::string>{ name };
     }
 
-    mutable entwine::Cache m_cache;
+    mutable entwine::NewCache m_cache;
     mutable entwine::OuterScope m_outerScope;
 
     Paths m_paths;

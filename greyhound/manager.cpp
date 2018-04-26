@@ -4,7 +4,7 @@
 #include <cctype>
 #include <thread>
 
-#include <entwine/reader/reader.hpp>
+#include <entwine/new-reader/new-reader.hpp>
 #include <entwine/util/json.hpp>
 
 namespace greyhound
@@ -12,6 +12,7 @@ namespace greyhound
 
 namespace
 {
+    /*
     std::size_t parseBytes(std::string s)
     {
         s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
@@ -33,6 +34,7 @@ namespace
 
         return n * m;
     }
+    */
 
     std::string dense(const Json::Value& json)
     {
@@ -43,10 +45,12 @@ namespace
 }
 
 Manager::Manager(const Configuration& config)
-    : m_cache(
+    : m_cache()
+    /*
             config["cacheSize"].isString() ?
                 parseBytes(config["cacheSize"].asString()) :
                 config["cacheSize"].asUInt64())
+    */
     , m_paths(entwine::extract<std::string>(config["paths"]))
     , m_threads(std::max<std::size_t>(config["threads"].asUInt(), 4))
     , m_config(config)
@@ -68,7 +72,7 @@ Manager::Manager(const Configuration& config)
             60.0 * config["resourceTimeoutMinutes"].asDouble(), 15);
 
     std::cout << "Settings:" << std::endl;
-    std::cout << "\tCache: " << m_cache.maxBytes() << " bytes" << std::endl;
+    // std::cout << "\tCache: " << m_cache.maxBytes() << " bytes" << std::endl;
     std::cout << "\tThreads: " << m_threads << std::endl;
     std::cout << "\tResource timeout: " <<
         (m_timeoutSeconds / 60.0)  << " minutes" << std::endl;
