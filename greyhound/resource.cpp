@@ -409,18 +409,30 @@ void Resource::read(Req& req, Res& res)
 
     Json::Value q(parseQuery(req));
 
-    // TODO One-off adjustments.
-    if (q.isMember("depth") && q["depth"].asUInt64() > 0)
     {
-        q["depth"] = q["depth"].asUInt64() - 1;
-    }
-    if (q.isMember("depthBegin") && q["depthBegin"].asUInt64() > 0)
-    {
-        q["depthBegin"] = q["depthBegin"].asUInt64() - 1;
-    }
-    if (q.isMember("depthEnd") && q["depthEnd"].asUInt64() > 0)
-    {
-        q["depthEnd"] = q["depthEnd"].asUInt64() - 1;
+        // TODO One-off adjustments.
+
+        SharedReader reader(m_readers.front()->get());
+        const auto& meta(reader->metadata());
+        const uint64_t base(meta.structure().body());
+
+        if (base < 7)
+        {
+            const uint64_t delta(7 - base);
+
+            if (q.isMember("depth") && q["depth"].asUInt64() > 0)
+            {
+                q["depth"] = q["depth"].asUInt64() - delta;
+            }
+            if (q.isMember("depthBegin") && q["depthBegin"].asUInt64() > 0)
+            {
+                q["depthBegin"] = q["depthBegin"].asUInt64() - delta;
+            }
+            if (q.isMember("depthEnd") && q["depthEnd"].asUInt64() > 0)
+            {
+                q["depthEnd"] = q["depthEnd"].asUInt64() - delta;
+            }
+        }
     }
 
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
