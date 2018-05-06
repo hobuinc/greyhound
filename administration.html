@@ -1,0 +1,404 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Administration &mdash; greyhound.io</title>
+  
+
+  
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="greyhound.io" href="index.html"/>
+        <link rel="next" title="Download" href="download.html"/>
+        <link rel="prev" title="Greyhound" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Greyhound
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Administration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#docker-installation">Docker installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#native-installation">Native installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#external-dependencies">External Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing">Installing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#testing">Testing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#hello-world">Hello world</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configuration-settings">Configuration settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multi-resource-aliases">Multi-resource aliases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#authentication-settings">Authentication settings</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configuration-with-http-disabled-https-enabled-and-external-authentication">Configuration with HTTP disabled, HTTPS enabled, and external authentication</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="download.html">Download</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="clientDevelopment.html">Client Development</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="community.html">Community</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Greyhound</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Home</a> &raquo;</li>
+      
+    <li>Administration</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="administration">
+<h1>Administration<a class="headerlink" href="#administration" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">author:</th><td class="field-body">Connor Manning</td>
+</tr>
+<tr class="field-even field"><th class="field-name">email:</th><td class="field-body"><a class="reference external" href="mailto:connor&#37;&#52;&#48;hobu&#46;co">connor<span>&#64;</span>hobu<span>&#46;</span>co</a></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">date:</th><td class="field-body">09/22/2016</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>Greyhound is an HTTP server that provides dynamic level-of-detail point cloud streaming.</p>
+</div>
+<div class="section" id="docker-installation">
+<h2>Docker installation<a class="headerlink" href="#docker-installation" title="Permalink to this headline">¶</a></h2>
+<p>Fetch the latest docker image:</p>
+<p><code class="docutils literal"><span class="pre">docker</span> <span class="pre">pull</span> <span class="pre">connormanning/greyhound</span></code></p>
+<p>Run the server:
+<code class="docutils literal"><span class="pre">docker</span> <span class="pre">run</span> <span class="pre">-it</span> <span class="pre">-p</span> <span class="pre">8080:8080</span> <span class="pre">connormanning/greyhound</span></code></p>
+</div>
+<div class="section" id="native-installation">
+<h2>Native installation<a class="headerlink" href="#native-installation" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="external-dependencies">
+<h3>External Dependencies<a class="headerlink" href="#external-dependencies" title="Permalink to this headline">¶</a></h3>
+<p>These dependencies must be installed prior to installing Greyhound.</p>
+<dl class="docutils">
+<dt>Dependencies:</dt>
+<dd><ul class="first last simple">
+<li>C++11 compiler</li>
+<li><a class="reference external" href="http://www.pdal.io/index.html">PDAL</a> compiled with <a class="reference external" href="https://github.com/verma/laz-perf">LazPerf</a> compression enabled (<code class="docutils literal"><span class="pre">-DWITH_LAZPERF=ON</span></code>)</li>
+<li><a class="reference external" href="https://github.com/eidheim/Simple-Web-Server">Simple-Web-Server</a></li>
+<li><a class="reference external" href="http://nodejs.org/">Node.js</a> 4.0 or greater (for unit testing only - not a Greyhound requirement)</li>
+</ul>
+</dd>
+</dl>
+</div>
+<div class="section" id="installing">
+<h3>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h3>
+<p>Native greyhound installation is accomplished via cmake.  On Unix:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">mkdir</span> <span class="n">build</span> <span class="o">&amp;&amp;</span> <span class="n">cd</span> <span class="n">build</span>
+<span class="n">cmake</span> <span class="o">-</span><span class="n">G</span> <span class="s2">&quot;Unix Makefiles&quot;</span> <span class="o">..</span>
+<span class="n">make</span> <span class="o">&amp;&amp;</span> <span class="n">make</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Then to run Greyhound with a default configuration, simply run <code class="docutils literal"><span class="pre">greyhound</span></code>.</p>
+</div>
+<div class="section" id="testing">
+<h3>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># From &lt;greyhound-root&gt;/build:</span>
+<span class="c1"># Generate testing resource.</span>
+<span class="o">../</span><span class="n">scripts</span><span class="o">/</span><span class="n">generate</span><span class="o">-</span><span class="n">test</span><span class="o">-</span><span class="n">data</span><span class="o">.</span><span class="n">sh</span>
+<span class="c1"># Run Greyhound.</span>
+<span class="o">./</span><span class="n">greyhound</span><span class="o">/</span><span class="n">greyhound</span>
+<span class="c1"># Then, in new tab:</span>
+<span class="n">cd</span> <span class="o">../</span><span class="n">test</span>
+<span class="n">npm</span> <span class="n">install</span>
+<span class="n">npm</span> <span class="n">run</span> <span class="n">test</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="hello-world">
+<h2>Hello world<a class="headerlink" href="#hello-world" title="Permalink to this headline">¶</a></h2>
+<p>With Greyhound running, browse to <a class="reference external" href="http://speck.ly/?s=http://localhost:8080/&amp;r=autzen">http://speck.ly/?s=http://localhost:8080/&amp;r=autzen</a> or <a class="reference external" href="http://potree.entwine.io/data/custom.html?s=localhost:8080&amp;r=autzen">http://potree.entwine.io/data/custom.html?s=localhost:8080&amp;r=autzen</a> to view a small publicly hosted point cloud served from your locally-running Greyhound server.</p>
+</div>
+<div class="section" id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>Greyhound accepts a JSON configuration file at launch with the <code class="docutils literal"><span class="pre">-c</span></code> command line flag: <code class="docutils literal"><span class="pre">greyhound</span> <span class="pre">-c</span> <span class="pre">/var/greyhound/config.json</span></code>.</p>
+<p>A simple configuration file might look like this:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;cacheSize&quot;</span><span class="p">:</span> <span class="s2">&quot;1 GB&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;paths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/opt/data&quot;</span><span class="p">,</span> <span class="s2">&quot;~/greyhound&quot;</span><span class="p">,</span> <span class="s2">&quot;http://greyhound.io&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;resourceTimeoutMinutes&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">8080</span><span class="p">,</span>
+        <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Cache-Control&quot;</span><span class="p">:</span>                  <span class="s2">&quot;public, max-age=300&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Origin&quot;</span><span class="p">:</span>    <span class="s2">&quot;*&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Methods&quot;</span><span class="p">:</span>   <span class="s2">&quot;GET,PUT,POST,DELETE&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="section" id="configuration-settings">
+<h3>Configuration settings<a class="headerlink" href="#configuration-settings" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">cacheSize</span></code>: The cache size for Greyhound&#8217;s data chunks.  This is not a maximal amount of memory that Greyhound may use, but is merely correlated with the amount of memory Greyhound will consume since it represents only a single piece of Greyhound&#8217;s internal data usage.  This field may be specified as a number of bytes, but may also be a specified as a string containing a qualifier like <code class="docutils literal"><span class="pre">MB</span></code> or <code class="docutils literal"><span class="pre">GB</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">paths</span></code>: An array of strings representing the paths in which Greyhound will search, in order, for data to stream.  Defaults are <code class="docutils literal"><span class="pre">/opt/data</span></code> for easy Docker mapping, <code class="docutils literal"><span class="pre">~/greyhound</span></code> for a default native location, and <code class="docutils literal"><span class="pre">http://greyhound.io</span></code> for sample data.  Local paths, HTTP(s) URLs, and S3 paths (assuming proper credentials exist) are supported.</li>
+<li><code class="docutils literal"><span class="pre">tmp</span></code>: A string path for Greyhound to use for any temporary files.</li>
+<li><code class="docutils literal"><span class="pre">resourceTimeoutMinutes</span></code>: The number of minutes after which Greyhound can erase local storage for a given resource.  Default: <code class="docutils literal"><span class="pre">30</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">aliases</span></code>: Alias list for multi-resource specification.</li>
+<li><code class="docutils literal"><span class="pre">http.port</span></code>: Port on which to listen for HTTP requests.  If <code class="docutils literal"><span class="pre">null</span></code> or missing, HTTP requests will be disabled.  Default: <code class="docutils literal"><span class="pre">8080</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">http.securePort</span></code>: Port on which to listen for HTTPS requests.  If <code class="docutils literal"><span class="pre">null</span></code> or missing, HTTPS requests will be disabled.  If this value is specified, <code class="docutils literal"><span class="pre">http.keyFile</span></code> and <code class="docutils literal"><span class="pre">http.certFile</span></code> must also be present.  Default: <code class="docutils literal"><span class="pre">undefined</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">http.keyFile</span></code>: Path to HTTPS key file.</li>
+<li><code class="docutils literal"><span class="pre">http.certFile</span></code>: Path to HTTPS certificate file.</li>
+<li><code class="docutils literal"><span class="pre">http.headers</span></code>: An object with string-to-string key-value pairs representing headers that will be placed on all outbound response data from Greyhound.  Common use-cases for this field are CORS headers and cache control.  Defaults to the values shown in the sample configuration above.</li>
+</ul>
+</div>
+<div class="section" id="multi-resource-aliases">
+<h3>Multi-resource aliases<a class="headerlink" href="#multi-resource-aliases" title="Permalink to this headline">¶</a></h3>
+<p>This setting allows multiple resources to be accessible as if they were a single resource - with the exception that <code class="docutils literal"><span class="pre">hierarchy</span></code> queries are not supported.  This may be useful for programmatic access of large datasets organized as sub-resources.  This field is an object, for which string keys are aliased as a list of sub-resources.  For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;aliases&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;midwest&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;iowa&quot;</span><span class="p">,</span> <span class="s2">&quot;minnesota&quot;</span><span class="p">,</span> <span class="s2">&quot;illinois&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;the-moon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dark-side&quot;</span><span class="p">,</span> <span class="s2">&quot;light-side&quot;</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;cacheSize&quot;</span><span class="p">:</span> <span class="s2">&quot;1 GB&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;paths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;/opt/data&quot;</span><span class="p">,</span> <span class="s2">&quot;~/greyhound&quot;</span><span class="p">,</span> <span class="s2">&quot;http://greyhound.io&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;resourceTimeoutMinutes&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">8080</span><span class="p">,</span>
+        <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Cache-Control&quot;</span><span class="p">:</span>                  <span class="s2">&quot;public, max-age=300&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Origin&quot;</span><span class="p">:</span>    <span class="s2">&quot;*&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Methods&quot;</span><span class="p">:</span>   <span class="s2">&quot;GET,PUT,POST,DELETE&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="authentication-settings">
+<h3>Authentication settings<a class="headerlink" href="#authentication-settings" title="Permalink to this headline">¶</a></h3>
+<p>Greyhound supports the use of a cookie-based external authentication server to authenticate users to their requested resources before serving any data related to that resource.  This is achieved by asking an external authentication server for access to a resource based on some configured cookie name.</p>
+<p>This places some domain restrictions on your hosting.  This is because the relevant cookie will only be sent to Greyhound if Greyhound and the authentication server are on the same top-level domain, and that the cookie domain is set loosely enough to be sent to the Greyhound server.</p>
+<p>For the examples below, we&#8217;ll assume that Greyhound is hosted at <a class="reference external" href="https://server.greyhound.io">https://server.greyhound.io</a>, and that the authentication server is <a class="reference external" href="https://auth.greyhound.io">https://auth.greyhound.io</a></p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">auth.path</span></code>: A string URL to which Greyhound will proxy requests.  Greyhound will add <code class="docutils literal"><span class="pre">/&lt;resource&gt;</span></code> to this path when requesting authentication.  If a user requests a resource called <code class="docutils literal"><span class="pre">the-moon</span></code>, with our example settings, the authentication request will be sent to <code class="docutils literal"><span class="pre">https://hello.io/the-moon</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">auth.cookieName</span></code>: The name of the cookie used as a unique ID by the authentication server.  This may be a login token, unique ID, a special Greyhound identifier, and may even be a secure cookie.  Greyhound will forward this cookie in its request to the authentication server, and will cache this value to identify future requests in accordance with the authentication cache settings.</li>
+<li><code class="docutils literal"><span class="pre">auth.cacheMinutes</span></code>: This field specifies the maximum amount of time, in minutes, that Greyhound should cache the authentication server response for each unique user.  If this field is a number, then both allow (<code class="docutils literal"><span class="pre">2xx</span></code>) and deny (all other) responses will be cached for this many minutes.  This field can also be set to an object with <code class="docutils literal"><span class="pre">good</span></code> and <code class="docutils literal"><span class="pre">bad</span></code> keys, which will specify separately the duration for which a successful response and an unsuccessful response may be cached.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="configuration-with-http-disabled-https-enabled-and-external-authentication">
+<h3>Configuration with HTTP disabled, HTTPS enabled, and external authentication<a class="headerlink" href="#configuration-with-http-disabled-https-enabled-and-external-authentication" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;cacheSize&quot;</span><span class="p">:</span> <span class="s2">&quot;1 GB&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;paths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;s3://my-app/entwine/&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;resourceTimeoutMinutes&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
+        <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Cache-Control&quot;</span><span class="p">:</span>                  <span class="s2">&quot;public, max-age=300&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Origin&quot;</span><span class="p">:</span>    <span class="s2">&quot;greyhound.io&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Access-Control-Allow-Methods&quot;</span><span class="p">:</span>   <span class="s2">&quot;GET,PUT,POST,DELETE&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;securePort&quot;</span><span class="p">:</span> <span class="mi">443</span><span class="p">,</span>
+        <span class="s2">&quot;keyFile&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/keys/greyhound-key.pem&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;certFile&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/keys/greyhound-cert.pem&quot;</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;auth&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;https://auth.greyhound.io&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cookieName&quot;</span><span class="p">:</span> <span class="s2">&quot;greyhound-user-id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cacheMinutes&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;good&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="s2">&quot;bad&quot;</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="download.html" class="btn btn-neutral float-right" title="Download" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Greyhound" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+                    &copy;  2018
+                        <a href="https://hobu.co">Hobu, Inc.</a>,
+      Last updated on May 06, 2018.
+
+    </p>
+  </div> 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'1.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

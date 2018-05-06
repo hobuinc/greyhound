@@ -1,0 +1,740 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Client Development &mdash; greyhound.io</title>
+  
+
+  
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="greyhound.io" href="index.html"/>
+        <link rel="next" title="Community" href="community.html"/>
+        <link rel="prev" title="Download" href="download.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Greyhound
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="administration.html">Administration</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="download.html">Download</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Client Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#using-greyhound">Using Greyhound</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#api">API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#command-set">Command Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#making-requests">Making Requests</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-info-query">The Info Query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#type">type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#numpoints">numPoints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bounds">bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#boundsconforming">boundsConforming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basedepth">baseDepth</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srs">srs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#schema">schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scale">scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#offset">offset</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-read-query">The Read Query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#depth-options">Depth Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bounds-option">Bounds option</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#transformation-options">Transformation Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#filters">Filters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#other-options">Other options</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-count-query">The Count Query</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-static-query">The Static Query</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-hierarchy-query">The Hierarchy Query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#purpose-and-usage">Purpose and Usage</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#options">Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#returned-data">Returned data</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-files-query">The Files Query</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#description">Description</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#single-selection-form">Single-selection form</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#query-form">Query form</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bounds-overlap-query">Bounds-overlap query</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#results">Results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#working-with-greyhound">Working with Greyhound</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#errors">Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#optimizing-server-performance">Optimizing Server Performance</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#initial-fetch">Initial Fetch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#progressive-querying">Progressive Querying</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sample-queries">Sample Queries</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="community.html">Community</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Greyhound</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Home</a> &raquo;</li>
+      
+    <li>Client Development</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="client-development">
+<h1>Client Development<a class="headerlink" href="#client-development" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">author:</th><td class="field-body">Connor Manning</td>
+</tr>
+<tr class="field-even field"><th class="field-name">email:</th><td class="field-body"><a class="reference external" href="mailto:connor&#37;&#52;&#48;hobu&#46;co">connor<span>&#64;</span>hobu<span>&#46;</span>co</a></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">date:</th><td class="field-body">09/30/2016</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>Greyhound is a dynamic point cloud server architecture that performs progressive level-of-detail streaming of indexed resources on-demand.  Greyhound can also stream unindexed files in a binary format specified by a client.</p>
+<div class="section" id="using-greyhound">
+<h3>Using Greyhound<a class="headerlink" href="#using-greyhound" title="Permalink to this headline">¶</a></h3>
+<p>Greyhound provides a simple HTTP interface to request information and data from remote point cloud resources.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="section" id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="command-set">
+<h3>Command Set<a class="headerlink" href="#command-set" title="Permalink to this headline">¶</a></h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Command</th>
+<th class="head">Function</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>info</td>
+<td>Get the JSON metadata for a resource.</td>
+</tr>
+<tr class="row-odd"><td>read</td>
+<td>Read points from a resource.</td>
+</tr>
+<tr class="row-even"><td>static</td>
+<td>Read and display points from a resource.</td>
+</tr>
+<tr class="row-odd"><td>count</td>
+<td>Count points for a query without downloading them.</td>
+</tr>
+<tr class="row-even"><td>hierarchy</td>
+<td>Get a metadata hierarchy with point counts information.</td>
+</tr>
+<tr class="row-odd"><td>files</td>
+<td>Get the metadata for files from the unindexed dataset.</td>
+</tr>
+</tbody>
+</table>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+<div class="section" id="making-requests">
+<h3>Making Requests<a class="headerlink" href="#making-requests" title="Permalink to this headline">¶</a></h3>
+<p>Greyhound&#8217;s API is exposed via HTTP or HTTPS, using GET requests of the form <code class="docutils literal"><span class="pre">http://&lt;greyhound-server&gt;/resource/&lt;resource-name&gt;/&lt;command&gt;?&lt;options&gt;</span></code></p>
+<p>The HTTP body of Greyhound&#8217;s response contains the result of the request, which is either a JSON object for the <code class="docutils literal"><span class="pre">info</span></code> and <code class="docutils literal"><span class="pre">hierarchy</span></code> queries, or binary point data for the <code class="docutils literal"><span class="pre">read</span></code> query.  A response to <code class="docutils literal"><span class="pre">read</span></code> also contains some necessary information about the response as HTTP header data (see <a class="reference internal" href="#the-read-query">The Read Query</a> for details).</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="section" id="the-info-query">
+<h2>The Info Query<a class="headerlink" href="#the-info-query" title="Permalink to this headline">¶</a></h2>
+<p>The <cite>info</cite> command returns a JSON structure with various metadata for the requested resource.  For the HTTP interface, this is contained in the body of the response - for WebSockets, this is contained in the response key <code class="docutils literal"><span class="pre">info</span></code>.</p>
+<p>The keys present in this JSON object are detailed below.</p>
+<div class="section" id="type">
+<h3>type<a class="headerlink" href="#type" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: String</p>
+<p><em>Description</em>: Equal to &#8220;octree&#8221;.  This key exists for future expansion.</p>
+</div>
+<div class="section" id="numpoints">
+<h3>numPoints<a class="headerlink" href="#numpoints" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Integer</p>
+<p><em>Description</em>: Number of points present in the resource.</p>
+</div>
+<div class="section" id="bounds">
+<h3>bounds<a class="headerlink" href="#bounds" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Array of doubles.</p>
+<p><em>Description</em>: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is <code class="docutils literal"><span class="pre">[xMin,</span> <span class="pre">yMin,</span> <span class="pre">zMin,</span> <span class="pre">xMax,</span> <span class="pre">yMax,</span> <span class="pre">zMax]</span></code>.  This bounding box is a cube, and represents the bounds which are recursively bisected for the octree indexing.  Clients should use this bounds for dynamic level-of-detail loading.</p>
+</div>
+<div class="section" id="boundsconforming">
+<h3>boundsConforming<a class="headerlink" href="#boundsconforming" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Array of doubles.</p>
+<p><em>Description</em>: An array of length 6 containing the maximum and minimum values for each of X, Y, and Z dimensions.  The format is <code class="docutils literal"><span class="pre">[xMin,</span> <span class="pre">yMin,</span> <span class="pre">zMin,</span> <span class="pre">xMax,</span> <span class="pre">yMax,</span> <span class="pre">zMax]</span></code>.  This bounding box represents a bounds that tightly conforms to the points in the resource.</p>
+</div>
+<div class="section" id="basedepth">
+<h3>baseDepth<a class="headerlink" href="#basedepth" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Integer</p>
+<p><em>Description</em>: The first octree depth which contains point data.  If this value is non-zero, then no points exist in the depth range <code class="docutils literal"><span class="pre">[0,</span> <span class="pre">baseDepth)</span></code>.</p>
+</div>
+<div class="section" id="srs">
+<h3>srs<a class="headerlink" href="#srs" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: String</p>
+<p><em>Description</em>: A well-known-text (WKT) string representing the spatial reference system of this resource.</p>
+</div>
+<div class="section" id="schema">
+<h3>schema<a class="headerlink" href="#schema" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Array of Objects.</p>
+<p><em>Description</em>: An array of dimension information representing the native schema of a resource.  Each dimension object contains entries for <cite>name</cite>, <cite>type</cite>, and <cite>size</cite>, as shown below.  The dimensions requested during a <code class="docutils literal"><span class="pre">read</span></code> request should be a subset of these dimensions, and their types may be altered to suit a given application (see <a class="reference internal" href="#the-read-query">The Read Query</a> for details).  Known dimensions are described in the <a class="reference external" href="http://www.pdal.io/dimensions.html">PDAL dimension registry</a>, however there may be other dimensions present in the schema (typically application or format-defined dimensions).</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="84%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Value</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;name&quot;</span></code></td>
+<td>Dimension name.</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">&quot;type&quot;</span></code></td>
+<td>Dimension type.  Possible values: <code class="docutils literal"><span class="pre">&quot;signed&quot;</span></code>, <code class="docutils literal"><span class="pre">&quot;unsigned&quot;</span></code>, <code class="docutils literal"><span class="pre">&quot;floating&quot;</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;size&quot;</span></code></td>
+<td>Dimension size in bytes.  Possible values: <code class="docutils literal"><span class="pre">&quot;1&quot;</span></code>, <code class="docutils literal"><span class="pre">&quot;2&quot;</span></code>, <code class="docutils literal"><span class="pre">&quot;4&quot;</span></code>, <code class="docutils literal"><span class="pre">&quot;8&quot;</span></code></td>
+</tr>
+</tbody>
+</table>
+<p>A <code class="docutils literal"><span class="pre">schema</span></code> looks something like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span>                  <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;floating&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;8&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span>                  <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;floating&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;8&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>                  <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;floating&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;8&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Intensity&quot;</span><span class="p">,</span>          <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Red&quot;</span><span class="p">,</span>                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Green&quot;</span><span class="p">,</span>              <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Blue&quot;</span><span class="p">,</span>               <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;ReturnNumber&quot;</span><span class="p">,</span>       <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;NumberOfReturns&quot;</span><span class="p">,</span>    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;PointId&quot;</span><span class="p">,</span>            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;OriginId&quot;</span><span class="p">,</span>           <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;unsigned&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span> <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="scale">
+<h3>scale<a class="headerlink" href="#scale" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: A single double, or an array of three doubles.  This key is <strong>optional</strong>, and may not be present for absolutely positioned resources.</p>
+<p><em>Description</em>: This field gives insight into the physical storage of the dataset.  If present, it generally corresponds to the resolution of the source data.  If this value is a scalar, like <code class="docutils literal"><span class="pre">0.01</span></code>, then uniform scaling is implied - equivalent to the array <code class="docutils literal"><span class="pre">[0.01,</span> <span class="pre">0.01,</span> <span class="pre">0.01]</span></code>.  The bounds information from the <code class="docutils literal"><span class="pre">info</span></code> call does not have this scale pre-applied, so <code class="docutils literal"><span class="pre">bounds</span></code> and <code class="docutils literal"><span class="pre">boundsConforming</span></code> are always absolutely positioned.</p>
+</div>
+<div class="section" id="offset">
+<h3>offset<a class="headerlink" href="#offset" title="Permalink to this headline">¶</a></h3>
+<p><em>Type</em>: Array of doubles.  This key is <strong>optional</strong>, and may not be present for absolutely positioned resources.</p>
+<p><em>Description</em>: This field gives insight into the physical storage of the dataset.  If present, then the data-on-disk is written with this offset applied.  The bounds information from the <code class="docutils literal"><span class="pre">info</span></code> call does not have this offset pre-applied, so <code class="docutils literal"><span class="pre">bounds</span></code> and <code class="docutils literal"><span class="pre">boundsConforming</span></code> are always absolutely positioned.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="section" id="the-read-query">
+<h2>The Read Query<a class="headerlink" href="#the-read-query" title="Permalink to this headline">¶</a></h2>
+<p>This query returns binary point data from a given resource.  Following the binary point data, 4 bytes that indicate the number of points in the response are appended.  These may be parsed as a 32-bit unsigned integer, transmitted in network byte order.  If the last 4 bytes are zero, then those 4 bytes shall be the only 4 bytes in the response.</p>
+<div class="section" id="depth-options">
+<h3>Depth Options<a class="headerlink" href="#depth-options" title="Permalink to this headline">¶</a></h3>
+<p>Depth options allow a client to query varying levels of detail for a resource on demand.  A <em>depth</em> corresponds to a tree depth in a quad- or octree.  These depths correspond to a traditional tree starting at depth zero, which contains a single point (the center-most point in the set bounds).  Depth one contains 4 points (one in each quadrant) for a quadtree or 8 for an octree.  Assuming the data exists, each of those points contains its 4 or 8 child points, and so forth.  Each depth has 4<sup>depth</sup> points for a quadtree or 8<sup>depth</sup> points for an octree.  Point do not necessarily start at depth zero (see <a class="reference internal" href="#basedepth">baseDepth</a> for more information).</p>
+<p>Available options for depth selection are:</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">depth</span></code>: Query a single depth of the tree.</li>
+<li><code class="docutils literal"><span class="pre">depthEnd</span></code>: Query depths up to, but <strong>not</strong> including, this depth.  If <code class="docutils literal"><span class="pre">depthBegin</span></code> is not specified, then this query selects from depth zero until <code class="docutils literal"><span class="pre">depthEnd</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">depthBegin</span></code>: Must be used with <code class="docutils literal"><span class="pre">depthEnd</span></code>.  Queries run from <code class="docutils literal"><span class="pre">depthBegin</span></code> (inclusive) to <code class="docutils literal"><span class="pre">depthEnd</span></code> (non-inclusive).  A query containing <code class="docutils literal"><span class="pre">depthBegin=6</span></code> and <code class="docutils literal"><span class="pre">depthEnd=7</span></code> is identical to a query of <code class="docutils literal"><span class="pre">depth=6</span></code>.</li>
+</ul>
+<p>If no depth parameters are present in a query, then all depths are selected.  This is only recommended if the spatial extents begin queried (see <a class="reference internal" href="#bounds-option">Bounds option</a>) are very small.</p>
+</div>
+<div class="section" id="bounds-option">
+<h3>Bounds option<a class="headerlink" href="#bounds-option" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">bounds</span></code> option allows a client to select only a portion of the entire dataset&#8217;s bounds, as given by the <code class="docutils literal"><span class="pre">bounds</span></code> field from The <strong>Info</strong> Query.  If this field is omitted, the total dataset bounds are queried.</p>
+<p>For a 3-dimensional query, the array may be of length 6, formatted as <code class="docutils literal"><span class="pre">[xMin,</span> <span class="pre">yMin,</span> <span class="pre">zMin,</span> <span class="pre">xMax,</span> <span class="pre">yMax,</span> <span class="pre">zMax]</span></code>.  An array of length 4, formatted as <code class="docutils literal"><span class="pre">[xMin,</span> <span class="pre">yMin,</span> <span class="pre">xMax,</span> <span class="pre">yMax]</span></code> will query the entire Z-range of the dataset within the given XY bounds.</p>
+<p>If omitted, then the entire resource bounds are selected.  This is only recommended if the depth range is very shallow.</p>
+</div>
+<div class="section" id="transformation-options">
+<h3>Transformation Options<a class="headerlink" href="#transformation-options" title="Permalink to this headline">¶</a></h3>
+<p>Values for <code class="docutils literal"><span class="pre">scale</span></code> and/or <code class="docutils literal"><span class="pre">offset</span></code> may be supplied, which allows for the use of a transformed local coordinate system.  A common use would be requested scaled integer data centered around the origin.</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">scale</span></code> - Either a non-zero number or an array of numbers of length 3, formatted as <code class="docutils literal"><span class="pre">[xScale,</span> <span class="pre">yScale,</span> <span class="pre">zScale]</span></code>.  If this value is a number, then that number will be used for all three scale values.</li>
+<li><code class="docutils literal"><span class="pre">offset</span></code> - An array of 3 numbers, formatted as <code class="docutils literal"><span class="pre">[xOffset,</span> <span class="pre">yOffset,</span> <span class="pre">zOffset]</span></code>.</li>
+</ul>
+<p>If one or both of these values are present, then the <code class="docutils literal"><span class="pre">bounds</span></code> of the query must already be transformed with these values.  For example, let&#8217;s say that the <code class="docutils literal"><span class="pre">info</span></code> of a resource contains a bounds of <code class="docutils literal"><span class="pre">[500,</span> <span class="pre">500,</span> <span class="pre">500,</span> <span class="pre">700,</span> <span class="pre">700,</span> <span class="pre">700]</span></code>, and the client wants to receive data in a local coordinate system centered around the origin with a scale factor of <code class="docutils literal"><span class="pre">0.1</span></code>.  In this case, a request might look like:</p>
+<p><code class="docutils literal"><span class="pre">/resource/something/read?depth=8&amp;bounds=[-1000,-1000,-1000,1000,1000,1000]&amp;scale=0.01&amp;offset=[600,600,600]</span></code></p>
+<p>If <code class="docutils literal"><span class="pre">scale</span></code> and <code class="docutils literal"><span class="pre">offset</span></code> values are passed, and they are exactly equivalent to those present in the <code class="docutils literal"><span class="pre">info</span></code> query, then this results in a no-op transformation on the server since the data is already in the desired local coordinate space under-the-hood.</p>
+</div>
+<div class="section" id="filters">
+<h3>Filters<a class="headerlink" href="#filters" title="Permalink to this headline">¶</a></h3>
+<p>An arbitrary filtering structure may be passed along with a <code class="docutils literal"><span class="pre">read</span></code> request, which can be used to filter out points that do not meet some criteria.  The syntax of the filter tree is the same as MongoDB&#8217;s <a class="reference external" href="https://docs.mongodb.com/manual/reference/operator/query-comparison/">Query</a> and <a class="reference external" href="https://docs.mongodb.com/manual/reference/operator/query-logical/">Logical</a> operator syntax, using the dimensions from <a class="reference internal" href="#schema">schema</a> as the column criteria.</p>
+<p>A filter tree might look like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;$or&quot;</span><span class="p">:[</span>
+    <span class="p">{</span><span class="s2">&quot;Red&quot;</span><span class="p">:{</span><span class="s2">&quot;$gt&quot;</span><span class="p">:</span><span class="mi">200</span><span class="p">}},</span>
+    <span class="p">{</span><span class="s2">&quot;Blue&quot;</span><span class="p">:{</span><span class="s2">&quot;$gt&quot;</span><span class="p">:</span><span class="mi">120</span><span class="p">,</span><span class="s2">&quot;$lt&quot;</span><span class="p">:</span><span class="mi">130</span><span class="p">}},</span>
+    <span class="p">{</span><span class="s2">&quot;Classification&quot;</span><span class="p">:{</span><span class="s2">&quot;$nin&quot;</span><span class="p">:[</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">]}}</span>
+<span class="p">]}</span>
+</pre></div>
+</div>
+<p>Data from original source files may be requested with the special <code class="docutils literal"><span class="pre">Path</span></code> pseudo-dimension (which does not appear in the <a class="reference internal" href="#schema">schema</a>), which will be index-optimized:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Path&quot;</span><span class="p">:</span><span class="s2">&quot;tile-845.laz&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Selecting an input file by its <code class="docutils literal"><span class="pre">OriginId</span></code> dimension is also index-optimized:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Origin&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="other-options">
+<h3>Other options<a class="headerlink" href="#other-options" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">schema</span></code>: Formatted the same way as <a class="reference internal" href="#schema">schema</a>.  This specifies the formatting of the binary data returned by Greyhound.  If any dimensions in the query result cannot be coerced into the specified type and size, an error occurs.  If any specified dimensions do not exist in the native schema, their positions will be zero-filled.  If this option is omitted, resulting data will be formatted in accordance with the native resource <a class="reference internal" href="#schema">schema</a>.</li>
+<li><code class="docutils literal"><span class="pre">compress</span></code>: If true, the resulting stream will be compressed with <a class="reference external" href="http://github.com/hobu/laz-perf">laz-perf</a>.  The <code class="docutils literal"><span class="pre">schema</span></code> parameter, if provided, is respected by the compressed stream.  If omitted, data is returned uncompressed.</li>
+</ul>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="section" id="the-count-query">
+<h2>The Count Query<a class="headerlink" href="#the-count-query" title="Permalink to this headline">¶</a></h2>
+<p>The format of this query matches the <code class="docutils literal"><span class="pre">read</span></code> query, and performs this query internally to the server without streaming any point data to the client.  The result is an accurate number of points for this query as well as the number of chunks used to perform this query:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;points&quot;</span><span class="p">:</span> <span class="mi">19700</span><span class="p">,</span>
+    <span class="s2">&quot;chunks&quot;</span><span class="p">:</span> <span class="mi">1</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The value of <code class="docutils literal"><span class="pre">chunks</span></code> doesn&#8217;t have much meaning in absolute terms, but may be used to compare the server-side weight of queries in comparison to one another.  A &#8220;chunk&#8221; represents a server-side fetch of indexed point cloud data from the storage back-end for the requested resource.  Note that due to server caching, repeatedly queried chunks do not need to be fetched every time their data is accessed.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+<div class="section" id="the-static-query">
+<h2>The Static Query<a class="headerlink" href="#the-static-query" title="Permalink to this headline">¶</a></h2>
+<p>This query forwards any query parameters to its corresponding <cite>read</cite> query (excluding the <cite>schema</cite>) and displays the result within a static renderer.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+<div class="section" id="the-hierarchy-query">
+<h2>The Hierarchy Query<a class="headerlink" href="#the-hierarchy-query" title="Permalink to this headline">¶</a></h2>
+<p>This query returns point count information for a given bounding box and depth, and also recursively for incrementing depths and bisected bounding boxes.  This query is only supported for indexed datasets (see <cite>type</cite>).</p>
+<div class="section" id="purpose-and-usage">
+<h3>Purpose and Usage<a class="headerlink" href="#purpose-and-usage" title="Permalink to this headline">¶</a></h3>
+<p>The hierarchy query is used to build a client-side version of the structure of portions of the indexed tree in advance of querying actual data.  It is recommended that some base amount of data is loaded before this query, since it may take longer than a typical data query to complete.  A client should only query the hierarchy for a few depths at a time, and then query ever-bisected sub-bounds for each subsequent depth range (for example, depths <code class="docutils literal"><span class="pre">[8,</span> <span class="pre">12)</span></code> with the full bounds, but the bounds for queries of <code class="docutils literal"><span class="pre">[12,</span> <span class="pre">16)</span></code>, should be bisected 4 times from the full bounds).</p>
+<div class="section" id="options">
+<h4>Options<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h4>
+<p>The hierarchy query accepts options that are similar to those from the <code class="docutils literal"><span class="pre">read</span></code> query.</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">bounds</span></code>: The overall bounds to query.</li>
+<li><code class="docutils literal"><span class="pre">scale</span></code>: Scale factor pre-applied to the requested <code class="docutils literal"><span class="pre">bounds</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">offset</span></code>: Offset pre-applied to the requested <code class="docutils literal"><span class="pre">bounds</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">depthBegin</span></code>: The starting depth to begin the query for the full specified <code class="docutils literal"><span class="pre">bounds</span></code>.</li>
+<li><code class="docutils literal"><span class="pre">depthEnd</span></code>: Similar to the <code class="docutils literal"><span class="pre">read</span></code> query, queries run from <code class="docutils literal"><span class="pre">depthBegin</span></code> (inclusive) to <code class="docutils literal"><span class="pre">depthEnd</span></code> (non-inclusive).</li>
+</ul>
+</div>
+<div class="section" id="returned-data">
+<h4>Returned data<a class="headerlink" href="#returned-data" title="Permalink to this headline">¶</a></h4>
+<p>The hierarchy query returns JSON data, which at the top level, contains the number of points at depth <code class="docutils literal"><span class="pre">depthBegin</span></code> within the full <code class="docutils literal"><span class="pre">bounds</span></code> box.  Point counts are specified with the <code class="docutils literal"><span class="pre">n</span></code> JSON key.  Nested within the top-level JSON response are subsequent levels up to <code class="docutils literal"><span class="pre">depthEnd</span></code>, where each new nesting level represents another level of the recursively bisected <code class="docutils literal"><span class="pre">bounds</span></code>.</p>
+<p>Bisection directions are denoted by 8 keys for octrees (4 for quadtrees) representing the direction of the split in the native point space.  In this space, we consider North to be an increase in Y (with decrease being South), East to mean an increase in X (with decrease being West), and Up to be an increase in Z (decrease being Down).  The first letter of each of these directions is concatenated in the previously mentioned order, which is more simply shown with an example:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="39%" />
+<col width="61%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Key</th>
+<th class="head">Meaning</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;nwu&quot;</span></code></td>
+<td>North-west-up</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">&quot;nwd&quot;</span></code></td>
+<td>North-west-down</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;neu&quot;</span></code></td>
+<td>North-east-up</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">&quot;ned&quot;</span></code></td>
+<td>North-east-down</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;swu&quot;</span></code></td>
+<td>South-west-up</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">&quot;swd&quot;</span></code></td>
+<td>South-west-down</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">&quot;seu&quot;</span></code></td>
+<td>South-east-up</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">&quot;sed&quot;</span></code></td>
+<td>South-east-down</td>
+</tr>
+</tbody>
+</table>
+<p>For quadtree queries, the third character is omitted, so possible keys are <code class="docutils literal"><span class="pre">nw</span></code>, <code class="docutils literal"><span class="pre">ne</span></code>, <code class="docutils literal"><span class="pre">sw</span></code>, and <code class="docutils literal"><span class="pre">se</span></code>.</p>
+<p>Within each tree depth of the response, the number of points indicated by a traversal is indicated with the key <code class="docutils literal"><span class="pre">n</span></code>.  A sample response for a call of <code class="docutils literal"><span class="pre">/hierarchy?bounds=[0,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">1000,</span> <span class="pre">1000,</span> <span class="pre">1000]&amp;depthBegin=8&amp;depthEnd=11</span></code> might look like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">158192</span><span class="p">,</span>
+    <span class="s2">&quot;ned&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">138599</span><span class="p">,</span>
+        <span class="s2">&quot;neu&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">130674</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;nwu&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">98252</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;seu&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">127565</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;swu&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">81784</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;neu&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">13653</span><span class="p">,</span>
+        <span class="s2">&quot;ned&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">12531</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;sed&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">18163</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;swd&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="mi">4617</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="o">...</span> <span class="o">//</span> <span class="n">etc</span><span class="o">.</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This result indicates that at depth 8, for the entire queried bounds, there are 158192 points.</p>
+<p>At depth 9, for the north-east-down (<code class="docutils literal"><span class="pre">ned</span></code>) bisected bounds, which would be <code class="docutils literal"><span class="pre">[500,</span> <span class="pre">500,</span> <span class="pre">0,</span> <span class="pre">1000,</span> <span class="pre">1000,</span> <span class="pre">500]</span></code>, there are 138599 points.  For <code class="docutils literal"><span class="pre">neu</span></code> at depth 9, being <code class="docutils literal"><span class="pre">[500,</span> <span class="pre">500,</span> <span class="pre">500,</span> <span class="pre">1000,</span> <span class="pre">1000,</span> <span class="pre">1000]</span></code>, there are 13653 points.</p>
+<p>At depth 10, starting from the <code class="docutils literal"><span class="pre">ned</span></code> bounds, the <code class="docutils literal"><span class="pre">neu</span></code> bounds of <code class="docutils literal"><span class="pre">[750,</span> <span class="pre">750,</span> <span class="pre">250,</span> <span class="pre">1000,</span> <span class="pre">1000,</span> <span class="pre">500]</span></code> contains 13064 points.  Since there is no key for <code class="docutils literal"><span class="pre">[&quot;ned&quot;][&quot;ned&quot;]</span></code>, there are zero points at depth 10 for bounds <code class="docutils literal"><span class="pre">[750,</span> <span class="pre">750,</span> <span class="pre">0,</span> <span class="pre">1000,</span> <span class="pre">1000,</span> <span class="pre">250]</span></code>.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="the-files-query">
+<h2>The Files Query<a class="headerlink" href="#the-files-query" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="description">
+<h3>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h3>
+<p>This query returns a JSON structure containing the original metadata found in the selected input files which make up an indexed dataset.  The metadata for a single file may be returned as an object, or if multiple files are selected, an array of objects.  Files may be selected by their filename, their location in the index, or by selecting those files which overlap a queried bounds.</p>
+</div>
+<div class="section" id="single-selection-form">
+<h3>Single-selection form<a class="headerlink" href="#single-selection-form" title="Permalink to this headline">¶</a></h3>
+<p>One form of the <code class="docutils literal"><span class="pre">files</span></code> query selects the metadata for a single file from the input of an index.  This selection is accomplished via a string portion of a file-path or a number specifying a unique sequence-location within the output index.</p>
+<p>The file-path selection looks like <code class="docutils literal"><span class="pre">/files/my-input-tile-42.laz</span></code>.  In this case, a substring match will be performed against the string <code class="docutils literal"><span class="pre">my-input-tile-42.laz</span></code>.  The input to the <code class="docutils literal"><span class="pre">files</span></code> query must be specific enough to select only the file desired.  For example, if a dataset were comprised of files <code class="docutils literal"><span class="pre">abc-1.laz</span></code> and <code class="docutils literal"><span class="pre">abc-2.laz</span></code>, a query of <code class="docutils literal"><span class="pre">/files/abc</span></code> could return either of those files.</p>
+<p>A sequence-location selection looks like <code class="docutils literal"><span class="pre">/files/2718</span></code>, which would select the file with an <code class="docutils literal"><span class="pre">OriginId</span></code> of <code class="docutils literal"><span class="pre">2718</span></code>.  For each input file, every point from that file is assigned a unique <code class="docutils literal"><span class="pre">OriginId</span></code> dimension, so this query may be derived from the point data for a point received from a <code class="docutils literal"><span class="pre">read</span></code> query.</p>
+<p>If no match can be made for either a partial path or an <code class="docutils literal"><span class="pre">OriginId</span></code> value, then <code class="docutils literal"><span class="pre">null</span></code> will be returned.</p>
+</div>
+<div class="section" id="query-form">
+<h3>Query form<a class="headerlink" href="#query-form" title="Permalink to this headline">¶</a></h3>
+<p>The single-selection queries above may be alternatively made with a more flexible query-parameter format using the query parameter <code class="docutils literal"><span class="pre">search</span></code>.  For the above examples, the corresponding queries would be <code class="docutils literal"><span class="pre">/files?search=my-input-tile-42.laz</span></code> and <code class="docutils literal"><span class="pre">files?search=2718</span></code>.</p>
+<p>In addition to the single-selection form, this form may also accept an array containing multiple queries similar to the above.  Their types may be mixed, for example the array may contain both file paths as well as <code class="docutils literal"><span class="pre">OriginId</span></code> values.  For example, <code class="docutils literal"><span class="pre">/files?search=[&quot;my-input-tile-42.laz&quot;,</span> <span class="pre">2718]</span></code>.  The array must be valid JSON, so strings must be quoted.  For each entry in the input query, the output will contain one entry, which may be null if no matches were found for an input entry.  If the query is of size one, then the result will be an object (or null if there are no results).</p>
+</div>
+<div class="section" id="bounds-overlap-query">
+<h3>Bounds-overlap query<a class="headerlink" href="#bounds-overlap-query" title="Permalink to this headline">¶</a></h3>
+<p>File metadata may also be selected by querying for a <code class="docutils literal"><span class="pre">bounds</span></code>, in which case all overlapping files from the input will be selected.  This query looks like <code class="docutils literal"><span class="pre">/files?bounds=[100,</span> <span class="pre">200,</span> <span class="pre">300,</span> <span class="pre">1100,</span> <span class="pre">1200,</span> <span class="pre">1300]</span></code> or <code class="docutils literal"><span class="pre">/files?bounds=[100,</span> <span class="pre">200,</span> <span class="pre">1100,</span> <span class="pre">1200]</span></code>.  The format is <code class="docutils literal"><span class="pre">[x-min,</span> <span class="pre">y-min,</span> <span class="pre">z-min,</span> <span class="pre">x-max,</span> <span class="pre">y-max,</span> <span class="pre">z-max]</span></code> or <code class="docutils literal"><span class="pre">[x-min,</span> <span class="pre">y-min,</span> <span class="pre">x-max,</span> <span class="pre">y-max]</span></code>.  Again, if only one match is found, then the result will be an object - if multiple matches are found, an array - and if zero, null.</p>
+</div>
+<div class="section" id="results">
+<h3>Results<a class="headerlink" href="#results" title="Permalink to this headline">¶</a></h3>
+<p>A single result may look something like this, edited for brevity</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;bounds&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">635648.8200000001</span><span class="p">,</span> <span class="mf">851234.24</span><span class="p">,</span> <span class="mf">411.09</span><span class="p">,</span> <span class="mf">636357.77</span><span class="p">,</span> <span class="mf">852448.12</span><span class="p">,</span> <span class="mf">556.69</span><span class="p">],</span>
+    <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;comp_spatialreference&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;compressed&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+        <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="mi">591852</span><span class="p">,</span>
+        <span class="s2">&quot;creation_doy&quot;</span><span class="p">:</span> <span class="mi">271</span><span class="p">,</span>
+        <span class="s2">&quot;creation_year&quot;</span><span class="p">:</span> <span class="mi">2016</span><span class="p">,</span>
+        <span class="s2">&quot;dataformat_id&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;dataoffset&quot;</span><span class="p">:</span> <span class="mi">1812</span><span class="p">,</span>
+        <span class="s2">&quot;filesource_id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;global_encoding&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;global_encoding_base64&quot;</span><span class="p">:</span> <span class="s2">&quot;AAA=&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;header_size&quot;</span><span class="p">:</span> <span class="mi">227</span><span class="p">,</span>
+        <span class="s2">&quot;major_version&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;maxx&quot;</span><span class="p">:</span> <span class="mf">636357.77</span><span class="p">,</span>
+        <span class="s2">&quot;maxy&quot;</span><span class="p">:</span> <span class="mf">852448.12</span><span class="p">,</span>
+        <span class="s2">&quot;maxz&quot;</span><span class="p">:</span> <span class="mf">556.69</span><span class="p">,</span>
+        <span class="s2">&quot;minor_version&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;minx&quot;</span><span class="p">:</span> <span class="mf">635648.82</span><span class="p">,</span>
+        <span class="s2">&quot;miny&quot;</span><span class="p">:</span> <span class="mf">851234.24</span><span class="p">,</span>
+        <span class="s2">&quot;minz&quot;</span><span class="p">:</span> <span class="mf">411.09</span><span class="p">,</span>
+        <span class="s2">&quot;offset_x&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;offset_y&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;offset_z&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;project_id&quot;</span><span class="p">:</span> <span class="s2">&quot;00000000-0000-0000-0000-000000000000&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;scale_x&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;scale_y&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;scale_z&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s2">&quot;software_id&quot;</span><span class="p">:</span> <span class="s2">&quot;PDAL 1.3.0 (8a481e)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;spatialreference&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;srs&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;compoundwkt&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;isgeocentric&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+            <span class="s2">&quot;isgeographic&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+            <span class="s2">&quot;prettycompoundwkt&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;prettywkt&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;proj4&quot;</span><span class="p">:</span> <span class="s2">&quot;+proj=lcc +lat_1=43 +lat_2=45.5 +lat_0=41.75 +lon_0=-120.5 +x_0=399999.9999999999 +y_0=0 +ellps=GRS80 +units=ft +no_defs&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;units&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="s2">&quot;foot&quot;</span><span class="p">,</span> <span class="s2">&quot;vertical&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span> <span class="p">},</span>
+            <span class="s2">&quot;vertical&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wkt&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;system_id&quot;</span><span class="p">:</span> <span class="s2">&quot;PDAL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;vlr_0&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;http://laszip.org&quot;</span><span class="p">,</span> <span class="s2">&quot;record_id&quot;</span><span class="p">:</span> <span class="mi">22204</span><span class="p">,</span> <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;laszip encoded&quot;</span> <span class="p">},</span>
+        <span class="s2">&quot;vlr_1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>
+        <span class="s2">&quot;vlr_2&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;numPoints&quot;</span><span class="p">:</span> <span class="mi">591852</span><span class="p">,</span>
+    <span class="s2">&quot;origin&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;my-data/tile-10.laz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pointStats&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="s2">&quot;inserts&quot;</span><span class="p">:</span> <span class="mi">591852</span><span class="p">,</span> <span class="s2">&quot;outOfBounds&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;overflows&quot;</span><span class="p">:</span> <span class="mi">0</span> <span class="p">},</span>
+    <span class="s2">&quot;srs&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;inserted&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">metadata</span></code> key is header metadata picked up by PDAL, so its contents are simply forwarded as-is.  Other keys are specific to Entwine&#8217;s indexing.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="section" id="working-with-greyhound">
+<h2>Working with Greyhound<a class="headerlink" href="#working-with-greyhound" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="errors">
+<h3>Errors<a class="headerlink" href="#errors" title="Permalink to this headline">¶</a></h3>
+<p>Greyhound errors result in standard HTTP error codes.  Invalid options or improper formatting will result in a <code class="docutils literal"><span class="pre">400</span> <span class="pre">-</span> <span class="pre">client</span> <span class="pre">error</span></code>, meaning the request should not be repeated without modification.  If the query is valid but cannot be process, a status code of <code class="docutils literal"><span class="pre">500</span> <span class="pre">-</span> <span class="pre">internal</span> <span class="pre">server</span> <span class="pre">error</span></code> will be returned.</p>
+<p>For indexed datasets, a query that is too large will result in a <code class="docutils literal"><span class="pre">413</span> <span class="pre">-</span> <span class="pre">entity</span> <span class="pre">too</span> <span class="pre">large</span></code> error code.  This means that the query requires fetches of too many remotely stored chunks of data, so Greyhound refuses to process it.  The exact maximum count depends both on how the data was indexed and how the server was configured, so a client should be prepared to react to this error code by either shrinking the requested bounds or lowering the requested depth.  This allows Greyhound to maintain fast response times for all users and urges clients to develop a query pattern that results quick feedback to the user during progressive loading.</p>
+</div>
+<div class="section" id="optimizing-server-performance">
+<h3>Optimizing Server Performance<a class="headerlink" href="#optimizing-server-performance" title="Permalink to this headline">¶</a></h3>
+<p>A client&#8217;s query pattern can significantly affect their performance, even while staying under the <code class="docutils literal"><span class="pre">413</span></code> limits imposed by the server.  Some basic tips for query patterns follow.</p>
+<div class="section" id="initial-fetch">
+<h4>Initial Fetch<a class="headerlink" href="#initial-fetch" title="Permalink to this headline">¶</a></h4>
+<p>A client should always start by requesting the <code class="docutils literal"><span class="pre">info</span></code> for a given resource, and store the entire result.</p>
+<p>This allows a client to avoid querying non-existent dimensions, for example a web renderer that generally queries Red, Green, and Blue dimensions should not do so if those dimensions do not exist in the native schema.</p>
+</div>
+<div class="section" id="progressive-querying">
+<h4>Progressive Querying<a class="headerlink" href="#progressive-querying" title="Permalink to this headline">¶</a></h4>
+<p>For indexed datasets, a client should start with a single conservative &#8220;base&#8221; request - requesting depths zero until some fixed depth, rather than making small requests starting at depth zero.  If the response is a <code class="docutils literal"><span class="pre">413</span></code>, the client can continually lower the initial depth until a valid response is received.  The exact depth depends on the application, but this request has a well-defined maximum number of points - for example an octree query with <code class="docutils literal"><span class="pre">depthBegin=0</span></code> and <code class="docutils literal"><span class="pre">depthEnd=8</span></code> will result in 2396745 points at a maximum (8<sup>0</sup> + 8<sup>1</sup> + ... + 8<sup>7</sup> = 2396745).</p>
+<p>The &#8220;base&#8221; query is a request that gives quick feedback to a user of the entire set at a low resolution.  After this is displayed, a client should start splitting their <code class="docutils literal"><span class="pre">bounds</span></code> in the request as they move upward in depth.  In general, a query of depth <code class="docutils literal"><span class="pre">n</span> <span class="pre">+</span> <span class="pre">1</span></code> should have one-fourth the volume of depth <code class="docutils literal"><span class="pre">n</span></code> for quadtrees, or one-eight for octrees.  So for example, if the base depth query is 8, a client may decide to issue 8 queries of <code class="docutils literal"><span class="pre">depth=8</span></code>, one for each octant of the overall bounds.  For each query whose result contains a non-zero number of points, that octant may be again split into its 8 octants, and the process repeats.  This pattern allows the client to prune their search space - if a query of a given bounds returns zero points at depth <code class="docutils literal"><span class="pre">n</span></code>, then there are also zero points for those bounds at depth <code class="docutils literal"><span class="pre">n</span> <span class="pre">+</span> <span class="pre">1</span></code>.</p>
+<p>The exact depths and number of splits (for example, the base depth of 8 could have been split into 64 queries if the client wanted faster pruning of the cuboids) depends on the application and should be found via experimentation.  Too small of queries will prune the search space quickly, but will result in many queries with few points.  Too large of queries can result in a <code class="docutils literal"><span class="pre">413</span></code> and will fail to prune the search space effectively.</p>
+</div>
+<div class="section" id="sample-queries">
+<h4>Sample Queries<a class="headerlink" href="#sample-queries" title="Permalink to this headline">¶</a></h4>
+<p>This section shows some full HTTP requests for various queries, assuming a Greyhound server is running on localhost with an octree resource named <cite>the-moon</cite>.</p>
+<ul class="simple">
+<li>Get the metadata info: <code class="docutils literal"><span class="pre">localhost/resource/the-moon/info</span></code></li>
+<li>Query compressed data up to depth 8, fetching only X, Y, Z, and Intensity for the entire dataset bounds - where X, Y, and Z are requested as 4-byte floats and Intensity is a 2-byte unsigned integer: <code class="docutils literal"><span class="pre">localhost/resource/the-moon/read?depthEnd=8&amp;schema=[{&quot;name&quot;:&quot;X&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Y&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Z&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Intensity&quot;,&quot;type&quot;:&quot;unsigned&quot;,&quot;size&quot;:&quot;2&quot;}]&amp;compress=true</span></code></li>
+<li>Query uncompressed data at depth 12 within a given bounds, fetching XYZRGB values as single-byte unsigned integers: <code class="docutils literal"><span class="pre">localhost/resource/the-moon/read?depth=12&amp;bounds=[275,100,25,287.5,112.5,50]&amp;schema=[{&quot;name&quot;:&quot;X&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Y&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Z&quot;,&quot;type&quot;:&quot;floating&quot;,&quot;size&quot;:&quot;4&quot;},{&quot;name&quot;:&quot;Red&quot;,&quot;type&quot;:&quot;unsigned&quot;,&quot;size&quot;:&quot;1&quot;},{&quot;name&quot;:&quot;Green&quot;,&quot;type&quot;:&quot;unsigned&quot;,&quot;size&quot;:&quot;1&quot;},{&quot;name&quot;:&quot;Blue&quot;,&quot;type&quot;:&quot;unsigned&quot;,&quot;size&quot;:&quot;1&quot;}]</span></code></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="community.html" class="btn btn-neutral float-right" title="Community" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="download.html" class="btn btn-neutral" title="Download" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+                    &copy;  2018
+                        <a href="https://hobu.co">Hobu, Inc.</a>,
+      Last updated on May 06, 2018.
+
+    </p>
+  </div> 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'1.1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
