@@ -70,6 +70,32 @@ std::string color(const std::string& s, Color c)
 
 std::mutex m;
 
+void adjust(Json::Value& q, const entwine::NewReader& reader)
+{
+    // These are one-off adjustments to get speck.ly's dynamic base depth to
+    // conform to EPT's static base depth.
+
+    const uint64_t base(reader.metadata().structure().body());
+
+    if (base < 7)
+    {
+        const uint64_t delta(7 - base);
+
+        if (q.isMember("depth") && q["depth"].asUInt64() > 0)
+        {
+            q["depth"] = q["depth"].asUInt64() - delta;
+        }
+        if (q.isMember("depthBegin") && q["depthBegin"].asUInt64() > 0)
+        {
+            q["depthBegin"] = q["depthBegin"].asUInt64() - delta;
+        }
+        if (q.isMember("depthEnd") && q["depthEnd"].asUInt64() > 0)
+        {
+            q["depthEnd"] = q["depthEnd"].asUInt64() - delta;
+        }
+    }
+}
+
 } // unnamed namespace
 
 SharedReader& TimedReader::get()
@@ -186,7 +212,7 @@ Json::Value Resource::infoSingle() const
 
     if (const auto r = meta.reprojection()) json["reprojection"] = r->toJson();
     if (meta.density()) json["density"] = meta.density();
-    if (const auto d = meta.delta()) d->insertInto(json);
+    if (const auto d = meta.delta()) entwine::merge(json, d->toJson());
 
     return json;
 }
@@ -278,8 +304,9 @@ void Resource::hierarchy(Req& req, Res& res)
         throw std::runtime_error("Hierarchy not allowed for multi-resource");
     }
 
-    const Json::Value q(parseQuery(req));
-    const Json::Value result(m_readers.front()->get()->fakeHierarchy(q));
+    Json::Value q(parseQuery(req));
+    adjust(q, *m_readers.front()->get());
+    const Json::Value result(m_readers.front()->get()->hierarchy(q));
     auto h(m_manager.headers());
     h.emplace("Content-Type", "application/json");
     res.write(dense(result), h);
@@ -409,31 +436,7 @@ void Resource::read(Req& req, Res& res)
 
     Json::Value q(parseQuery(req));
 
-    {
-        // TODO One-off adjustments.
-
-        SharedReader reader(m_readers.front()->get());
-        const auto& meta(reader->metadata());
-        const uint64_t base(meta.structure().body());
-
-        if (base < 7)
-        {
-            const uint64_t delta(7 - base);
-
-            if (q.isMember("depth") && q["depth"].asUInt64() > 0)
-            {
-                q["depth"] = q["depth"].asUInt64() - delta;
-            }
-            if (q.isMember("depthBegin") && q["depthBegin"].asUInt64() > 0)
-            {
-                q["depthBegin"] = q["depthBegin"].asUInt64() - delta;
-            }
-            if (q.isMember("depthEnd") && q["depthEnd"].asUInt64() > 0)
-            {
-                q["depthEnd"] = q["depthEnd"].asUInt64() - delta;
-            }
-        }
-    }
+    adjust(q, *m_readers.front()->get());
 
     if (!q.isMember("schema")) q["schema"] = getInfo()["schema"];
 
